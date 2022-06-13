@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from unicodedata import category
 import os
+from urllib.robotparser import RobotFileParser
 import yaml
 
 class Singleton(type):
@@ -113,6 +114,7 @@ class Role:
     source: str # collection/scm repo/galaxy
     tasks: list
     modules: list
+    fqcn: str
 
     def load_from_dir(role_dir):
         return Role() # TBD
@@ -125,6 +127,23 @@ class Collection:
     name: str # collection_id
     version: str
 
+    def load_from_dir(collection_dir):
+        #load playbooks
+        #load roles
+        #load modules
+        #set fqcns,collection,used_in,..... to modules
+        #set fqcns to roles
+
+    def getTasks(self):
+        merge[p.tasks for p in self.playbooks]
+        merge[r.tasks for r in self.roles]
+
+    def dump(self):
+        tasks = self.getTasks()
+    
+    def getModules(): 
+        return modules
+        
 
 
 @dataclass
@@ -134,3 +153,13 @@ class RoleRepo:
     tasks: list
     modules: list
 
+@dataclass
+class SCMRepo:
+    name: str # role_id
+    version: str
+    tasks: list
+    modules: list
+    playbooks: list
+    roles: list
+    modules: list
+    collections: list #include ansible.builtin
