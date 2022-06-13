@@ -1,7 +1,7 @@
-import yaml
 import os
+import yaml
 
-import struct
+from struct2 import Task
 
 # class Task:
 #     name: str
@@ -26,57 +26,14 @@ class TaskLoader(object):
         f.close()
 
     def get_tasks_from_role(self, dir):
-        tasks = []
         # roles/role_name/tasks/main.yml
-        files = os.listdir(dir)
-        files_file = [f for f in files if os.path.isfile(os.path.join(dir, f))]
-        for task_file in files_file:
-            task_list = yaml.safe_load(task_file)
-            for task in task_list:
-                t = struct.Task()
-                t.defined_in = "{0}_{1}".format(files_file, task_list.index(task))
-                options = []
-                for k,v in task.items():
-                    if k == "name":
-                        t.name = task["name"]
-                    elif k in self.task_keywords:
-                        options.append({k:v})
-                    elif k.startswith("with_"):
-                        options.append({k:v})
-                    else:
-                        t.module= k
-                        # fqcn, candidates = self.resolve_module(k)
-                        # t.fqcn = fqcn
-                t.options = options
-                tasks.append(t)
-        return tasks
-    
+        return Task.load_tasks_from_dir(dir)
+        
+
     def get_tasks_from_collection(self, dir):
         # tmp/ansible_collections/collection/playbooks/tasks
-        tasks = []
         tasks_dir = os.path.join(dir, "playbooks/tasks")
-        files = os.listdir(tasks_dir)
-        files_file = [f for f in files if os.path.isfile(os.path.join(tasks_dir, f))]
-        for task_file in files_file:
-            task_list = yaml.safe_load(task_file)
-            for task in task_list:
-                t = struct.Task()
-                t.defined_in = "{0}_{1}".format(files_file, task_list.index(task))
-                options = []
-                for k,v in task.items():
-                    if k == "name":
-                        t.name = task["name"]
-                    elif k in self.task_keywords:
-                        options.append({k:v})
-                    elif k.startswith("with_"):
-                        options.append({k:v})
-                    else:
-                        t.module= k
-                        fqcn, candidates = self.resolve_module(k)
-                        t.fqcn = fqcn
-                t.options = options
-                tasks.append(t)
-        return tasks
+        return Task.load_tasks_from_dir(tasks_dir)
 
     def resolve_module(self, module):
         # builtin module
