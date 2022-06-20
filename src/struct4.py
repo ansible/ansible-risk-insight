@@ -53,6 +53,7 @@ class Module:
     fqcn: str = ""
     collection: str = ""
     defined_in: str = ""
+    builtin: bool = False
     used_in: list = field(default_factory=list) # resolved later
 
     def load(self, module_file_path):
@@ -81,7 +82,6 @@ class Module:
         self.collection = collection_name
         self.fqcn = "{}.{}".format(collection_name, module_name)
         self.defined_in = module_file_path
-
 @dataclass
 class Collection:
     name: str = ""
@@ -292,6 +292,8 @@ class RoleInPlay:
     defined_in: str = ""
     role_index: int = -1
     play_index: int = -1
+    
+    role_path: str = "" # resolved later
 
 @dataclass
 class Playbook:
@@ -426,6 +428,17 @@ class Repository:
             c.load(collection_dir=collection_path)
             collections.append(c)
         self.collections = collections
+        self.add_ansible_builtin_collection()
+
+    def add_ansible_builtin_collection(self):
+        builtin_modules = BuiltinModuleSet().builtin_modules
+        modules = []
+        for bm in builtin_modules:
+            fqcn = "ansible.builtin.{}".format(bm)
+            m = Module(name=bm, fqcn=fqcn, collection="ansible.builtin", defined_in="", builtin=True)
+            modules.append(m)
+        c = Collection(name="ansible.builtin", path="", modules=modules)
+        self.collections.append(c)
     
     # this method is based on awx code https://github.com/ansible/awx/blob/devel/awx/main/utils/ansible.py#L42-L64
     def could_be_playbook(self, fpath):
