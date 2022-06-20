@@ -67,7 +67,6 @@ class Object:
     name: str
     path: str
     parent: object
-    children: list = field(default_factory=list)
     doload: bool = True
     imports: list = field(default_factory=list)
 
@@ -117,6 +116,13 @@ class Object:
     @property
     def id(self):
         return "{} {} \"{}\"".format(self.type, self.path, self.name)
+
+    # return all children
+    # e.g.) Playbook.children = Playbook.roles + Playbook.tasks
+    @property
+    def children(self):
+        return []
+        # raise NotImplementedError
 
     @property
     def repo_root_dir(self):
@@ -298,6 +304,8 @@ class Task(Object):
 
 @dataclass
 class Role(Object):
+    tasks: list = field(default_factory=list)
+
     def load(self):
         tasks_yaml_path = ""
         if self.path != "":
@@ -312,7 +320,11 @@ class Role(Object):
                 tasks.append(t)
             except Exception as e:
                 logging.error(e)
-        self.children = tasks
+        self.tasks = tasks
+    
+    @property
+    def children(self):
+        return self.tasks
 
 def load_play_list(fpath=""):
     d = []
@@ -328,6 +340,9 @@ def load_play_list(fpath=""):
 
 @dataclass
 class Playbook(Object):
+    roles: list = field(default_factory=list)
+    tasks: list = field(default_factory=list)
+
     def load(self):
         play_dict_blocks = None
         if self.path != "":
@@ -363,8 +378,8 @@ class Playbook(Object):
                         tasks.append(t)
                     except Exception as e:
                         logging.error(e)
-        self.children.extend(tasks)
-        self.children.extend(roles)
+        self.tasks.extend(tasks)
+        self.roles.extend(roles)
         self.resolve_import(play_dict_blocks)
 
     def resolve_import(self, play_dict_blocks=[]):
@@ -385,8 +400,13 @@ class Playbook(Object):
                 playbooks.append(p)
         self.imports.extend(playbooks)
 
+    @property
+    def children(self):
+        return self.roles + self.tasks
+
 @dataclass
 class Repository(Object):
+    playbooks: list = field(default_factory=list)
 
     def load(self):
         d = []
@@ -408,7 +428,7 @@ class Repository(Object):
                     playbooks.append(p)
                 except Exception as e:
                     logging.error(e)
-        self.children = playbooks
+        self.playbooks = playbooks
     
     # this method is based on awx code https://github.com/ansible/awx/blob/devel/awx/main/utils/ansible.py#L42-L64
     def could_be_playbook(self, fpath):
@@ -431,6 +451,9 @@ class Repository(Object):
             return False
         return matched
 
+    @property
+    def children(self):
+        return self.playbooks
 
 def serialize_count_result(count_result={}):
     serialized = {}
