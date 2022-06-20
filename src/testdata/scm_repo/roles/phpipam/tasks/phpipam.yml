@@ -1,0 +1,136 @@
+---
+# Copyright (C) 2014-2019 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2019      Alin Alexandru <alin.alexandru@innobyte.com>
+# Copyright (C) 2015-2019 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# ---- Environment ----
+
+- name: Create phpIPAM group
+  ansible.builtin.group:
+    name: '{{ phpipam__group }}'
+    system: True
+    state: 'present'
+
+- name: Create phpIPAM user
+  ansible.builtin.user:
+    name: '{{ phpipam__user }}'
+    group: '{{ phpipam__group }}'
+    home: '{{ phpipam__home }}'
+    shell: '/usr/sbin/nologin'
+    comment: 'phpIPAM'
+    system: True
+    state: 'present'
+    createhome: False
+
+
+# ---- Deployment ----
+
+- name: Create phpIPAM source directory
+  ansible.builtin.file:
+    path: '{{ phpipam__src }}'
+    state: 'directory'
+    owner: '{{ phpipam__user }}'
+    group: '{{ phpipam__group }}'
+    mode: '0750'
+
+- name: Clone phpIPAM source from deploy server
+  ansible.builtin.git:
+    repo: '{{ phpipam__git_repo }}'
+    dest: '{{ phpipam__git_dest }}'
+    version: 'master'
+    bare: True
+    update: True
+  become: True
+  become_user: '{{ phpipam__user }}'
+  register: phpipam__register_source
+  no_log: '{{ debops__no_log | d(True) }}'
+
+- name: Create phpIPAM checkout directory
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: 'directory'
+    owner: '{{ phpipam__user }}'
+    group: '{{ phpipam__webserver_user }}'
+    mode: '0750'
+  with_items: [ '{{ phpipam__www }}', '{{ phpipam__git_checkout }}' ]
+
+- name: Prepare phpIPAM worktree
+  ansible.builtin.copy:
+    content: 'gitdir: {{ phpipam__git_dest }}'
+    dest: '{{ phpipam__git_checkout + "/.git" }}'
+    owner: '{{ phpipam__user }}'
+    group: '{{ phpipam__group }}'
+    mode: '0644'
+
+- name: Get commit hash of target checkout
+  environment:
+    GIT_WORK_TREE: '{{ phpipam__git_checkout }}'
+  ansible.builtin.command: git rev-parse {{ phpipam__git_version }}
+  args:
+    chdir: '{{ phpipam__git_dest }}'
+    warn: False
+  become: True
+  become_user: '{{ phpipam__user }}'
+  register: phpipam__register_target_branch
+  changed_when: phpipam__register_target_branch.stdout != phpipam__register_source.before
+
+- name: Checkout phpIPAM
+  environment:
+    GIT_WORK_TREE: '{{ phpipam__git_checkout }}'
+  ansible.builtin.command: git checkout -f {{ phpipam__git_version }}
+  args:
+    chdir: '{{ phpipam__git_dest }}'
+    warn: False
+  become: True
+  become_user: '{{ phpipam__user }}'
+  register: phpipam__register_checkout
+  when: (phpipam__register_source.before is undefined or
+         (phpipam__register_source.before is defined and
+          phpipam__register_target_branch.stdout is defined and
+          phpipam__register_source.before != phpipam__register_target_branch.stdout))
+
+
+# ---- Configuration ----
+
+- name: Check if phpIPAM configuration exists
+  ansible.builtin.stat:
+    path: '{{ phpipam__git_checkout + "/config.php" }}'
+  register: phpipam__register_configuration
+
+- name: Check if MySQL server is installed
+  ansible.builtin.stat:
+    path: '/var/lib/mysql'
+  register: phpipam__register_mysql
+
+- name: Create phpIPAM database in local MySQL instance
+  mysql_db:
+    name: '{{ phpipam__database_name }}'
+    state: 'present'
+  when: phpipam__database_host == 'localhost' and phpipam__register_mysql.stat.exists
+  register: phpipam__register_database_status
+
+- name: Import initial database schema
+  mysql_db:  # noqa no-handler
+    name: '{{ phpipam__database_name }}'
+    state: 'import'
+    target: '{{ phpipam__database_schema }}'
+  when: (phpipam__database_host == 'localhost' and
+         (phpipam__register_database_status is defined and phpipam__register_database_status is changed) and
+         (phpipam__register_configuration is defined and not phpipam__register_configuration.stat.exists))
+
+- name: Configure phpIPAM
+  ansible.builtin.template:
+    src: 'srv/www/sites/config.php.j2'
+    dest: '{{ phpipam__git_checkout + "/config.php" }}'
+    owner: 'root'
+    group: 'root'
+    mode: '0644'
+
+- name: Create import directory
+  ansible.builtin.file:
+    path: '{{ phpipam__git_checkout + "/site/admin/csvupload" }}'
+    state: 'directory'
+    owner: '{{ phpipam__user }}'
+    group: '{{ phpipam__group }}'
+    mode: '0755'

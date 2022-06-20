@@ -1,0 +1,11 @@
+{# Copyright (C) 2017 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2017 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+# {{ ansible_managed }}
+
+# SASL configuration for: {{ item.name }}
+
+{% if item.config_raw|d() %}
+{{ item.config_raw }}
+{% endif %}

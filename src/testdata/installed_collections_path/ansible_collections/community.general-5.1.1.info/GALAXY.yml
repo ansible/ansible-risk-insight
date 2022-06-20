@@ -1,0 +1,8 @@
+download_url: https://galaxy.ansible.com/download/community-general-5.1.1.tar.gz
+format_version: 1.0.0
+name: general
+namespace: community
+server: https://galaxy.ansible.com/api/
+signatures: []
+version: 5.1.1
+version_url: https://galaxy.ansible.com/api/v2/collections/community/general/versions/5.1.1/

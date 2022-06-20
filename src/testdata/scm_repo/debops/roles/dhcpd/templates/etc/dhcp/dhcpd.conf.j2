@@ -1,0 +1,81 @@
+{# Copyright (C) 2020 CipherMail B.V. <https://www.ciphermail.com/>
+ # Copyright (C) 2020 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-or-later
+ #}
+{% from 'macro_class.j2' import print_class %}
+{% from 'macro_group.j2' import print_group %}
+{% from 'macro_host.j2' import print_host %}
+{% from 'macro_shared_network.j2' import print_shared_network %}
+{% from 'macro_subnet.j2' import print_subnet %}
+# {{ ansible_managed }}
+
+# Global server configuration
+# ===========================
+{%  if dhcpd__authoritative %}
+authoritative;
+{%  endif %}
+log-facility {{ dhcpd__log_facility }};
+default-lease-time {{ dhcpd__default_lease_time }};
+max-lease-time {{ dhcpd__max_lease_time }};
+update-static-leases {{ "on" if dhcpd__update_static_leases else "off" }};
+{%  if dhcpd__protocol == 'DHCPv6' %}
+preferred-lifetime {{ dhcpd__preferred_lifetime }};
+dhcpv6-set-tee-times {{ "on" if dhcpd__dhcpv6_set_tee_times else "off" }};
+{%  endif %}
+
+# DHCP options
+# ============
+{%  if dhcpd__protocol == 'DHCPv4' %}
+{%      if dhcpd__domain_name %}
+option domain-name "{{ dhcpd__domain_name }}";
+{%      endif %}
+{%      if dhcpd__domain_search %}
+option domain-search "{{ dhcpd__domain_search|join('", "') }}";
+{%      endif %}
+{%      if dhcpd__name_servers|ipv4 %}
+option domain-name-servers {{ dhcpd__name_servers|ipv4|join(', ') }};
+{%      endif %}
+{%  elif dhcpd__protocol == 'DHCPv6' %}
+{%      if dhcpd__domain_search %}
+option dhcp6.domain-search "{{ dhcpd__domain_search|join('", "') }}";
+{%      endif %}
+{%      if dhcpd__name_servers|ipv6 %}
+option dhcp6.name-servers {{ dhcpd__name_servers|ipv6|join(', ') }};
+{%      endif %}
+{%  endif %}
+{%  if dhcpd__global_options_map[dhcpd__protocol]|d() %}
+
+# Custom global configuration options
+# ===================================
+{{ dhcpd__global_options_map[dhcpd__protocol] }}
+{%  endif %}
+
+# Configuration includes
+# ======================
+include "/etc/dhcp/ansible_keys.conf";
+include "/etc/dhcp/ansible_zones.conf";
+{%  if dhcpd__protocol == 'DHCPv4' %}
+include "/etc/dhcp/ansible_failovers.conf";
+{%      if dhcpd__ipxe %}
+include "/etc/dhcp/ansible_ipxe.conf";
+{%      endif %}
+{%  endif %}
+
+# Configuration scopes
+# ====================
+
+{%  for host in dhcpd__hosts %}
+{{ print_host(host, dhcpd__protocol) }}
+{%  endfor %}
+{%  for class in dhcpd__classes %}
+{{ print_class(class) }}
+{%  endfor %}
+{%  for group in dhcpd__groups %}
+{{ print_group(group, dhcpd__protocol) }}
+{%  endfor %}
+{%  for subnet in dhcpd__subnets %}
+{{ print_subnet(subnet, dhcpd__protocol) }}
+{%  endfor %}
+{%  for shared_network in dhcpd__shared_networks %}
+{{ print_shared_network(shared_network, dhcpd__protocol) }}
+{%  endfor %}

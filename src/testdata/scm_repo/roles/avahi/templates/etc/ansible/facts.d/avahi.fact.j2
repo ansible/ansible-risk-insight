@@ -1,0 +1,29 @@
+#!{{ ansible_python['executable'] }}
+# -*- coding: utf-8 -*-
+
+# Copyright (C) 2017-2019 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2017-2019 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# {{ ansible_managed }}
+
+from __future__ import print_function
+from json import loads, dumps
+import os
+
+
+def cmd_exists(cmd):
+    return any(
+        os.access(os.path.join(path, cmd), os.X_OK)
+        for path in os.environ["PATH"].split(os.pathsep)
+    )
+
+
+output = loads('''{{ {"configured": True,
+                      "enabled": avahi__enabled|bool,
+                      "ipv4": avahi__use_ipv4|bool,
+                      "ipv6": avahi__use_ipv6|bool} | to_nice_json }}''')
+
+output['installed'] = cmd_exists('avahi-daemon')
+
+print(dumps(output, sort_keys=True, indent=4))

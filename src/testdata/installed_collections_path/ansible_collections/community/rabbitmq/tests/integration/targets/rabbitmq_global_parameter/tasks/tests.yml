@@ -1,0 +1,67 @@
+- block:
+  - set_fact:
+      parameter_name: cluster_name
+      parameter_value: "{{ 'integration-test' | to_json }}"
+
+  - name: Add global parameter
+    rabbitmq_global_parameter:
+      name: "{{ parameter_name }}"
+      value: "{{ parameter_value }}"
+      state: present
+    register: result
+
+  - name: Check that the global parameter was created successfuly
+    shell: "rabbitmqctl -q list_global_parameters | grep {{ parameter_name }}"
+    register: ctl_result
+
+  - name: Check that the global parameter is added
+    assert:
+      that:
+        - result is changed
+        - result is success
+
+  - name: Add global parameter (idempotency)
+    rabbitmq_global_parameter:
+      name: "{{ parameter_name }}"
+      value: "{{ parameter_value }}"
+      state: present
+    register: result
+
+  - name: Check idempotency
+    assert:
+      that:
+        - result is not changed
+
+  - name: Remove global parameter
+    rabbitmq_global_parameter:
+      name: "{{ parameter_name }}"
+      state: absent
+    register: result
+
+  - name: Get rabbitmqctl output
+    shell: "rabbitmqctl -q list_global_parameters | grep {{ parameter_name }}"
+    register: ctl_result
+    failed_when: ctl_result.rc == 0
+
+  - name: Check that the global parameter is removed
+    assert:
+      that:
+        - result is changed
+        - result is success
+
+  - name: Remove global parameter (idempotency)
+    rabbitmq_global_parameter:
+      name: "{{ parameter_name }}"
+      state: absent
+    register: result
+
+  - name: Check idempotency
+    assert:
+      that:
+        - result is not changed
+
+  always:
+    - name: Remove global parameter
+      rabbitmq_global_parameter:
+        name: "{{ parameter_name }}"
+        state: absent

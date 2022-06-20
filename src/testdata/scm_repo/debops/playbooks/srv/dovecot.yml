@@ -1,0 +1,77 @@
+---
+# Copyright (C) 2015      Reto Gantenbein <reto.gantenbein@linuxmonk.ch>
+# Copyright (C) 2017-2020 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015-2020 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Manage Dovecot service
+  collections: [ 'debops.debops', 'debops.roles01',
+                 'debops.roles02', 'debops.roles03' ]
+  hosts: [ 'debops_service_dovecot' ]
+  become: True
+
+  environment: '{{ inventory__environment | d({})
+                   | combine(inventory__group_environment | d({}))
+                   | combine(inventory__host_environment  | d({})) }}'
+
+  pre_tasks:
+
+    - name: Prepare dovecot environment
+      ansible.builtin.import_role:
+        name: 'dovecot'
+        tasks_from: 'main_env'
+      tags: [ 'role::dovecot', 'role::secret', 'role::ferm' ]
+
+    - name: Prepare postfix environment
+      ansible.builtin.import_role:
+        name: 'postfix'
+        tasks_from: 'main_env'
+      vars:
+        postfix__dependent_maincf:
+          - role: 'dovecot'
+            config: '{{ dovecot__postfix__dependent_maincf }}'
+        postfix__dependent_mastercf:
+          - role: 'dovecot'
+            config: '{{ dovecot__postfix__dependent_mastercf }}'
+      tags: [ 'role::postfix', 'role::secret', 'role::ferm' ]
+
+  roles:
+
+    - role: secret
+      tags: [ 'role::secret', 'role::postfix' ]
+      secret__directories:
+        - '{{ postfix__secret__directories }}'
+
+    - role: etc_services
+      tags: [ 'role::etc_services', 'skip::etc_services' ]
+      etc_services__dependent_list:
+        - '{{ dovecot__etc_services__dependent_list }}'
+
+    - role: ferm
+      tags: [ 'role::ferm', 'skip::ferm' ]
+      ferm__dependent_rules:
+        - '{{ dovecot__ferm__dependent_rules }}'
+
+    - role: postfix
+      tags: [ 'role::postfix', 'skip::postfix' ]
+      postfix__dependent_maincf:
+        - role: 'dovecot'
+          config: '{{ dovecot__postfix__dependent_maincf }}'
+      postfix__dependent_mastercf:
+        - role: 'dovecot'
+          config: '{{ dovecot__postfix__dependent_mastercf }}'
+
+    - role: python
+      tags: [ 'role::python', 'skip::python', 'role::ldap' ]
+      python__dependent_packages3:
+        - '{{ ldap__python__dependent_packages3 }}'
+      python__dependent_packages2:
+        - '{{ ldap__python__dependent_packages2 }}'
+
+    - role: ldap
+      tags: [ 'role::ldap', 'skip::ldap' ]
+      ldap__dependent_tasks:
+        - '{{ dovecot__ldap__dependent_tasks }}'
+
+    - role: dovecot
+      tags: [ 'role::dovecot', 'skip::dovecot' ]

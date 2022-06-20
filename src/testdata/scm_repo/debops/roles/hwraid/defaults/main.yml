@@ -1,0 +1,116 @@
+---
+# .. vim: foldmarker=[[[,]]]:foldmethod=marker
+
+# .. Copyright (C) 2014-2019 Maciej Delmanowski <drybjed@gmail.com>
+# .. Copyright (C) 2015-2019 DebOps <https://debops.org/>
+# .. SPDX-License-Identifier: GPL-3.0-only
+
+# .. _hwraid__ref_defaults:
+
+# debops.hwraid default variables
+# ===============================
+
+# .. contents:: Sections
+#    :local:
+#
+# .. include:: ../../../../includes/global.rst
+
+
+# .. envvar:: hwraid_distribution [[[
+#
+# OS distribution used to lookup available releases
+hwraid_distribution: '{{ ansible_distribution }}'
+
+                                                                   # ]]]
+# .. envvar:: hwraid_release [[[
+#
+# OS release used to lookup available releases
+hwraid_release: '{{ ansible_distribution_release }}'
+
+                                                                   # ]]]
+# .. envvar:: hwraid_blacklist [[[
+#
+# Ignore specified kernel modules
+hwraid_blacklist: []
+
+                                                                   # ]]]
+# .. envvar:: hwraid_repository_apt_key_id [[[
+#
+# HWRaid repository GPG key
+hwraid_repository_apt_key_id: '0073 C119 19A6 4146 4163  F711 6005 210E 23B3 D3B4'
+
+                                                                   # ]]]
+# .. envvar:: hwraid_distribution_releases [[[
+#
+# OS releases available in HWRaid repository
+# it is important to have the latest release first
+hwraid_distribution_releases:
+  'Debian': [ 'stretch', 'squeeze', 'sid' ]
+  'Ubuntu': [ 'wily', 'vivid', 'trusty' ]
+
+                                                                   # ]]]
+# .. envvar:: hwraid_device_database [[[
+#
+# List of known RAID device drivers and corresponding packages
+hwraid_device_database:
+
+  # 3Ware Eskalad
+  # http://hwraid.le-vert.net/wiki/3Ware
+  - module:   '3w_xxxx'
+    packages: [ 'tw_cli', '3ware-status' ]
+    daemons: [ '3ware-statusd' ]
+  - module:   '3w_9xxx'
+    packages: [ 'tw_cli', '3ware-status' ]
+    daemons: [ '3ware-statusd' ]
+
+  # LSI Fusion MPT SAS
+  # http://hwraid.le-vert.net/wiki/LSIFusionMPT
+  - module:   'mptsas'
+    packages: [ 'mpt-status' ]
+    daemons: [ 'mpt-statusd' ]
+
+  # LSI Fusion MPT SAS2
+  # http://hwraid.le-vert.net/wiki/LSIFusionMPTSAS2
+  - module:   'mpt2sas'
+    packages: [ 'sas2ircu', 'sas2ircu-status' ]
+    daemons: [ 'sas2ircu-statusd' ]
+
+  # LSI MegaRAID
+  # http://hwraid.le-vert.net/wiki/LSIMegaRAID
+  - module:   'megaraid_mm'
+    packages: [ 'megactl', 'megaraid-status' ]
+    daemons: [ 'megaraid-statusd' ]
+  - module:   'megaraid_mbox'
+    packages: [ 'megactl', 'megaraid-status' ]
+    daemons: [ 'megaraid-statusd' ]
+
+  # LSI MegaRAID SAS
+  # http://hwraid.le-vert.net/wiki/LSIMegaRAIDSAS
+  - module:   'megaraid_sas'
+    packages: [ 'megactl', 'megaraid-status' ]
+    daemons: [ 'megaraidsas-statusd' ]
+
+  # Adaptec AACRaid
+  # http://hwraid.le-vert.net/wiki/Adaptec
+  - module:   'aacraid'
+    packages: [ 'arcconf', 'aacraid-status' ]
+    daemons: [ 'aacraid-statusd' ]
+
+  # HP/Compaq SmartArray
+  # http://hwraid.le-vert.net/wiki/SmartArray
+  - module:   'cciss'
+    packages: [ 'cciss-vol-status' ]
+    daemons: [ 'cciss-vol-statusd' ]
+
+                                                                   # ]]]
+# Configuration for other Ansible roles [[[
+# -----------------------------------------
+
+# .. envvar:: hwraid__keyring__dependent_apt_keys [[[
+#
+# Configuration for the :ref:`debops.keyring` Ansible role.
+hwraid__keyring__dependent_apt_keys:
+
+  - id: '{{ hwraid_repository_apt_key_id }}'
+
+                                                                   # ]]]

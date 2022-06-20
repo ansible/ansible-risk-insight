@@ -1,0 +1,40 @@
+---
+# Copyright (C) 2014-2019 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015-2019 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Import DebOps secret role
+  ansible.builtin.import_role:
+    name: 'secret'
+
+- name: Install dbconfig-common
+  ansible.builtin.apt: pkg=dbconfig-common state=present install_recommends=no
+  register: phpmyadmin__register_dbconfig_packages
+  until: phpmyadmin__register_dbconfig_packages is succeeded
+
+- name: Pre-configure PHPMyAdmin database
+  ansible.builtin.template: src=etc/dbconfig-common/phpmyadmin.conf.j2
+            dest=/etc/dbconfig-common/phpmyadmin.conf
+            owner=root group=root mode=0600
+
+- name: Install PHPMyAdmin packages
+  ansible.builtin.apt: pkg=phpmyadmin state=present install_recommends=no
+  register: phpmyadmin__register_packages
+  until: phpmyadmin__register_packages is succeeded
+
+- name: Create database for PHPMyAdmin
+  mysql_db: name={{ phpmyadmin_control_database | default('phpmyadmin') }} state=present
+  register: phpmyadmin_database
+
+- name: Import PHPMyAdmin schema
+  mysql_db:  # noqa no-handler
+    name: '{{ phpmyadmin_control_database | default("phpmyadmin") }}'
+    state: 'import'
+    target: '/usr/share/dbconfig-common/data/phpmyadmin/install/mysql'
+  when: phpmyadmin_database is defined and phpmyadmin_database is changed
+
+- name: Create PHPMyAdmin control user
+  mysql_user: name={{ phpmyadmin_control_user | default('phpmyadmin') }} state=present
+              password={{ phpmyadmin_control_password }} priv='{{ phpmyadmin_control_database
+                                                                  | default('phpmyadmin') }}.*:ALL'
+  no_log: '{{ debops__no_log | d(True) }}'

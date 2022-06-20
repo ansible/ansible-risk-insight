@@ -1,0 +1,46 @@
+---
+# Copyright (C) 2015-2016 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015      Hartmut Goebel <h.goebel@crazy-compilers.com>
+# Copyright (C) 2015-2019 Robin Schneider <ypid@riseup.net>
+# Copyright (C) 2015-2019 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# Ensure that custom Ansible plugins and modules included in the main DebOps
+# collection are available to roles in other collections.
+collections: [ 'debops.debops' ]
+
+dependencies: []
+
+galaxy_info:
+
+  company: 'DebOps'
+  author: 'Maciej Delmanowski, Hartmut Goebel, Robin Schneider'
+  description: 'Install and manage ownCloud instance'
+  license: 'GPL-3.0-only'
+  min_ansible_version: '2.1.4'
+
+  platforms:
+
+    - name: Debian
+      versions:
+        - stretch
+
+        ## Main target, used in production.
+        - buster
+
+    - name: Ubuntu
+      versions:
+        ## CI testing target
+        - trusty
+
+  galaxy_tags:
+    - cloud
+    - private
+    - privacy
+    - sharing
+    - files
+    - calender
+    - contacts
+    - web
+    - owncloud
+    - nextcloud

@@ -1,0 +1,23 @@
+---
+# Copyright (C) 2020 Nicolas Quiniou-Briand <nqb@azyx.fr>
+# Copyright (C) 2022 Julien Lecomte <julien@lecomte.at>
+# Copyright (C) 2022 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+#
+# This playbook will reboot all DebOps hosts (use with caution)
+# if required, or if forced.
+
+- name: Reboot DebOps hosts
+  hosts: [ 'debops_all_hosts' ]
+  become: True
+
+  gather_facts: False
+
+  environment: '{{ inventory__environment | d({})
+                   | combine(inventory__group_environment | d({}))
+                   | combine(inventory__host_environment  | d({})) }}'
+
+  roles:
+
+    - role: reboot
+      tags: [ 'role::reboot', 'skip::reboot' ]

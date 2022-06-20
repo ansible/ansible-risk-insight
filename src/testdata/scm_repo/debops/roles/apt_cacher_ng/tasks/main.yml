@@ -1,0 +1,57 @@
+---
+# .. vim: foldmarker=[[[,]]]:foldmethod=marker
+
+# Copyright (C) 2016-2017 Robin Schneider <ypid@riseup.net>
+# Copyright (C) 2016-2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Import DebOps global handlers
+  ansible.builtin.import_role:
+    name: 'global_handlers'
+
+- name: Import DebOps secret role
+  ansible.builtin.import_role:
+    name: 'secret'
+
+## Was the default but did not prevent the creation of `zz_debconf.conf` either.
+- name: Configure Apt-Cacher NG in debconf to not do autoconfiguration
+  ansible.builtin.debconf:
+    name: 'apt-cacher-ng'
+    question: 'apt-cacher-ng/gentargetmode'
+    vtype: 'select'
+    value: 'No automated setup'
+  when: (apt_cacher_ng__deploy_state == 'present')
+
+- name: Remove Apt-Cacher NG configuration
+  ansible.builtin.file:
+    path: '/{{ item.path }}'
+    state: 'absent'
+  when: (apt_cacher_ng__deploy_state in [ 'absent', 'purge' ] and
+         not item.divert|d(True))
+  with_items: '{{ apt_cacher_ng__configuration_files }}'
+
+- name: Remove diversion of Apt-Cacher NG configuration
+  dpkg_divert:
+    path: '/{{ item.path }}'
+    state: 'absent'
+    delete: True
+  when: (apt_cacher_ng__deploy_state in [ 'absent', 'purge' ] and
+         item.divert|d(True))
+  with_items: '{{ apt_cacher_ng__configuration_files }}'
+
+- name: Ensure specified packages are in their desired state
+  ansible.builtin.package:
+    name: '{{ q("flattened", apt_cacher_ng__base_packages) }}'
+    state: '{{ "present" if (apt_cacher_ng__deploy_state == "present") else "absent" }}'
+  register: apt_cacher_ng__register_packages
+  until: apt_cacher_ng__register_packages is succeeded
+
+- name: Run tasks related to deploy state present
+  ansible.builtin.include_tasks: state_present.yml
+  when: (apt_cacher_ng__deploy_state == 'present')
+
+- name: Remove cache directory if deploy state is purge
+  ansible.builtin.file:
+    path: '{{ apt_cacher_ng__cache_dir }}'
+    state: 'absent'
+  when: (apt_cacher_ng__deploy_state == 'purge')

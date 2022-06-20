@@ -1,0 +1,33 @@
+{# Copyright (C) 2016 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2016 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+# {{ ansible_managed }}
+{% macro print_config(config) %}
+{%   for key, value in config.items() %}
+{%     if key not in [ 'name', 'comment', 'state', 'home', 'system' ] %}
+{%       if value is string %}
+'{{ key }}': '{{ value }}',
+{%       elif value is mapping %}
+'{{ key }}': {
+{%         for v_key, v_value in value.items() %}
+    '{{ v_key }}': '{{ v_value }}',
+{%         endfor %}
+},
+{%       elif value is not string and value is not mapping %}
+'{{ key }}': (
+{%       for element in value %}
+    '{{ element }}',
+{%       endfor %}
+),
+{%       endif %}
+{%     endif %}
+{%   endfor %}
+{% endmacro %}
+
+{% if item.comment|d() %}
+{{ (item.comment if item.comment is string else item.comment | join('\n'))  | regex_replace('\n$', '') | comment(prefix='', postfix='') -}}
+{% endif %}
+CONFIG = {
+{{ print_config(item) | indent(4, true) }}
+}

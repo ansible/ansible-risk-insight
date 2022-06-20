@@ -1,0 +1,10 @@
+---
+- name: Run platform specific install
+  include_tasks: "{{ lookup('first_found', params) }}"
+  vars:
+    params:
+      files:
+        - '{{ ansible_facts.distribution | lower }}.yml'
+        - '{{ ansible_facts.os_family | lower }}.yml'
+      paths:
+        - tasks

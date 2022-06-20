@@ -1,0 +1,16 @@
+---
+# Copyright (C) 2015-2016 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015-2016 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- import_playbook: lxc.yml
+
+- import_playbook: lxd.yml
+
+- import_playbook: docker_server.yml
+
+- import_playbook: libvirtd.yml
+
+- import_playbook: libvirtd_qemu.yml
+
+- import_playbook: libvirt.yml

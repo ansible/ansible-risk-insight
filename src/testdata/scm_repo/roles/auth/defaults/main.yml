@@ -1,0 +1,40 @@
+---
+# .. vim: foldmarker=[[[,]]]:foldmethod=marker
+
+# .. Copyright (C) 2013-2017 Maciej Delmanowski <drybjed@gmail.com>
+# .. Copyright (C) 2014-2017 DebOps <https://debops.org/>
+# .. SPDX-License-Identifier: GPL-3.0-only
+
+# .. _auth__ref_defaults:
+
+# debops.auth default variables [[[
+# =================================
+
+# .. contents:: Sections
+#    :local:
+#
+# .. include:: ../../../../includes/global.rst
+
+
+# .. envvar:: auth_packages [[[
+#
+# List of Debian/Ubuntu packages installed by debops.auth
+auth_packages: [ 'libpam-cracklib' ]
+
+                                                                   # ]]]
+# Local user account configuration [[[
+# ------------------------------------
+
+# .. envvar:: auth_pwhistory_remember [[[
+#
+# Size of local password history, set to False to disable
+auth_pwhistory_remember: '5'
+
+                                                                   # ]]]
+# .. envvar:: auth_cracklib [[[
+#
+# Enable password checking via cracklib
+auth_cracklib: True
+                                                                   # ]]]
+                                                                   # ]]]
+                                                                   # ]]]

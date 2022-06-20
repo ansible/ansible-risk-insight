@@ -1,0 +1,75 @@
+---
+# .. vim: foldmarker=[[[,]]]:foldmethod=marker
+
+# Copyright (C) 2014-2019 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015-2019 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Import DebOps global handlers
+  ansible.builtin.import_role:
+    name: 'global_handlers'
+
+- name: Install Samba packages
+  ansible.builtin.package:
+    name: '{{ q("flattened", samba__base_packages) }}'
+    state: 'present'
+  register: samba__register_packages
+  until: samba__register_packages is succeeded
+
+- name: Create root Samba directories
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: 'directory'
+    owner: 'root'
+    group: 'root'
+    mode: '0751'
+  with_flattened:
+    - '{{ samba__path }}'
+    - '{{ samba__homes_path }}'
+    - '{{ samba__shares_path }}'
+  when: ('samba' in samba__base_packages)
+
+- name: Setup samba-homedir.sh script
+  ansible.builtin.template:
+    src: 'usr/local/sbin/samba-homedir.sh.j2'
+    dest: '/usr/local/sbin/samba-homedir.sh'
+    owner: 'root'
+    group: 'root'
+    mode: '0755'
+  when: ('samba' in samba__base_packages)
+
+- name: Configure Samba
+  ansible.builtin.template:
+    src: 'etc/samba/smb.conf.j2'
+    dest: '/etc/samba/smb.conf'
+    owner: 'root'
+    group: 'root'
+    mode: '0644'
+  notify: [ 'Check samba config' ]
+
+# Kernel modules [[[
+
+- name: Load kernel module specified by samba__kernel_modules
+  modprobe:
+    name: '{{ item }}'
+    state: 'present'
+  with_flattened: '{{ samba__kernel_modules }}'
+  when: (('samba' in samba__base_packages) and
+        (samba__kernel_modules_load|bool))
+
+- name: Ensure kernel modules are loaded on system boot
+  ansible.builtin.template:
+    src: 'etc/modules-load.d/ansible-samba.conf.j2'
+    dest: '/etc/modules-load.d/ansible-samba.conf'
+    owner: 'root'
+    group: 'root'
+    mode: '0644'
+  when: (('samba' in samba__base_packages) and
+        (samba__kernel_modules_load|bool))
+
+- name: Remove legacy entries from /etc/modules
+  ansible.builtin.lineinfile:
+    dest: '/etc/modules'
+    regexp: '^nf_conntrack_netbios_ns'
+    state: 'absent'
+                                                                   # ]]]

@@ -1,0 +1,13 @@
+{# Copyright (C) 2016-2018 Robin Schneider <ypid@riseup.net>
+ # Copyright (C)      2018 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2016-2018 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+# {{ ansible_managed }}
+
+# Usually there is no need to diff backup files.
+*- -diff
+{% if etckeeper__gitattributes != '' %}
+
+{{ etckeeper__gitattributes }}
+{% endif %}

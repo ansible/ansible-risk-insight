@@ -1,0 +1,26 @@
+{# Copyright (C) 2019 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2019 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+# {{ ansible_managed }}
+
+[Unit]
+Description=Docker Registry service
+ConditionPathExists=/var/lib/docker-registry
+After=network.target network-online.target
+
+[Service]
+Type=simple
+User={{ docker_registry__user }}
+Group={{ docker_registry__group }}
+WorkingDirectory={{ docker_registry__home }}
+ExecStart={{ docker_registry__binary }} serve {{ docker_registry__config_file }}
+Restart=on-failure
+RestartSec=10
+
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=docker-registry
+
+[Install]
+WantedBy=multi-user.target

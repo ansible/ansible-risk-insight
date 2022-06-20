@@ -1,0 +1,44 @@
+---
+# Copyright (C) 2015-2016 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015-2016 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- import_playbook: sks.yml
+
+- import_playbook: ipxe.yml
+
+- import_playbook: backup2l.yml
+
+- import_playbook: rsnapshot.yml
+
+- import_playbook: mailman.yml
+
+- import_playbook: librenms.yml
+
+- import_playbook: dokuwiki.yml
+
+- import_playbook: netbox.yml
+
+- import_playbook: etherpad.yml
+
+- import_playbook: preseed.yml
+
+- import_playbook: owncloud.yml
+
+- import_playbook: phpmyadmin.yml
+
+- import_playbook: phpipam.yml
+
+- import_playbook: rstudio_server.yml
+
+- import_playbook: gitlab.yml
+
+- import_playbook: ansible.yml
+
+- import_playbook: controller.yml
+
+- import_playbook: debops_api.yml
+
+- import_playbook: roundcube.yml
+
+- import_playbook: imapproxy.yml

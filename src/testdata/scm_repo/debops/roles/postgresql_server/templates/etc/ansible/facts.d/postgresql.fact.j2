@@ -1,0 +1,12 @@
+{# Copyright (C) 2015-2017 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2015-2017 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+{
+"delegate_to": "{{ ansible_local.postgresql.delegate_to|d(postgresql_server__delegate_to) }}",
+"password_chars": "{{ postgresql_server__password_characters }}",
+"port": "{{ ansible_local.postgresql.port|d("5432") }}",
+"server": "{{ ansible_local.postgresql.server|d("localhost") }}",
+"user": "{{ ansible_local.postgresql.user|d(postgresql_server__user) }}",
+"version": "{{ ansible_local.postgresql.version|d(postgresql_server__version) }}"
+}

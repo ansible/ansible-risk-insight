@@ -1,0 +1,21 @@
+{# Copyright (C) 2015-2019 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2015-2019 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+# {{ ansible_managed }}
+
+# R Session Configuration File
+
+{% for element in rstudio_server__rsession_conf %}
+{%   if element is mapping %}
+{%     if 'name' in element.keys() %}
+{%       if element.value|d() and element.state|d('present') != 'absent' %}
+{{ "{}={}".format(element.name, element.value) }}
+{%       endif %}
+{%     else %}
+{%       for key, value in element.items() %}
+{{ "{}={}".format(key, value) }}
+{%       endfor %}
+{%     endif %}
+{%   endif %}
+{% endfor %}

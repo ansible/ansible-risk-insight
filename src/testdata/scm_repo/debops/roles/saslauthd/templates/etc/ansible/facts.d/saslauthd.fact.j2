@@ -1,0 +1,23 @@
+#!{{ ansible_python['executable'] }}
+# -*- coding: utf-8 -*-
+
+# Copyright (C) 2017 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# {{ ansible_managed }}
+
+from __future__ import print_function
+from json import dumps
+from sys import exit
+from glob import glob
+
+output = {'installed': True}
+instances = []
+
+for name in glob('/etc/default/saslauthd-*'):
+    instances.append(name.replace('/etc/default/saslauthd-', ''))
+
+output.update({'instances': instances})
+
+print(dumps(output, sort_keys=True, indent=4))

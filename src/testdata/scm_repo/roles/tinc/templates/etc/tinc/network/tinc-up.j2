@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+
+# Copyright (C) 2015-2017 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2016-2017 Robin Schneider <ypid@riseup.net>
+# Copyright (C) 2015-2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# {{ ansible_managed }}
+
+custom_tinc_up="{{ item.value.tinc_up|d() }}"
+post_tinc_up="{{ item.value.post_up|d() }}"
+
+tinc_mode="{{ item.value.tinc_options.Mode|d() }}"
+
+hwaddr="{{ item.value.hwaddr|d() }}"
+hwaddr_prefix="{{ item.value.hwaddr_prefix | d(tinc__hwaddr_prefix) }}"
+
+link_type="{{ item.value.link_type|d() }}"
+link_metric="{{ item.value.metric|d() }}"
+
+read -r accept_ra << EOF
+{% set tinc__tpl_accept_ra = '1'
+       if item.value.accept_ra|d(True) == True
+       else item.value.accept_ra  %}
+{{ tinc__tpl_accept_ra
+   if tinc__tpl_accept_ra in ['0', '1', '2']
+   else '' }}
+EOF
+
+
+readarray -t interface_addresses << EOF
+{% set tinc__tpl_addresses = [] %}
+{% if item.value.address|d() %}
+{%   set _ = tinc__tpl_addresses.extend(([ item.value.address ]
+                                         if item.value.address is string
+                                         else item.value.address)
+                                        | ipaddr('host')) %}
+{% endif %}
+{% if item.value.addresses|d() %}
+{%   set _ = tinc__tpl_addresses.extend(([ item.value.addresses ]
+                                         if item.value.addresses is string
+                                         else item.value.addresses)
+                                        | ipaddr('host')) %}
+{% endif %}
+{% for entry in tinc__tpl_addresses %}
+{{ entry }}
+{% endfor %}
+EOF
+
+interface_bridge="{{ item.value.bridge|d() }}"
+
+read -r -d '' resolvconf_config << EOF
+{% set tinc__tpl_resolvconf = [] %}
+{% if item.value.dns_nameservers|d() %}
+{%   for dns_ns in ([ item.value.dns_nameservers ]
+                    if item.value.dns_nameservers is string
+                    else item.value.dns_nameservers) %}
+{%     set _ = tinc__tpl_resolvconf.append("nameserver " + dns_ns) %}
+{%   endfor %}
+{% endif %}
+{% if item.value.dns_search|d() %}
+{%   for dns_search in ([ item.value.dns_search ]
+                        if item.value.dns_search is string
+                        else item.value.dns_search) %}
+{%     set _ = tinc__tpl_resolvconf.append("search " + dns_search) %}
+{%   endfor %}
+{% endif %}
+{% for line in tinc__tpl_resolvconf %}
+{{ line }}
+{% endfor %}
+EOF
+
+manage_dhclient="{{ (item.value.dhclient|d(True)) | bool | lower }}"
+
+if [ -n "${custom_tinc_up}" ] ; then
+    eval "${custom_tinc_up}"
+else
+    if [ -z "${hwaddr}" ] ; then
+        # Create random but predictable MAC address
+        static_hwaddr="$(echo "$(hostname -f)${INTERFACE}" | md5sum \
+                         | sed "s/^\\(..\\)\\(..\\)\\(..\\)\\(.\\)\\(..\\).*$/${hwaddr_prefix}:\\1:\\2:\\3:\\4:\\5/")"
+    fi
+
+    if [ "${hwaddr}" = "*" ] ; then
+        ip link set dev "${INTERFACE}"  up
+    else
+        if [ -n "${hwaddr}" ] ; then
+            ip link set dev "${INTERFACE}" address "${hwaddr}" up
+        else
+            ip link set dev "${INTERFACE}" address "${static_hwaddr}" up
+        fi
+    fi
+
+    if [ "${link_type}" = "static" ] ; then
+
+        if [[ "${interface_addresses[*]}" ]] ; then
+            for address in "${interface_addresses[@]}" ; do
+                ip addr add "${address}" dev "${INTERFACE}"
+            done
+        else
+            ip addr add '0.0.0.0/32' dev "${INTERFACE}"
+        fi
+        if [ -n "${interface_bridge}" ] ; then
+            if [ -d "/sys/class/net/${interface_bridge}/bridge" ] ; then
+                ip link set "${INTERFACE}" master "${interface_bridge}"
+            fi
+        fi
+        if [ -n "${resolvconf_config}" ] ; then
+            if type resolvconf > /dev/null 2>&1 ; then
+                printf "%s\\n" "${resolvconf_config}" | resolvconf -a "${INTERFACE}.inet"
+            fi
+        fi
+
+    elif [ "${link_type}" = "dynamic" ] ; then
+
+        if [ "${manage_dhclient}" = "true" ] && [ "${tinc_mode}" = "switch" ] ; then
+            dhclient -v -pf "/run/dhclient.${INTERFACE}.pid" -e IF_METRIC="${link_metric}" \
+                -lf "/var/lib/dhcp/client.${INTERFACE}.leases" \
+                "${INTERFACE}" &
+        fi
+
+    fi
+
+    if [ -n "${accept_ra}" ]; then
+        sysctl "net.ipv6.conf.${INTERFACE}.accept_ra=${accept_ra}"
+    fi
+
+    if [ -n "${post_tinc_up}" ]; then
+        eval "${post_tinc_up}"
+    fi
+fi

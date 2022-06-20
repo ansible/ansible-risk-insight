@@ -1,0 +1,11 @@
+---
+# Copyright (C) 2019 Leonardo Bechea <leonardo.bechea@innobyte.com>
+# Copyright (C) 2019 Alin Alexandru <alin.alexandru@innobyte.com>
+# Copyright (C) 2019 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Restart tinyproxy
+  ansible.builtin.service:
+    name: 'tinyproxy'
+    state: 'restarted'
+    enabled: yes

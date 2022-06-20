@@ -1,0 +1,15 @@
+#!/bin/sh
+
+# Copyright (C) 2018 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2018 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# shellcheck disable=SC1091
+. /etc/default/locale
+
+export LANG
+export PATH="/usr/local/games:/usr/games:$PATH"
+
+if [ -x /usr/games/fortune ] ; then
+    /usr/games/fortune -s
+fi

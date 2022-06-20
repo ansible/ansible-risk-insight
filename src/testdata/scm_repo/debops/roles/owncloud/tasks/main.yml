@@ -1,0 +1,46 @@
+---
+# vim: foldmarker=[[[,]]]:foldmethod=marker
+
+# Copyright (C) 2015-2016 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015      Hartmut Goebel <h.goebel@crazy-compilers.com>
+# Copyright (C) 2015-2019 Robin Schneider <ypid@riseup.net>
+# Copyright (C) 2015-2019 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Import custom Ansible plugins
+  ansible.builtin.import_role:
+    name: 'ansible_plugins'
+
+- name: Import DebOps global handlers
+  ansible.builtin.import_role:
+    name: 'global_handlers'
+
+- name: Import DebOps secret role
+  ansible.builtin.import_role:
+    name: 'secret'
+
+- name: Manage system package installation
+  ansible.builtin.include_tasks: 'system_package_management.yml'
+  tags: [ 'role::owncloud:pkg' ]
+
+- name: Manage tarball installation
+  ansible.builtin.include_tasks: 'tarball.yml'
+  when: (owncloud__variant in ["nextcloud"])
+  tags: [ 'role::owncloud:tarball' ]
+
+- name: Setup ownCloud configuration
+  ansible.builtin.include_tasks: 'setup_owncloud.yml'
+  tags: [ 'role::owncloud:config' ]
+
+- name: Configure LDAP integration
+  ansible.builtin.include_tasks: 'ldap.yml'
+  when: (owncloud__ldap_enabled | bool)
+  tags: [ 'role::owncloud:ldap' ]
+
+- name: Manage custom ownCloud theme
+  ansible.builtin.include_tasks: 'theme.yml'
+  tags: [ 'role::owncloud:theme' ]
+
+- name: Copy file to user profiles
+  ansible.builtin.include_tasks: 'copy.yml'
+  tags: [ 'role::owncloud:copy' ]

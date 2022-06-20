@@ -1,0 +1,779 @@
+---
+# .. vim: foldmarker=[[[,]]]:foldmethod=marker
+
+# .. Copyright (C) 2017-2021 Maciej Delmanowski <drybjed@gmail.com>
+# .. Copyright (C) 2017-2021 DebOps <https://debops.org/>
+# .. SPDX-License-Identifier: GPL-3.0-only
+
+# .. _kibana__ref_defaults:
+
+# debops.kibana default variables [[[
+# ===================================
+
+# .. contents:: Sections
+#    :local:
+#
+# .. include:: ../../../../includes/global.rst
+
+
+# APT packages, version [[[
+# -------------------------
+
+# The ``debops.kibana`` role uses the ``debops.elatic_co`` Ansible role to
+# configure the Elastic APT repositories and install the packages. The role
+# also installs the Ansible facts that provide the :command:`kibana` version.
+
+# .. envvar:: kibana__base_packages [[[
+#
+# List of base APT packages to install.
+kibana__base_packages: [ 'kibana' ]
+
+                                                                   # ]]]
+# .. envvar:: kibana__packages [[[
+#
+# List of additional APT packages to install with Kibana.
+kibana__packages: []
+
+                                                                   # ]]]
+# .. envvar:: kibana__version [[[
+#
+# Store the detected Kibana version in a convenient variable for conditional
+# configuration.
+kibana__version: '{{ ansible_local.kibana.version | d("0.0.0") }}'
+                                                                   # ]]]
+                                                                   # ]]]
+# UNIX user and group, file paths [[[
+# -----------------------------------
+
+# .. envvar:: kibana__user [[[
+#
+# Name of the UNIX user account used by Kibana.
+kibana__user: 'kibana'
+
+                                                                   # ]]]
+# .. envvar:: kibana__group [[[
+#
+# Name of the UNIX primary group used by Kibana.
+kibana__group: 'kibana'
+
+                                                                   # ]]]
+# .. envvar:: kibana__additional_groups [[[
+#
+# List of additional UNIX groups to which the Kibana user will belong.
+kibana__additional_groups: '{{ [ "ssl-cert" ]
+                               if kibana__pki_enabled|bool
+                               else [] }}'
+
+                                                                   # ]]]
+# .. envvar:: kibana__keystore_path [[[
+#
+# Path to the Kibana keystore file.
+kibana__keystore_path: '{{ "/var/lib/kibana/kibana.keystore"
+                           if (kibana__version is version("7.0.0", "<"))
+                           else "/etc/kibana/kibana.keystore" }}'
+                                                                   # ]]]
+                                                                   # ]]]
+# Frontend webserver options [[[
+# ------------------------------
+
+# .. envvar:: kibana__fqdn [[[
+#
+# The Fully Qualified Domain Name under which the Kibana web service will be
+# published by the webserver.
+kibana__fqdn: 'kibana.{{ kibana__domain }}'
+
+                                                                   # ]]]
+# .. envvar:: kibana__domain [[[
+#
+# The DNS domain used by the Kibana web service.
+kibana__domain: '{{ ansible_domain }}'
+
+                                                                   # ]]]
+# .. envvar:: kibana__webserver_access_policy [[[
+#
+# Name of the :ref:`debops.nginx` access policy for the Kibana webservice.
+# See the :ref:`debops.nginx` role documentation for more details.
+kibana__webserver_access_policy: ''
+
+                                                                   # ]]]
+# .. envvar:: kibana__webserver_allow [[[
+#
+# List of IP addresses or CIDR subnets which will be allowed to connect to the
+# Kibana webservice. If not specified, anybody can connect.
+kibana__webserver_allow: []
+
+                                                                   # ]]]
+# .. envvar:: kibana__webserver_auth_basic_realm [[[
+#
+# A string which will be displayed as the realm in the browser user/password
+# dialog box during HTTP Basic Authentication.
+kibana__webserver_auth_basic_realm: 'Access to Kibana is restricted'
+
+                                                                   # ]]]
+# .. envvar:: kibana__webserver_auth_basic_filename [[[
+#
+# Absolute path to the file that contains usernames and passwords for HTTP
+# Basic Authentication.
+kibana__webserver_auth_basic_filename: ''
+                                                                   # ]]]
+                                                                   # ]]]
+# Kibana server options [[[
+# -------------------------
+
+# .. envvar:: kibana__server_host [[[
+#
+# Specify the IP address or hostname on which Kibana server will listen for
+# connections.
+kibana__server_host: 'localhost'
+
+                                                                   # ]]]
+# .. envvar:: kibana__server_port [[[
+#
+# Specify the TCP port on which Kibana server will listen for connections.
+kibana__server_port: '5601'
+
+                                                                   # ]]]
+# .. envvar:: kibana__server_name [[[
+#
+# Human-readable name of the Kibana server host.
+kibana__server_name: '{{ kibana__fqdn }}'
+
+                                                                   # ]]]
+# .. envvar:: kibana__elasticsearch_url [[[
+#
+# The URL address of the Elasticsearch cluster the Kibana client should connect
+# to. By default Kibana is configured to connect to a load-balancer
+# Elasticsearch instance on the same host.
+# This variable is used on Kibana < 7.0.0.
+kibana__elasticsearch_url: 'http://localhost:9200'
+
+                                                                   # ]]]
+# .. envvar:: kibana__elasticsearch_hosts [[[
+#
+# The URL addresses of the Elasticsearch hosts the Kibana client should connect
+# to. By default Kibana is configured to connect to a load-balancer
+# Elasticsearch instance on the same host.
+# This variable is used on Kibana >= 7.0.0.
+kibana__elasticsearch_hosts: [ 'http://localhost:9200' ]
+
+                                                                   # ]]]
+# .. envvar:: kibana__elasticsearch_username [[[
+#
+# The username used by Kibana for internal maintenance on password-protected
+# Elasticsearch clusters.
+kibana__elasticsearch_username: '{{ ""
+                                    if (kibana__elasticsearch_hosts[0].startswith("http://"))
+                                    else ("kibana"
+                                          if (kibana__version is version("7.0.0", "<"))
+                                          else "kibana_system") }}'
+
+                                                                   # ]]]
+# .. envvar:: kibana__elasticsearch_password [[[
+#
+# The password used by Kibana for internal maintenance on password-protected
+# Elasticsearch clusters.
+kibana__elasticsearch_password: '{{ ""
+                                    if (kibana__elasticsearch_hosts[0].startswith("http://"))
+                                    else (lookup("password", secret + "/elasticsearch/credentials/"
+                                          + "built-in/" + kibana__elasticsearch_username
+                                          + "/password")) }}'
+
+                                                                   # ]]]
+# .. envvar:: kibana__index [[[
+#
+# The Elasticsearch index used by Kibana to store configuration. Deprecated in
+# Kibana 7.11.
+kibana__index: '.kibana'
+
+                                                                   # ]]]
+# .. envvar:: kibana__default_app_id [[[
+#
+# The default Kibana 'application' to load on start. Deprecated in Kibana 7.9.
+kibana__default_app_id: 'discover'
+
+                                                                   # ]]]
+# .. envvar:: kibana__security_encryption_key [[[
+#
+# Key used to encrypt session information. Sould be the same on all instances
+# when used id high-availability deployments. Key is stored in the
+# :file:`secret/` directory, managed by the :ref:`debops.secret` Ansible role.
+kibana__security_encryption_key: '{{ lookup("password", secret
+                                            + "/kibana/security_encryption_key length=32") }}'
+
+                                                                   # ]]]
+# .. envvar:: kibana__reporting_encryption_key [[[
+#
+# The static encryption key for reporting. Key is stored in the
+# :file:`secret/` directory, managed by the :ref:`debops.secret` Ansible role.
+kibana__reporting_encryption_key: '{{ lookup("password", secret
+                                             + "/kibana/reporting_encryption_key length=32") }}'
+                                                                   # ]]]
+                                                                   # ]]]
+# Connection encryption, TLS [[[
+# ------------------------------
+
+# .. envvar:: kibana__secure_connection [[[
+#
+# Enable or disable configuration of secure connection to the Elasticsearch
+# cluster. By default this will be enable if username and password are defined.
+kibana__secure_connection: '{{ True
+                               if (kibana__elasticsearch_username|d() and
+                                   kibana__elasticsearch_password|d())
+                               else False }}'
+
+                                                                   # ]]]
+# .. envvar:: kibana__pki_enabled [[[
+#
+# Enable or disable support for TLS connection encryption based on DebOps PKI,
+# managed by the :ref:`debops.pki` Ansible role.
+kibana__pki_enabled: '{{ (ansible_local.pki.enabled|d())|bool }}'
+
+                                                                   # ]]]
+# .. envvar:: kibana__pki_base_path [[[
+#
+# The absolute path of th location of PKI realms.
+kibana__pki_base_path: '{{ ansible_local.pki.base_path | d("/etc/pki/realms") }}'
+
+                                                                   # ]]]
+# .. envvar:: kibana__pki_realm [[[
+#
+# The PKI realm used by Kibana for the HTTP communication with Elasticsearch
+# cluster.
+kibana__pki_realm: '{{ ansible_local.pki.realm | d("domain") }}'
+
+                                                                   # ]]]
+# .. envvar:: kibana__pki_ca_file [[[
+#
+# Name of the file which contains Certificate Authorities trusted by
+# Kibana, relative to the PKI realm directory.
+kibana__pki_ca_file: '{{ ansible_local.pki.ca | d("CA.crt") }}'
+
+                                                                   # ]]]
+# .. envvar:: kibana__pki_key_file [[[
+#
+# Name of the file which contains the private key used by Kibana for HTTP
+# communication with the Elasticsearch cluster, relative to the PKI realm
+# directory.
+kibana__pki_key_file: '{{ ansible_local.pki.key | d("default.key") }}'
+
+                                                                   # ]]]
+# .. envvar:: kibana__pki_crt_file [[[
+#
+# Name of the file which contains the X.509 certificate chain used by Kibana
+# for HTTP communication with the Elasticsearch cluster, relative to the PKI
+# realm directory. Java applications don't work well with Diffie-Hellman
+# parameters embedded in the certificate chain, so let's use the "plain" one
+# instead.
+kibana__pki_crt_file: 'public/cert_intermediate.pem'
+
+                                                                   # ]]]
+# .. envvar:: kibana__tls_ca_certificate [[[
+#
+# Absolute path of the Certificate Authority certificate used by Kibana
+kibana__tls_ca_certificate: '{{ kibana__pki_base_path + "/"
+                                + kibana__pki_realm + "/"
+                                + kibana__pki_ca_file }}'
+
+                                                                   # ]]]
+# .. envvar:: kibana__tls_private_key [[[
+#
+# Absolute path of the private key used by Kibana.
+kibana__tls_private_key: '{{ kibana__pki_base_path + "/"
+                             + kibana__pki_realm + "/"
+                             + kibana__pki_key_file }}'
+
+                                                                   # ]]]
+# .. envvar:: kibana__tls_certificate [[[
+#
+# Absolute path of the X.509 certificate used by Kibana.
+kibana__tls_certificate: '{{ kibana__pki_base_path + "/"
+                             + kibana__pki_realm + "/"
+                             + kibana__pki_crt_file }}'
+                                                                   # ]]]
+                                                                   # ]]]
+# Kibana configuration file [[[
+# -----------------------------
+
+# The variables below define the contents of the :file:`/etc/kibana/kibana.yml`
+# configuration file. See :ref:`kibana__ref_configuration` for the details and
+# configuration syntax.
+
+# .. envvar:: kibana__default_configuration [[[
+#
+# The default configuration options which should be present in the main
+# configuration file.
+kibana__default_configuration:
+
+  - name: 'server.port'
+    value: '{{ kibana__server_port }}'
+    comment: 'Kibana is served by a back end server. This setting specifies the port to use'
+
+  - name: 'server.host'
+    value: '{{ kibana__server_host }}'
+    comment: |
+      Specifies the address to which the Kibana server will bind. IP addresses and host names are both valid values.
+      The default is 'localhost', which usually means remote machines will not be able to connect.
+      To allow connections from remote users, set this parameter to a non-loopback address.
+
+  - name: 'server.name'
+    value: '{{ kibana__server_name }}'
+    comment: "The Kibana server's name. This is used for display purposes"
+
+  - name: 'server.basePath'
+    value: ''
+    state: 'comment'
+    comment: |
+      Enables you to specify a path to mount Kibana at if you are running behind a proxy. This only affects
+      the URLs generated by Kibana, your proxy is expected to remove the basePath value before forwarding requests
+      to Kibana. This setting cannot end in a slash.
+
+  - name: 'server.publicBaseUrl'
+    value: '{{ "https://" + ansible_fqdn }}'
+    comment: |
+      Specifies the public URL at which Kibana is available for end users. If
+      `server.basePath` is configured this URL should end with the same basePath.
+    state: '{{ "present"
+               if (kibana__version is version("7.0.0", ">="))
+               else "absent" }}'
+
+  - name: 'server.maxPayloadBytes'
+    value: 1048576
+    state: 'comment'
+    comment: 'The maximum payload size in bytes for incoming server requests'
+
+  - name: 'kibana.index'
+    value: '{{ kibana__index }}'
+    comment: |
+      Kibana uses an index in Elasticsearch to store saved searches, visualizations and
+      dashboards. Kibana creates a new index if the index doesn't already exist.
+    state: '{{ "present"
+               if (kibana__version is version("7.11.0", "<"))
+               else "absent" }}'
+
+  - name: 'kibana.defaultAppId'
+    value: '{{ kibana__default_app_id }}'
+    comment: 'The default application to load'
+    state: '{{ "present"
+               if (kibana__version is version("7.9.0", "<"))
+               else "absent" }}'
+
+  - name: 'elasticsearch.url'
+    value: '{{ kibana__elasticsearch_url }}'
+    comment: 'The URL of the Elasticsearch instance to use for all your queries'
+    state: '{{ "present"
+               if (kibana__version is version("7.0.0", "<"))
+               else "absent" }}'
+
+  - name: 'elasticsearch.hosts'
+    value: '{{ kibana__elasticsearch_hosts }}'
+    comment: 'The URLs of the Elasticsearch instances to use for all your queries'
+    state: '{{ "absent"
+               if (kibana__version is version("7.0.0", "<"))
+               else "present" }}'
+
+  - name: 'elasticsearch.preserveHost'
+    value: True
+    state: 'comment'
+    comment: |
+      When value of this option is true Kibana uses the hostname specified in the server.host
+      setting. When the value of this setting is false, Kibana uses the hostname of the host
+      that connects to this Kibana instance.
+
+  - name: 'elasticsearch.username'
+    value: '{{ kibana__elasticsearch_username }}'
+    state: '{{ "present"
+               if (kibana__elasticsearch_username|d() and
+                   kibana__elasticsearch_password|d())
+               else "comment" }}'
+    comment: |
+      If your Elasticsearch is protected with basic authentication, these settings provide
+      the username and password that the Kibana server uses to perform maintenance on the Kibana
+      index at startup. Your Kibana users still need to authenticate with Elasticsearch, which
+      is proxied through the Kibana server.
+
+  - name: 'elasticsearch.password'
+    value: '{{ kibana__elasticsearch_password }}'
+    state: '{{ "present"
+               if (kibana__elasticsearch_username|d() and
+                   kibana__elasticsearch_password|d())
+               else "comment" }}'
+
+  - name: 'server.ssl.enabled'
+    value: False
+    state: 'comment'
+    comment: |
+      Enables SSL and paths to the PEM-format SSL certificate and SSL key files, respectively.
+      These settings enable SSL for outgoing requests from the Kibana server to the browser.
+
+  - name: 'server.ssl.certificate'
+    value: '/path/to/your/server.crt'
+    state: 'comment'
+
+  - name: 'server.ssl.key'
+    value: '/path/to/your/server.key'
+    state: 'comment'
+
+  - name: 'elasticsearch.ssl.certificate'
+    value: '/path/to/your/client.crt'
+    state: 'comment'
+    comment: |
+      Optional settings that provide the paths to the PEM-format SSL certificate and key files.
+      These files validate that your Elasticsearch backend uses the same key files.
+
+  - name: 'elasticsearch.ssl.key'
+    value: '/path/to/your/client.key'
+    state: 'comment'
+
+  - name: 'elasticsearch.ssl.certificateAuthorities'
+    value: [ '/path/to/your/CA.pem' ]
+    state: 'comment'
+    comment: |
+      Optional setting that enables you to specify a path to the PEM file for the certificate
+      authority for your Elasticsearch instance.
+
+    # Reset the list of default certificate authorities.
+  - name: 'elasticsearch.ssl.certificateAuthorities'
+    value: ''
+    state: '{{ "present" if (kibana__secure_connection|bool and
+                             kibana__pki_enabled|bool)
+                         else "ignore" }}'
+
+  - name: 'elasticsearch.ssl.certificateAuthorities'
+    value: [ '{{ kibana__tls_ca_certificate }}' ]
+    state: '{{ "present" if (kibana__secure_connection|bool and
+                             kibana__pki_enabled|bool)
+                         else "ignore" }}'
+
+  - name: 'elasticsearch.ssl.certificate'
+    value: '{{ kibana__tls_certificate }}'
+    state: '{{ "present" if (kibana__secure_connection|bool and
+                             kibana__pki_enabled|bool)
+                         else "ignore" }}'
+
+  - name: 'elasticsearch.ssl.key'
+    value: '{{ kibana__tls_private_key }}'
+    state: '{{ "present" if (kibana__secure_connection|bool and
+                             kibana__pki_enabled|bool)
+                         else "ignore" }}'
+
+  - name: 'elasticsearch.ssl.verificationMode'
+    value: 'full'
+    state: 'comment'
+    comment: "To disregard the validity of SSL certificates, change this setting's value to 'none'"
+
+  - name: 'elasticsearch.pingTimeout'
+    value: 1500
+    state: 'comment'
+    comment: |
+      Time in milliseconds to wait for Elasticsearch to respond to pings. Defaults to the value of
+      the elasticsearch.requestTimeout setting.
+
+  - name: 'elasticsearch.requestTimeout'
+    value: 30000
+    state: 'comment'
+    comment: |
+      Time in milliseconds to wait for responses from the back end or Elasticsearch. This value
+      must be a positive integer.
+
+  - name: 'elasticsearch.requestHeadersWhitelist'
+    value: [ 'authorization' ]
+    state: 'comment'
+    comment: |
+      List of Kibana client-side headers to send to Elasticsearch. To send *no* client-side
+      headers, set this value to [] (an empty list).
+
+  - name: 'elasticsearch.customHeaders'
+    empty: {}
+    state: 'comment'
+    comment: |
+      Header names and values that are sent to Elasticsearch. Any custom headers cannot be overwritten
+      by client-side headers, regardless of the elasticsearch.requestHeadersWhitelist configuration.
+
+  - name: 'elasticsearch.shardTimeout'
+    value: 0
+    state: 'comment'
+    comment: 'Time in milliseconds for Elasticsearch to wait for responses from shards. Set to 0 to disable'
+
+  - name: 'elasticsearch.startupTimeout'
+    value: 5000
+    state: 'comment'
+    comment: 'Time in milliseconds to wait for Elasticsearch at Kibana startup before retrying'
+
+  - name: 'pid.file'
+    value: '/var/run/kibana.pid'
+    state: 'comment'
+    comment: 'Specifies the path where Kibana creates the process ID file'
+
+  - name: 'logging.dest'
+    value: 'stdout'
+    state: 'comment'
+    comment: 'Enables you specify a file where Kibana stores log output'
+
+  - name: 'logging.silent'
+    value: False
+    state: 'comment'
+    comment: 'Set the value of this setting to true to suppress all logging output'
+
+  - name: 'logging.quiet'
+    value: False
+    state: 'comment'
+    comment: 'Set the value of this setting to true to suppress all logging output other than error messages'
+
+  - name: 'logging.verbose'
+    value: False
+    state: 'comment'
+    comment: |
+      Set the value of this setting to true to log all events, including system usage information
+      and all requests.
+
+  - name: 'ops.interval'
+    value: 5000
+    state: 'comment'
+    comment: |
+      Set the interval in milliseconds to sample system and process performance
+      metrics. Minimum is 100ms. Defaults to 5000.
+
+  - name: 'i18n.defaultLocale'
+    state: 'comment'
+    comment: |
+      The default locale. This locale can be used in certain circumstances to substitute any missing
+      translations.
+    value: 'en'
+
+  - name: 'xpack.security.encryptionKey'
+    comment: |
+      An arbitrary string of 32 characters or more that is used to encrypt session information.
+    value: '{{ kibana__security_encryption_key }}'
+
+  - name: 'xpack.reporting.encryptionKey'
+    comment: |
+      The static encryption key for reporting. Use an alphanumeric text string that is at least 32 characters.
+    value: '{{ kibana__reporting_encryption_key }}'
+
+                                                                   # ]]]
+# .. envvar:: kibana__configuration [[[
+#
+# List of configuration options defined on all hosts in the Ansible inventory.
+kibana__configuration: []
+
+                                                                   # ]]]
+# .. envvar:: kibana__group_configuration [[[
+#
+# List of configuration options defined on hosts in specific Ansible inventory
+# group.
+kibana__group_configuration: []
+
+                                                                   # ]]]
+# .. envvar:: kibana__host_configuration [[[
+#
+# List of configuration options defined on specific hosts in the Ansible
+# inventory.
+kibana__host_configuration: []
+
+                                                                   # ]]]
+# .. envvar:: kibana__plugin_configuration [[[
+#
+# List of configuration options defined separately for any Kibana plugins.
+# See :ref:`kibana__ref_plugins` for more details.
+kibana__plugin_configuration: '{{ lookup("template",
+                                  "lookup/kibana__plugin_configuration.j2")
+                                  | from_yaml }}'
+
+                                                                   # ]]]
+# .. envvar:: kibana__dependent_role [[[
+#
+# A string that identifies another Ansible role that uses the ``debops.kibana``
+# role as a dependency. This value is needed to correctly store the dependent
+# configuration options. See :ref:`kibana__ref_dependency` for more details.
+kibana__dependent_role: ''
+
+                                                                   # ]]]
+# .. envvar:: kibana__dependent_state [[[
+#
+# Specify the state of the dependent configuration options, either ``present``
+# (options should be included in the configuration file) or ``absent`` (options
+# should be removed from the configuration file).
+# See :ref:`kibana__ref_dependency` for more details.
+kibana__dependent_state: 'present'
+
+                                                                   # ]]]
+# .. envvar:: kibana__dependent_configuration [[[
+#
+# List of Kibana configuration options defined by another Ansible role
+# and specified using role dependent variables.
+kibana__dependent_configuration: []
+
+                                                                   # ]]]
+# .. envvar:: kibana__dependent_configuration_filter [[[
+#
+# Actual variable used in the combined Kibana configuration that unwraps the
+# dependent configuration specified by other Ansible roles and converts it into
+# format understood by the ``debops.kibana`` configuration template.
+# See :ref:`kibana__ref_dependency` for more details.
+kibana__dependent_configuration_filter: '{{ lookup("template",
+                                            "lookup/kibana__dependent_configuration_filter.j2")
+                                            | from_yaml }}'
+
+                                                                   # ]]]
+# .. envvar:: kibana__combined_configuration [[[
+#
+# Actual list of Kibana configuration options passed to the configuration
+# template. This list defines the order in which the options from different
+# variables are processed.
+kibana__combined_configuration: '{{ lookup("flattened", (kibana__default_configuration
+                                    + kibana__plugin_configuration
+                                    + kibana__dependent_configuration_filter
+                                    + kibana__configuration
+                                    + kibana__group_configuration
+                                    + kibana__host_configuration)) }}'
+
+                                                                   # ]]]
+# .. envvar:: kibana__configuration_sections [[[
+#
+# List of sections defined in the :file:`/etc/kibana/kibana.yml`
+# configuration file and corresponding variable groups.
+# See :ref:`kibana__ref_configuration_sections` for more details.
+kibana__configuration_sections:
+
+  - name: 'Server'
+    part: [ 'server', 'kibana' ]
+
+  - name: 'Elasticsearch'
+    part: 'elasticsearch'
+
+  - name: 'Map tiles'
+    part: 'tilemap'
+
+  - name: 'Logging'
+    part: 'logging'
+
+  - name: 'X-Pack'
+    part: 'xpack'
+
+  - name: 'Search Guard'
+    part: 'searchguard'
+                                                                   # ]]]
+                                                                   # ]]]
+# Plugin configuration [[[
+# ------------------------
+
+# These variables define lists of Kibana plugins to install/remove, as
+# well as additional configuration options for them.
+# See :ref:`kibana__ref_plugins` for more details.
+
+# .. envvar:: kibana__plugins [[[
+#
+# List of Kibana plugins to manage on all hosts in the Ansible inventory.
+kibana__plugins: []
+
+                                                                   # ]]]
+# .. envvar:: kibana__group_plugins [[[
+#
+# List of Kibana plugins to manage on hosts in specific Ansible inventory
+# group.
+kibana__group_plugins: []
+
+                                                                   # ]]]
+# .. envvar:: kibana__host_plugins [[[
+#
+# List of Kibana plugins to manage on specific hosts in the Ansible inventory.
+kibana__host_plugins: []
+
+                                                                   # ]]]
+# .. envvar:: kibana__combined_plugins [[[
+#
+# Actual list of Kibana plugins that combines other plugin variables and is
+# used in the Ansible tasks and the configuration template.
+kibana__combined_plugins: '{{ lookup("flattened", (kibana__plugins
+                              + kibana__group_plugins
+                              + kibana__host_plugins)) }}'
+                                                                   # ]]]
+                                                                   # ]]]
+# Kibana keystore contents [[[
+# ----------------------------
+
+# The variables below define the contents of the Kibana keystore which can be
+# used to store passwords and other confidental data, which then can be
+# referenced in Kibana configuration files. See :ref:`kibana__ref_keys` for
+# more details.
+
+# .. envvar:: kibana__keys [[[
+#
+# Kibana keystore content which should be present on all hosts in the Ansible
+# inventory.
+kibana__keys: []
+
+                                                                   # ]]]
+# .. envvar:: kibana__group_keys [[[
+#
+# Kibana keystore content which should be present on all hosts in the Ansible
+# inventory.
+kibana__group_keys: []
+
+                                                                   # ]]]
+# .. envvar:: kibana__host_keys [[[
+#
+# Kibana keystore content which should be present on hosts in a specific
+# Ansible inventory group.
+kibana__host_keys: []
+
+                                                                   # ]]]
+# .. envvar:: kibana__combined_keys [[[
+#
+# Kibana keystore content which should be present on specific hosts in the
+# Ansible inventory.
+kibana__combined_keys: '{{ kibana__keys
+                           + kibana__group_keys
+                           + kibana__host_keys }}'
+                                                                   # ]]]
+                                                                   # ]]]
+# Configuration for other Ansible roles [[[
+# -----------------------------------------
+
+# .. envvar:: kibana__etc_services__dependent_list [[[
+#
+# Configuration for the :ref:`debops.etc_services` Ansible role.
+kibana__etc_services__dependent_list:
+  - name: 'kibana'
+    port: '{{ kibana__server_port }}'
+
+                                                                   # ]]]
+# .. envvar:: kibana__extrepo__dependent_sources [[[
+#
+# Configuration for the :ref:`debops.extrepo` Ansible role.
+kibana__extrepo__dependent_sources:
+  - 'elastic'
+
+                                                                   # ]]]
+# .. envvar:: kibana__nginx__dependent_servers [[[
+#
+# Server configuration for the :ref:`debops.nginx` Ansible role.
+kibana__nginx__dependent_servers:
+  - name: '{{ kibana__fqdn }}'
+    by_role: 'debops.kibana'
+    filename: 'debops.kibana'
+    deny_hidden: False
+    type: 'proxy'
+    proxy_options: |
+      proxy_http_version 1.1;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+      proxy_cache_bypass $http_upgrade;
+    proxy_pass: 'http://kibana'
+    proxy_redirect: 'default'
+    allow:               '{{ kibana__webserver_allow }}'
+    access_policy:       '{{ kibana__webserver_access_policy }}'
+    auth_basic:          '{{ True if kibana__webserver_auth_basic_filename|d() else False }}'
+    auth_basic_realm:    '{{ kibana__webserver_auth_basic_realm }}'
+    auth_basic_filename: '{{ kibana__webserver_auth_basic_filename }}'
+
+                                                                   # ]]]
+# .. envvar:: kibana__nginx__dependent_upstreams [[[
+#
+# Upstream configuration for the :ref:`debops.nginx` Ansible role.
+kibana__nginx__dependent_upstreams:
+  - name: 'kibana'
+    server: '{{ kibana__server_host + ":" + kibana__server_port }}'
+                                                                   # ]]]
+                                                                   # ]]]
+                                                                   # ]]]

@@ -1,0 +1,13 @@
+{# Copyright (C) 2014-2019 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2015-2019 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+# This file is managed by Ansible, all changes will be lost
+
+# List of regexps of strings to remove from SMS messages
+{% if smstools_mail_msgdel_list is defined and smstools_mail_msgdel_list %}
+{% for regexp in smstools_mail_msgdel_list %}
+{{ regexp }}
+{% endfor %}
+{% endif %}
+

@@ -1,0 +1,14 @@
+---
+# Copyright (C) 2017 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Restart mosquitto
+  ansible.builtin.service:
+    name: 'mosquitto'
+    state: 'restarted'
+
+- name: Reload mosquitto
+  ansible.builtin.service:
+    name: 'mosquitto'
+    state: 'reloaded'

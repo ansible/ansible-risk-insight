@@ -1,0 +1,34 @@
+{# Copyright (C) 2014-2018 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2015-2016 Robin Schneider <ypid@riseup.net>
+ # Copyright (C) 2014-2018 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+# {{ ansible_managed }}
+
+# Additional configuration for the 'dnsmasq' daemon managed by the 'lxc-net'
+# service. For basic network options, see '/etc/default/lxc-net' config file.
+
+# Detect DNS loops
+dns-loop-detect
+
+# Mark the LXC domain as local and generate PTR resource records automatically
+domain = {{ lxc__net_domain + ',' + (lxc__net_address | ipaddr('subnet')) + (',local' if (lxc__net_address | ipaddr('prefix') in [ 8, 16, 24 ]) else '') }}
+
+# Set the FQDN name of the bridge interface in the DNS
+interface-name = {{ lxc__net_fqdn }},{{ lxc__net_bridge }}
+{% if (lxc__net_domain.split('.') | length >= 3 and lxc__net_domain.split('.')[1:] | length >= 2) %}
+
+# Include the parent domain as searchable via resolvconf
+dhcp-option = tag:{{ lxc__net_bridge }},option:domain-search,{{ lxc__net_domain }},{{ lxc__net_domain.split('.')[1:] | join('.') }}
+dhcp-option = tag:{{ lxc__net_bridge }},option6:domain-search,{{ lxc__net_domain }},{{ lxc__net_domain.split('.')[1:] | join('.') }}
+{% endif %}
+{% if not lxc__net_router|bool %}
+
+# Disable default route advertisement via the {{ lxc__net_bridge }} interface
+dhcp-option = tag:{{ lxc__net_bridge }},option:router
+{% endif %}
+{% if lxc__net_dnsmasq_options|d() %}
+
+# Additional dnsmasq options
+{{ lxc__net_dnsmasq_options | regex_replace('\n$','') }}
+{% endif %}

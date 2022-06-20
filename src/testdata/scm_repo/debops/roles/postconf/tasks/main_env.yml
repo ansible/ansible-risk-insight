@@ -1,0 +1,8 @@
+---
+# Copyright (C) 2017 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Prepare postconf environment
+  ansible.builtin.set_fact:
+    postconf__env_capabilities: '{{ lookup("template", "lookup/postconf__env_capabilities.j2") }}'

@@ -1,0 +1,56 @@
+---
+# Copyright (C) 2017 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Import custom Ansible plugins
+  ansible.builtin.import_role:
+    name: 'ansible_plugins'
+
+- name: Install system packages required for R support
+  ansible.builtin.package:
+    name: '{{ q("flattened", (cran__base_packages
+                              + cran__packages
+                              + cran__group_packages
+                              + cran__host_packages
+                              + cran__dependent_packages)) }}'
+    state: 'present'
+  register: cran__register_packages
+  until: cran__register_packages is succeeded
+
+- name: Configure Java environment in R
+  ansible.builtin.command: R CMD javareconf
+  when: (cran__java_integration|bool and
+         (ansible_local|d() and ansible_local.cran is undefined))
+
+- name: Manage R packages
+  cran:
+    name:  '{{ item.name  | d(item) }}'
+    repo:  '{{ item.repo  | d(cran__upstream_mirror) }}'
+    state: '{{ item.state | d("present") }}'
+  with_flattened:
+    - '{{ cran__r_packages }}'
+    - '{{ cran__group_r_packages }}'
+    - '{{ cran__host_r_packages }}'
+    - '{{ cran__dependent_r_packages }}'
+
+- name: Make sure that Ansible local facts directory exists
+  ansible.builtin.file:
+    path: '/etc/ansible/facts.d'
+    state: 'directory'
+    owner: 'root'
+    group: 'root'
+    mode: '0755'
+
+- name: Save CRAN local facts
+  ansible.builtin.template:
+    src: 'etc/ansible/facts.d/cran.fact.j2'
+    dest: '/etc/ansible/facts.d/cran.fact'
+    owner: 'root'
+    group: 'root'
+    mode: '0755'
+  notify: [ 'Refresh host facts' ]
+  tags: [ 'meta::facts' ]
+
+- name: Update Ansible facts if they were modified
+  ansible.builtin.meta: 'flush_handlers'

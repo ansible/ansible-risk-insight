@@ -1,0 +1,17 @@
+{# Copyright (C) 2015 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2015 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+# {{ ansible_managed }}
+
+# SNMP client configuration
+
+defVersion         v3
+
+defSecurityLevel   authPriv
+defAuthType        SHA
+defPrivType        AES
+
+defSecurityName    {{ snmpd_account_local_username }}
+defPassphrase      {{ snmpd_account_local_password }}
+

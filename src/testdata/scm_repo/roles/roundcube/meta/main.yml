@@ -1,0 +1,33 @@
+---
+# Copyright (C) 2016-2018 Reto Gantenbein <reto.gantenbein@linuxmonk.ch>
+# Copyright (C) 2016-2022 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# Ensure that custom Ansible plugins and modules included in the main DebOps
+# collection are available to roles in other collections.
+collections: [ 'debops.debops' ]
+
+dependencies: []
+
+galaxy_info:
+
+  author: 'Reto Gantenbein'
+  description: 'Manage Roundcube, a browser-based IMAP client written in PHP'
+  company: 'DebOps'
+  license: 'GPL-3.0-only'
+  min_ansible_version: '2.9.0'
+
+  platforms:
+
+    - name: 'Ubuntu'
+      versions: [ 'all' ]
+
+    - name: 'Debian'
+      versions: [ 'all' ]
+
+  galaxy_tags:
+    - debops
+    - email
+    - mail
+    - imap
+    - web

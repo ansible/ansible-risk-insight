@@ -1,0 +1,25 @@
+{# Copyright (C) 2017 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2017 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+# {{ ansible_managed }}
+
+{% set bridge = item.value %}
+{% set bridge_name = (item.value.connection | d(item.key)) %}
+{% if bridge.comment|d() %}
+{{ (bridge.comment if bridge.comment is string else bridge.comment | join('\n'))  | regex_replace('\n$', '') | comment(prefix='', postfix='') -}}
+{% endif %}
+connection {{ bridge_name }}
+{% for config_key, config_value in bridge.items() %}
+{%   if config_key not in [ 'connection', 'state', 'comment', 'group', 'mode' ] %}
+{%     if config_value is string and config_value != '' %}
+{{ "%s %s" | format(config_key, config_value) }}
+{%     elif config_value is not string and config_value is not mapping %}
+{%       for thing in config_value %}
+{%         if thing is string and thing != '' %}
+{{ "%s %s" | format(config_key, thing) }}
+{%         endif %}
+{%       endfor %}
+{%     endif %}
+{%   endif %}
+{% endfor %}

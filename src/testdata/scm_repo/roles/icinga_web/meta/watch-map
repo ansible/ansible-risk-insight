@@ -1,0 +1,10 @@
+# Copyright (C) 2018 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2018 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# Role: icinga_web
+# Package: map
+# Version: 1.1.0
+
+version=4
+https://github.com/nbuchwitz/icingaweb2-module-map/tags .*\/v?(\d\S+)\.tar\.gz

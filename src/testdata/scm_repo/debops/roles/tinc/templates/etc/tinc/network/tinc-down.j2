@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+
+# Copyright (C) 2015-2017 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2016-2017 Robin Schneider <ypid@riseup.net>
+# Copyright (C) 2015-2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# {{ ansible_managed }}
+
+custom_tinc_down="{{ item.value.tinc_down|d() }}"
+pre_tinc_down="{{ item.value.pre_down|d() }}"
+
+tinc_mode="{{ item.value.tinc_options.Mode|d() }}"
+
+link_type="{{ item.value.link_type|d() }}"
+link_metric="{{ item.value.metric|d() }}"
+
+readarray -t interface_addresses << EOF
+{% set tinc__tpl_addresses = [] %}
+{% if item.value.address|d() %}
+{%   set _ = tinc__tpl_addresses.extend(([ item.value.address ]
+                                         if item.value.address is string
+                                         else item.value.address)
+                                        | ipaddr('host/prefix')) %}
+{% endif %}
+{% if item.value.addresses|d() %}
+{%   set _ = tinc__tpl_addresses.extend(([ item.value.addresses ]
+                                         if item.value.addresses is string
+                                         else item.value.addresses)
+                                        | ipaddr('host/prefix')) %}
+{% endif %}
+{% for entry in tinc__tpl_addresses %}
+{{ entry }}
+{% endfor %}
+EOF
+
+interface_bridge="{{ item.value.bridge|d() }}"
+
+read -r -d '' resolvconf_config << EOF
+{% set tinc__tpl_resolvconf = [] %}
+{% if item.value.dns_nameservers|d() %}
+{%   for dns_ns in ([ item.value.dns_nameservers ]
+                    if item.value.dns_nameservers is string
+                    else item.value.dns_nameservers) %}
+{%     set _ = tinc__tpl_resolvconf.append("nameserver " + dns_ns) %}
+{%   endfor %}
+{% endif %}
+{% if item.value.dns_search|d() %}
+{%   for dns_search in ([ item.value.dns_search ]
+                        if item.value.dns_search is string
+                        else item.value.dns_search) %}
+{%     set _ = tinc__tpl_resolvconf.append("search " + dns_search) %}
+{%   endfor %}
+{% endif %}
+{% for line in tinc__tpl_resolvconf %}
+{{ line }}
+{% endfor %}
+EOF
+
+manage_dhclient="{{ (item.value.dhclient|d(True)) | bool | lower }}"
+
+if [ -n "${custom_tinc_down}" ] ; then
+    eval "${custom_tinc_down}"
+else
+    if [ -n "${pre_tinc_down}" ]; then
+        eval "${pre_tinc_down}"
+    fi
+
+    if [ "${link_type}" = "static" ] ; then
+
+        if [ -n "${resolvconf_config}" ] ; then
+            if type resolvconf > /dev/null 2>&1 ; then
+                resolvconf -d "${INTERFACE}.inet"
+            fi
+        fi
+        if [ -n "${interface_bridge}" ] ; then
+            ip link set "${INTERFACE}" nomaster
+        fi
+        if [[ "${interface_addresses[*]}" ]] ; then
+            for address in "${interface_addresses[@]}" ; do
+                ip addr del "${address}" dev "${INTERFACE}"
+            done
+        else
+            ip addr del '0.0.0.0/32' dev "${INTERFACE}"
+        fi
+
+    elif [ "${link_type}" = "dynamic" ] ; then
+
+        if [ "${manage_dhclient}" = "true" ] && [ "${tinc_mode}" = "switch" ] ; then
+            dhclient -r -v -pf "/run/dhclient.${INTERFACE}.pid" -e IF_METRIC="${link_metric}" \
+                -lf "/var/lib/dhcp/client.${INTERFACE}.leases" \
+                "${INTERFACE}"
+        fi
+
+    fi
+
+    ip link set "${INTERFACE}" down
+fi

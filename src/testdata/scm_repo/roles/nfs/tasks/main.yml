@@ -1,0 +1,62 @@
+---
+# Copyright (C) 2013-2017 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015-2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Install required packages
+  ansible.builtin.package:
+    name: '{{ q("flattened", (nfs__base_packages
+                              + nfs__packages)) }}'
+    state: 'present'
+  register: nfs__register_packages
+  until: nfs__register_packages is succeeded
+
+- name: Configure NFS client
+  ansible.builtin.template:
+    src: '{{ item }}.j2'
+    dest: '/{{ item }}'
+    owner: 'root'
+    group: 'root'
+    mode: '0644'
+  with_items:
+    - 'etc/default/nfs-common'
+  register: nfs__register_config
+
+- name: Ensure that the NFS mount points exist
+  ansible.builtin.file:
+    path:  '{{ item.path }}'
+    owner: '{{ item.owner | d("root") }}'
+    group: '{{ item.group | d("root") }}'
+    mode:  '{{ item.mode  | d("0755") }}'
+    state: 'directory'
+  with_flattened:
+    - '{{ nfs__shares }}'
+    - '{{ nfs__group_shares }}'
+    - '{{ nfs__host_shares }}'
+  when: item.path|d() and item.src|d() and item.state|d('mounted') == 'present'
+
+- name: Manage NFS mount points
+  ansible.posix.mount:
+    name:   '{{ item.path }}'
+    src:    '{{ item.src }}'
+    fstype: '{{ item.fstype | d(nfs__default_mount_type) }}'
+    opts:   '{{ lookup("template", "lookup/mount_options.j2") | from_yaml }}'
+    state:  '{{ item.state  | d("mounted") }}'
+    passno: '{{ item.passno | d(omit) }}'
+    dump:   '{{ item.dump   | d(omit) }}'
+    fstab:  '{{ item.fstab  | d(omit) }}'
+  with_flattened:
+    - '{{ nfs__shares }}'
+    - '{{ nfs__group_shares }}'
+    - '{{ nfs__host_shares }}'
+  register: nfs__register_devices
+  when: item.path|d() and item.src|d()
+
+- name: Restart 'remote-fs.target' systemd unit
+  ansible.builtin.systemd:  # noqa no-handler
+    name: 'remote-fs.target'
+    state: 'restarted'
+    daemon_reload: True
+  loop: '{{ nfs__register_devices.results }}'
+  when: (ansible_service_mgr == 'systemd' and item is changed and
+         (lookup("template", "lookup/mount_options.j2") is match(".*x-systemd.automount.*")))

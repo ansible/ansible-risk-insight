@@ -1,0 +1,8 @@
+{# Copyright (C) 2015 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2015 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+{% set tgt_tpl_iqn_base = ansible_local.tgt.iqn_base|d(tgt_iqn_base) %}
+{
+"iqn_base":"{{ tgt_tpl_iqn_base }}"
+}

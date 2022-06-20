@@ -1,0 +1,48 @@
+{# Copyright (C) 2015 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2015 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+# {{ ansible_managed }}
+
+
+# Default variables
+# =================
+
+[DEFAULT]
+
+ignoreip       = {{ (fail2ban_ignoreip_default|d([]) + fail2ban_ignoreip|d([]) + fail2ban_group_ignoreip|d([]) + fail2ban_host_ignoreip|d([])) | join(" ") }}
+
+findtime       = {{ fail2ban_findtime }}
+maxretry       = {{ fail2ban_maxretry }}
+bantime	       = {{ fail2ban_bantime }}
+
+backend        = {{ fail2ban_backend }}
+
+usedns         = {{ fail2ban_usedns }}
+
+mta            = {{ fail2ban_mta }}
+destemail      = {{ fail2ban_destemail }}
+
+banaction      = {{ fail2ban_banaction }}
+protocol       = {{ fail2ban_protocol }}
+chain          = {{ fail2ban_chain }}
+position       = {{ fail2ban_position }}
+
+{% if fail2ban_default_actions is defined and fail2ban_default_actions %}
+{% for name, commands in fail2ban_default_actions.items() %}
+{{ "%-14s" | format(name) }} = {{ commands | indent(17) }}
+
+{% endfor %}
+{% endif %}
+{% if fail2ban_custom_actions is defined and fail2ban_custom_actions %}
+{% for name, commands in fail2ban_custom_actions.items() %}
+{{ "%-14s" | format(name) }} = {{ commands | indent(17) }}
+
+{% endfor %}
+{% endif %}
+action         = {{ "%(" + fail2ban_action + ")s" }}
+
+
+# List of fail2ban jails
+# ======================
+

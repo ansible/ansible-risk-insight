@@ -1,0 +1,343 @@
+---
+# .. vim: foldmarker=[[[,]]]:foldmethod=marker
+
+# .. Copyright (C) 2015 Patryk Ściborek <patryk@sciborek.com>
+# .. Copyright (C) 2015-2018 Maciej Delmanowski <drybjed@gmail.com>
+# .. Copyright (C) 2015-2017 Robin Schneider <ypid@riseup.net>
+# .. Copyright (C) 2015-2018 DebOps <https://debops.org/>
+# .. SPDX-License-Identifier: GPL-3.0-only
+
+# .. _grub__ref_defaults:
+
+# debops.grub default variables [[[
+# =================================
+
+# .. contents:: Sections
+#    :local:
+#
+# .. include:: ../../../../includes/global.rst
+
+
+# GRUB configuration options [[[
+# ------------------------------
+
+# These variables define the contents of the
+# :file:`/etc/default/grub.d/ansible.cfg` configuration file which is used to
+# generate GRUB configuration in :file:`/boot/grub/grub.cfg`. Option names
+# don't contain the ``GRUB_`` prefix and will be converted to uppercase in the
+# final configuration file.
+#
+# See :ref:`grub__ref_configuration` for more details about the syntax.
+
+# .. envvar:: grub__original_configuration [[[
+#
+# This variable contains original configuration present in the GRUB
+# configuration file on Debian/Ubuntu hosts.
+grub__original_configuration:
+
+  - name: 'default'
+    value: 0
+    quote: False
+
+  - name: 'hidden_timeout'
+    value: 0
+    state: '{{ "present" if (ansible_distribution == "Ubuntu") else "ignore" }}'
+
+  - name: 'hidden_timeout_quiet'
+    value: True
+    state: '{{ "present" if (ansible_distribution == "Ubuntu") else "ignore" }}'
+
+  - name: 'timeout'
+    value: 5
+    quote: False
+
+  - name: 'distributor'
+    value: '`lsb_release -i -s 2> /dev/null || echo Debian`'
+    quote: False
+
+  - name: 'cmdline_linux_default'
+    value: []
+    original: True
+
+  - name: 'cmdline_linux'
+    value: []
+    original: True
+
+  - name: 'badram'
+    comment: |
+      Uncomment to enable BadRAM filtering, modify to suit your needs
+      This works with Linux (no patch required) and with any kernel that obtains
+      the memory map information from GRUB (GNU Mach, kernel of FreeBSD ...)
+    value: '0x01234567,0xfefefefe,0x89abcdef,0xefefefef'
+    state: 'comment'
+
+  - name: 'terminal'
+    comment: 'Uncomment to disable graphical terminal (grub-pc only)'
+    value: 'console'
+    state: 'comment'
+    quote: False
+
+  - name: 'gfxmode'
+    comment: |
+      The resolution used on graphical terminal
+      note that you can use only modes which your graphic card supports via VBE
+      you can see them in real GRUB with the command `vbeinfo'
+    value: '640x480'
+    state: 'comment'
+    quote: False
+
+  - name: 'disable_linux_uuid'
+    comment: "Uncomment if you don't want GRUB to pass \"root=UUID=xxx\" parameter to Linux"
+    value: True
+    state: 'comment'
+    quote: False
+
+  - name: 'disable_recovery'
+    comment: 'Uncomment to disable generation of recovery mode menu entries'
+    value: True
+    state: 'comment'
+
+  - name: 'init_tune'
+    comment: 'Uncomment to get a beep at grub start'
+    value: '480 440 1'
+    state: 'comment'
+
+                                                                   # ]]]
+# .. envvar:: grub__fact_configuration [[[
+#
+# This variable contains configuration based on the Ansible local facts of
+# a given host. This is used to keep the list of kernel parameters idempotent
+# and preserve the original parameters on first run of the role.
+grub__fact_configuration:
+
+  - name: 'default'
+    value: '{{ ansible_local.grub.default|d("0") }}'
+
+  - name: 'cmdline_linux_default'
+    value: '{{ ansible_local.grub.cmdline_default|d([]) }}'
+
+  - name: 'cmdline_linux'
+    value: '{{ ansible_local.grub.cmdline|d([]) }}'
+
+                                                                   # ]]]
+# .. envvar:: grub__default_configuration [[[
+#
+# This variable contains custom GRUB configuration defined by the role.
+grub__default_configuration:
+
+  # Set the default GRUB timeout depending on the host type (hardware or
+  # virtual machine) to allow for faster booting of VMs
+  - name: 'timeout'
+    value: '{{ grub__timeout_hardware
+               if (ansible_virtualization_role is undefined or
+                   ansible_virtualization_role not in [ "guest" ])
+               else grub__timeout_virtual }}'
+
+  # Enable support for cgroup memory management, useful for LXC/Docker
+  # containers
+  - name: 'cmdline_linux_default'
+    value:
+      - 'cgroup_enable=memory'
+      - 'swapaccount=1'
+
+  # Disable I/O scheduler in virtual machines for better performance
+  - name: 'cmdline_linux_default'
+    value: [ 'elevator=noop' ]
+    state: '{{ "present" if (ansible_virtualization_role|d() == "guest") else "ignore" }}'
+
+  # Activate GRUB serial console support when requested
+  - name: 'terminal'
+    comment: 'Uncomment to disable graphical terminal (grub-pc only)'
+    value: 'console serial'
+    quote: True
+    state: '{{ "present" if grub__serial_console|bool else "ignore" }}'
+
+  # Specify additional parameters for the 'serial' GRUB command
+  - name: 'serial_command'
+    value: 'serial --unit={{ grub__serial_console_unit }} --speed={{ grub__serial_console_speed }} --word=8 --parity=no --stop=1'
+    state: '{{ "present" if grub__serial_console|bool else "ignore" }}'
+
+  # Configure serial console in Linux kernel when requested. The last device
+  # will be used for /dev/console, which has been set to tty0 (the foreground
+  # virtual console) to enable output to the VGA console as well.
+  - name: 'cmdline_linux_default'
+    value:
+      - '{{ "console=ttyS{},{}n8".format(grub__serial_console_unit, grub__serial_console_speed) }}'
+      - 'console=tty0'
+    state: '{{ "present" if grub__serial_console|bool else "ignore" }}'
+
+  # Activate custom hack for menu entry access restrictions when requested
+  - name: 'linux_menuentry_class_additional'
+    comment: |
+      Needs to be exported until it is patched upstream.
+      FIXME: Remove `export` when patched upstream has reached Debian stable.
+      Currently unlikely because the patch was not accepted upstream.
+    value: '{{ grub__menuentry_access }}'
+    state: '{{ "present"
+               if (grub__combined_users|length > 0 and
+                   grub__menuentry_access is string)
+               else "absent" }}'
+    export: True
+
+                                                                   # ]]]
+# .. envvar:: grub__configuration [[[
+#
+# This variable contains GRUB configuration which should be applied on all
+# hosts in the Ansible inventory.
+grub__configuration: []
+
+                                                                   # ]]]
+# .. envvar:: grub__group_configuration [[[
+#
+# This variable contains GRUB configuration which should be applied on hosts in
+# a specific Ansible inventory group.
+grub__group_configuration: []
+
+                                                                   # ]]]
+# .. envvar:: grub__host_configuration [[[
+#
+# This variable contains GRUB configuration which should be applied on specific
+# hosts in the Ansible inventory.
+grub__host_configuration: []
+
+                                                                   # ]]]
+# .. envvar:: grub__dependent_configuration [[[
+#
+# This variable contains GRUB configuration specified by other Ansible roles
+# using role dependent variables.
+grub__dependent_configuration: []
+
+                                                                   # ]]]
+# .. envvar:: grub__combined_configuration [[[
+#
+# This variable combines all of the configuration variables in a specific order
+# which defines the hierarchy. It's used in the final configuration template.
+grub__combined_configuration: '{{ grub__original_configuration
+                                  + grub__fact_configuration
+                                  + grub__default_configuration
+                                  + lookup("flattened",
+                                           grub__dependent_configuration,
+                                           wantlist=True)
+                                  + grub__configuration
+                                  + grub__group_configuration
+                                  + grub__host_configuration }}'
+                                                                   # ]]]
+                                                                   # ]]]
+# Serial console configuration [[[
+# --------------------------------
+
+# .. envvar:: grub__serial_console [[[
+#
+# Enable serial console (in both grub and kernel)
+grub__serial_console: True
+
+                                                                   # ]]]
+# .. envvar:: grub__serial_console_unit [[[
+#
+# Serial port to enable console on (eg. ttyS0 => 0, ttyS1 => 1)
+grub__serial_console_unit: 0
+
+                                                                   # ]]]
+# .. envvar:: grub__serial_console_speed [[[
+#
+# Speed of the serial port.
+# Other parameters (8 bits, no parity, 1 stop bit are hardcoded)
+grub__serial_console_speed: 115200
+                                                                   # ]]]
+                                                                   # ]]]
+# Timeouts [[[
+# ------------
+
+# .. envvar:: grub__timeout_hardware [[[
+#
+# GRUB timeout for hardware-based devices.
+grub__timeout_hardware: 5
+
+                                                                   # ]]]
+# .. envvar:: grub__timeout_virtual [[[
+#
+# GRUB timeout for virtual devices.
+grub__timeout_virtual: 1
+
+                                                                   # ]]]
+                                                                   # ]]]
+# Security and users [[[
+# ----------------------
+
+# .. envvar:: grub__users [[[
+#
+# Global list of GRUB users.
+grub__users: []
+
+                                                                   # ]]]
+# .. envvar:: grub__group_users [[[
+#
+# Host group list of GRUB users.
+grub__group_users: []
+
+                                                                   # ]]]
+# .. envvar:: grub__host_users [[[
+#
+# Host list of GRUB users.
+grub__host_users: []
+
+                                                                   # ]]]
+# .. envvar:: grub__combined_users [[[
+#
+# Combined list as it is used internally by the role list of GRUB users.
+# If this list is empty no users will created and thus leaving GRUB without
+# password protection.
+grub__combined_users: '{{ grub__users + grub__group_users + grub__host_users }}'
+
+                                                                   # ]]]
+# .. envvar:: grub__menuentry_access [[[
+#
+# This option only takes effect when there is at least one user defined.
+#
+# Default access level for all menu entries generated by
+# :file:`/etc/grub.d/10_linux` (which are the Linux images in your :file:`/boot`
+# directory).
+#
+# It defaults to '--unrestricted' which allows to boot those menu entries
+# without the need for authentication by entering a password.
+# Editing or a recovery shell still require authentication.
+#
+# Another option is '--users '$username1 $username2' to only allow those users
+# to boot the entry.
+#
+# Using an empty string will result in the need to authenticate also for booting
+# those entries.
+grub__menuentry_access: '--unrestricted'
+
+                                                                   # ]]]
+# .. envvar:: grub__iter_time [[[
+#
+# Number of PBKDF2 iterations.
+# Corresponds with the ``--iteration-count`` parameter.
+#
+# The current default of :command:`grub-mkpasswd-pbkdf2` is ``10000`` iterations.
+# Set to ``default`` to use the compiled-in default of :command:`grub-mkpasswd-pbkdf2`.
+grub__iter_time: 'default'
+
+                                                                   # ]]]
+# .. envvar:: grub__salt_length [[[
+#
+# Length of the Salt in characters. One unique salt will be generated for each host.
+# Corresponds with the ``--salt`` parameter.
+#
+# The current default of :command:`grub-mkpasswd-pbkdf2` is ``64`` characters.
+# Set to ``default`` to use the compiled-in default of :command:`grub-mkpasswd-pbkdf2`.
+grub__salt_length: 'default'
+
+                                                                   # ]]]
+# .. envvar:: grub__hash_length [[[
+#
+# Length of generated hash in characters.
+# Corresponds with the ``--buflen`` parameter.
+#
+# The current default of :command:`grub-mkpasswd-pbkdf2` is ``64`` characters.
+# Set to ``default`` to use the compiled-in default of :command:`grub-mkpasswd-pbkdf2`.
+grub__hash_length: 'default'
+                                                                   # ]]]
+                                                                   # ]]]
+                                                                   # ]]]
