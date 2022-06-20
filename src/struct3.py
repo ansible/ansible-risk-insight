@@ -81,7 +81,7 @@ class Object:
         raise NotImplementedError
 
     # print children to stdout; this recursively call dump() of all descendants
-    # e.g.) Role.dump() -> Task.dump() for all children -> Module.dump()
+    # e.g.) Playbook.dump() -> Role.dump() for all children roles -> Task.dump() for all children tasks
     def dump(self, indent_lvl=0):
         indent = " " * indent_lvl
         print("{}{}".format(indent, self.id))
@@ -163,6 +163,7 @@ class Module(Object):
             self.name = m.name
             self.path = m.path
             self.fqcn = m.fqcn
+            # each module execution has different parameters, so ignore cached parameters
             return
         
         builtin_modules = BuiltinModuleSet().builtin_modules
