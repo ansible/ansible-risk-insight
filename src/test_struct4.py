@@ -67,7 +67,7 @@ class TestStruct3(unittest.TestCase):
         actual = len(r.playbooks)
         self.assertEqual(expected, actual)
 
-        expected = 637
+        expected = 758
         actual = len(r.get_module_dict())
         self.assertEqual(expected, actual)
         
