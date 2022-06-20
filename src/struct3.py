@@ -96,7 +96,19 @@ class Object:
         tmp_result.update({self.type: current + 1})
         for c in self.children:
             tmp_result = c.count(tmp_result)
-        return tmp_result
+        return serialize_count_result(tmp_result)
+
+    # count all unique children for each type
+    def unique_count(self, tmp_result={}, tmp_set={}):
+        current_num = tmp_result.get(self.type, 0)
+        current_set = tmp_set.get(self.type, set())
+        current_set.add(self.id)
+        current_num = len(current_set)
+        tmp_result.update({self.type: current_num})
+        tmp_set.update({self.type: current_set})
+        for c in self.children:
+            tmp_result, tmp_set = c.unique_count(tmp_result, tmp_set)
+        return serialize_count_result(tmp_result), tmp_set
 
     @property
     def type(self):
@@ -419,5 +431,15 @@ class Repository(Object):
         return matched
 
 
-
+def serialize_count_result(count_result={}):
+    serialized = {}
+    order = ["Repository", "Playbook", "Role", "Task", "Module"]
+    for key in order:
+        if key in count_result:
+            serialized[key] = count_result[key]
+    for k, v in count_result.items():
+        if k in order:
+            continue
+        serialized[k] = v
+    return serialized
 

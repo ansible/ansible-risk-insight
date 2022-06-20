@@ -38,6 +38,14 @@ class TestStruct3(unittest.TestCase):
         r.dump()
         # self.assertEqual(expected, actual)
 
+        print()
+
+        count_result = r.count()
+        print("Total:", count_result)
+
+        unique_count_result, _ = r.unique_count()
+        print("Unique:", unique_count_result)
+
         
 
 
