@@ -1,0 +1,36 @@
+---
+# Copyright (C) 2017 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Manage Unbound, local DNS resolver
+  collections: [ 'debops.debops', 'debops.roles01',
+                 'debops.roles02', 'debops.roles03' ]
+  hosts: [ 'debops_service_unbound' ]
+  become: True
+
+  environment: '{{ inventory__environment | d({})
+                   | combine(inventory__group_environment | d({}))
+                   | combine(inventory__host_environment  | d({})) }}'
+
+  roles:
+
+    - role: resolvconf
+      tags: [ 'role::resolvconf', 'skip::resolvconf' ]
+      resolvconf__dependent_services:
+        - 'unbound'
+
+    - role: python
+      tags: [ 'role::python', 'skip::python' ]
+      python__dependent_packages3:
+        - '{{ unbound__python__dependent_packages3 }}'
+      python__dependent_packages2:
+        - '{{ unbound__python__dependent_packages2 }}'
+
+    - role: etc_services
+      tags: [ 'role::etc_services', 'skip::etc_services' ]
+      etc_services__dependent_list:
+        - '{{ unbound__etc_services__dependent_list }}'
+
+    - role: unbound
+      tags: [ 'role::unbound', 'skip::unbound' ]

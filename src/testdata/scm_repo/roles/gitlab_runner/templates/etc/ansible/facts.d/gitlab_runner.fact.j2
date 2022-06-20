@@ -1,0 +1,27 @@
+#!{{ ansible_python['executable'] }}
+# -*- coding: utf-8 -*-
+
+# Copyright (C) 2016 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2016 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# {{ ansible_managed }}
+
+from __future__ import print_function
+from json import load, loads, dumps
+from sys import exit
+import os
+
+output = {}
+state_file = '/etc/gitlab-runner/ansible.json'
+
+if os.path.isfile(state_file):
+    try:
+        fh = open(state_file)
+        output = load(fh)
+    except Exception:
+        pass
+
+output['installed'] = True
+
+print(dumps(output, sort_keys=True, indent=4))

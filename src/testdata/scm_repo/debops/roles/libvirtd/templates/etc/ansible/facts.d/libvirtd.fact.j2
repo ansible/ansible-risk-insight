@@ -1,0 +1,50 @@
+#!{{ ansible_python['executable'] }}
+# -*- coding: utf-8 -*-
+
+# Copyright (C) 2015-2017 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015-2017 Robin Schneider <ypid@riseup.net>
+# Copyright (C) 2015-2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# {{ ansible_managed }}
+
+from __future__ import print_function
+from json import load, loads, dumps
+from sys import exit
+from grp import getgrall
+import subprocess
+import re
+
+output = loads('''{{ ({
+    "deployment_mode": libvirtd__deployment_mode,
+    "installed": true
+}) | to_nice_json }}''')
+
+try:
+    libvirtd_version_stdout = subprocess.check_output(
+            ['libvirtd', '--version']).decode('utf-8').split()[2]
+    output['version'] = libvirtd_version_stdout
+
+except Exception:
+    pass
+
+# Check if host supports hardware virtualization
+libvirtd_hw_virt = False
+try:
+    libvirtd_hw_virt_stdout = subprocess.check_output(
+            ['egrep', 'vmx|svm|0xc0f', '/proc/cpuinfo'])
+    libvirtd_hw_virt = True
+
+except Exception:
+    pass
+output['hw_virt'] = libvirtd_hw_virt
+
+unix_groups = getgrall()
+
+for group in unix_groups:
+    if group.gr_name == 'libvirt':
+        output['unix_sock_group'] = 'libvirt'
+    elif group.gr_name == 'libvirtd':
+        output['unix_sock_group'] = 'libvirtd'
+
+print(dumps(output, sort_keys=True, indent=4))

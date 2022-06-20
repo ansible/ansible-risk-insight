@@ -1,0 +1,84 @@
+---
+# .. vim: foldmarker=[[[,]]]:foldmethod=marker
+
+# .. Copyright (C) 2016-2021 Maciej Delmanowski <drybjed@gmail.com>
+# .. Copyright (C) 2016-2021 DebOps <https://debops.org/>
+# .. SPDX-License-Identifier: GPL-3.0-only
+
+# .. _authorized_keys__ref_defaults:
+
+# debops.authorized_keys default variables
+# ========================================
+
+# .. contents:: Sections
+#    :local:
+#
+# .. include:: ../../../../includes/global.rst
+
+
+# Main configuration [[[
+# ----------------------
+
+# .. envvar:: authorized_keys__enabled [[[
+#
+# Enable or disable management of SSH public keys in a central location.
+authorized_keys__enabled: True
+
+                                                                   # ]]]
+# .. envvar:: authorized_keys__path [[[
+#
+# Path to the directory where SSH public keys are stored.
+authorized_keys__path: '/etc/ssh/authorized_keys'
+
+                                                                   # ]]]
+# .. envvar:: authorized_keys__system [[[
+#
+# If enabled, new groups created by the role will be "system" groups with
+# GID < 1000, otherwise new groups will be "normal" groups with GID > 1000.
+authorized_keys__system: True
+                                                                   # ]]]
+                                                                   # ]]]
+# SSH public key identities [[[
+# -----------------------------
+
+# These lists define SSH public key identities managed by the role with
+# coorresponding UNIX accounts. See :ref:`authorized_keys__ref_identities` for
+# more details.
+
+# .. envvar:: authorized_keys__identities [[[
+#
+# The list of SSH key identities defined on all hosts in the Ansible inventory.
+authorized_keys__identities: []
+
+                                                                   # ]]]
+# .. envvar:: authorized_keys__group_identities [[[
+#
+# The list of SSH key identities defined on hosts in a specific Ansible
+# inventory group.
+authorized_keys__group_identities: []
+
+                                                                   # ]]]
+# .. envvar:: authorized_keys__host_identities [[[
+#
+# The list of SSH key identities defined on specific hosts in the Ansible
+# inventory.
+authorized_keys__host_identities: []
+
+                                                                   # ]]]
+# .. envvar:: authorized_keys__dependent_identities [[[
+#
+# The list of SSH key identities defined by other Ansible roles via role
+# dependent variables.
+authorized_keys__dependent_identities: []
+
+                                                                   # ]]]
+# .. envvar:: authorized_keys__combined_identities [[[
+#
+# Variable which combines all of the SSH key identities lists and is used in
+# role tasks and templates.
+authorized_keys__combined_identities: '{{ authorized_keys__identities
+                                          + authorized_keys__group_identities
+                                          + authorized_keys__host_identities
+                                          + authorized_keys__dependent_identities }}'
+                                                                   # ]]]
+                                                                   # ]]]

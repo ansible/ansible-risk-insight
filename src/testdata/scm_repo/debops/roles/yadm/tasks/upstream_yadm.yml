@@ -1,0 +1,18 @@
+---
+# Copyright (C) 2019 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2019 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Clone the yadm upstream repository
+  ansible.builtin.git:
+    repo: '{{ yadm__upstream_repo }}'
+    dest: '{{ yadm__upstream_dest }}'
+    version: '{{ yadm__upstream_version }}'
+    verify_commit: True
+
+- name: Symlink the upstream yadm binary in $PATH
+  ansible.builtin.file:
+    dest: '{{ yadm__upstream_link }}'
+    src: '{{ yadm__upstream_dest + "/yadm" }}'
+    state: 'link'
+    mode: '0755'

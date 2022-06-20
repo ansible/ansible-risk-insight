@@ -1,0 +1,30 @@
+---
+# Copyright (C) 2014-2019 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015-2019 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Create user groups without GIDs
+  ansible.builtin.group:
+    name: '{{ item.group | default(item.name + gitusers_name_suffix) }}'
+    system: '{{ item.systemgroup | default("no") }}'
+    state: 'present'
+  with_flattened:
+    - '{{ gitusers_list }}'
+    - '{{ gitusers_group_list }}'
+    - '{{ gitusers_host_list }}'
+  when: (((item.name is defined and item.name) and
+          (item.gid is undefined or (item.gid is defined and not item.gid))) and
+        (item.state is undefined or (item.state is defined and item.state != 'absent')))
+
+- name: Create user groups with GIDs
+  ansible.builtin.group:
+    name: '{{ item.group | default(item.name + gitusers_name_suffix) }}'
+    system: '{{ item.systemgroup | default("no") }}'
+    gid: '{{ item.gid }}'
+    state: 'present'
+  with_flattened:
+    - '{{ gitusers_list }}'
+    - '{{ gitusers_group_list }}'
+    - '{{ gitusers_host_list }}'
+  when: ((item.name is defined and item.name) and (item.gid is defined and item.gid) and
+        (item.state is undefined or (item.state is defined and item.state != 'absent')))

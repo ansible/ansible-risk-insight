@@ -1,0 +1,33 @@
+---
+# Copyright (C) 2014      Nick Janetakis <nickjanetakis@gmail.com>
+# Copyright (C) 2014-2019 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015-2019 DebOps Project <http://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Support yourappname
+  hosts: debops_rails_yourappname
+  become: true
+
+  roles:
+    - { role: rails_deploy, tags: yourappname }
+
+# Basic usage which runs everything:
+# ansible-playbook yourappname.yml -i ../inventory
+#
+# Additional tags to scope things down once your server is setup:
+# -t rails_deploy_setup
+#    Create the database and transfer the deploy keys, you should only have to
+#    do this once but it is tagged just in case you need to change those settings.
+#
+# -t rails_deploy
+#    Run through the motions of setting up the services and deploy tasks.
+#    This is the tag you'll be running a majority of the time.
+#
+# -t nginx
+#    Install and configure nginx if it is in the dependency list.
+#
+# -t postgresql
+#    Install and configure postgresql if it is in the list and you selected postgresql.
+#
+# -t mysql
+#    Install and configure mysql if it is in the list and you selected mysql.

@@ -1,0 +1,31 @@
+{# Copyright (C) 2014-2020 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2014-2020 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+{% if (ansible_local.postfix.installed|d())|bool %}
+{% set postfix__tpl_persistent_mastercf = (
+     lookup("file", secret + "/postfix/dependent_config/" + inventory_hostname + "/mastercf.json",
+            errors="ignore") | d("{}", True) | from_json) %}
+{% else %}
+{%   set postfix__tpl_persistent_mastercf = {} %}
+{% endif %}
+{% if postfix__dependent_mastercf %}
+{%   for element in q("flattened", postfix__dependent_mastercf) %}
+{%     if element.role|d() and element.config|d() %}
+{%       if element.state|d('present') not in [ 'ignore', 'absent' ] %}
+{%         set _ = postfix__tpl_persistent_mastercf.update( {element.role: q("flattened", element.config) }) %}
+{%       elif element.state|d('present') == 'absent' %}
+{%         set _ = postfix__tpl_persistent_mastercf.pop(element.role, None) %}
+{%       endif %}
+{%     elif element is mapping and 'role' not in element.keys() and 'config' not in element.keys() %}
+{%       for role, config in element.items() %}
+{%         set _ = postfix__tpl_persistent_mastercf.update( {role: q("flattened", config)} ) %}
+{%       endfor %}
+{%     endif %}
+{%   endfor %}
+{% endif %}
+{% set postfix__tpl_output_mastercf = [] %}
+{% for role, config in postfix__tpl_persistent_mastercf.items() %}
+{%   set _ = postfix__tpl_output_mastercf.extend(config) %}
+{% endfor %}
+{{ postfix__tpl_output_mastercf | to_yaml }}

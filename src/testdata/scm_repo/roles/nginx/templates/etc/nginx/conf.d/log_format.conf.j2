@@ -1,0 +1,34 @@
+{# Copyright (C) 2014-2017 Maciej Delmanowski <drybjed@drybjed.net>
+ # Copyright (C) 2015-2017 Robin Schneider <ypid@riseup.net>
+ # Copyright (C) 2014-2017 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+{#
+#    ==== log_format template for debops.nginx role ====
+#
+# List of parameters supported by this template:
+#
+#   - item.name: ''
+#       Name of the log_format. Required.
+#
+#   - item.escape: 'default|json'
+#       The escape parameter (1.11.8) allows setting json or default characters
+#       escaping in variables, by default, default escaping is used.
+#
+#   - item.log_format: ''
+#       The log format can contain common variables, and variables that exist
+#       only at the time of a log write. Required.
+#
+#}
+# {{ ansible_managed }}
+
+{% if item.name is defined and item.name                                       %}
+{%      if item.log_format is defined and item.log_format                      %}
+{%          set nginx_tpl_access_log_format_escaping = ''                      %}
+{%          if item.escaping is defined                                        %}
+{%              set nginx_tpl_access_log_format_escaping = ' ' + item.escaping %}
+{%          endif                                                              %}
+# log_format configuration: {{ item.name }}
+log_format {{ item.name }} {{ nginx_tpl_access_log_format_escaping }} '{{ item.log_format }}';
+{%      endif                                                                  %}
+{% endif                                                                       %}

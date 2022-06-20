@@ -1,0 +1,25 @@
+---
+# Copyright (C) 2014      Nick Janetakis <nickjanetakis@gmail.com>
+# Copyright (C) 2014-2019 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015-2019 DebOps Project <http://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Import DebOps secret role
+  ansible.builtin.import_role:
+    name: 'secret'
+
+- name: Configure system environment
+  ansible.builtin.include_tasks: system.yml tags=rails_deploy
+
+- name: Configure database
+  ansible.builtin.include_tasks: database.yml tags=rails_deploy_setup
+  when: rails_deploy_database_create
+
+- name: Deploy access keys
+  ansible.builtin.include_tasks: deploy_keys.yml tags=rails_deploy_setup
+
+- name: Deploy application
+  ansible.builtin.include_tasks: deploy.yml tags=rails_deploy
+
+- name: Configure local facts
+  ansible.builtin.include_tasks: local_facts.yml tags=rails_deploy

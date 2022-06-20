@@ -1,0 +1,49 @@
+#!{{ ansible_python['executable'] }}
+# -*- coding: utf-8 -*-
+
+# Copyright (C) 2019 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2019 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# {{ ansible_managed }}
+
+from __future__ import print_function
+from json import loads, dumps
+import subprocess
+import os
+
+
+def cmd_exists(cmd):
+    return any(
+        os.access(os.path.join(path, cmd), os.X_OK)
+        for path in os.environ["PATH"].split(os.pathsep)
+    )
+
+
+output = {'installed': cmd_exists('mcli')}
+
+try:
+    mcli_version_stdout = subprocess.check_output(
+            ["mcli", "--version"]
+            ).decode('utf-8').strip()
+except Exception:
+    try:
+        mcli_version_stdout = subprocess.check_output(
+                ["mcli", "version"]
+                ).decode('utf-8').strip()
+    except Exception:
+        pass
+
+if mcli_version_stdout:
+    for line in mcli_version_stdout.split('\n'):
+        if line.lower().startswith('mcli version '):
+            output['version'] = line.split()[2]
+            output['release_tag'] = line.split()[2]
+        elif line.lower().startswith('version: '):
+            output['version'] = line.split()[1]
+        elif line.lower().startswith('release-tag: '):
+            output['release_tag'] = line.split()[1]
+        elif line.lower().startswith('commit-id: '):
+            output['commit_id'] = line.split()[1]
+
+print(dumps(output, sort_keys=True, indent=4))

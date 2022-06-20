@@ -1,0 +1,16 @@
+{# Copyright (C) 2015-2017 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2015-2017 Robin Schneider <ypid@riseup.net>
+ # Copyright (C) 2015-2017 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+# {{ ansible_managed }}
+
+# This file describes the network interfaces available on your system
+# # and how to activate them. For more information, see interfaces(5).
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# Read interface configuration from other files
+source /etc/network/interfaces.d/*

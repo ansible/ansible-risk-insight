@@ -1,0 +1,10 @@
+# Copyright (C) 2019 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2019 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# Role: docker_registry
+# Package: docker-registry
+# Version: 2.7.1
+
+version=3
+https://github.com/docker/distribution/tags .*/v?(\d\S*)\.tar\.gz

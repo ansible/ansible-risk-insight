@@ -1,0 +1,23 @@
+{# Copyright (C) 2014-2016 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2014-2016 DebOps <http://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+# Ansible Controllers
+{% set tcpwrappers__tpl_local_ansible_controllers = [] %}
+{% if ansible_local.core.ansible_controllers|d() %}
+{%   for element in ansible_local.core.ansible_controllers %}
+{%     set _ = tcpwrappers__tpl_local_ansible_controllers.append(element | ipwrap) %}
+{%   endfor %}
+{% endif %}
+{% if (ansible_local.tcpwrappers.ansible_controllers|d()) %}
+{%   for element in ansible_local.tcpwrappers.ansible_controllers %}
+{%     set _ = tcpwrappers__tpl_local_ansible_controllers.append(element | ipwrap) %}
+{%   endfor %}
+{% endif %}
+{% for element in tcpwrappers__ansible_controllers or [] %}
+{%       set _ = tcpwrappers__tpl_local_ansible_controllers.append(element | ipwrap) %}
+{% endfor %}
+{% for element in (tcpwrappers__tpl_local_ansible_controllers | unique | sort) %}
+sshd : {{ element }}
+{% endfor %}
+

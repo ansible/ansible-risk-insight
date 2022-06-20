@@ -1,0 +1,11 @@
+{# Copyright (C) 2015-2019 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2015-2019 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+<?php
+/* {{ ansible_managed }} */
+
+/* Local DokuWiki configuration options which are not configurable using the
+   Configuration Manager interface */
+
+{{ dokuwiki__protected_conf_php | regex_replace('\n$','') }}

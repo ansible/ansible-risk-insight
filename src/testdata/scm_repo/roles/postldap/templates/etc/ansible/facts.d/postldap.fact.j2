@@ -1,0 +1,33 @@
+#!{{ ansible_python['executable'] }}
+# -*- coding: utf-8 -*-
+
+# Copyright (C) 2019 Rainer 'rei' Schuth <devel@reixd.net>
+# Copyright (C) 2019 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# {{ ansible_managed }}
+
+from __future__ import print_function
+from json import dumps, loads
+from pwd import getpwall
+from grp import getgrall
+
+output = loads('''{{ {"installed": True,
+                      "vmail_posix_user":  postldap__vmail_posix_user,
+                      "vmail_posix_group": postldap__vmail_posix_group,
+                      "mailbox_base":      postldap__mailbox_base
+                     } | to_nice_json }}''')
+
+unix_accounts = getpwall()
+
+for account in unix_accounts:
+    if account.pw_name == output['vmail_posix_user']:
+        output['vmail_posix_uidnumber'] = account.pw_uid
+
+unix_groups = getgrall()
+
+for group in unix_groups:
+    if group.gr_name == output['vmail_posix_group']:
+        output['vmail_posix_gidnumber'] = group.gr_gid
+
+print(dumps(output, sort_keys=True, indent=4))

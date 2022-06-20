@@ -1,0 +1,47 @@
+---
+# Copyright (C) 2020 Patryk Ściborek <patryk@sciborek.com>
+# Copyright (C) 2020 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2020 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Import DebOps global handlers
+  ansible.builtin.import_role:
+    name: 'global_handlers'
+
+- name: Configure InfluxData APT repository
+  ansible.builtin.apt_repository:
+    repo: '{{ influxdata__repository }}'
+    state: 'present'
+    update_cache: True
+
+- name: Install InfluxData packages
+  ansible.builtin.package:
+    name: '{{ q("flattened", (influxdata__packages
+                              + influxdata__group_packages
+                              + influxdata__host_packages
+                              + influxdata__dependent_packages)) }}'
+    state: 'present'
+  notify: [ 'Refresh host facts' ]
+  register: influxdata__register_install
+  until: influxdata__register_install is succeeded
+
+- name: Make sure that Ansible local facts directory exists
+  ansible.builtin.file:
+    path: '/etc/ansible/facts.d'
+    state: 'directory'
+    owner: 'root'
+    group: 'root'
+    mode: '0755'
+
+- name: Save InfluxData local facts
+  ansible.builtin.template:
+    src: 'etc/ansible/facts.d/influxdata.fact.j2'
+    dest: '/etc/ansible/facts.d/influxdata.fact'
+    owner: 'root'
+    group: 'root'
+    mode: '0755'
+  notify: [ 'Refresh host facts' ]
+  tags: [ 'meta::facts' ]
+
+- name: Update Ansible facts if they were modified
+  ansible.builtin.meta: 'flush_handlers'

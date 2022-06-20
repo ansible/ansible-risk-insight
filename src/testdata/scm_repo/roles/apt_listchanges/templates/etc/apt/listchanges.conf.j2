@@ -1,0 +1,13 @@
+{# Copyright (C) 2016 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2016 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+# {{ ansible_managed }}
+
+{% for name, profile in apt_listchanges__profiles | dictsort %}
+[{{ name }}]
+{% for key, value in profile | dictsort %}
+{{ key }} = {{ value }}
+{% endfor %}
+
+{% endfor %}

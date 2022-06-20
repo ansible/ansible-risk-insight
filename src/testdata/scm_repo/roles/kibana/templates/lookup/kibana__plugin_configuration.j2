@@ -1,0 +1,15 @@
+{# Copyright (C) 2017 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2017 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+{% set kibana__tpl_output = [] %}
+{% for plugin in ([ kibana__combined_plugins ] if kibana__combined_plugins is mapping else kibana__combined_plugins) %}
+{%   if plugin.state|d('present') != 'absent' %}
+{%     if plugin.configuration|d() %}
+{%       set _ = kibana__tpl_output.append(plugin.configuration) %}
+{%     elif plugin.config|d() %}
+{%       set _ = kibana__tpl_output.append(plugin.config) %}
+{%     endif %}
+{%   endif %}
+{% endfor %}
+{{ kibana__tpl_output | to_yaml }}

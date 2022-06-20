@@ -1,0 +1,8 @@
+---
+# Copyright (C) 2017 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Prepare OpenDKIM environment
+  ansible.builtin.set_fact:
+    opendkim__secret__directories: '{{ lookup("template", "lookup/opendkim__secret__directories.j2") | from_yaml }}'

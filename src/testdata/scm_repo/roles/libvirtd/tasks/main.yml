@@ -1,0 +1,121 @@
+---
+# Copyright (C) 2015-2017 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015-2017 Robin Schneider <ypid@riseup.net>
+# Copyright (C) 2015-2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Import DebOps global handlers
+  ansible.builtin.import_role:
+    name: 'global_handlers'
+
+  # When nested KVM is enabled on a host, Ansible does not recognize the
+  # hardware virtualization support in the guest correctly. This is an
+  # additional runtime check to account for that.
+- name: Check if host supports hardware virtualization
+  ansible.builtin.shell: set -o nounset -o pipefail -o errexit &&
+         egrep 'vmx|svm|0xc0f' /proc/cpuinfo || true
+  args:
+    executable: 'bash'
+  register: libvirtd__register_hw_virt
+  check_mode: False
+  changed_when: False
+
+- name: Install libvirtd support
+  ansible.builtin.package:
+    name: '{{ q("flattened", (libvirtd__network_packages
+                              + libvirtd__misc_packages
+                              + libvirtd__packages
+                              + (libvirtd__base_packages_map[ansible_distribution_release]
+                                 if (ansible_distribution_release in libvirtd__base_packages_map.keys())
+                                 else libvirtd__base_packages)
+                              + (libvirtd__kvm_packages
+                                 if libvirtd__kvm_support|bool
+                                 else []))) }}'
+    state: 'present'
+    install_recommends: False
+  register: libvirtd__register_packages
+  until: libvirtd__register_packages is succeeded
+
+- name: Make sure that Ansible local facts directory exists
+  ansible.builtin.file:
+    path: '/etc/ansible/facts.d'
+    state: 'directory'
+    owner: 'root'
+    group: 'root'
+    mode: '0755'
+
+- name: Save libvirtd local facts
+  ansible.builtin.template:
+    src: 'etc/ansible/facts.d/libvirtd.fact.j2'
+    dest: '/etc/ansible/facts.d/libvirtd.fact'
+    owner: 'root'
+    group: 'root'
+    mode: '0755'
+  notify: [ 'Refresh host facts' ]
+  tags: [ 'meta::facts' ]
+
+- name: Update Ansible facts if they were modified
+  ansible.builtin.meta: 'flush_handlers'
+
+- name: Divert managed configuration files
+  dpkg_divert:
+    path: '{{ item }}'
+  loop:
+    - '/etc/libvirt/libvirt.conf'
+    - '/etc/libvirt/libvirtd.conf'
+
+- name: Generate libvirt configuration files
+  ansible.builtin.template:
+    src: '{{ item }}.j2'
+    dest: '/{{ item }}'
+    owner: 'root'
+    group: 'root'
+    mode: '0644'
+  with_items:
+    - 'etc/libvirt/libvirt.conf'
+
+- name: Generate libvirtd configuration files
+  ansible.builtin.template:
+    src: '{{ item }}.j2'
+    dest: '/{{ item }}'
+    owner: 'root'
+    group: 'root'
+    mode: '0644'
+  with_items:
+    - 'etc/libvirt/libvirtd.conf'
+  notify: [ 'Restart libvirtd', 'Restart libvirt-bin' ]
+
+- name: Add administrators to libvirtd access group
+  ansible.builtin.user:
+    name: '{{ item }}'
+    groups: "{{ libvirtd__unix_sock_group }}"
+    append: True
+  with_items: '{{ libvirtd__admins }}'
+  when: libvirtd__admins|d()
+
+- name: Install ferm post hook
+  ansible.builtin.template:
+    src: 'etc/ferm/hooks/post.d/reload-libvirtd.j2'
+    dest: '/etc/ferm/hooks/post.d/reload-libvirtd'
+    owner: 'root'
+    group: 'root'
+    mode: '0755'
+  when: libvirtd__ferm_post_hook|bool
+
+- name: Configure Kernel Same-page Merging
+  ansible.builtin.template:
+    src: 'etc/sysfs.d/ksm.conf.j2'
+    dest: '/etc/sysfs.d/ksm.conf'
+    owner: 'root'
+    group: 'root'
+    mode: '0644'
+  notify: [ 'Restart sysfsutils' ]
+
+- name: Check /sys filesystem mount options
+  ansible.builtin.shell: set -o nounset -o pipefail -o errexit &&
+         findmnt -n -o FS-OPTIONS --target /sys | tr ',' '\n'
+  args:
+    executable: 'bash'
+  register: libvirtd__register_sysfs
+  changed_when: False
+  check_mode: False

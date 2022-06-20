@@ -1,0 +1,33 @@
+---
+# Copyright (C) 2015      Nick Janetakis <nickjanetakis@gmail.com>
+# Copyright (C) 2016-2019 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015-2022 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# Ensure that custom Ansible plugins and modules included in the main DebOps
+# collection are available to roles in other collections.
+collections: [ 'debops.debops' ]
+
+dependencies: []
+
+galaxy_info:
+
+  author: 'Nick Janetakis, Maciej Delmanowski'
+  description: 'Install Go language support and build Go applications from sources'
+  company: 'DebOps'
+  license: 'GPLv3'
+  min_ansible_version: '2.7.0'
+
+  platforms:
+
+    - name: 'Ubuntu'
+      versions: [ 'all' ]
+
+    - name: 'Debian'
+      versions: [ 'all' ]
+
+  galaxy_tags:
+    - development
+    - programming
+    - golang
+    - go

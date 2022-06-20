@@ -1,0 +1,112 @@
+---
+# Copyright (C) 2014-2020 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015-2020 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# This playbook can be used to bootstrap freshly installed minimal Debian
+# system for Ansible management. The expected state the host:
+#   - host is already configured in Ansible inventory/hosts file;
+#   - local user has prepared SSH keypair in RSA format;
+#   - host has OpenSSH server installed;
+#
+# Modifications that will be made on the host:
+#   - playbook will install Python support with some essential software;
+#   - a system 'admins' group will be created for users who have administrator
+#     privileges (full sudo permissions);
+#   - a system administrator account will be created and added to the 'admins'
+#     group; If you are connecting directly as root, this account will be named
+#     after your local user account, otherwise it will be named after the user
+#     you are connecting as (option `-u` or ansible_ssh_user from some config- or
+#     inventory-file).
+#   - no passwords are set or modified on any account;
+#   - if set, playbook will configure hostname and domain on the host using
+#     'inventory_hostname' and 'netbase__domain' variables;
+#
+# Usage:
+# To connect directly as root, run:
+#
+#     debops bootstrap -u root -k --limit host
+#
+# To connect as normal user and switch to sudo, run:
+#
+#     debops bootstrap --become --limit host
+
+
+- name: Bootstrap Python support on a host
+  collections: [ 'debops.debops', 'debops.roles01',
+                 'debops.roles02', 'debops.roles03' ]
+  hosts: [ 'debops_all_hosts', 'debops_service_bootstrap' ]
+  strategy: linear
+  gather_facts: False
+  become: True
+
+  tasks:
+
+    - name: Initialize Ansible support via raw tasks
+      ansible.builtin.import_role:
+        name: 'python'
+        tasks_from: 'main_raw'
+      tags: [ 'role::python_raw', 'skip::python_raw', 'role::python' ]
+
+
+- name: Bootstrap APT configuration on a host
+  collections: [ 'debops.debops', 'debops.roles01',
+                 'debops.roles02', 'debops.roles03' ]
+  hosts: [ 'debops_all_hosts', 'debops_service_bootstrap' ]
+  become: True
+
+  environment: '{{ inventory__environment | d({})
+                   | combine(inventory__group_environment | d({}))
+                   | combine(inventory__host_environment  | d({})) }}'
+
+  roles:
+
+    - role: apt_proxy
+      tags: [ 'role::apt_proxy', 'skip::apt_proxy' ]
+
+    - role: apt
+      tags: [ 'role::apt', 'skip::apt' ]
+
+
+- import_playbook: 'service/core.yml'
+
+
+- name: Bootstrap host for Ansible management
+  collections: [ 'debops.debops', 'debops.roles01',
+                 'debops.roles02', 'debops.roles03' ]
+  hosts: [ 'debops_all_hosts', 'debops_service_bootstrap' ]
+  become: True
+
+  environment: '{{ inventory__environment | d({})
+                   | combine(inventory__group_environment | d({}))
+                   | combine(inventory__host_environment  | d({})) }}'
+
+  roles:
+
+    - role: resolvconf
+      tags: [ 'role::resolvconf', 'skip::resolvconf' ]
+
+    - role: python
+      tags: [ 'role::python', 'skip::python', 'role::netbase' ]
+      python__dependent_packages3:
+        - '{{ netbase__python__dependent_packages3 }}'
+      python__dependent_packages2:
+        - '{{ netbase__python__dependent_packages2 }}'
+
+    - role: netbase
+      tags: [ 'role::netbase', 'skip::netbase' ]
+
+    - role: fhs
+      tags: [ 'role::fhs', 'skip::fhs' ]
+
+    - role: sudo
+      tags: [ 'role::sudo', 'skip::sudo', 'role::system_groups' ]
+
+    - role: libuser
+      tags: [ 'role::libuser', 'skip::libuser' ]
+
+    - role: system_groups
+      tags: [ 'role::system_groups', 'skip::system_groups' ]
+
+    - role: system_users
+      tags: [ 'role::system_users', 'skip::system_users' ]

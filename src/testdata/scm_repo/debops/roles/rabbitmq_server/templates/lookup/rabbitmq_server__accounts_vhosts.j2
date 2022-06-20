@@ -1,0 +1,21 @@
+{# Copyright (C) 2017 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2017 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+{% set rabbitmq_server__tpl_accounts_vhosts = [] %}
+{% for account in lookup("flattened", rabbitmq_server__combined_accounts) %}
+{%   set entry = {} %}
+{%   if account.vhost|d() and account.state|d('present') != 'absent' %}
+{%     set _ = entry.update({'name': account.vhost}) %}
+{%     if account.node|d() %}
+{%       set _ = entry.update({'node': account.node}) %}
+{%     endif %}
+{%     if account.tracing|d() %}
+{%       set _ = entry.update({'tracing': account.tracing}) %}
+{%     endif %}
+{%   endif %}
+{%   if entry|d() %}
+{%     set _ = rabbitmq_server__tpl_accounts_vhosts.append(entry) %}
+{%   endif %}
+{% endfor %}
+{{ rabbitmq_server__tpl_accounts_vhosts }}

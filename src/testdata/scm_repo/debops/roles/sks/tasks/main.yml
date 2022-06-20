@@ -1,0 +1,66 @@
+---
+# Copyright (C) 2014-2019 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015-2019 DebOps <http://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Import DebOps global handlers
+  ansible.builtin.import_role:
+    name: 'global_handlers'
+
+- name: Install SKS Keyserver
+  ansible.builtin.apt:
+    name: 'sks'
+    state: 'present'
+    install_recommends: 'no'
+  register: sks__register_packages
+  until: sks__register_packages is succeeded
+
+- name: Configure firewall for SKS Keyserver
+  ansible.builtin.template:
+    src: 'etc/ferm/filter-input.d/sks.conf.j2'
+    dest: '/etc/ferm/filter-input.d/sks.conf'
+    owner: 'root'
+    group: 'adm'
+    mode: '0644'
+  notify: [ 'Restart ferm' ]
+
+- name: Check if SKS Keyserver database exists
+  ansible.builtin.stat:
+    path: '/var/lib/sks/DB/key'
+  register: sks_register_database_pre_build
+
+- name: Configure SKS Keyserver without database
+  ansible.builtin.template:
+    src: '{{ item }}.j2'
+    dest: '/{{ item }}'
+    owner: 'root'
+    group: 'root'
+    mode: '0644'
+  with_items: [ 'etc/sks/sksconf', 'etc/sks/mailsync', 'etc/sks/membership' ]
+  when: sks_register_database_pre_build is defined and not sks_register_database_pre_build.stat.exists
+
+- name: Build SKS Keyserver database
+  become: True
+  become_user: 'debian-sks'
+  ansible.builtin.command: /usr/sbin/sks build chdir=/var/lib/sks creates=/var/lib/sks/DB/key
+  when: sks_autoinit is defined and sks_autoinit
+
+- name: Check if SKS Keyserver database exists
+  ansible.builtin.stat:
+    path: '/var/lib/sks/DB/key'
+  register: sks_register_database_post_build
+
+- name: Configure SKS Keyserver with database
+  ansible.builtin.template:
+    src: '{{ item }}.j2'
+    dest: '/{{ item }}'
+    owner: 'root'
+    group: 'root'
+    mode: '0644'
+  notify: [ 'Restart sks' ]
+  with_items: [ 'etc/default/sks', 'etc/sks/sksconf', 'etc/sks/mailsync', 'etc/sks/membership' ]
+  when: sks_register_database_post_build is defined and sks_register_database_post_build.stat.exists
+
+- name: Configure frontend webserver
+  ansible.builtin.include_tasks: sks_frontend.yml
+  when: sks_frontends is defined and inventory_hostname in sks_frontends

@@ -1,0 +1,61 @@
+#!{{ ansible_python['executable'] }}
+# -*- coding: utf-8 -*-
+
+# Copyright (C) 2015 Patryk Ściborek <patryk@sciborek.com>
+# Copyright (C) 2015-2018 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015-2017 Robin Schneider <ypid@riseup.net>
+# Copyright (C) 2015-2018 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# {{ ansible_managed }}
+
+from __future__ import print_function
+from json import loads, dumps
+import subprocess
+import os
+
+
+try:
+    from subprocess import DEVNULL
+except ImportError:
+    DEVNULL = open(os.devnull, 'wb')
+
+
+def cmd_exists(cmd):
+    return any(
+        os.access(os.path.join(path, cmd), os.X_OK)
+        for path in os.environ["PATH"].split(os.pathsep)
+    )
+
+
+grub_conf = '/etc/default/grub.d/ansible.cfg'
+
+output = {'installed': cmd_exists('update-grub'),
+          'configured': True}
+
+if os.path.exists(grub_conf) and os.path.isfile(grub_conf):
+    try:
+        with open(grub_conf, 'r') as f:
+            for line in f:
+                if not line.startswith('#') and '=' in line:
+                    line = line.strip().split('=', 1)
+
+                    if line[0].lower() == 'grub_cmdline_linux_default':
+                        value = line[1].strip('"').split()
+                        if ('$' + line[0].upper()) in value:
+                            value.remove('$' + line[0].upper())
+                        output['cmdline_default'] = value
+
+                    elif line[0].lower() == 'grub_cmdline_linux':
+                        value = line[1].strip('"').split()
+                        if ('$' + line[0].upper()) in value:
+                            value.remove('$' + line[0].upper())
+                        output['cmdline'] = value
+
+                    elif line[0].lower() == 'grub_default':
+                        output['default'] = line[1].strip('"')
+
+    except Exception:
+        pass
+
+print(dumps(output, sort_keys=True, indent=4))

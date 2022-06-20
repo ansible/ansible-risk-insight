@@ -1,0 +1,22 @@
+{# Copyright (C) 2018-2021 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2018-2021 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+# {{ ansible_managed }}
+
+{% for element in netbase__combined_hosts | debops.debops.parse_kv_config %}
+{%   if element.name|d() and element.value|d() %}
+{%     if (element.separator|d())|bool %}
+
+{%     endif %}
+{%     if element.value is string %}
+{%       if '.' in element.value %}
+{{         '{}\t{}{} {}'.format(element.name, ('\t' if element.name | length < 8 else ''), element.value, element.value.split('.') | first) }}
+{%       else %}
+{{         '{}\t{}{}'.format(element.name, ('\t' if element.name | length < 8 else ''), element.value) }}
+{%       endif %}
+{%     else %}
+{{       '{}\t{}{}'.format(element.name, ('\t' if element.name | length < 8 else ''), (element.value | selectattr('name', 'defined') | map(attribute='name') | list) | join(' ')) }}
+{%     endif %}
+{%   endif %}
+{% endfor %}

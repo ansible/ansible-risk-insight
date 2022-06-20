@@ -1,0 +1,65 @@
+---
+# .. vim: foldmarker=[[[,]]]:foldmethod=marker
+
+# .. Copyright (C) 2017 Robin Schneider <ypid@riseup.net>
+# .. Copyright (C) 2017 DebOps <https://debops.org/>
+# .. SPDX-License-Identifier: GPL-3.0-only
+
+# .. _tor__ref_defaults:
+
+# debops-contrib.tor default variables [[[
+# ==========================================
+
+# .. contents:: Sections
+#    :local:
+#
+# .. include:: includes/all.rst
+
+
+# Packages and installation [[[
+# -----------------------------
+
+# .. envvar:: tor__deploy_state [[[
+#
+# What is the desired state which this role should achieve? Possible options:
+#
+# ``present``
+#   Default. Ensure that Tor is installed and configured as requested.
+#
+# ``absent``
+#   Ensure that Tor is uninstalled and it's configuration is removed.
+#
+tor__deploy_state: 'present'
+                                                                   # ]]]
+                                                                   # ]]]
+
+# Configuration for other Ansible roles [[[
+# -----------------------------------------
+
+# .. envvar:: tor__ferm__dependent_rules [[[
+#
+# Configuration for the :ref:`debops.ferm` Ansible role.
+tor__ferm__dependent_rules:
+
+  - type: 'accept'
+    dport: '{{ ((tor_ports | map(attribute="orport") | list) + (tor_ports | map(attribute="dirport") | list)) | unique | sort }}'
+    accept_any: True
+    weight: '40'
+    by_role: 'debops-contrib.tor'
+    name: 'tor'
+    rule_state: '{{ "present" if (tor__deploy_state != "purged") else "absent" }}'
+                                                                   # ]]]
+# .. envvar:: tor__ferm__dependent_rules [[[
+#
+# Configuration of the ``debops.unattended_upgrades`` role.
+# https://trac.torproject.org/projects/tor/wiki/TorRelayGuide/DebianUbuntuUpdates
+tor__unattended_upgrades__dependent_origins:
+
+  - origin: 'origin=TorProject'
+    by_role: 'debops-contrib.tor'
+    state: '{{ "present"
+               if (tor__deploy_state == "present")
+               else "absent" }}'
+                                                                   # ]]]
+                                                                   # ]]]
+                                                                   # ]]]

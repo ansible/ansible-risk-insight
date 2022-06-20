@@ -1,0 +1,11 @@
+{# Copyright (C) 2015-2016 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2015      Hartmut Goebel <h.goebel@crazy-compilers.com>
+ # Copyright (C) 2015-2019 Robin Schneider <ypid@riseup.net>
+ # Copyright (C) 2015-2019 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+<?php
+/* {{ ansible_managed }} */
+
+$CONFIG = json_decode('{{ owncloud__theme_conf_map | to_nice_json }}', true);
+?>

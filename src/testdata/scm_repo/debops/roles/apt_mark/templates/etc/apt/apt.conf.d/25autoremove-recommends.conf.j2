@@ -1,0 +1,11 @@
+{# Copyright (C) 2018 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2018 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+// {{ ansible_managed }}
+
+// Specify if APT should treat packages installed via Recommends or Suggests
+// dependencies as important. If True, they will not be considered for
+// autoremoval.
+APT::AutoRemove::RecommendsImportant "{{ apt_mark__autoremove_recommends_important | bool | lower }}";
+APT::AutoRemove::SuggestsImportant "{{ apt_mark__autoremove_suggests_important | bool | lower }}";

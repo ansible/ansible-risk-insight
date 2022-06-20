@@ -1,0 +1,15 @@
+---
+# Copyright (C) 2017 Robin Schneider <ypid@riseup.net>
+# Copyright (C) 2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Import DebOps secret role
+  ansible.builtin.import_role:
+    name: 'secret'
+
+# - name: Ensure specified packages are in there desired state
+#   ansible.builtin.package:
+#     name: '{{ item }}'
+#     state: '{{ "present" if (tor__deploy_state == "present") else "absent" }}'
+#   with_flattened: '{{ tor__base_packages }}'
+#   tags: [ 'role::tor:pkgs' ]

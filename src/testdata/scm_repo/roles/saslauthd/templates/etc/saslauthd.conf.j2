@@ -1,0 +1,17 @@
+{# Copyright (C) 2017 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2017 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+# {{ ansible_managed }}
+
+# SASL LDAP configuration for: {{ item.name }}
+
+{% if item.raw|d() %}
+{{ item.raw }}
+{% elif item.options|d() %}
+{%   for element in item.options %}
+{%     if element.name|d() and element.value|d() and element.state|d('present') not in [ 'absent', 'ignore' ] %}
+{{ "{}: {}".format(element.name, (element.value if element.value is string else (element.value | selectattr("state", "equalto", "present") | map(attribute="name") | list | join(" ")))) }}
+{%     endif %}
+{%   endfor %}
+{% endif %}

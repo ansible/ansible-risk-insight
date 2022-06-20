@@ -1,0 +1,16 @@
+{# Copyright (C) 2014      Nick Janetakis <nickjanetakis@gmail.com>
+ # Copyright (C) 2014-2019 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2015-2019 DebOps Project <http://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+# This file is managed by Ansible, all changes will be lost
+
+{{ rails_deploy_log }}/*.log {
+        {{ rails_deploy_logrotate_interval }}
+        missingok
+        copytruncate
+        create 0640 {{ rails_deploy_service }} {{ rails_deploy_service }}
+        rotate {{ rails_deploy_logrotate_rotation }}
+        compress
+        notifempty
+}

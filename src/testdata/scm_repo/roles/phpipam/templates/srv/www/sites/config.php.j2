@@ -1,0 +1,44 @@
+{# Copyright (C) 2014-2019 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2019      Alin Alexandru <alin.alexandru@innobyte.com>
+ # Copyright (C) 2015-2019 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+<?php
+
+/* This file is managed by Ansible, all changes will be lost */
+
+/*	database connection details
+ ******************************/
+$db['host'] = "{{ phpipam__database_host }}";
+$db['user'] = "{{ phpipam__database_user }}";
+$db['pass'] = "{{ phpipam__database_password }}";
+$db['name'] = "{{ phpipam__database_name }}";
+
+/**
+ * php debugging on/off
+ *
+ * true  = SHOW all php errors
+ * false = HIDE all php errors
+ ******************************/
+$debugging = false;
+
+/**
+ *	manual set session name for auth
+ *	increases security
+ *	optional
+ */
+$phpsessname = "{{ phpipam__php_session_name | default('phpipam') }}";
+
+/*
+ *	BASE definition if phpipam
+ *	is not in root directory (e.g. /phpipam/)
+ *
+ *  Also change
+ *	RewriteBase / in .htaccess
+ ******************************/
+if (!defined("BASE")) define("BASE", "/");
+
+/*
+    vim:ft=php
+*/
+?>

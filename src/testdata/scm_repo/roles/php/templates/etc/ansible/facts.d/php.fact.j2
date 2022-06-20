@@ -1,0 +1,19 @@
+{# Copyright (C) 2016      Mariano Barcia <mariano.barcia@gmail.com>
+ # Copyright (C) 2016-2019 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2016-2019 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+{% set php__tpl_sury = ansible_local.php.sury|d(php__sury) | bool %}
+{% if php__sury | bool %}
+{%   set php__tpl_sury = php__sury | bool %}
+{% endif %}
+{
+"enabled": "true",
+"long_version": "{{ php__long_version }}",
+"sury": "{{ php__tpl_sury | bool | lower }}",
+"version": "{{ php__version }}",
+"etc_base": "{{ php__etc_base }}",
+"lib_base": "{{ php__lib_base }}",
+"run_base": "{{ php__run_base }}",
+"logrotate_lib_base": "{{ php__logrotate_lib_base }}"
+}

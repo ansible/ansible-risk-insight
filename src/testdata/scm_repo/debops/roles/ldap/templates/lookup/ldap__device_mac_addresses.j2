@@ -1,0 +1,14 @@
+{# Copyright (C) 2019 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2019 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+{% set ldap__tpl_device_mac_addresses = [] %}
+{% for item in ansible_interfaces %}
+{%   if item | regex_search(ldap__device_mac_iface_regex) %}
+{%     set iface = (item | replace('-','_') | regex_replace('^(.*)$', 'ansible_\\1')) %}
+{%     if hostvars[inventory_hostname][iface].macaddress|d() %}
+{%       set _ = ldap__tpl_device_mac_addresses.append(hostvars[inventory_hostname][iface].macaddress) %}
+{%     endif %}
+{%   endif %}
+{% endfor %}
+{{ ldap__tpl_device_mac_addresses | unique }}

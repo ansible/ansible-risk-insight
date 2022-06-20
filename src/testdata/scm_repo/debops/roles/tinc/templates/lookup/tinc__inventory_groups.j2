@@ -1,0 +1,16 @@
+{# Copyright (C) 2015-2017 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2016-2017 Robin Schneider <ypid@riseup.net>
+ # Copyright (C) 2015-2017 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+{% set tinc__tpl_groups = [] %}
+{% for key, network in tinc__combined_networks.items() %}
+{%   if network.state|d('present') != 'absent' %}
+{%     if network.inventory_groups|d() %}
+{%       for group in ([ network.inventory_groups ] if network.inventory_groups is string else network.inventory_groups) %}
+{% set _ = tinc__tpl_groups.append(group) %}
+{%       endfor %}
+{%     endif %}
+{%   endif %}
+{% endfor %}
+{{ tinc__tpl_groups | to_yaml }}

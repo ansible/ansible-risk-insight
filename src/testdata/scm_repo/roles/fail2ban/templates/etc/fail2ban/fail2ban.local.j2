@@ -1,0 +1,12 @@
+{# Copyright (C) 2015 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2015 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+# {{ ansible_managed }}
+
+[Definition]
+
+loglevel     = {{ fail2ban_loglevel }}
+logtarget    = {{ fail2ban_logtarget }}
+
+dbpurgeage   = {{ fail2ban_dbpurgeage }}

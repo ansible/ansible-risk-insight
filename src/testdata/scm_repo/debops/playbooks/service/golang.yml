@@ -1,0 +1,31 @@
+---
+# Copyright (C) 2015      Nick Janetakis <nickjanetakis@gmail.com>
+# Copyright (C) 2016-2019 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015-2019 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Manage Go environment
+  collections: [ 'debops.debops', 'debops.roles01',
+                 'debops.roles02', 'debops.roles03' ]
+  hosts: [ 'debops_service_golang' ]
+  become: True
+
+  environment: '{{ inventory__environment | d({})
+                   | combine(inventory__group_environment | d({}))
+                   | combine(inventory__host_environment  | d({})) }}'
+
+  roles:
+
+    - role: keyring
+      tags: [ 'role::keyring', 'skip::keyring', 'role::golang' ]
+      keyring__dependent_gpg_user: '{{ golang__keyring__dependent_gpg_user }}'
+      keyring__dependent_gpg_keys:
+        - '{{ golang__keyring__dependent_gpg_keys }}'
+
+    - role: apt_preferences
+      tags: [ 'role::apt_preferences', 'skip::apt_preferences' ]
+      apt_preferences__dependent_list:
+        - '{{ golang__apt_preferences__dependent_list }}'
+
+    - role: golang
+      tags: [ 'role::golang', 'skip::golang' ]

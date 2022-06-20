@@ -1,0 +1,112 @@
+---
+# Copyright (C) 2015-2016 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015-2016 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- import_playbook: etc_aliases.yml
+
+- import_playbook: etesync.yml
+
+- import_playbook: hashicorp.yml
+
+- import_playbook: apt_cacher_ng.yml
+
+- import_playbook: docker_gen.yml
+
+- import_playbook: gunicorn.yml
+
+- import_playbook: postfix.yml
+
+- import_playbook: saslauthd.yml
+
+- import_playbook: dovecot.yml
+
+- import_playbook: postscreen.yml
+
+- import_playbook: postwhite.yml
+
+- import_playbook: postconf.yml
+
+- import_playbook: postldap.yml
+
+- import_playbook: opendkim.yml
+
+- import_playbook: apache.yml
+
+- import_playbook: nginx.yml
+
+- import_playbook: mosquitto.yml
+
+- import_playbook: snmpd.yml
+
+- import_playbook: monit.yml
+
+- import_playbook: tftpd.yml
+
+- import_playbook: samba.yml
+
+- import_playbook: tgt.yml
+
+- import_playbook: mariadb_server.yml
+
+- import_playbook: mariadb.yml
+
+- import_playbook: postgresql_server.yml
+
+- import_playbook: postgresql.yml
+
+- import_playbook: elastic_co.yml
+
+- import_playbook: elasticsearch.yml
+
+- import_playbook: kibana.yml
+
+- import_playbook: influxdata.yml
+
+- import_playbook: influxdb_server.yml
+
+- import_playbook: influxdb.yml
+
+- import_playbook: icinga.yml
+
+- import_playbook: icinga_db.yml
+
+- import_playbook: icinga_web.yml
+
+- import_playbook: rabbitmq_server.yml
+
+- import_playbook: rabbitmq_management.yml
+
+- import_playbook: memcached.yml
+
+- import_playbook: redis_server.yml
+
+- import_playbook: redis_sentinel.yml
+
+- import_playbook: minio.yml
+
+- import_playbook: mcli.yml
+
+- import_playbook: docker_registry.yml
+
+- import_playbook: reprepro.yml
+
+- import_playbook: smstools.yml
+
+- import_playbook: salt.yml
+
+- import_playbook: fail2ban.yml
+
+- import_playbook: prosody.yml
+
+- import_playbook: freeradius.yml
+
+- import_playbook: tinyproxy.yml
+
+- import_playbook: libuser.yml
+
+- import_playbook: minidlna.yml
+
+- import_playbook: pdns.yml
+
+- import_playbook: rspamd.yml

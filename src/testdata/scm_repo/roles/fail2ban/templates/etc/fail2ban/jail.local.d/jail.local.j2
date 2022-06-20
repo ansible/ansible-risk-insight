@@ -1,0 +1,22 @@
+{# Copyright (C) 2015 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2015 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+{% if item.comment is defined and item.comment %}
+# {{ item.comment }}
+{% endif %}
+[{{ item.name }}]
+{% for key, value in item.items() %}
+{%   if key not in [ 'name', 'filename', 'delete', 'comment', 'action', 'ignoreip' ] %}
+{%     if value is iterable and value is not string %}
+{{ "%-14s = %s" | format(key, value | join(",")) }}
+{%     else %}
+{{ "%-14s = %s" | format(key, value) }}
+{%     endif %}
+{%   elif key == 'action' %}
+action         = {{ "%(" + value + ")s" }}
+{%   elif key == 'ignoreip' %}
+ignoreip       = {{ value | join(" ") }}
+{%   endif %}
+{% endfor %}
+
