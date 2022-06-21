@@ -122,7 +122,7 @@ class Module(JSONSerializable, Resolvable):
 
     annotations: dict = field(default_factory=dict)
 
-    def load(self, module_file_path):
+    def load(self, module_file_path, collection_name="", role_name=""):
         if module_file_path == "":
             raise ValueError("require module file path to load a Module")
         if not module_file_path.endswith(".py"):
@@ -130,38 +130,12 @@ class Module(JSONSerializable, Resolvable):
         file_name = os.path.basename(module_file_path)
         module_name = file_name.replace(".py", "")
         self.name = module_name
-        module_base_dir = os.path.dirname(module_file_path)
-        if "/plugins/modules/" in module_file_path:
-            while True:
-                if not module_base_dir.endswith("/plugins/modules"):
-                    new_dir = os.path.dirname(module_base_dir)
-                    if new_dir == module_base_dir:
-                        raise ValueError("failed to find \"plugins/modules\" directory")
-                    module_base_dir = new_dir
-                else:
-                    break
-            collection_dir = module_base_dir.replace("/plugins/modules", "")
-            parts = collection_dir.split("/")
-            if len(parts) < 2:
-                raise ValueError("collection directory path of this module is wrong")
-            collection_name = "{}.{}".format(parts[-2], parts[-1])
+        if collection_name != "":
             self.collection = collection_name
             self.fqcn = "{}.{}".format(collection_name, module_name)
-        elif "/library/" in module_file_path:
-            while True:
-                if not module_base_dir.endswith("/library"):
-                    new_dir = os.path.dirname(module_base_dir)
-                    if new_dir == module_base_dir:
-                        raise ValueError("failed to find \"library\" directory")
-                    module_base_dir = new_dir
-                else:
-                    break
-            role_dir = module_base_dir.replace("/library", "")
-            parts = role_dir.split("/")
-            role_name = parts[-1]
+        if role_name != "":
             self.role = role_name
-            self.fqcn = module_name # if module is defined in a role, it does not have fqcn
-
+            self.fqcn = module_name # if module is defined in a role, it does not have fqcn and just called in the role
         self.defined_in = module_file_path
 
     @property
@@ -191,7 +165,7 @@ class Collection(JSONSerializable, Resolvable):
         modules = []
         for f in module_files:
             m = Module()
-            m.load(f)
+            m.load(f, collection_name=collection_name)
             modules.append(m)
         self.name = collection_name
         self.path = collection_dir
@@ -334,12 +308,12 @@ class Role(JSONSerializable, Resolvable):
 
         modules = []
         if os.path.exists(modules_dir_path):
-            module_files = glob.glob(modules_dir_path + "/*.py")
+            module_files = glob.glob(modules_dir_path + "/**/*.py", recursive=True)
             for module_file_path in module_files:
                 if module_file_path.endswith("/__init__.py"):
                     continue
                 m = Module()
-                m.load(module_file_path)
+                m.load(module_file_path, role_name=role_name)
                 modules.append(m)
             self.modules = modules
 
@@ -487,6 +461,9 @@ class Playbook(JSONSerializable, Resolvable):
 class Repository(JSONSerializable, Resolvable):
     name: str = ""
     path: str = ""
+
+    galaxy_yml: str = ""   # path to the galaxy.yml if it's there
+    my_collection_name: str = ""    # if galaxy.yml is there, this repository is for a collection
     
     playbooks: list  = field(default_factory=list)
     roles: list  = field(default_factory=list)
@@ -494,9 +471,6 @@ class Repository(JSONSerializable, Resolvable):
     collections_path: str = ""
     collections: list  = field(default_factory=list)
 
-    # modules defined in a SCM repo should be in `library` directory in the best practice case
-    # https://docs.ansible.com/ansible/2.8/user_guide/playbooks_best_practices.html
-    # but no sample in debops example
     modules: list  = field(default_factory=list)
     version: str = ""
 
@@ -506,14 +480,19 @@ class Repository(JSONSerializable, Resolvable):
     annotations: dict = field(default_factory=dict)
 
     def load(self, repo_path, collections_path):
-        print("start repo loading")
-        print("start playbook loading")
+        self.search_galaxy_yml(repo_path)
+
+        print("start loading the repo")
+        print("start loading playbooks")
         self.load_playbooks(repo_path)
         print("done ... {} playbooks loaded".format(len(self.playbooks)))
-        print("start role loading")
+        print("start loading roles")
         self.load_roles(repo_path)
         print("done ... {} roles loaded".format(len(self.roles)))
-        print("start collection loading")
+        print("start loading modules (that are defined in this repository)")
+        self.load_modules(repo_path)
+        print("done ... {} modules loaded".format(len(self.modules)))
+        print("start loading collections")
         self.load_collections(collections_path)
         print("done ... {} collections loaded".format(len(self.collections)))
         self.path = repo_path
@@ -574,6 +553,45 @@ class Repository(JSONSerializable, Resolvable):
         self.collections = collections
         self.add_ansible_builtin_collection()
 
+    # modules defined in a SCM repo should be in `library` directory in the best practice case
+    # https://docs.ansible.com/ansible/2.8/user_guide/playbooks_best_practices.html
+    # however, it is often defined in `plugins/modules` directory in a collection repository,
+    # so we search both the directories
+    def load_modules(self, path):
+        module_dir_path1 = os.path.join(path, "library")
+        module_dir_path2 = os.path.join(path, "plugins/modules")
+        if not os.path.exists(module_dir_path1) and not os.path.exists(module_dir_path2):
+            return
+        
+        module_files = []
+        module_files += glob.glob(module_dir_path1 + "/**/*.py", recursive=True)
+        module_files += glob.glob(module_dir_path2 + "/**/*.py", recursive=True)
+        if len(module_files) > 0:
+            modules = []
+            for module_file_path in module_files:
+                if module_file_path.endswith("/__init__.py"):
+                    continue
+                m = Module()
+                m.load(module_file_path, collection_name=self.my_collection_name)
+                modules.append(m)
+            self.modules = modules
+
+    def search_galaxy_yml(self, path):
+        found_galaxy_ymls = glob.glob(path + "/**/galaxy.yml", recursive=True)
+        if len(found_galaxy_ymls) > 0:
+            galaxy_yml = found_galaxy_ymls[0]
+            my_collection_info = None
+            with open(galaxy_yml, "r") as file:
+                my_collection_info = yaml.safe_load(file)
+            if my_collection_info is None:
+                raise ValueError("failed to read galaxy.yml")
+            namespace = my_collection_info.get("namespace", "")
+            name = my_collection_info.get("name", "")
+            my_collection_name = "{}.{}".format(namespace, name)
+            self.galaxy_yml = galaxy_yml
+            self.my_collection_name = my_collection_name
+        return
+
     def add_ansible_builtin_collection(self):
         builtin_modules = BuiltinModuleSet().builtin_modules
         modules = []
@@ -610,11 +628,13 @@ class Repository(JSONSerializable, Resolvable):
             return self.module_dict
 
         module_dict = {}
-        for c in self.collections:
-            for m in c.modules:
-                module_dict[m.fqcn] = m
+        for m in self.modules:
+            module_dict[m.fqcn] = m
         for r in self.roles:
             for m in r.modules:
+                module_dict[m.fqcn] = m
+        for c in self.collections:
+            for m in c.modules:
                 module_dict[m.fqcn] = m
         self.module_dict = module_dict
         return module_dict
@@ -639,5 +659,5 @@ class Repository(JSONSerializable, Resolvable):
 
     @property
     def resolver_targets(self):
-        return self.playbooks + self.roles + self.collections
+        return self.playbooks + self.roles + self.modules + self.collections
 
