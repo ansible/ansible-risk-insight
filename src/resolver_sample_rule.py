@@ -1,4 +1,3 @@
-from struct4 import Module, Collection, Task, Role, Playbook, Repository, BuiltinModuleSet, config
 from resolver import Resolver
 
 
