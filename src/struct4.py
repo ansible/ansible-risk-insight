@@ -7,8 +7,34 @@ import codecs
 from urllib.robotparser import RobotFileParser
 import yaml
 import glob
+import json
 import jsonpickle
 import logging
+
+#
+#  data structure and the relationship between objects
+# 
+#     Repository
+#     |-- Collection
+#     |   `-- Module
+#     |       `-- "used_in": a list of Tasks that use this module
+#     |
+#     |-- Playbook
+#     |   |-- RoleInPlay
+#     |   |   `-- "role_path": a resolved path to the corresponding Role
+#     |   |
+#     |   `-- Task
+#     |       |-- "fqcn": a resolved FQCN of the module for this Task
+#     |       `-- "used_in": a list of Playbooks/Roles that use this task
+#     `-- Role
+#         |-- Module
+#         |   `-- same as Collection.Module
+#         |
+#         |-- Task
+#         |   `-- same as Playbook.Task
+#         |
+#         `-- "used_in": a list of Playbooks that use this Role
+#
 
 
 valid_playbook_re = re.compile(r'^\s*?-?\s*?(?:hosts|include|import_playbook):\s*?.*?$')
@@ -59,14 +85,42 @@ class JSONSerializable(object):
         loaded = jsonpickle.decode(json_str)
         self.__dict__.update(loaded.__dict__)
 
+class Resolvable(object):
+    def resolve(self, resolver):
+        if not hasattr(resolver, 'apply'):
+            raise ValueError("this resolver does not have apply() method")
+        if not callable(resolver.apply):
+            raise ValueError("resolver.apply is not callable")
+
+        # apply resolver for this instance
+        resolver.apply(self)
+
+        # call resolve() for children rescursively
+        targets = self.resolver_targets
+        if targets is None:
+            return
+        for t in targets:
+            t.resolve(resolver)
+
+        # apply resolver again here because some attributes was not set at first
+        resolver.apply(self)
+        return
+
+    @property
+    def resolver_targets(self):
+        raise NotImplementedError
+
 @dataclass
-class Module(JSONSerializable):
+class Module(JSONSerializable, Resolvable):
     name: str = ""
     fqcn: str = ""
     collection: str = ""
+    role: str = ""
     defined_in: str = ""
     builtin: bool = False
     used_in: list = field(default_factory=list) # resolved later
+
+    annotations: dict = field(default_factory=dict)
 
     def load(self, module_file_path):
         if module_file_path == "":
@@ -77,32 +131,52 @@ class Module(JSONSerializable):
         module_name = file_name.replace(".py", "")
         self.name = module_name
         module_base_dir = os.path.dirname(module_file_path)
-        while True:
-            if not module_base_dir.endswith("/plugins/modules"):
-                new_dir = os.path.dirname(module_base_dir)
-                if new_dir == module_base_dir:
-                    raise ValueError("failed to find \"plugins/modules\" directory")
-                module_base_dir = new_dir
-            else:
-                break
-        
-        collection_dir = module_base_dir.replace("/plugins/modules", "")
-        parts = collection_dir.split("/")
-        if len(parts) < 2:
-            raise ValueError("collection directory path of this module is wrong")
-        collection_name = "{}.{}".format(parts[-2], parts[-1])
-        self.collection = collection_name
-        self.fqcn = "{}.{}".format(collection_name, module_name)
+        if "/plugins/modules/" in module_file_path:
+            while True:
+                if not module_base_dir.endswith("/plugins/modules"):
+                    new_dir = os.path.dirname(module_base_dir)
+                    if new_dir == module_base_dir:
+                        raise ValueError("failed to find \"plugins/modules\" directory")
+                    module_base_dir = new_dir
+                else:
+                    break
+            collection_dir = module_base_dir.replace("/plugins/modules", "")
+            parts = collection_dir.split("/")
+            if len(parts) < 2:
+                raise ValueError("collection directory path of this module is wrong")
+            collection_name = "{}.{}".format(parts[-2], parts[-1])
+            self.collection = collection_name
+            self.fqcn = "{}.{}".format(collection_name, module_name)
+        elif "/library/" in module_file_path:
+            while True:
+                if not module_base_dir.endswith("/library"):
+                    new_dir = os.path.dirname(module_base_dir)
+                    if new_dir == module_base_dir:
+                        raise ValueError("failed to find \"library\" directory")
+                    module_base_dir = new_dir
+                else:
+                    break
+            role_dir = module_base_dir.replace("/library", "")
+            parts = role_dir.split("/")
+            role_name = parts[-1]
+            self.role = role_name
+            self.fqcn = module_name # if module is defined in a role, it does not have fqcn
+
         self.defined_in = module_file_path
 
+    @property
+    def resolver_targets(self):
+        return None
 @dataclass
-class Collection(JSONSerializable):
+class Collection(JSONSerializable, Resolvable):
     name: str = ""
     path: str = ""
     modules: list = field(default_factory=list)
     
     playbooks: list = field(default_factory=list)   # TODO: check if playbooks can be defined in collection
     roles: list = field(default_factory=list)       # TODO: check if roles can be defined in collection
+
+    annotations: dict = field(default_factory=dict)
 
     def load(self, collection_dir):
         if not os.path.exists(collection_dir):
@@ -123,8 +197,12 @@ class Collection(JSONSerializable):
         self.path = collection_dir
         self.modules = modules
 
+    @property
+    def resolver_targets(self):
+        return self.modules
+
 @dataclass
-class Task(JSONSerializable):
+class Task(JSONSerializable, Resolvable):
     name: str = ""
     module: str = ""    
     index: int = -1
@@ -134,6 +212,8 @@ class Task(JSONSerializable):
     
     fqcn: str = ""  # resolved later
     used_in: list = field(default_factory=list) # resolved later
+
+    annotations: dict = field(default_factory=dict)
 
     def load(self, path, index, task_block_dict):
         if not os.path.exists(path):
@@ -176,6 +256,14 @@ class Task(JSONSerializable):
                 return k
         return ""
 
+    @property
+    def id(self):
+        return json.dumps({"path":self.defined_in, "index": self.index})
+
+    @property
+    def resolver_targets(self):
+        return None
+
 def load_tasks_in_playbook(fpath=""):
     d = None
     if fpath == "":
@@ -210,23 +298,28 @@ def load_tasks_in_playbook(fpath=""):
     return tasks
 
 @dataclass
-class Role(JSONSerializable):
+class Role(JSONSerializable, Resolvable):
     name: str = ""
     defined_in: str = ""
     task_yamls: list = field(default_factory=list)     # 1 role can have multiple task yamls
     tasks: list = field(default_factory=list)
+    modules: list = field(default_factory=list)     # roles/xxxx/library/zzzz.py can be called as module zzzz
 
     source: str = "" # collection/scm repo/galaxy
-    modules: list = field(default_factory=list) # no sample
+    
     
     fqcn: str = "" # resolve later
+
+    annotations: dict = field(default_factory=dict)
 
     def load(self, path):
         if not os.path.exists(path):
             raise ValueError("directory not found")
         
+        modules_dir_path = ""
         tasks_dir_path = ""
         if path != "":
+            modules_dir_path = os.path.join(path, "library")
             tasks_dir_path = os.path.join(path, "tasks")
         
         parts = tasks_dir_path.split("/")
@@ -238,6 +331,17 @@ class Role(JSONSerializable):
         if not os.path.exists(tasks_dir_path):
             # a role possibly has no tasks
             return
+
+        modules = []
+        if os.path.exists(modules_dir_path):
+            module_files = glob.glob(modules_dir_path + "/*.py")
+            for module_file_path in module_files:
+                if module_file_path.endswith("/__init__.py"):
+                    continue
+                m = Module()
+                m.load(module_file_path)
+                modules.append(m)
+            self.modules = modules
 
         task_yaml_files = []
         task_yaml_files += glob.glob(tasks_dir_path + "/**/*.yml", recursive=True)
@@ -274,8 +378,12 @@ class Role(JSONSerializable):
             tasks.extend(task_dict_loop)
         return tasks
 
+    @property
+    def resolver_targets(self):
+        return self.tasks + self.modules
+
 @dataclass
-class RoleInPlay(JSONSerializable):
+class RoleInPlay(JSONSerializable, Resolvable):
     name: str = ""
     options: dict = field(default_factory=dict)
     defined_in: str = ""
@@ -284,16 +392,25 @@ class RoleInPlay(JSONSerializable):
     
     role_path: str = "" # resolved later
 
+    annotations: dict = field(default_factory=dict)
+
+    @property
+    def resolver_targets(self):
+        return None
+
 @dataclass
-class Playbook(JSONSerializable):
+class Playbook(JSONSerializable, Resolvable):
     name: str = ""
     defined_in: str = ""
     
     tasks: list = field(default_factory=list)
     roles: list = field(default_factory=list)   # not actual Role, but RoleInPlay defined in this playbook
+    import_playbooks: list = field(default_factory=list) # list of playbook paths that are imported in this playbook
 
     source: str = "" # collection/scm repo
-    used_in: list = field(default_factory=list) # resolved later    
+    used_in: list = field(default_factory=list) # resolved later
+
+    annotations: dict = field(default_factory=dict)
 
     def load(self, path):
         if not os.path.exists(path):
@@ -308,6 +425,7 @@ class Playbook(JSONSerializable):
             return
 
         roles = []
+        import_playbooks = []
         for i, play_dict in enumerate(data):
             if "roles" in play_dict:
                 for j, r_dict in enumerate(play_dict.get("roles", [])):
@@ -317,6 +435,10 @@ class Playbook(JSONSerializable):
                         role_options[k] = v
                     r = RoleInPlay(name=r_name, options=role_options, defined_in=path, role_index=j, play_index=i)
                     roles.append(r)
+            if "import_playbook" in play_dict:
+                playbook_dir = os.path.dirname(self.defined_in)
+                playbook_path = os.path.join(playbook_dir, play_dict["import_playbook"])
+                import_playbooks.append(playbook_path)
         tasks = []
         loaded_tasks = self.get_task_blocks(self.defined_in)
         for index, t_block in enumerate(loaded_tasks):
@@ -326,6 +448,7 @@ class Playbook(JSONSerializable):
 
         self.tasks = tasks
         self.roles = roles
+        self.import_playbooks = import_playbooks
 
     def get_task_blocks(self, fpath):
         d = None
@@ -355,9 +478,13 @@ class Playbook(JSONSerializable):
                 tasks_in_play.extend(task_dict_loop)
             tasks.extend(tasks_in_play)
         return tasks
+
+    @property
+    def resolver_targets(self):
+        return self.roles + self.tasks
         
 @dataclass
-class Repository(JSONSerializable):
+class Repository(JSONSerializable, Resolvable):
     name: str = ""
     path: str = ""
     
@@ -372,6 +499,11 @@ class Repository(JSONSerializable):
     # but no sample in debops example
     modules: list  = field(default_factory=list)
     version: str = ""
+
+    module_dict: dict = field(default_factory=dict) # make it easier to search a module
+    role_dict: dict = field(default_factory=dict) # make it easier to search a role
+
+    annotations: dict = field(default_factory=dict)
 
     def load(self, repo_path, collections_path):
         print("start repo loading")
@@ -474,28 +606,38 @@ class Repository(JSONSerializable):
         return matched
 
     def get_module_dict(self):
+        if len(self.module_dict) > 0:
+            return self.module_dict
+
         module_dict = {}
         for c in self.collections:
             for m in c.modules:
                 module_dict[m.fqcn] = m
+        for r in self.roles:
+            for m in r.modules:
+                module_dict[m.fqcn] = m
+        self.module_dict = module_dict
         return module_dict
 
-    def get_module(self, fqcn):
+    def get_module_by_fqcn(self, fqcn):
         module_dict = self.get_module_dict()
-        if fqcn not in module_dict:
-            return None
-        return module_dict[fqcn]
+        return module_dict.get(fqcn, None)
 
     def get_role_dict(self):
+        if len(self.role_dict) > 0:
+            return self.role_dict
+        
         role_dict = {}
         for r in self.roles:
             role_dict[r.name] = r
+        self.role_dict = role_dict
         return role_dict
 
-    def get_role(self, role_name):
+    def get_role_by_name(self, role_name):
         role_dict = self.get_role_dict()
-        if role_name not in role_dict:
-            return None
-        return role_dict[role_name]
+        return role_dict.get(role_name, None)
 
+    @property
+    def resolver_targets(self):
+        return self.playbooks + self.roles + self.collections
 
