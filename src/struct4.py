@@ -7,6 +7,7 @@ import codecs
 from urllib.robotparser import RobotFileParser
 import yaml
 import glob
+import jsonpickle
 import logging
 
 
@@ -47,8 +48,19 @@ with open('task_keywords.txt', 'r') as f:
 with open('builtin-modules.txt', 'r') as f:
     BuiltinModuleSet(set(f.read().splitlines()))
 
+class JSONSerializable(object):
+    def dump(self):
+        return self.to_json()
+
+    def to_json(self):
+        return jsonpickle.encode(self)
+
+    def from_json(self, json_str):
+        loaded = jsonpickle.decode(json_str)
+        self.__dict__.update(loaded.__dict__)
+
 @dataclass
-class Module:
+class Module(JSONSerializable):
     name: str = ""
     fqcn: str = ""
     collection: str = ""
@@ -82,8 +94,9 @@ class Module:
         self.collection = collection_name
         self.fqcn = "{}.{}".format(collection_name, module_name)
         self.defined_in = module_file_path
+
 @dataclass
-class Collection:
+class Collection(JSONSerializable):
     name: str = ""
     path: str = ""
     modules: list = field(default_factory=list)
@@ -111,45 +124,25 @@ class Collection:
         self.modules = modules
 
 @dataclass
-class Task:
+class Task(JSONSerializable):
     name: str = ""
     module: str = ""    
     index: int = -1
     defined_in: str = ""
     options: dict = field(default_factory=dict)
     module_options: dict = field(default_factory=dict)
-
-    is_in_playbook: bool = False
-    is_pre_task: bool = False
-    play_index: int = -1
     
     fqcn: str = ""  # resolved later
     used_in: list = field(default_factory=list) # resolved later
 
-    def load(self, path, index, is_in_playbook=False, is_pre_task=False, play_index=-1):
+    def load(self, path, index, task_block_dict):
         if not os.path.exists(path):
             raise ValueError("file not found")
         if not path.endswith(".yml") and not path.endswith(".yaml"):
             raise ValueError("task yaml file must be \".yml\" or \".yaml\"")
-        data_block = None
-        if is_in_playbook:
-            data = load_tasks_in_playbook(path)
-            if not isinstance(data, list):
-                raise ValueError("the yaml file must have list, but got {}".format(type(data).__name__))
-            if play_index < 0 or play_index >= len(data):
-                raise ValueError("index \"{}\" is wrong; the yaml data has {} plays inside".format(play_index, len(data)))
-            key = "pre_tasks" if is_pre_task else "tasks"
-            tasks_in_play = data[play_index].get(key, [])
-            if index < 0 or index >= len(tasks_in_play):
-                raise ValueError("index \"{}\" is wrong; this play has {} tasks inside".format(index, len(tasks_in_play)))
-            data_block = tasks_in_play[index]
-        else:
-            data = load_tasks_yaml(path)
-            if not isinstance(data, list):
-                raise ValueError("the yaml file must have list, but got {}".format(type(data).__name__))
-            if index < 0 or index >= len(data):
-                raise ValueError("index \"{}\" is wrong; the yaml data has {} tasks inside".format(index, len(data)))
-            data_block = data[index]
+        if task_block_dict is None:
+            raise ValueError("task block dict is required to load Task")
+        data_block = task_block_dict
         task_name = ""
         module_name = self.find_module_name([k for k in data_block.keys()])
         task_options = {}
@@ -167,9 +160,6 @@ class Task:
         self.module_options = module_options
         self.defined_in = path 
         self.index = index
-        self.is_in_playbook = is_in_playbook
-        self.is_pre_task = is_pre_task
-        self.play_index = play_index
 
     def find_module_name(self, keys):
         task_keywords = TaskKeywordSet().task_keywords
@@ -185,25 +175,6 @@ class Task:
             if k not in task_keywords and not k.startswith("with_"):
                 return k
         return ""
-
-def load_tasks_yaml(fpath=""):
-    d = None
-    if fpath == "":
-        return None
-    else:
-        if not os.path.exists(fpath):
-            return None
-        with open(fpath , "r") as file:
-            d = yaml.safe_load(file)
-    if d is None:
-        return None
-    tasks = []
-    for task_dict in d:
-        task_dict_loop = [task_dict]
-        if "block" in task_dict:    # tasks defined in a "block" are flattened
-            task_dict_loop = task_dict.get("block", [])
-        tasks.extend(task_dict_loop)
-    return tasks
 
 def load_tasks_in_playbook(fpath=""):
     d = None
@@ -239,7 +210,7 @@ def load_tasks_in_playbook(fpath=""):
     return tasks
 
 @dataclass
-class Role:
+class Role(JSONSerializable):
     name: str = ""
     defined_in: str = ""
     task_yamls: list = field(default_factory=list)     # 1 role can have multiple task yamls
@@ -274,19 +245,37 @@ class Role:
         
         tasks = []
         for task_yaml_path in task_yaml_files:
-            data = load_tasks_yaml(fpath=task_yaml_path)
-            if data is None:
+            loaded_tasks = self.get_task_blocks(task_yaml_path)
+            if loaded_tasks is None:
                 continue
-            for i in range(len(data)):
+            for index, t_block in enumerate(loaded_tasks):
                 t = Task()
-                t.load(task_yaml_path, i)
+                t.load(task_yaml_path, index, t_block)
                 tasks.append(t)
         self.tasks = tasks
         self.task_yamls = task_yaml_files
 
+    def get_task_blocks(self, fpath):
+        d = None
+        if fpath == "":
+            return None
+        else:
+            if not os.path.exists(fpath):
+                return None
+            with open(fpath , "r") as file:
+                d = yaml.safe_load(file)
+        if d is None:
+            return None
+        tasks = []
+        for task_dict in d:
+            task_dict_loop = [task_dict]
+            if "block" in task_dict:    # tasks defined in a "block" are flattened
+                task_dict_loop = task_dict.get("block", [])
+            tasks.extend(task_dict_loop)
+        return tasks
 
 @dataclass
-class RoleInPlay:
+class RoleInPlay(JSONSerializable):
     name: str = ""
     options: dict = field(default_factory=dict)
     defined_in: str = ""
@@ -296,7 +285,7 @@ class RoleInPlay:
     role_path: str = "" # resolved later
 
 @dataclass
-class Playbook:
+class Playbook(JSONSerializable):
     name: str = ""
     defined_in: str = ""
     
@@ -319,7 +308,6 @@ class Playbook:
             return
 
         roles = []
-        tasks = []
         for i, play_dict in enumerate(data):
             if "roles" in play_dict:
                 for j, r_dict in enumerate(play_dict.get("roles", [])):
@@ -329,23 +317,47 @@ class Playbook:
                         role_options[k] = v
                     r = RoleInPlay(name=r_name, options=role_options, defined_in=path, role_index=j, play_index=i)
                     roles.append(r)
-            if "tasks" in play_dict:
-                for j, _ in enumerate(play_dict.get("tasks", [])):
-                    t = Task()
-                    t.load(path=path, index=j, is_in_playbook=True, is_pre_task=False, play_index=i)
-                    tasks.append(t)
-            if "pre_tasks" in play_dict:
-                for j, _ in enumerate(play_dict.get("pre_tasks", [])):
-                    t = Task()
-                    t.load(path=path, index=j, is_in_playbook=True, is_pre_task=True, play_index=i)
-                    tasks.append(t)
+        tasks = []
+        loaded_tasks = self.get_task_blocks(self.defined_in)
+        for index, t_block in enumerate(loaded_tasks):
+            t = Task()
+            t.load(path=self.defined_in, index=index, task_block_dict=t_block)
+            tasks.append(t)
 
         self.tasks = tasks
         self.roles = roles
-        
 
+    def get_task_blocks(self, fpath):
+        d = None
+        if fpath == "":
+            return None
+        else:
+            if not os.path.exists(fpath):
+                return None
+            with open(fpath , "r") as file:
+                d = yaml.safe_load(file)
+        if d is None:
+            return None
+        tasks = []
+        for play_dict in d:
+            tmp_tasks = play_dict.get("tasks", [])
+            tmp_pre_tasks = play_dict.get("pre_tasks", [])
+            tasks_in_play = []
+            for task_dict in tmp_tasks:
+                task_dict_loop = [task_dict]
+                if "block" in task_dict:    # tasks defined in a "block" are flattened
+                    task_dict_loop = task_dict.get("block", [])
+                tasks_in_play.extend(task_dict_loop)
+            for task_dict in tmp_pre_tasks:
+                task_dict_loop = [task_dict]
+                if "block" in task_dict:    # tasks defined in a "block" are flattened
+                    task_dict_loop = task_dict.get("block", [])
+                tasks_in_play.extend(task_dict_loop)
+            tasks.extend(tasks_in_play)
+        return tasks
+        
 @dataclass
-class Repository:
+class Repository(JSONSerializable):
     name: str = ""
     path: str = ""
     

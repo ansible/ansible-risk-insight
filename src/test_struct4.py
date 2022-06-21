@@ -31,7 +31,14 @@ class TestStruct3(unittest.TestCase):
         """test method for Task
         """
         t = Task()
-        t.load("testdata/scm_repo/roles/java/tasks/main.yml", 6)
+        task_block_dict = {
+            "name": "Divert default Java security policy configuration file",
+            "dpkg_divert": {
+                "path": '{{ java__security_policy_path }}',
+                "state": 'present',
+            },
+        }
+        t.load("testdata/scm_repo/roles/java/tasks/main.yml", 6, task_block_dict)
         expected = "dpkg_divert"
         actual = t.module
         self.assertEqual(expected, actual)
@@ -75,7 +82,20 @@ class TestStruct3(unittest.TestCase):
         m = r.get_module("community.general.archive")
         actual = m.defined_in
         self.assertEqual(expected, actual)
+
+        data = r.dump()
+        with open("test.json", "w") as file:
+            file.write(data)
         
+        data_str = ""
+        with open("test.json", "r") as file:
+            data_str = file.read()
+        r2 = Repository()
+        r2.from_json(data_str)
+
+        expected = 758
+        actual = len(r2.get_module_dict())
+        self.assertEqual(expected, actual)
 
 
 if __name__ == "__main__":
