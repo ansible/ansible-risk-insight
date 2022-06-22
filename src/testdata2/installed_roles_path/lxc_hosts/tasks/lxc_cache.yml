@@ -1,0 +1,55 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Set LXC cache fact(s)
+  set_fact:
+    cache_path_fact: "{{ lxc_container_cache_path }}/{{ lxc_cache_map.distro }}/{{ lxc_cache_map.release }}/{{ lxc_cache_map.arch }}/{{ lxc_cache_default_variant }}"
+    cache_time: "{{ ansible_facts['date_time']['epoch'] }}"
+
+- name: Retrieve the expiry object
+  slurp:
+    src: "{{ cache_path_fact }}/expiry"
+  failed_when: false
+  register: expiry
+  when:
+    - not lxc_image_cache_refresh | bool
+  tags:
+    - always
+
+- name: Set cache refresh fact
+  set_fact:
+    lxc_image_cache_refresh: true
+  when:
+    cache_time >= (expiry.content|default('MQo=') | b64decode)
+  tags:
+    - always
+
+- include_tasks: lxc_cache_rootfs.yml
+  when:
+    - lxc_image_cache_refresh | bool
+  tags:
+    - lxc_hosts-config
+
+- include_tasks: lxc_cache_preparation.yml
+  when:
+    - lxc_image_cache_refresh | bool
+  tags:
+    - lxc_hosts-config
+
+- include_tasks: lxc_cache_create.yml
+  when:
+    - lxc_image_cache_refresh | bool
+  tags:
+    - lxc_hosts-config

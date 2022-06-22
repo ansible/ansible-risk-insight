@@ -1,0 +1,14 @@
+---
+- name: Pull service-node docker image from the registry
+  tags:
+    - pull
+    - docker
+    - containers
+    - service
+  vars:
+    node_type: service
+    container_tag: "{{ service_version }}"
+  include: ../../common/tasks/pull_image.yml
+
+# vim: set et ts=2 sw=2 ai ft=yaml :
+

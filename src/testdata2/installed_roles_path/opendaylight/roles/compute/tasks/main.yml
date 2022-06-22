@@ -1,0 +1,32 @@
+---
+- include: pull_compute.yml
+
+- include: run_compute.yml
+  register: compute_node_spawn_result
+
+- name: Display compute node container name
+  debug:
+    msg: "Compute node {{ container_name }} successfully spawned"
+    verbosity: 1
+  when: compute_node_spawn_result is defined
+
+- name: Start Stacking compute node
+  tags:
+    - compute
+    - openstack
+    - stack
+  include: ../../common/tasks/start_stacking.yml
+  when:
+  - "{{ auto_stack }}"
+
+- name: REstart stacking in compute nodes
+  tags:
+    - compute
+    - openstack
+    - restart
+  include: ../../common/tasks/restart_stacking.yml
+  when:
+  - "{{ restart_containers }}"
+
+# vim: set et sw=2 ts=2 :
+

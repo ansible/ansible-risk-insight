@@ -1,0 +1,65 @@
+---
+# Copyright 2018, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+_barbican_is_first_play_host: "{{ (barbican_services['barbican-api']['group'] in group_names and inventory_hostname == (groups[barbican_services['barbican-api']['group']] | intersect(ansible_play_hosts)) | first) | bool }}"
+
+#
+# Compile a list of the services on a host based on whether
+# the host is in the host group and the service is enabled.
+# The service list is provided in the defined start order.
+#
+filtered_barbican_services: |-
+  {% set services = [] %}
+  {% for key, value in barbican_services.items() %}
+  {%   if (value['group'] in group_names) and
+          (('condition' not in value) or
+           ('condition' in value and value['condition'])) and
+           not ('wsgi_app' in value and value['wsgi_app']) %}
+  {%     set _ = value.update(
+           {
+             'service_key': key,
+             'enabled': 'yes',
+             'config_overrides': value.init_config_overrides
+           }
+         )
+  %}
+  {%     set _ = value.pop('init_config_overrides') -%}
+  {%     set _ = services.append(value) %}
+  {%   endif %}
+  {% endfor %}
+  {{ services | sort(attribute='start_order') }}
+
+uwsgi_barbican_services: |-
+  {% set services = {} %}
+  {% for key, value in barbican_services.items() %}
+  {%   if (value['group'] in group_names) and
+          (('condition' not in value) or
+           ('condition' in value and value['condition']))
+           and ('wsgi_app' in value and value['wsgi_app']) %}
+  {%     set _ = value.update(
+           {
+             'wsgi_path':  barbican_bin ~ '/' ~ value.wsgi_name,
+             'wsgi_venv': ((barbican_install_method == 'source') | ternary(barbican_bin | dirname, None)),
+             'uwsgi_uid': barbican_system_user_name,
+             'uwsgi_guid': barbican_system_group_name,
+             'uwsgi_processes': barbican_wsgi_processes,
+             'uwsgi_threads': barbican_wsgi_threads
+           }
+         )
+  %}
+  {%     set _ = services.update({key: value}) %}
+  {%   endif %}
+  {% endfor %}
+  {{ services }}

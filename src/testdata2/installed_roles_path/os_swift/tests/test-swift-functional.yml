@@ -1,0 +1,164 @@
+---
+# Copyright 2016, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Setup for swift functional tests
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  vars_files:
+    - common/test-vars.yml
+  tasks:
+    - name: Add test projects
+      os_project:
+        cloud: default
+        state: present
+        name: "{{ item }}"
+        domain_id: "default"
+        endpoint_type: admin
+        verify: "{{ not keystone_service_adminuri_insecure }}"
+      register: _add_test_projects
+      until: _add_test_projects is success
+      retries: 5
+      delay: 10
+      with_items:
+        - "test1"
+        - "test2"
+        - "test5"
+        - "test6"
+      when: groups['keystone_all'] is defined
+
+    - name: Add test roles
+      os_keystone_role:
+        cloud: default
+        state: present
+        name: "{{ item }}"
+        endpoint_type: admin
+        verify: "{{ not keystone_service_adminuri_insecure }}"
+      register: add_test_roles
+      until: add_test_roles is success
+      retries: 5
+      delay: 10
+      with_items:
+        - "test-role"
+        - "test5"
+      when: groups['keystone_all'] is defined
+
+    - name: Add test users
+      os_user:
+        cloud: default
+        state: present
+        name: "{{ item.user_name }}"
+        password: "{{ item.password }}"
+        domain: default
+        default_project: "{{ item.project_name }}"
+        endpoint_type: admin
+        verify: "{{ not keystone_service_adminuri_insecure }}"
+      register: add_test_users
+      until: add_test_users is success
+      retries: 5
+      delay: 10
+      no_log: True
+      with_items:
+        - { user_name: "test1", project_name: "test1", password: "test1" }
+        - { user_name: "test2", project_name: "test2", password: "test2" }
+        - { user_name: "test3", project_name: "test1", password: "test3" }
+        - { user_name: "test5", project_name: "test5", password: "test5" }
+        - { user_name: "test6", project_name: "test6", password: "test6" }
+      when: groups['keystone_all'] is defined
+
+    - name: Add service user to admin role
+      os_user_role:
+        cloud: default
+        state: present
+        user: "{{ item.user_name }}"
+        role: "{{ item.role_name }}"
+        project: "{{ item.project_name }}"
+        endpoint_type: admin
+        verify: "{{ not keystone_service_adminuri_insecure }}"
+      register: add_test_user_roles
+      until: add_test_user_roles is success
+      retries: 5
+      delay: 10
+      with_items:
+        - { user_name: "test1", project_name: "test1", role_name: "admin" }
+        - { user_name: "test2", project_name: "test2", role_name: "admin" }
+        - { user_name: "test3", project_name: "test1", role_name: "test-role" }
+        - { user_name: "test5", project_name: "test5", role_name: "test5" }
+        - { user_name: "test6", project_name: "test6", role_name: "ResellerAdmin" }
+      when: groups['keystone_all'] is defined
+
+- name: Run Swift functional tests
+  hosts: swift_proxy[0]
+  user: root
+  gather_facts: true
+  vars_files:
+    - common/test-vars.yml
+  tasks:
+    - name: Clone swift repository on proxy-host
+      git:
+        repo: "https://opendev.org/openstack/swift"
+        dest: "/opt/swift"
+        update: yes
+        clone: yes
+        version: "{{ swift_git_install_branch }}"
+
+    - name: Install requirements for swift
+      pip:
+        requirements: "{{ item }}"
+        virtualenv: "{{ swift_venv_bin | dirname }}"
+        extra_args: >-
+          {{ swift_developer_mode | ternary(pip_install_developer_constraints | default('--constraint /opt/developer-pip-constraints.txt'), '') }}
+          {{ (pip_install_upper_constraints is defined) | ternary('--constraint ' + pip_install_upper_constraints | default(''),'') }}
+          {{ pip_install_options | default('') }}
+      with_items:
+        - "/opt/swift/test-requirements.txt"
+
+    - name: Setup test.conf for testing
+      template:
+        src: "swift_test.conf.j2"
+        dest: "/etc/swift/test.conf"
+        owner: "swift"
+        group: "swift"
+    - name: Create swap file for swift-storage hosts
+      command: dd if=/dev/zero of=/swift_swap bs=1M count=1024
+      when:
+        - inventory_hostname in groups['swift_hosts']
+
+    - name: Make swap for swift-storage hosts
+      command: mkswap /swift_swap
+      when:
+        - inventory_hostname in groups['swift_hosts']
+
+    - name: Add swap to fstab for swift-storage hosts
+      lineinfile:
+        dest: /etc/fstab
+        regexp: "swift_swap"
+        line: "/swift_swap none swap sw 0 0"
+        state: present
+      when:
+        - inventory_hostname in groups['swift_hosts']
+
+    - name: Turn swap on for swift-storage hosts
+      command: swapon -a
+      when:
+        - inventory_hostname in groups['swift_hosts']
+
+    - name: Run functional tests for swift
+      shell: "source /openstack/venvs/swift-untagged/bin/activate && ./.functests"
+      args:
+        chdir: "/opt/swift/"
+        executable: "/bin/bash"
+      tags:
+        - skip_ansible_lint

@@ -1,0 +1,12 @@
+# {{ ansible_managed }}
+
+{% for realm in swift_container_sync_realms %}
+[{{ realm.name }}]
+key = {{ realm.key1 }}
+{%   if realm.key2 is defined %}
+key2 = {{ realm.key2 }}
+{%   endif %}
+cluster_clustername1 = {{ realm.clustername1 }}
+cluster_clustername2 = {{ realm.clustername2 }}
+
+{% endfor %}

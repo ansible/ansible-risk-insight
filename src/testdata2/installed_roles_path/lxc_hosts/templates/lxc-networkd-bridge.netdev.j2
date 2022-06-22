@@ -1,0 +1,10 @@
+# {{ ansible_managed }}
+[NetDev]
+Name={{ lxc_net_bridge }}
+Kind=bridge
+
+[Bridge]
+ForwardDelaySec=0
+HelloTimeSec=2
+MaxAgeSec=12
+STP=off

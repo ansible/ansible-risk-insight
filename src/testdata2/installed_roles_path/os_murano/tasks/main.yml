@@ -1,0 +1,192 @@
+---
+# Copyright 2019, VEXXHOST, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Gather variables for each operating system
+  include_vars: "{{ lookup('first_found', params) }}"
+  vars:
+    params:
+      files:
+        - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_version'] | lower }}.yml"
+        - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_major_version'] | lower }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}-{{ ansible_facts['distribution_major_version'] | lower }}.yml"
+        - "{{ ansible_facts['distribution'] | lower }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}-{{ ansible_facts['distribution_version'].split('.')[0] }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}.yml"
+      paths:
+        - "{{ role_path }}/vars"
+  tags:
+    - always
+
+- name: Fail if service was deployed using a different installation method
+  fail:
+    msg: "Switching installation methods for OpenStack services is not supported"
+  when:
+    - ansible_local is defined
+    - ansible_local.openstack_ansible is defined
+    - ansible_local.openstack_ansible.murano is defined
+    - ansible_local.openstack_ansible.murano.install_method is defined
+    - ansible_local.openstack_ansible.murano.install_method != murano_install_method
+
+- name: Gather variables for installation method
+  include_vars: "{{ murano_install_method }}_install.yml"
+  tags:
+    - always
+
+- include_role:
+    name: openstack.osa.db_setup
+    apply:
+      tags:
+        - common-db
+        - murano-config
+  when:
+    - _murano_is_first_play_host
+  vars:
+    _oslodb_setup_host: "{{ murano_db_setup_host }}"
+    _oslodb_ansible_python_interpreter: "{{ murano_db_setup_python_interpreter }}"
+    _oslodb_setup_endpoint: "{{ murano_galera_address }}"
+    _oslodb_setup_port: "{{ murano_galera_port }}"
+    _oslodb_databases:
+      - name: "{{ murano_galera_database }}"
+        users:
+          - username: "{{ murano_galera_user }}"
+            password: "{{ murano_galera_password }}"
+  tags:
+    - always
+
+- include_role:
+    name: openstack.osa.mq_setup
+    apply:
+      tags:
+        - common-mq
+        - murano-config
+  when:
+    - _murano_is_first_play_host
+  vars:
+    _oslomsg_rpc_setup_host: "{{ murano_oslomsg_rpc_setup_host }}"
+    _oslomsg_rpc_userid: "{{ murano_oslomsg_rpc_userid }}"
+    _oslomsg_rpc_password: "{{ murano_oslomsg_rpc_password }}"
+    _oslomsg_rpc_vhost: "{{ murano_oslomsg_rpc_vhost }}"
+    _oslomsg_rpc_transport: "{{ murano_oslomsg_rpc_transport }}"
+    _oslomsg_notify_setup_host: "{{ murano_oslomsg_notify_setup_host }}"
+    _oslomsg_notify_userid: "{{ murano_oslomsg_notify_userid }}"
+    _oslomsg_notify_password: "{{ murano_oslomsg_notify_password }}"
+    _oslomsg_notify_vhost: "{{ murano_oslomsg_notify_vhost }}"
+    _oslomsg_notify_transport: "{{ murano_oslomsg_notify_transport }}"
+  tags:
+    - always
+
+- import_tasks: murano_install.yml
+  tags:
+    - murano-install
+
+- import_tasks: murano_post_install.yml
+  tags:
+    - murano-config
+
+- import_tasks: murano_db_sync.yml
+  when:
+    - _murano_is_first_play_host
+  tags:
+    - murano-config
+
+- name: Import uwsgi role
+  import_role:
+    name: uwsgi
+  vars:
+    uwsgi_services: "{{ uwsgi_murano_services }}"
+    uwsgi_install_method: "{{ murano_install_method }}"
+  tags:
+    - murano-config
+    - uwsgi
+
+- name: Run the systemd service role
+  import_role:
+    name: systemd_service
+  vars:
+    systemd_user_name: "{{ murano_system_user_name }}"
+    systemd_group_name: "{{ murano_system_group_name }}"
+    systemd_tempd_prefix: openstack
+    systemd_slice_name: murano
+    systemd_lock_path: /var/lock/murano
+    systemd_CPUAccounting: true
+    systemd_BlockIOAccounting: true
+    systemd_MemoryAccounting: true
+    systemd_TasksAccounting: true
+    systemd_services: |-
+      {% set services = [] %}
+      {% for service in filtered_murano_services %}
+      {%
+        set _ = service.update(
+          {
+            'enabled': 'yes',
+            'state': 'started',
+            'config_overrides': service.init_config_overrides
+          }
+        )
+      %}
+      {%   set _ = service.pop('init_config_overrides') -%}
+      {%   set _ = services.append(service) -%}
+      {% endfor %}
+      {{ services }}
+  tags:
+    - murano-config
+    - systemd-service
+
+- include_role:
+    name: openstack.osa.service_setup
+    apply:
+      tags:
+        - common-service
+        - murano-config
+  vars:
+    _service_adminuri_insecure: "{{ keystone_service_adminuri_insecure }}"
+    _service_in_ldap: "{{ murano_service_in_ldap }}"
+    _service_setup_host: "{{ murano_service_setup_host }}"
+    _service_setup_host_python_interpreter: "{{ murano_service_setup_host_python_interpreter }}"
+    _service_project_name: "{{ murano_service_project_name }}"
+    _service_region: "{{ murano_service_region }}"
+    _service_users:
+      - name: "{{ murano_service_user_name }}"
+        password: "{{ murano_service_password }}"
+        role: "{{ murano_service_role_names }}"
+    _service_endpoints:
+      - service: "{{ murano_service_name }}"
+        interface: "public"
+        url: "{{ murano_service_publicurl }}"
+      - service: "{{ murano_service_name }}"
+        interface: "internal"
+        url: "{{ murano_service_internalurl }}"
+      - service: "{{ murano_service_name }}"
+        interface: "admin"
+        url: "{{ murano_service_adminurl }}"
+    _service_catalog:
+      - name: "{{ murano_service_name }}"
+        type: "{{ murano_service_type }}"
+        description: "{{ murano_service_description }}"
+  when:
+    - _murano_is_first_play_host
+  tags:
+    - always
+
+- name: Flush handlers
+  meta: flush_handlers
+
+- import_tasks: murano_import_libraries.yml
+  when:
+    - _murano_is_first_play_host
+    - "not murano_library_installed | bool"
+  tags:
+    - murano-config
+    - murano-bootstrap

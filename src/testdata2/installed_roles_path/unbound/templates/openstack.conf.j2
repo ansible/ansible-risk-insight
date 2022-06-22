@@ -1,0 +1,44 @@
+# {{ ansible_managed }}
+{% set record_suffix = '.' ~ unbound_regional_zone %}
+{% macro local_data_record(host, address, type='A') -%}
+{% set _valid = true %}
+{% if type == 'A' and not address | ipv4 %}
+{%   set _valid = false %}
+{% elif type == 'AAAA' and not address | ipv6 %}
+{%   set _valid = false %}
+{% endif %}
+{% if _valid | bool %}
+local-data: "{{ host }} {{ type }} {{ address }}"
+{% endif %}
+{%- endmacro %}
+
+server:
+{% for container in groups['all'] %}
+  {%- if hostvars[container]['ansible_host'] is defined %}
+  {%- set record_address = hostvars[container]['ansible_host'] %}
+	{{ local_data_record(container ~ record_suffix, record_address) }}
+  {% set target_rfc_1034_1035_name = container|replace('_', '-') %}
+	{% if target_rfc_1034_1035_name != container %}
+  {{ local_data_record(target_rfc_1034_1035_name ~ record_suffix, record_address) }}
+	{% endif %}
+	{% endif %}
+{% endfor %}
+
+{% for container in groups['compute_hosts'] %}
+  {% if nova_live_migration_interface is defined and hostvars[container]['ansible_' + nova_live_migration_interface] is defined and hostvars[container]['ansible_' + nova_live_migration_interface]['active'] == true %}
+  {%- set record_address = hostvars[container]['ansible_' + nova_live_migration_interface]['ipv4']['address'] %}
+  {{ local_data_record(container ~ '-lm' ~ record_suffix, record_address) }}
+  {% elif hostvars[container]['ansible_host'] is defined %}
+  {%- set record_address = hostvars[container]['ansible_host'] %}
+  {{ local_data_record(container ~ '-lm' ~ record_suffix, record_address) }}
+  {% endif %}
+{% endfor %}
+
+{% for group_name in groups | difference(['all', 'all_containers']) %}
+  {%- for container in groups[group_name] %}
+	  {%- if hostvars[container]['ansible_host'] is defined %}
+        {%- set record_address = hostvars[container]['ansible_host'] %}
+  {{ local_data_record(group_name ~ record_suffix, record_address) }}
+		{% endif %}
+  {% endfor %}
+{% endfor %}

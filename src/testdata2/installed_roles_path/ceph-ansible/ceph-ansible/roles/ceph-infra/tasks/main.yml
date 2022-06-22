@@ -1,0 +1,55 @@
+---
+- name: update cache for Debian based OSs
+  apt:
+    update_cache: yes
+  when: ansible_facts['os_family'] == "Debian"
+  register: result
+  until: result is succeeded
+  tags: package-install
+
+- name: include_tasks configure_firewall.yml
+  include_tasks: configure_firewall.yml
+  when:
+    - configure_firewall | bool
+    - ansible_facts['os_family'] in ['RedHat', 'Suse']
+  tags: configure_firewall
+
+- name: include_tasks setup_ntp.yml
+  include_tasks: setup_ntp.yml
+  when: ntp_service_enabled | bool
+  tags: configure_ntp
+
+- name: ensure logrotate is installed
+  package:
+    name: logrotate
+    state: present
+  register: result
+  until: result is succeeded
+  tags: with_pkg
+  when:
+    - not is_atomic | bool
+    - containerized_deployment | bool
+    - inventory_hostname in groups.get(mon_group_name, []) or
+      inventory_hostname in groups.get(osd_group_name, []) or
+      inventory_hostname in groups.get(mds_group_name, []) or
+      inventory_hostname in groups.get(rgw_group_name, []) or
+      inventory_hostname in groups.get(mgr_group_name, []) or
+      inventory_hostname in groups.get(rbdmirror_group_name, []) or
+      inventory_hostname in groups.get(iscsi_gw_group_name, [])
+
+- name: add logrotate configuration
+  template:
+    src: logrotate.conf.j2
+    dest: /etc/logrotate.d/ceph
+    mode: "0644"
+    owner: root
+    group: root
+  when:
+    - containerized_deployment | bool
+    - inventory_hostname in groups.get(mon_group_name, []) or
+      inventory_hostname in groups.get(osd_group_name, []) or
+      inventory_hostname in groups.get(mds_group_name, []) or
+      inventory_hostname in groups.get(rgw_group_name, []) or
+      inventory_hostname in groups.get(mgr_group_name, []) or
+      inventory_hostname in groups.get(rbdmirror_group_name, []) or
+      inventory_hostname in groups.get(iscsi_gw_group_name, [])

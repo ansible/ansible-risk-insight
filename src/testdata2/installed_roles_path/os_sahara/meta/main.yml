@@ -1,0 +1,28 @@
+---
+galaxy_info:
+  author: flaviodsr
+  description: Installation and setup of sahara
+  company: LSD/UFCG
+  license: Apache2
+  min_ansible_version: 2.2
+  platforms:
+    - name: Debian
+      versions:
+        - buster
+    - name: Ubuntu
+      versions:
+        - bionic
+        - focal
+    - name: EL
+      versions:
+        - 8
+  categories:
+    - cloud
+    - python
+    - sahara
+    - development
+    - openstack
+dependencies:
+  - role: apt_package_pinning
+    when:
+      - ansible_facts['pkg_mgr'] == 'apt'

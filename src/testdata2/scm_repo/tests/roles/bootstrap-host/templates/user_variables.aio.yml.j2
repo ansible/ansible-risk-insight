@@ -1,0 +1,293 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+{% if ansible_facts['os_family'] | lower == 'redhat' %}
+deployment_environment_variables:
+  LIBSYSTEMD_VERSION: {{ systemd_version.stdout_lines[0].split('-')[1] }}
+{% endif %}
+
+## General options
+debug: True
+
+## Installation method for OpenStack services
+install_method: "{{ bootstrap_host_install_method }}"
+
+## Tempest settings
+tempest_public_subnet_cidr: "172.29.248.0/22"
+tempest_public_subnet_allocation_pools: "172.29.249.110-172.29.249.200"
+
+## Galera settings
+galera_monitoring_allowed_source: "0.0.0.0/0"
+# TODO(noonedeadpunk): This should be enabled, once we will re-work SSL part
+#galera_use_ssl: "{{ ('infra' in bootstrap_host_scenarios_expanded) }}"
+galera_innodb_buffer_pool_size: 16M
+galera_innodb_log_buffer_size: 4M
+galera_wsrep_provider_options:
+ - { option: "gcache.size", value: "4M" }
+
+### Set workers for all services to optimise memory usage
+
+## Repo
+repo_nginx_threads: 2
+
+## Keystone
+keystone_httpd_mpm_start_servers: 2
+keystone_httpd_mpm_min_spare_threads: 1
+keystone_httpd_mpm_max_spare_threads: 2
+keystone_httpd_mpm_thread_limit: 15
+keystone_httpd_mpm_thread_child: 5
+keystone_wsgi_threads: 1
+keystone_wsgi_processes: 1
+
+## Barbican
+barbican_wsgi_processes: 1
+barbican_wsgi_threads: 1
+
+## Cinder
+cinder_wsgi_processes: 1
+cinder_wsgi_threads: 1
+cinder_wsgi_buffer_size: 16384
+cinder_osapi_volume_workers_max: 1
+
+## cloudkitty
+cloudkitty_wsgi_processes: 1
+cloudkitty_wsgi_threads: 1
+
+## Glance
+glance_api_threads: 1
+glance_api_workers: 1
+glance_wsgi_threads: 1
+glance_wsgi_processes: 1
+
+## Placement
+placement_wsgi_threads: 1
+placement_wsgi_processes: 1
+placement_wsgi_buffer_size: 16384
+
+## Manila
+manila_wsgi_processes: 1
+manila_wsgi_threads: 1
+manila_osapi_share_workers: 2
+manila_wsgi_buffer_size: 65535
+
+## mistral
+mistral_wsgi_processes: 1
+mistral_wsgi_threads: 1
+
+## Nova
+nova_reserved_host_memory_mb: 256
+nova_wsgi_threads: 1
+nova_wsgi_processes: 1
+nova_wsgi_buffer_size: 16384
+nova_api_threads: 1
+nova_osapi_compute_workers: 1
+nova_conductor_workers: 1
+nova_metadata_workers: 1
+nova_scheduler_workers: 1
+
+## Neutron
+neutron_rpc_workers: 1
+neutron_metadata_workers: 1
+neutron_api_workers: 1
+neutron_api_threads: 2
+neutron_num_sync_threads: 1
+neutron_wsgi_processes: 1
+
+## Octavia
+octavia_wsgi_threads: 1
+octavia_wsgi_processes: 1
+octavia_wsgi_buffer_size: 16384
+octavia_management_net_subnet_cidr: 172.29.232.0/22
+octavia_management_net_subnet_allocation_pools: "172.29.232.50-172.29.235.254"
+
+## Heat
+heat_api_workers: 1
+heat_api_threads: 1
+heat_wsgi_threads: 1
+heat_wsgi_processes: 1
+heat_wsgi_buffer_size: 16384
+
+## Horizon
+horizon_wsgi_processes: 1
+horizon_wsgi_threads: 1
+
+## Ceilometer
+ceilometer_notification_workers: 1
+
+## AODH
+aodh_wsgi_threads: 1
+aodh_wsgi_processes: 1
+
+## Gnocchi
+gnocchi_wsgi_threads: 1
+gnocchi_wsgi_processes: 1
+gnocchi_metricd_workers: 1
+
+## Swift
+swift_account_server_replicator_workers: 1
+swift_server_replicator_workers: 1
+swift_object_replicator_workers: 1
+swift_account_server_workers: 1
+swift_container_server_workers: 1
+swift_object_server_workers: 1
+swift_proxy_server_workers_not_capped: 1
+swift_proxy_server_workers_capped: 1
+swift_proxy_server_workers: 1
+
+## Ironic
+ironic_wsgi_threads: 1
+ironic_wsgi_processes: 1
+
+## Ironic  Inspector
+ironic_inspector_wsgi_threads: 1
+ironic_inspector_wsgi_processes: 1
+
+## Trove
+trove_service_net_setup: true
+trove_api_workers: 1
+trove_conductor_workers: 1
+trove_wsgi_threads: 1
+trove_wsgi_processes: 1
+
+## Magnum
+magnum_wsgi_processes: 1
+magnum_conductor_workers: 1
+
+## Octavia
+{% if 'metal' in bootstrap_host_scenarios %}
+# TODO(mnaser): The Octavia role relies on gathering IPs of hosts in the
+#               LBaaS network and using those in the health manager pool
+#               IPs.  We don't store those IPs when running metal so we
+#               have to override it manually.  We should remove this and
+#               fix the role (or the inventory tool) eventually.
+octavia_hm_hosts: 172.29.232.100 # br-lbaas IP
+{% endif %}
+
+## Sahara
+sahara_api_workers: 1
+sahara_wsgi_threads: 1
+sahara_wsgi_processes: 1
+sahara_wsgi_buffer_size: 16384
+
+## Zun
+zun_api_threads: 1
+zun_wsgi_threads: 1
+zun_wsgi_processes: 1
+
+## Senlin
+senlin_api_threads: 1
+senlin_wsgi_threads: 1
+senlin_wsgi_processes: 1
+
+# NOTE: hpcloud-b4's eth0 uses 10.0.3.0/24, which overlaps with the
+#       lxc_net_address default
+# TODO: We'll need to implement a mechanism to determine valid lxc_net_address
+#       value which will not overlap with an IP already assigned to the host.
+lxc_net_address: 10.255.255.1
+lxc_net_netmask: 255.255.255.0
+lxc_net_dhcp_range: 10.255.255.2,10.255.255.253
+lxc_net_mtu: {{ hostvars[inventory_hostname]['ansible_' ~ bootstrap_host_public_interface]['mtu'] | default(1500) }}
+
+{% if nodepool_vars is defined and nodepool_vars.NODEPOOL_LXC_IMAGE_PROXY is defined %}
+## images.linuxcontainers.org reverse proxy
+lxc_image_cache_server_mirrors:
+  - "http://{{ nodepool_vars.NODEPOOL_LXC_IMAGE_PROXY }}"
+{% endif %}
+
+{% if cache_timeout is defined %}
+## Package cache timeout
+cache_timeout: {{ cache_timeout }}
+{% endif %}
+
+lxc_container_backing_store: {{ _lxc_container_backing_store }}
+{% if _lxc_container_backing_store == 'zfs' %}
+lxc_container_zfs_root_name: "osa-test-pool/lxc"
+{% endif %}
+
+# bind mount the zuul repos into the containers
+lxc_container_bind_mounts:
+  - host_directory: "/home/zuul/src"
+    container_directory: "/openstack/src"
+  - host_directory: "/opt/cache/files"
+    container_directory: "/opt/cache/files"
+
+## Always setup tempest, the resources for it, then execute tests
+tempest_install: yes
+tempest_run: yes
+rally_install: yes
+
+# Do a gateway ping test once the tempest role creates it
+tempest_network_ping_gateway: yes
+
+{% if nodepool_dir.stat.exists %}
+# Copy /etc/pip.conf into containers to get mirrors for wheels
+# and due to extra-index-url bugs in Ubuntu, we workaround it
+# by ignoring the config file during PIP upgrade time
+venv_pip_upgrade_noconf: true
+lxc_container_cache_files_from_host:
+  - /etc/pip.conf
+# Disable chronyd in OpenStack CI
+security_rhel7_enable_chrony: no
+# The location where images are downloaded in openstack-infra
+tempest_image_dir: "/opt/cache/files"
+{% endif %}
+
+# For testing purposes in public clouds, we need to ignore these
+# services when trying to do a reload of nova services.
+nova_service_negate:
+  - "nova-agent.service"
+  - "nova-resetnetwork.service"
+
+# Set all the distros to the same value: a "quiet" print
+# of kernel log messages.
+openstack_user_kernel_options:
+  - key: 'kernel.printk'
+    value: '4 1 7 4'
+
+openstack_hosts_package_state: latest
+
+{% if bootstrap_host_action == 'deploy' %}
+openstack_service_adminuri_proto: https
+openstack_service_internaluri_proto: https
+haproxy_ssl_all_vips: true
+{% endif %}
+
+{% if 'octavia' in bootstrap_host_scenarios_expanded %}
+# Enable Octavia V2 API/standalone
+octavia_v2: True
+# Disable Octavia V1 API
+octavia_v1: False
+octavia_management_net_subnet_cidr: '172.29.232.0/22'
+tempest_run_concurrency: 0
+{% endif %}
+
+{% if 'proxy' in bootstrap_host_scenarios_expanded %}
+# For testing with the 'proxy' scenario configure deployment environment
+# to point to the local squid
+# Playbooks will set a runtime proxy to the AIO host squid
+deployment_environment_variables:
+  http_proxy: http://172.29.236.100:3128/
+  https_proxy: http://172.29.236.100:3128/
+  no_proxy: "localhost,127.0.0.1,172.29.236.100,{{ bootstrap_host_public_address | default(ansible_facts['default_ipv4']['address']) }}"
+
+# Remove eth0 from all container so there is no default route and everything
+# must go via the http proxy
+lxc_container_networks: {}
+{% endif %}
+
+{% if 'ironic' in bootstrap_host_scenario %}
+# The ironic inspector DHCP address that hands out DHCP offers
+ironic_inspector_dhcp_address: 172.29.228.100
+{% endif %}

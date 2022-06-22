@@ -1,0 +1,39 @@
+---
+# Copyright 2018, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+keystone_core_files: []
+
+uwsgi_keystone_services: |-
+  {% set services = {} %}
+  {% for key, value in keystone_services.items() %}
+  {%   if (value['group'] in group_names) and
+         (('condition' not in value) or ('condition' in value and value['condition']))
+         and ('wsgi_app' in value and value['wsgi_app']) %}
+  {%     set _ = value.update(
+           {
+             'wsgi_venv': (keystone_install_method == 'source') | ternary(keystone_bin | dirname, None),
+             'uwsgi_uid': keystone_system_user_name,
+             'uwsgi_guid': keystone_system_group_name,
+             'uwsgi_processes': keystone_wsgi_processes,
+             'uwsgi_threads': keystone_wsgi_threads,
+           }
+         ) %}
+  {%     set _ = services.update({key: value}) %}
+  {%   endif %}
+  {% endfor %}
+  {{ services }}
+
+_keystone_is_first_play_host: "{{ (keystone_services['keystone-wsgi-public']['group'] in group_names and inventory_hostname == ((groups[keystone_services['keystone-wsgi-public']['group']] | intersect(ansible_play_hosts)) | list)[0]) | bool }}"
+_keystone_is_last_play_host: "{{ (keystone_services['keystone-wsgi-public']['group'] in group_names and inventory_hostname == ((groups[keystone_services['keystone-wsgi-public']['group']] | intersect(ansible_play_hosts)) | list)[-1]) | bool }}"

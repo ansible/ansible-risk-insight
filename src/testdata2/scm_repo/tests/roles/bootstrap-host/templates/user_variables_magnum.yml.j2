@@ -1,0 +1,73 @@
+---
+# Copyright 2020, VEXXHOST, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+magnum_glance_images:
+  - name: fedora-coreos-latest
+    disk_format: qcow2
+    image_format: bare
+    public: true
+    file: https://builds.coreos.fedoraproject.org/prod/streams/stable/builds/35.20220424.3.0/x86_64/fedora-coreos-35.20220424.3.0-openstack.x86_64.qcow2.xz
+    distro: "fedora-coreos"
+    checksum: "sha256:55e1741989ee38fb023528bfc9038f6362cae472aeb724add02309e47aa6acbd"
+
+magnum_cluster_templates:
+  - name: k8s
+    cloud: default
+    coe: kubernetes
+    docker_volume_size: 10
+    flavor_id: s1.magnum
+    master_flavor_id: m1.magnum
+    network_driver: flannel
+    volume_driver: cinder
+    image_id: fedora-coreos-latest
+    labels:
+      kube_tag: v1.23.3-rancher1
+      etcd_tag: 3.4.6
+      kube_version: v1.23.3
+      boot_volume_size: 10
+      cloud_provider_tag: v1.23.1
+
+magnum_flavors:
+  - name: s1.magnum
+    cloud: default
+    ram: 256
+    vcpus: 1
+    disk: 5
+  - name: m1.magnum
+    cloud: default
+    ram: 340
+    vcpus: 1
+    disk: 5
+
+tempest_test_includelist:
+  - magnum_tempest_plugin.tests
+
+
+# NOTE(noonedeadpunk): We comment these tests out because of weird magnum things happening like
+# http://paste.openstack.org/show/790131/
+# But when "b''" around auth toke is dropped, everything is fine.
+tempest_test_excludelist:
+  - magnum_tempest_plugin.tests.api.v1.test_cluster.ClusterTest.test_create_list_sign_delete_clusters
+  - magnum_tempest_plugin.tests.api.v1.test_cluster.ClusterTest.test_create_cluster_with_nonexisting_flavor
+  - magnum_tempest_plugin.tests.api.v1.test_cluster.ClusterTest.test_create_cluster_with_zero_nodes
+
+tempest_tempest_conf_overrides:
+  magnum:
+    coe: kubernetes
+    network_driver: flannel
+    master_flavor_id: m1.magnum
+    flavor_id: s1.magnum
+    image_id: fedora-coreos-latest
+    magnum_url: http://172.29.236.100:9511

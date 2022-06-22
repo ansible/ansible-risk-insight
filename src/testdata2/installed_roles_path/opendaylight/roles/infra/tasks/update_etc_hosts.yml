@@ -1,0 +1,15 @@
+---
+- name: Add infra server (docker registry) to /etc/hosts
+  tags:
+    - network
+    - docker
+  lineinfile:
+    dest: /etc/hosts
+    regexp: "^.*{{ infrastructure_server }}"
+    line: "{{ registry_ip_address }}    {{ infrastructure_server }}"
+    state: present
+  register: docker_updated_result
+  notify: restart docker
+
+# vim: set et ts=2 sw=2 ai ft=yaml :
+

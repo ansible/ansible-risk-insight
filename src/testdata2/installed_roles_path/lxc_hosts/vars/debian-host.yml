@@ -1,0 +1,55 @@
+---
+# Copyright 2019, VEXXHOST, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+## APT Cache Options
+cache_timeout: 600
+
+# Required apt packages.
+_lxc_hosts_distro_packages:
+  - apparmor
+  - apparmor-profiles
+  - apparmor-utils
+  - bridge-utils
+  - btrfs-progs
+  - dbus
+  - debootstrap
+  - dnsmasq-base
+  - git
+  - gzip
+  - ifupdown
+  - iptables
+  - irqbalance
+  - liblxc1
+  - lxc
+  - lxc-dev
+  - lxc-templates
+  - procps
+  - python3-lxc
+  - python3-dev
+  - systemd-container
+  - xz-utils
+
+# Package to remove from the host
+lxc_hosts_remove_distro_packages:
+  - dnsmasq
+
+lxc_xz_bin: xz
+
+system_config_dir: "/etc/default"
+systemd_utils_prefix: "/lib/systemd"
+
+lxc_cached_network_interfaces:
+  - src: "lxc-net-bridge.cfg.j2"
+    dest: "/etc/network/interfaces.d/lxc-net-bridge.cfg"

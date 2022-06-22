@@ -1,0 +1,8 @@
+# {{ ansible_managed }}
+
+[drive-audit]
+device_dir = {{ swift_vars.mount_point | default(swift.mount_point) }}
+minutes = 60
+error_limit = 2
+regex_pattern_1 = \berror\b.*\b(sd[a-z]+([0-9]+)?)\b
+regex_pattern_2 = \b(sd[a-z]+([0-9]+)?)\b.*\berror\b

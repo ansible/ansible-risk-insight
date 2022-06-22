@@ -1,0 +1,163 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Define horizon_lib_dir when it's not set
+  when: horizon_lib_dir is not defined
+  block:
+    - name: Find the venv's python version
+      command: "{{ horizon_bin }}/{{ horizon_venv_python_executable }} -c 'import horizon; print(horizon.__file__)'"
+      changed_when: false
+      register: _horizon_python_venv_details
+
+    - name: Set python lib dir fact
+      set_fact:
+        horizon_lib_dir: "{{ _horizon_python_venv_details.stdout | dirname | dirname }}"
+
+- name: Configure source-installed dashboards
+  include_tasks: horizon_post_install_source.yml
+  when: horizon_install_method == 'source'
+
+# NOTE(noonedeadpunk): change of permission is required for collectstatic and compilemessages
+- name: Ensure horizon dirs are accessible by user
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ horizon_system_user_name }}"
+    group: "{{ horizon_system_group_name }}"
+    mode: "0755"
+    recurse: yes
+  with_items:
+    - { path: "{{ horizon_lib_dir }}", fixup: True }
+    - { path: "/etc/openstack-dashboard", fixup: "{{ (ansible_facts['os_family'] | lower) == 'redhat' }}" }
+  when: item.fixup
+
+# TODO(hwoarang): See if we can use local_settings.py from the distribution packages
+# when horizon_install_method == 'distro'
+- name: Setup Horizon config(s)
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "{{ item.owner|default(horizon_system_user_name) }}"
+    group: "{{ horizon_system_group_name }}"
+    mode: "{{ item.mode }}"
+  with_items:
+    - src: "horizon_local_settings.py.j2"
+      dest: "/etc/horizon/local_settings.py"
+      owner: "root"
+      mode: "0640"
+    - src: "horizon-manage.py.j2"
+      dest: "{{ horizon_bin }}/horizon-manage.py"
+      mode: "0755"
+    - src: "80_admin_default_panel.py.j2"
+      dest: "{{ horizon_lib_dir }}/openstack_dashboard/local/enabled/_80_admin_default_panel.py"
+      mode: "0755"
+  notify: Restart apache2
+
+- name: Retrieve horizon policy files
+  slurp:
+    src: "{{ horizon_lib_dir }}/openstack_dashboard/conf/{{ item }}_policy.yaml"
+  with_items: "{{ horizon_policy_overrides.keys() | list }}"
+  register: _horizon_policy
+
+- name: Place policy overrides
+  openstack.config_template.config_template:
+    content: "{{ item.content | b64decode }}"
+    dest: "{{ item.source }}"
+    mode: "0644"
+    config_type: json
+    config_overrides: "{{ horizon_policy_overrides[item.item] }}"
+  with_items: "{{ _horizon_policy.results }}"
+
+- name: Uploading horizon custom files
+  copy:
+    src: "{{ item.value.src }}"
+    dest: "{{ horizon_lib_dir }}/openstack_dashboard/static/dashboard/{{ item.value.dest }}"
+  with_dict: "{{ horizon_custom_uploads | default({}) }}"
+
+- name: Create horizon links
+  file:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "{{ horizon_system_user_name }}"
+    group: "{{ horizon_system_group_name }}"
+    state: "link"
+    force: yes
+  with_items:
+    - { src: "/etc/horizon/local_settings.py", dest: "{{ horizon_lib_dir }}/openstack_dashboard/local/local_settings.py" }
+
+- name: Create customization module directory
+  file:
+    path: "{{ horizon_lib_dir }}/horizon_customization"
+    state: directory
+    owner: "{{ horizon_system_user_name }}"
+    group: "{{ horizon_system_group_name }}"
+    mode: "0755"
+  when: horizon_customization_module is defined
+
+- name: Drop horizon customization module
+  template:
+    src: "{{ horizon_customization_module }}"
+    dest: "{{ horizon_lib_dir }}/horizon_customization/__init__.py"
+    owner: "{{ horizon_system_user_name }}"
+    group: "{{ horizon_system_group_name }}"
+    mode: "0644"
+  notify: Restart apache2
+  when: horizon_customization_module is defined
+
+- name: Creating horizon custom theme path
+  file:
+    path: "{{ horizon_lib_dir }}/openstack_dashboard/{{ item.value.theme_path }}/"
+    state: directory
+    owner: "{{ horizon_system_user_name }}"
+    group: "{{ horizon_system_group_name }}"
+    mode: "0755"
+  with_dict: "{{ horizon_custom_themes }}"
+
+- name: Drop horizon custom themes
+  unarchive:
+    src: "{{ item.value.theme_src_archive }}"
+    dest: "{{ horizon_lib_dir }}/openstack_dashboard/{{ item.value.theme_path }}/"
+    owner: "{{ horizon_system_user_name }}"
+    group: "{{ horizon_system_group_name }}"
+  with_dict: "{{ horizon_custom_themes }}"
+  when: item.value.theme_src_archive is defined
+  notify: Restart apache2
+
+- name: Collect static files
+  command: "{{ horizon_manage }} collectstatic --noinput"
+  become: yes
+  become_user: "{{ horizon_system_user_name }}"
+  changed_when: false
+  notify: Restart apache2
+
+- name: Compress static files
+  command: "{{ horizon_manage }} compress --force"
+  become: yes
+  become_user: "{{ horizon_system_user_name }}"
+  changed_when: false
+  notify: Restart apache2
+  register: async_compress_static_files
+  async: 600
+  poll: 0
+
+- name: Register DB session cleanup cron
+  cron:
+    name: "Clear out expired sessions"
+    minute: "{{ 58 | random(seed=inventory_hostname, start=2) }}"
+    hour: "21"
+    job: "{{ horizon_manage }} clearsessions"
+    user: "{{ horizon_system_user_name }}"
+    state: present
+  when: inventory_hostname == ansible_play_hosts[0]

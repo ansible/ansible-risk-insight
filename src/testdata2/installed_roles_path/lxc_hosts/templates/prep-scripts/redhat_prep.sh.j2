@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -e -x
+
+{{ lxc_cache_prep_pre_commands }}
+
+{% include 'templates/prep-scripts/_container_sys_setup.sh.j2' %}
+
+if [[ -d "/etc/pki/rpm-gpg" ]]; then
+  rpm --import /etc/pki/rpm-gpg/* || true
+fi
+
+# The containers do not need the LXC repository (only hosts need it).
+rm -f /etc/yum.repos.d/thm-lxc3.0*
+# This repo should be installed from package, so requires extra vars to work properly
+rm -f /etc/yum.repos.d/CentOS-NFV-OpenvSwitch.repo
+
+# Create dnf transaction file and run it all at once
+echo "update" > /tmp/package-transaction.txt
+echo "install {{ lxc_cache_distro_packages | join(' ') }}" >> /tmp/package-transaction.txt
+echo "run" >> /tmp/package-transaction.txt
+dnf -y shell /tmp/package-transaction.txt
+rm -f /tmp/package-transaction.txt
+rm /etc/machine-id || true
+rm /var/lib/dbus/machine-id || true
+rm /etc/sysctl.d/* || true
+echo '' > /etc/sysctl.conf
+touch /etc/machine-id
+dnf clean all
+mkdir -p /var/backup
+chage -I -1 -d -1 -m 0 -M 99999 -E -1 root
+
+# Set the IP of the lxcbr0 interface as the DNS server
+echo "nameserver {{ lxc_net_address }}" > /etc/resolv.conf
+systemctl enable systemd-networkd
+systemctl enable systemd-resolved
+
+# Fully disable systemd-logind
+systemctl disable systemd-logind
+systemctl mask systemd-logind
+
+{{ lxc_cache_prep_post_commands }}

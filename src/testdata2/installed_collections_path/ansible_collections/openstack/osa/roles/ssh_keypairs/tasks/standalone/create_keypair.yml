@@ -1,0 +1,54 @@
+---
+# Copyright 2022, BBC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Create keypair {{ kp['name'] }}
+  vars:
+    ansible_python_interpreter: "{{ ssh_keypairs_setup_host_python_interpreter }}"
+    _ca_file: "{{ ssh_keypairs_dir ~ '/' ~ kp.cert.signed_by }}"
+  delegate_to: "{{ ssh_keypairs_setup_host }}"
+  block:
+
+      - name: Generate key pair for {{ kp['name'] }}
+        community.crypto.openssh_keypair:
+          comment: "{{ kp.comment | default(omit) }}"
+          passphrase: "{{ kp.passphrase | default(omit) }}"
+          regenerate: "{{ kp.regenerate | default(omit) }}"
+          size: "{{ kp.size | default(omit) }}"
+          type: "{{ kp.type | default(omit) }}"
+          path: "{{ kp_dir ~ '/' ~ kp['name'] }}"
+        register: kp_keys
+
+      - name: Generate an OpenSSH user certificate for {{ kp['name'] }}
+        community.crypto.openssh_cert:
+          identifier: "{{ kp.cert.identifier | default(omit) }}"
+          options: "{{ ssh_keypairs_cert_base_options | union(kp.cert.options | default([])) }}"
+          principals: "{{ kp.cert.principals | default(omit) }}"
+          regenerate: "{{ kp.cert.regenerate | default('full_idempotence') }}"
+          signature_algorithm: "{{ kp.cert.signature_algorithm | default(omit) }}"
+          signing_key: "{{ _ca_file }}"
+          type: "{{ kp.cert.type | default('user') }}"
+          public_key: "{{ kp_keys['filename'] ~ '.pub' }}"
+          path: "{{ kp_keys['filename'] ~ '-cert.pub' }}"
+          valid_from: "{{ kp.cert.valid_from }}"
+          valid_to: "{{ kp.cert.valid_to }}"
+        when:
+          - kp.cert is defined
+        register: kp_cert
+
+      - name: Save certificate info for signed key {{ kp['name'] }}
+        copy:
+          content: "{{ kp_cert['info'] | to_nice_yaml }}"
+          dest: "{{ kp_keys['filename'] ~ '-cert.info' }}"
+        when: kp_cert is changed

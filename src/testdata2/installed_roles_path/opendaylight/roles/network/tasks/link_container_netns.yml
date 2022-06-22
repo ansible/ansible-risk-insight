@@ -1,0 +1,62 @@
+---
+- name: Get SandboxKey for container
+  tags:
+    - container
+    - network
+  vars:
+    # container_name: must be passed on command line. E.g. '--extra-vars "container_name=compute-5-11"'
+  command: "docker inspect --format {% raw %} '{{.NetworkSettings.SandboxKey}}' {% endraw %} {{ container_name }}"
+  register: sandbox_key
+
+- name: Print sandbox_key
+  tags:
+    - container
+    - network
+    - debug
+  debug:
+    msg: "Container '{{ container_name }}' has SandboxKey '{{ sandbox_key.stdout }}'"
+    verbosity: 2
+
+- name: Ensure host netns directory exists
+  tags:
+    - container
+    - network
+  file:
+    path: "{{ host_netns_root }}"
+    state: directory
+    mode: 0755
+
+- name: Set_fact netns_name
+  tags:
+    - container
+    - network
+  set_fact:
+    netns_name: "netns-{{ container_name }}"
+
+- name: Set_fact container_netns link name
+  tags:
+    - container
+    - network
+  set_fact:
+    netns_link: "{{ host_netns_root }}/{{ netns_name }}"
+
+- name: Remove netns link if it already exists
+  tags:
+    - container
+    - network
+    - cleanup
+  file:
+    path: "{{ netns_link }}"
+    state: absent
+    force: yes
+
+- name: Link container netns to host netns
+  tags:
+    - container
+    - network
+  file:
+    src: "{{ sandbox_key.stdout }}"
+    path: "{{ netns_link }}"
+    state: link
+    force: yes
+

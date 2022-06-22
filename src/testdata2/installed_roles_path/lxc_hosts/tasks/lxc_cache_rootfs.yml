@@ -1,0 +1,79 @@
+---
+# Copyright 2020, BBC R&D
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Create sparse machines file
+  command: "truncate -s 11G /var/lib/machines.raw"
+  args:
+    creates: /var/lib/machines.raw
+  register: machines_create
+
+- name: Format the machines file
+  filesystem:
+    fstype: ext4
+    dev: /var/lib/machines.raw
+  when:
+    - machines_create is changed
+
+- name: Create systemd mount
+  import_role:
+    name: systemd_mount
+  vars:
+    systemd_mounts:
+      - what: '/var/lib/machines.raw'
+        where: '/var/lib/machines'
+        type: 'ext4'
+        options: 'loop'
+        unit:
+          ConditionPathExists:
+            - '/var/lib/machines.raw'
+        state: 'started'
+        enabled: true
+
+- name: Remove the old image cache
+  file:
+    path: "/var/lib/machines/{{ lxc_container_base_name }}"
+    state: absent
+  when:
+    - lxc_image_cache_refresh | bool
+
+- name: Create new image cache directory
+  file:
+    path: "/var/lib/machines/{{ lxc_container_base_name }}"
+    state: directory
+  register: create_new_dir
+
+- name: Tasks for image download
+  when:
+    - lxc_hosts_container_build_command | length == 0
+  block:
+    - name: Wait for base image download
+      async_status:
+        jid: "{{ prestage_image.ansible_job_id }}"
+      register: _lxc_prestage_image_result
+      until: _lxc_prestage_image_result.finished
+      delay: 5
+      retries: "{{ lxc_cache_prep_timeout | int // 5 }}"
+
+    - name: Unpack base image
+      unarchive:
+        src: "/tmp/{{ cache_basename }}"
+        dest: "/var/lib/machines/{{ lxc_container_base_name }}"
+        remote_src: yes
+      when: create_new_dir is changed
+
+- name: Build the base image using a CLI tool
+  command: "{{ lxc_hosts_container_build_command }}"
+  when: lxc_hosts_container_build_command | length > 0
+

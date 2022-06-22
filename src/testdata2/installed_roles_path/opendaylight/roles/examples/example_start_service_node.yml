@@ -1,0 +1,7 @@
+---
+- hosts: service-node-hosts
+  become: yes
+  roles:
+    - common
+    - service
+

@@ -1,0 +1,6 @@
+- name: Checking that required variables are set
+  fail: msg="{{ item }} is not defined"
+  when: not item
+  with_items:
+    - pacemaker_corosync_group
+    - pacemaker_corosync_ring_interface

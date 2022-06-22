@@ -1,0 +1,5 @@
+---
+ansible_host: 10.1.0.4
+ansible_become: True
+ansible_user: root
+container_name: container3

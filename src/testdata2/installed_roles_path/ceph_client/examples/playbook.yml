@@ -1,0 +1,5 @@
+- name: Install Ceph client
+  hosts: all
+  user: root
+  roles:
+    - role: "ceph_client"

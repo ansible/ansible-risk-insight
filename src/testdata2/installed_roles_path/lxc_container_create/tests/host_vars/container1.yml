@@ -1,0 +1,5 @@
+---
+ansible_host: 10.100.100.2
+ansible_become: True
+ansible_user: root
+container_name: container1

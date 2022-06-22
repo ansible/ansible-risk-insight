@@ -1,0 +1,28 @@
+---
+# tacker messaging setup
+
+# TODO(ansmith): change to common messaging setup
+- name: Ensure Rabbitmq vhost
+  rabbitmq_vhost:
+    name: "{{ tacker_oslomsg_rpc_vhost }}"
+    state: "present"
+  delegate_to: "{{ groups['oslomsg_rpc_all'][0] }}"
+  tags:
+    - tacker-rabbitmq
+    - tacker-rabbitmq-vhost
+
+- name: Ensure rabbitmq user
+  rabbitmq_user:
+    user: "{{ tacker_oslomsg_rpc_userid }}"
+    password: "{{ tacker_oslomsg_rpc_password }}"
+    vhost: "{{ tacker_oslomsg_rpc_vhost }}"
+    configure_priv: ".*"
+    read_priv: ".*"
+    write_priv: ".*"
+    state: "present"
+  delegate_to: "{{ groups['oslomsg_rpc_all'][0] }}"
+  no_log: true
+  tags:
+    - tacker-rabbitmq
+    - tacker-rabbitmq-user
+

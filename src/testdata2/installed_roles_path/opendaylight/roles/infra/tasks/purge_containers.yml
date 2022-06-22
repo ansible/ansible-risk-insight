@@ -1,0 +1,25 @@
+---
+- name: Get list of running containers
+  tags:
+    - cleanup
+    - status
+  shell: "docker ps --quiet --all --filter \"name={{ name_filter }}\" "
+  register: container_list
+
+- name: Print list of containers matching name_filter
+  tags:
+    - cleanup
+    - status
+  debug:
+    msg: "Containers matching '{{ name_filter }}' = {{ container_list.stdout }}"
+  when: container_list.stdout != ""
+
+- name: Remove containers matching filter
+  tags:
+    - cleanup
+    - purge
+  docker_container:
+    name: "{{ item }}"
+    state: absent
+  with_items: "{{ container_list.stdout_lines }}"
+  when: container_list.stdout != ""

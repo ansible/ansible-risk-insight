@@ -1,0 +1,24 @@
+---
+lint: |
+  set -e
+  yamllint .
+  ansible-lint -vv --exclude=.tox --exclude=molecule/default/converge.yml -x 204,208
+dependency:
+  name: galaxy
+driver:
+  name: docker
+verifier:
+  name: ansible
+provisioner:
+  name: ansible
+  options:
+    v: True
+  log: True
+platforms:
+  - name: pacemaker
+    image: "${docker_user:-quay.io/gotmax23}/${docker_image_tag:-ubuntu-systemd:focal}"
+    command: ""
+    pre_build_image: true
+    groups:
+      - corosync
+    privileged: true

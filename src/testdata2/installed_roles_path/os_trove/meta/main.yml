@@ -1,0 +1,29 @@
+---
+galaxy_info:
+  author: Donovan Francesco <donovan.francesco@is.co.za>
+  description: Deploy Trove with OpenStack Ansible
+  company: OpenStack
+  license: Apache-2.0
+  min_ansible_version: 2.2
+  version: 0.1.0
+  platforms:
+  - name: Debian
+    versions:
+    - buster
+  - name: Ubuntu
+    versions:
+      - bionic
+      - focal
+  - name: EL
+    versions:
+      - 8
+  galaxy_tags:
+   - cloud
+   - openstack
+   - python
+   - trove
+
+dependencies:
+  - role: apt_package_pinning
+    when:
+      - ansible_facts['pkg_mgr'] == 'apt'

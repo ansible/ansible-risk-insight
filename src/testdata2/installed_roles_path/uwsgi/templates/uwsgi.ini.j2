@@ -1,0 +1,42 @@
+[uwsgi]
+uid = {{ item.value.uwsgi_uid | default(uwsgi_system_user_name) }}
+gid = {{ item.value.uwsgi_guid | default(uwsgi_system_group_name) }}
+
+{% if 'wsgi_venv' in item.value and item.value.wsgi_venv %}
+virtualenv = {{ item.value.wsgi_venv }}
+{% endif %}
+{% if uwsgi_install_method == 'distro' and (ansible_facts['os_family'] | lower) == 'debian' %}
+plugin = python3
+{% endif %}
+{% if 'wsgi_path' in item.value %}
+wsgi-file = {{ item.value.wsgi_path }}
+{% elif 'wsgi' in item.value %}
+wsgi = {{ item.value.wsgi }}
+{% endif %}
+{% if item.value.uwsgi_tls | default({}) | length %}
+https-socket = {{ item.value.uwsgi_bind_address | default('0.0.0.0') }}:{{ item.value.uwsgi_port | default(8080) }},{{ item.value.uwsgi_tls.crt }},{{ item.value.uwsgi_tls.key }},HIGH
+{% else %}
+http-socket = {{ item.value.uwsgi_bind_address | default('0.0.0.0') }}:{{ item.value.uwsgi_port | default(8080) }}
+{% endif %}
+
+master = true
+enable-threads = true
+processes = {{ item.value.uwsgi_processes | default([ansible_facts['processor_vcpus'] | default(1), 1] | max * 2) }}
+threads = {{ item.value.uwsgi_threads | default(1) }}
+exit-on-reload = true
+die-on-term = true
+lazy-apps = true
+add-header = Connection: close
+buffer-size = 65535
+thunder-lock = true
+disable-logging = true
+http-auto-chunked = true
+http-raw-body = true
+socket-timeout = 10
+need-app = true
+env = {{ item.value.uwsgi_env |  default(uwsgi_env) }}
+safe-pidfile = {{ uwsgi_run_dir }}/{{ item.key }}/{{ uwsgi_system_slice_name }}/{{ item.key }}.pid
+
+log-x-forwarded-for = true
+# Avoid filling up the logs with health check requests from haproxy.
+route-user-agent = ^osa-haproxy-healthcheck$ donotlog:

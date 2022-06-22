@@ -1,0 +1,37 @@
+---
+# Copyright 2015, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Playbook for role testing
+  hosts: localhost
+  connection: local
+  roles:
+    - role: "apt_package_pinning"
+  post_tasks:
+    - name: Open preference file
+      slurp:
+        src: "/etc/apt/preferences.d/test.pref"
+      register: preference_file
+      when: ansible_facts['pkg_mgr'] == 'apt'
+    - name: Read preference file
+      set_fact:
+        preference_contents: "{{ preference_file.content | b64decode }}"
+      when: ansible_facts['pkg_mgr'] == 'apt'
+    - name: Check pin files contents
+      assert:
+        that:
+          - "'Pin: version 9.9.9-version' in preference_contents"
+          - "'Pin: origin test-origin.org' in preference_contents"
+          - "'Pin: release o=TestRelease' in preference_contents"
+      when: ansible_facts['pkg_mgr'] == 'apt'

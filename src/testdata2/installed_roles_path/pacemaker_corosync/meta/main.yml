@@ -1,0 +1,23 @@
+---
+
+dependencies: []
+
+galaxy_info:
+  author: Dmitriy Rabotyagov
+  company: ACME Corp
+  namespace: noonedeadpunk
+  role_name: pacemaker_corosync
+  description: Deploys pacemaker and corosync stack.
+  license: MIT
+  min_ansible_version: 2.6
+  platforms:
+    - name: Ubuntu
+      versions:
+        - bionic
+        - focal
+    - name: EL
+      versions:
+        - 7
+        - 8
+  galaxy_tags:
+    - system

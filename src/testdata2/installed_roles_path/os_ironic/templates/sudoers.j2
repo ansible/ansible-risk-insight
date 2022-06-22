@@ -1,0 +1,7 @@
+# {{ ansible_managed }}
+
+Defaults:{{ ironic_system_user_name }} !requiretty
+Defaults:{{ ironic_system_user_name }} secure_path="{{ ironic_bin }}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+{{ ironic_system_user_name }} ALL = (root) NOPASSWD: {{ ironic_bin }}/{{ ironic_service_name }}-rootwrap
+{{ ironic_system_user_name }} ALL = (root) NOPASSWD: {{ ironic_bin }}/{{ ironic_inspector_service_name }}-rootwrap

@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+#  Running the script:
+#  * The script will exit 99 if the home folder for the user set by
+#    "nova_system_user_name" is not found.
+#  * If the script adds a key to the authorized keys file it will exit 3.
+#  * If the script takes no action it will exit 0.
+
+set -ex
+
+EXIT_CODE=0
+USER_HOME="$(getent passwd {{ nova_system_user_name }} | awk -F':' '{print $6}')"
+
+[[ -d "${USER_HOME}" ]] || exit 99
+if [[ ! -f "${USER_HOME}/.ssh/authorized_keys" ]]; then
+  touch "${USER_HOME}/.ssh/authorized_keys"
+  chown {{ nova_system_user_name }}:{{ nova_system_group_name }} "${USER_HOME}/.ssh/authorized_keys"
+  chmod 0600 "${USER_HOME}/.ssh/authorized_keys"
+fi
+
+{% for item in groups['nova_compute'] %}
+{% if hostvars[item]['nova_pubkey'] is defined %}
+KEY="{{ hostvars[item]['nova_pubkey'] | b64decode | trim }}"
+if ! grep -q -w "${KEY}" "${USER_HOME}/.ssh/authorized_keys"; then
+  echo "${KEY}" | tee -a "${USER_HOME}/.ssh/authorized_keys"
+  EXIT_CODE=3
+fi
+{% endif %}
+{% endfor %}
+
+exit "${EXIT_CODE}"
+

@@ -1,0 +1,15 @@
+---
+features:
+  - Neutron Firewall as a Service (FWaaS) can now optionally be deployed and
+    configured. Please see the `FWaaS Configuration Reference
+    <https://docs.openstack.org/neutron/latest/admin/fwaas.html>`_
+    for details about the what the service is and what it provides. See the
+    `FWaaS Install Guide <https://docs.openstack.org/openstack-ansible-os_neutron/latest/configure-network-services.html#firewall-service-optional>`_
+    for implementation details.
+upgrade:
+  - Database migration tasks have been added for the FWaaS neutron plugin.
+security:
+  - When enabled, Neutron Firewall as a Service (FWaaS) provides projects the
+    option to implement perimeter security (filtering at the router), adding to
+    filtering at the instance interfaces which is provided by 'Security
+    Groups'.

@@ -1,0 +1,11 @@
+# {{ ansible_managed }}
+
+[ironic]
+project_domain_name = Default
+project_name = service
+user_domain_name = Default
+password = {{ ironic_service_password }}
+username = ironic
+auth_url = {{ keystone_service_internalurl }}
+auth_type = password
+region_name = {{ ironic_service_region }}

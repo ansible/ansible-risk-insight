@@ -1,0 +1,87 @@
+---
+# Copyright 2019, SUSE
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+cache_timeout: 600
+
+ironic_devel_distro_packages:
+  - git-core
+  - libffi-devel
+  - systemd-devel
+
+ironic_api_distro_packages:
+  - libxml2-devel
+  - python3-systemd
+
+ironic_conductor_distro_packages:
+  - libxml2-devel
+  - syslinux
+  - syslinux-tftpboot
+  - libxslt-devel
+  - qemu-kvm
+  - ipmitool
+  - tftp-server
+  - gdisk
+  - ipxe-bootimgs
+  - nginx
+  - grub2-efi-x64
+  - shim
+
+ironic_conductor_standalone_distro_packages:
+  - isc-dhcp-server
+
+ironic_library_modules_paths:
+  - "/usr/share/syslinux/pxelinux.0"
+  - "/usr/share/syslinux/chain.c32"
+  - "/usr/share/syslinux/linux.c32"
+  - "/usr/share/ipxe/undionly.kpxe"
+  - "/usr/share/ipxe/ipxe-x86_64.efi"
+
+ironic_uefi_modules:
+  - name: "bootx64.efi"
+    path: "/boot/efi/EFI/{{ ansible_facts['distribution'] | lower }}/shimx64.efi"
+  - name: "grubx64.efi"
+    path: "/boot/efi/EFI/{{ ansible_facts['distribution'] | lower }}/grubx64.efi"
+
+ironic_tftpd_service_name: tftp
+ironic_tftpd_root: /var/lib/tftpboot
+
+ironic_inspector_http_distro_packages:
+   - nginx
+
+ironic_inspector_isc_dhcp_distro_packages:
+   - tftpd-hpa
+   - isc-dhcp-server
+
+ironic_inspector_dnsmasq_distro_packages:
+   - dnsmasq
+
+ironic_inspector_standalone_distro_packages:
+  - isc-dhcp-server
+
+ironic_inspector_devel_distro_packages:
+  - git-core
+  - libffi-dev
+  - libsystemd-dev
+
+ironic_inspector_library_modules_paths:
+  - "/usr/lib/PXELINUX/pxelinux.0"
+  - "/usr/lib/PXELINUX/lpxelinux.0"
+  - "/usr/lib/syslinux/modules/efi64/chain.c32"
+  - "/usr/lib/syslinux/modules/bios/ldlinux.c32"
+  - "/usr/lib/SYSLINUX.EFI/efi64/syslinux.efi"
+  - "/usr/lib/syslinux/modules/efi64/ldlinux.e64"
+
+ironic_nginx_conf_path: "conf.d"
+ironic_grub_dir: "/tftpboot/EFI/{{ ansible_facts['distribution'] | lower }}"

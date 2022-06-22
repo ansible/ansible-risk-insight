@@ -1,0 +1,74 @@
+---
+# Copyright 2015, Jean-Philippe Evrard <jean-philippe@evrard.me>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+keepalived_ping_count: 1
+keepalived_ping_interval: 10
+keepalived_ubuntu_src: "native"
+keepalived_ping_address: "{{ ansible_facts['default_ipv4']['gateway'] | default('127.0.0.1') }}"
+keepalived_external_ping_address: "{{ keepalived_ping_address }}"
+keepalived_internal_ping_address: "{{ keepalived_ping_address }}"
+
+keepalived_global_defs:
+  - "enable_script_security"
+  - script_user root
+
+keepalived_scripts:
+  haproxy_check_script:
+    check_script: "/etc/keepalived/haproxy_check.sh"
+    ##if a src_check_script is defined, it will be uploaded from src_check_script
+    ##on the deploy host to the check_script location. If the check_script needs
+    ##parameters, you can define the location under dest_check_script.
+    src_check_script: "{{ playbook_dir }}/../scripts/keepalived_haproxy_check.sh"
+  pingable_check_script_external:
+    check_script: "/etc/keepalived/pingable_check.sh {{ keepalived_ping_count }} {{ keepalived_external_ping_address }}"
+    dest_check_script: "/etc/keepalived/pingable_check.sh"
+    src_check_script: "{{ playbook_dir }}/../scripts/keepalived_pingable_check.sh"
+    interval: "{{ keepalived_ping_interval }}"
+    instance: external
+    fall: 2
+    rise: 4
+  pingable_check_script_internal:
+    check_script: "/etc/keepalived/pingable_check.sh {{ keepalived_ping_count }} {{ keepalived_internal_ping_address }}"
+    dest_check_script: "/etc/keepalived/pingable_check.sh"
+    src_check_script: "{{ playbook_dir }}/../scripts/keepalived_pingable_check.sh"
+    interval: "{{ keepalived_ping_interval }}"
+    instance: internal
+    fall: 2
+    rise: 4
+
+# If you have more than 5 keepalived nodes, you should build your own script
+# (handling master and backups servers), and replace in keepalived_instances:
+#    priority: "{{ (groups['haproxy']|length-groups['haproxy'].index(inventory_hostname)*50 }}"
+# by
+#    priority: "{{ (groups['haproxy'].index(inventory_hostname) == 0) | ternary('100','50') }}"
+keepalived_instances:
+  external:
+    interface: "{{ haproxy_keepalived_external_interface | default(management_bridge) }}"
+    state: "{{ (groups['haproxy'].index(inventory_hostname) == 0) | ternary('MASTER', 'BACKUP') }}"
+    virtual_router_id: "{{ haproxy_keepalived_external_virtual_router_id | default ('10') }}"
+    priority: "{{ (groups['haproxy']|length-groups['haproxy'].index(inventory_hostname))*50 }}"
+    authentication_password: "{{ haproxy_keepalived_authentication_password }}"
+    vips:
+      - "{{ haproxy_keepalived_external_vip_cidr | default('169.254.1.1/24')  }} dev {{ haproxy_keepalived_external_interface | default(management_bridge) }}"
+    track_scripts: "{{ keepalived_scripts | dict2items | json_query('[*].{name: key, instance: value.instance}') | rejectattr('instance', 'equalto', 'internal') | map(attribute='name') | list }}"
+  internal:
+    interface: "{{ haproxy_keepalived_internal_interface | default(management_bridge) }}"
+    state: "{{ (groups['haproxy'].index(inventory_hostname) == 0) | ternary('MASTER', 'BACKUP') }}"
+    virtual_router_id: "{{ haproxy_keepalived_internal_virtual_router_id | default ('11') }}"
+    priority: "{{ (groups['haproxy']|length-groups['haproxy'].index(inventory_hostname))*50 }}"
+    authentication_password: "{{ haproxy_keepalived_authentication_password }}"
+    vips:
+      - "{{ haproxy_keepalived_internal_vip_cidr | default('169.254.2.1/24') }} dev {{ haproxy_keepalived_internal_interface | default(management_bridge) }}"
+    track_scripts: "{{ keepalived_scripts | dict2items | json_query('[*].{name: key, instance: value.instance}') | rejectattr('instance', 'equalto', 'external') | map(attribute='name') | list }}"

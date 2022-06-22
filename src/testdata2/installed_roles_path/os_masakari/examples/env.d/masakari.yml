@@ -1,0 +1,25 @@
+---
+component_skel:
+  masakari_engine:
+    belongs_to:
+      - masakari_all
+  masakari_api:
+    belongs_to:
+      - masakari_all
+
+container_skel:
+  masakari_container:
+    belongs_to:
+      - instance_ha_containers
+      - masakari-infra_hosts
+    contains:
+      - masakari_engine
+      - masakari_api
+
+physical_skel:
+  instance_ha_containers:
+    belongs_to:
+      - all_containers
+  masakari_hosts:
+    belongs_to:
+      - hosts

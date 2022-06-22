@@ -1,0 +1,185 @@
+---
+# Copyright 2017, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# These vars find a file on the deployment node, if it exists - otherwise the result is empty.
+ceilometer_data_meters_user_content: "{{ lookup('file', ceilometer_data_meters_default_file_path, errors='ignore') }}"
+ceilometer_event_definitions_user_content: "{{ lookup('file', ceilometer_event_definitions_default_file_path, errors='ignore') }}"
+ceilometer_event_pipeline_user_content: "{{ lookup('file', ceilometer_event_pipeline_default_file_path, errors='ignore') }}"
+ceilometer_gnocchi_resources_user_content: "{{ lookup('file', ceilometer_gnocchi_resources_default_file_path, errors='ignore') }}"
+ceilometer_loadbalancer_v2_meter_definitions_user_content: "{{ lookup('file', ceilometer_loadbalancer_v2_meter_definitions_default_file_path, errors='ignore') }}"
+ceilometer_osprofiler_event_definitions_user_content: "{{ lookup('file', ceilometer_osprofiler_event_definitions_default_file_path, errors='ignore') }}"
+ceilometer_polling_user_content: "{{ lookup('file', ceilometer_polling_default_file_path, errors='ignore') }}"
+ceilometer_pipeline_user_content: "{{ lookup('file', ceilometer_pipeline_default_file_path, errors='ignore') }}"
+
+_ceilometer_is_first_play_host: "{{ (ceilometer_services['ceilometer-agent-notification']['group'] | intersect(group_names) | length > 0) and (inventory_hostname == groups[ceilometer_services['ceilometer-agent-notification']['group'] | intersect(group_names) | first] | intersect(ansible_play_hosts) | first) }}"
+
+_ceilometer_rootwrap_conf_overrides:
+  DEFAULT:
+    filters_path: "/etc/ceilometer/rootwrap.d,/usr/share/ceilometer/rootwrap"
+    exec_dirs: "{{ ceilometer_bin }},/sbin,/usr/sbin,/bin,/usr/bin,/usr/local/bin,/usr/local/sbin"
+
+_ceilometer_pipeline_yaml_overrides:
+  sources:
+      - name: meter_source
+        interval: "{{ ceilometer_meter_sample_interval }}"
+        meters:
+            - "*"
+        sinks:
+            - meter_sink
+      - name: cpu_source
+        interval: "{{ ceilometer_cpu_source_sample_interval }}"
+        meters:
+            - "cpu"
+        sinks:
+            - cpu_sink
+            - cpu_delta_sink
+      - name: disk_source
+        interval: "{{ ceilometer_disk_source_sample_interval }}"
+        meters:
+            - "disk.read.bytes"
+            - "disk.read.requests"
+            - "disk.write.bytes"
+            - "disk.write.requests"
+            - "disk.device.read.bytes"
+            - "disk.device.read.requests"
+            - "disk.device.write.bytes"
+            - "disk.device.write.requests"
+        sinks:
+            - disk_sink
+      - name: network_source
+        interval: "{{ ceilometer_network_source_sample_interval }}"
+        meters:
+            - "network.incoming.bytes"
+            - "network.incoming.packets"
+            - "network.outgoing.bytes"
+            - "network.outgoing.packets"
+        sinks:
+            - network_sink
+  sinks:
+      - name: meter_sink
+        transformers:
+        publishers:
+            - gnocchi://
+      - name: cpu_sink
+        transformers:
+            - name: "rate_of_change"
+              parameters:
+                  target:
+                      name: "cpu_util"
+                      unit: "%"
+                      type: "gauge"
+                      scale: "100.0 / (10**9 * (resource_metadata.cpu_number or 1))"
+        publishers:
+            - gnocchi://
+      - name: cpu_delta_sink
+        transformers:
+            - name: "delta"
+              parameters:
+                  target:
+                      name: "cpu.delta"
+                  growth_only: True
+        publishers:
+            - gnocchi://
+      - name: disk_sink
+        transformers:
+            - name: "rate_of_change"
+              parameters:
+                  source:
+                      map_from:
+                          name: "(disk\\.device|disk)\\.(read|write)\\.(bytes|requests)"
+                          unit: "(B|request)"
+                  target:
+                      map_to:
+                          name: "\\1.\\2.\\3.rate"
+                          unit: "\\1/s"
+                      type: "gauge"
+        publishers:
+            - gnocchi://
+      - name: network_sink
+        transformers:
+            - name: "rate_of_change"
+              parameters:
+                  source:
+                    map_from:
+                        name: "network\\.(incoming|outgoing)\\.(bytes|packets)"
+                        unit: "(B|packet)"
+                  target:
+                      map_to:
+                          name: "network.\\1.\\2.rate"
+                          unit: "\\1/s"
+                      type: "gauge"
+        publishers:
+            - gnocchi://
+
+ceilometer_core_files:
+  - tmp_f: "/tmp/rootwrap.conf"
+    source_f: "/etc/ceilometer/rootwrap.conf"
+    config_overrides: "{{ _ceilometer_rootwrap_conf_overrides | combine(ceilometer_rootwrap_conf_overrides, recursive=True) }}"
+    config_type: "ini"
+    owner: "root"
+    group: "{{ ceilometer_system_group_name }}"
+    mode: "0640"
+  - tmp_f: "{{ (ceilometer_pipeline_user_content | length > 0) | ternary(false, '/tmp/pipeline.yaml') }}"
+    source_f: "{{ ceilometer_lib_dir }}/ceilometer/pipeline/data/pipeline.yaml"
+    config_overrides: "{{ (ceilometer_pipeline_user_content | length > 0) | ternary(_ceilometer_pipeline_yaml_overrides | combine(ceilometer_pipeline_yaml_overrides, recursive=True), ceilometer_pipeline_yaml_overrides) }}"
+    config_type: "yaml"
+    list_extend: false
+    content: "{{ ceilometer_pipeline_user_content }}"
+  - tmp_f: "{{ (ceilometer_polling_user_content | length > 0) | ternary(false, '/tmp/polling.yaml') }}"
+    source_f: "/etc/ceilometer/polling.yaml"
+    config_overrides: "{{ ceilometer_polling_yaml_overrides }}"
+    config_type: "yaml"
+    list_extend: false
+    content: "{{ ceilometer_polling_user_content }}"
+  - tmp_f: "{{ (ceilometer_loadbalancer_v2_meter_definitions_user_content | length > 0) | ternary(false, '/tmp/loadbalancer_v2_meter_definitions.yaml') }}"
+    source_f: "/etc/ceilometer/examples/loadbalancer_v2_meter_definitions.yaml"
+    target_f: "/etc/ceilometer/loadbalancer_v2_meter_definitions.yaml"
+    config_overrides: "{{ ceilometer_loadbalancer_v2_meter_definitions_yaml_overrides }}"
+    config_type: "yaml"
+    list_extend: false
+    content: "{{ ceilometer_loadbalancer_v2_meter_definitions_user_content }}"
+    condition: "{{ ceilometer_install_method == 'source' }}"
+  - tmp_f: "{{ (ceilometer_osprofiler_event_definitions_user_content | length > 0) | ternary(false, '/tmp/osprofiler_event_definitions.yaml') }}"
+    source_f: "/etc/ceilometer/examples/osprofiler_event_definitions.yaml"
+    target_f: "/etc/ceilometer/osprofiler_event_definitions.yaml"
+    config_overrides: "{{ ceilometer_osprofiler_event_definitions_yaml_overrides }}"
+    config_type: "yaml"
+    list_extend: false
+    content: "{{ ceilometer_osprofiler_event_definitions_user_content }}"
+    condition: "{{ ceilometer_install_method == 'source' }}"
+  - tmp_f: "{{ (ceilometer_data_meters_user_content | length > 0) | ternary(false, '/tmp/meters.yaml') }}"
+    source_f: "{{ ceilometer_lib_dir }}/ceilometer/data/meters.d/meters.yaml"
+    config_overrides: "{{ ceilometer_data_meters_yaml_overrides }}"
+    config_type: "yaml"
+    list_extend: false
+    content: "{{ ceilometer_data_meters_user_content }}"
+  - tmp_f: "{{ (ceilometer_event_definitions_user_content | length > 0) | ternary(false, '/tmp/event_definitions.yaml') }}"
+    source_f: "{{ ceilometer_lib_dir }}/ceilometer/pipeline/data/event_definitions.yaml"
+    config_overrides: "{{ ceilometer_event_definitions_yaml_overrides }}"
+    config_type: "yaml"
+    list_extend: false
+    content: "{{ ceilometer_event_definitions_user_content }}"
+  - tmp_f: "{{ (ceilometer_event_pipeline_user_content | length > 0) | ternary(false, '/tmp/event_pipeline.yaml') }}"
+    source_f: "{{ ceilometer_lib_dir }}/ceilometer/pipeline/data/event_pipeline.yaml"
+    config_overrides: "{{ ceilometer_event_pipeline_yaml_overrides }}"
+    config_type: "yaml"
+    list_extend: false
+    content: "{{ ceilometer_event_pipeline_user_content }}"
+  - tmp_f: "{{ (ceilometer_gnocchi_resources_user_content | length > 0) | ternary(false, '/tmp/gnocchi_resources.yaml') }}"
+    source_f: "{{ ceilometer_lib_dir }}/ceilometer/publisher/data/gnocchi_resources.yaml"
+    config_overrides: "{{ ceilometer_gnocchi_resources_yaml_overrides }}"
+    config_type: "yaml"
+    list_extend: false
+    content: "{{ ceilometer_gnocchi_resources_user_content }}"

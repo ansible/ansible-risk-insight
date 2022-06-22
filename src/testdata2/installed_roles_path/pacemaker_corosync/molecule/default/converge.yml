@@ -1,0 +1,41 @@
+---
+- name: Converge
+  hosts: all
+  vars_files:
+    - "tests/pacemaker_corosync_local.yml"
+  pre_tasks:
+    - name: Apt update and install rsync, ping, iproute
+      apt:
+        update_cache: yes
+        name:
+          - rsync
+          - inetutils-ping
+          - iproute2
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Yum install iproute to fix undefined ansible_default_ipv4.address
+      yum:
+        name: iproute
+        state: present
+      when:
+        - ansible_distribution == "CentOS"
+
+    - name: Add a container to a network, leaving existing containers connected
+      delegate_to: localhost
+      community.general.docker_network:
+        name: pacemaker-network
+        connected:
+          - "{{ inventory_hostname }}"
+        appends: yes
+
+    - name: Re-collect network facts required after installation iproute
+      setup:
+        gather_subset: network
+
+    - name: Show ansible_interfaces
+      debug:
+        var: ansible_interfaces
+
+  roles:
+    - role: "{{ playbook_dir | dirname | dirname | basename }}"

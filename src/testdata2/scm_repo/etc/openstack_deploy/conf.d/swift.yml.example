@@ -1,0 +1,485 @@
+---
+# Copyright 2015, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Overview
+# ========
+#
+# This file contains the configuration for the OpenStack Ansible Deployment
+# (OSA) Object Storage (swift) service. Only enable these options for
+# deployments that contain the Object Storage service. For more information on
+# these options, see the documentation at
+#
+# http://docs.openstack.org/developer/swift/index.html
+#
+# You can customize the options in this file and copy it to
+# /etc/openstack_deploy/conf.d/swift.yml or create a new
+# file containing only necessary options for your environment
+# before deployment.
+#
+# OSA implements PyYAML to parse YAML files and therefore supports structure
+# and formatting options that augment traditional YAML. For example, aliases
+# or references. For more information on PyYAML, see the documentation at
+#
+# http://pyyaml.org/wiki/PyYAMLDocumentation
+#
+# Configuration reference
+# =======================
+#
+# Level: global_overrides (required)
+# Contains global options that require customization for a deployment. For
+# example, the ring stricture. This level also provides a mechanism to
+# override other options defined in the playbook structure.
+#
+#   Level: swift (required)
+#   Contains options for swift.
+#
+#     Option: storage_network (required, string)
+#     Name of the storage network bridge on target hosts. Typically
+#     'br-storage'.
+#
+#     Option: repl_network (optional, string)
+#     Name of the replication network bridge on target hosts. Typically
+#     'br-repl'. Defaults to the value of the 'storage_network' option.
+#
+#     Option: part_power (required, integer)
+#     Partition power. Applies to all rings unless overridden at the 'account'
+#     or 'container' levels or within a policy in the 'storage_policies' level.
+#     Immutable without rebuilding the rings.
+#
+#     Option: repl_number (optional, integer)
+#     Number of replicas for each partition. Applies to all rings unless
+#     overridden at the 'account' or 'container' levels or within a policy
+#     in the 'storage_policies' level. Defaults to 3.
+#
+#     Option: min_part_hours (optional, integer)
+#     Minimum time in hours between multiple moves of the same partition.
+#     Applies to all rings unless overridden at the 'account' or 'container'
+#     levels or within a policy in the 'storage_policies' level. Defaults
+#     to 1.
+#
+#     Option: region (optional, integer)
+#     Region of a disk. Applies to all disks in all storage hosts unless
+#     overridden deeper in the structure. Defaults to 1.
+#
+#     Option: zone (optional, integer)
+#     Zone of a disk. Applies to all disks in all storage hosts unless
+#     overridden deeper in the structure. Defaults to 0.
+#
+#     Option: weight (optional, integer)
+#     Weight of a disk. Applies to all disks in all storage hosts unless
+#     overridden deeper in the structure. Defaults to 100.
+#
+#     Option: reclaim_age (optional, integer, default 604800)
+#     The amount of time in seconds  before items, such as tombstones are
+#     reclaimed, default is 604800 (7 Days).
+#
+#     Option: statsd_host (optional, string)
+#     Swift supports statsd metrics, this option sets the statsd host that will
+#     receive statsd metrics. Specifying this here will apply to all hosts in
+#     a cluster. It can be overridden or specified deeper in the structure if you
+#     want to only catch statsd metrics on certain hosts.
+#
+#     Option: statsd_port (optional, integer, default 8125)
+#     Statsd port, requires statsd_host set.
+#
+#     Option: statsd_metric_prefix (optional, string, default ansible_host)
+#     Specify a prefix that will be prepended to all metrics, this should be specified
+#     deeper in the configuration so different host metrics can be separated.
+#
+#     The following statsd related options are a little more complicated and are
+#     used to tune how many samples are sent to statsd. If you need to tweak these
+#     settings then first read: https://docs.openstack.org/swift/latest/admin_guide.html
+#
+#     Option: statsd_default_sample_rate (optional, float, default 1.0)
+#     Option: statsd_sample_rate_factor (optional, float, default 1.0)
+#
+#   Example:
+#
+#   Define a typical deployment:
+#
+#   - Storage network that uses the 'br-storage' bridge. Proxy containers
+#     typically use the 'storage' IP address pool. However, storage hosts
+#     use bare metal and require manual configuration of the 'br-storage'
+#     bridge on each host.
+#   - Replication network that uses the 'br-repl' bridge. Only storage hosts
+#     contain this network. Storage hosts use bare metal and require manual
+#     configuration of the bridge on each host.
+#   - Ring configuration with partition power of 8, three replicas of each
+#     file, and minimum 1 hour between migrations of the same partition. All
+#     rings use region 1 and zone 0. All disks include a weight of 100.
+#
+#   swift:
+#     storage_network: 'br-storage'
+#     replication_network: 'br-repl'
+#     part_power: 8
+#     repl_number: 3
+#     min_part_hours: 1
+#     region: 1
+#     zone: 0
+#     weight: 100
+#     statsd_host: statsd.example.lan
+#     statsd_port: 8125
+#
+#   Note: Most typical deployments override the 'zone' option in the
+#   'swift_vars' level to use a unique zone for each storage host.
+#
+#     Option: mount_point (required, string)
+#     Top-level directory for mount points of disks. Defaults to /mnt.
+#     Applies to all hosts unless overridden deeper in the structure.
+#
+#     Level: drives (required)
+#     Contains the mount points of disks.
+#     Applies to all hosts unless overridden deeper in the structure.
+#
+#       Option: name (required, string)
+#       Mount point of a disk. Use one entry for each disk.
+#       Applies to all hosts unless overridden deeper in the structure.
+#
+#     Example:
+#
+#     Mount disks 'sdc', 'sdd', 'sde', and 'sdf' to the '/srv/node' directory on all
+#     storage hosts:
+#
+#     mount_point: /srv/node
+#     drives:
+#       - name: sdc
+#       - name: sdd
+#       - name: sde
+#       - name: sdf
+#
+#     Level: account (optional)
+#     Contains 'min_part_hours' and 'repl_number' options specific to the
+#     account ring.
+#
+#     Level: container (optional)
+#     Contains 'min_part_hours' and 'repl_number' options specific to the
+#     container ring.
+#
+#     Level: storage_policies (required)
+#     Contains storage policies. Minimum one policy. One policy must include
+#     the 'index: 0' and 'default: True' options.
+#
+#       Level: policy (required)
+#       Contains a storage policy. Define for each policy.
+#
+#         Option: name (required, string)
+#         Policy name.
+#
+#         Option: index (required, integer)
+#         Policy index. One policy must include this option with a '0'
+#         value.
+#
+#         Option: policy_type (optional, string)
+#         Defines policy as replication or erasure coding. Accepts 'replication'
+#         'erasure_coding' values. Defaults to 'replication' value if omitted.
+#
+#         Option: ec_type (conditionally required, string)
+#         Defines the erasure coding algorithm. Required for erasure coding
+#         policies.
+#
+#         Option: ec_num_data_fragments (conditionally required, integer)
+#         Defines the number of object data fragments. Required for erasure
+#         coding policies.
+#
+#         Option: ec_num_parity_fragments (conditionally required, integer)
+#         Defines the number of object parity fragments. Required for erasure
+#         coding policies.
+#
+#         Option: ec_object_segment_size (conditionally required, integer)
+#         Defines the size of object segments in bytes. Swift sends incoming
+#         objects to an erasure coding policy in segments of this size.
+#         Required for erasure coding policies.
+#
+#         Option: default (conditionally required, boolean)
+#         Defines the default policy. One policy must include this option
+#         with a 'True' value.
+#
+#         Option: deprecated (optional, boolean)
+#         Defines a deprecated policy.
+#
+#         Note: The following levels and options override any values higher
+#         in the structure and generally apply to advanced deployments.
+#
+#         Option: repl_number (optional, integer)
+#         Number of replicas of each partition in this policy.
+#
+#         Option: min_part_hours (optional, integer)
+#         Minimum time in hours between multiple moves of the same partition
+#         in this policy.
+#
+#     Example:
+#
+#     Define three storage policies: A default 'gold' policy, a deprecated
+#     'silver' policy, and an erasure coding 'ec10-4' policy.
+#
+#     storage_policies:
+#      - policy:
+#         name: gold
+#         index: 0
+#         default: True
+#     - policy:
+#         name: silver
+#         index: 1
+#         repl_number: 3
+#         deprecated: True
+#     - policy:
+#         name: ec10-4
+#         index: 2
+#         policy_type: erasure_coding
+#         ec_type: jerasure_rs_vand
+#         ec_num_data_fragments: 10
+#         ec_num_parity_fragments: 4
+#         ec_object_segment_size: 1048576
+#
+# --------
+#
+# Level: swift-proxy_hosts (required)
+# List of target hosts on which to deploy the swift proxy service. Recommend
+# three minimum target hosts for these services. Typically contains the same
+# target hosts as the 'shared-infra_hosts' level in complete OpenStack
+# deployments.
+#
+#   Level: <value> (optional, string)
+#   Name of a proxy host.
+#
+#     Option: ip (required, string)
+#     IP address of this target host, typically the IP address assigned to
+#     the management bridge.
+#
+#     Level: container_vars (optional)
+#     Contains options for this target host.
+#
+#       Level: swift_proxy_vars (optional)
+#       Contains swift proxy options for this target host. Typical deployments
+#       use this level to define read/write affinity settings for proxy hosts.
+#
+#         Option: read_affinity (optional, string)
+#         Specify which region/zones the proxy server should prefer for reads
+#         from the account, container and object services.
+#         E.g. read_affinity: "r1=100" this would prefer region 1
+#         read_affinity: "r1z1=100, r1=200" this would prefer region 1 zone 1
+#         if that is unavailable region 1, otherwise any available region/zone.
+#         Lower number is higher priority. When this option is specified the
+#         sorting_method is set to 'affinity' automatically.
+#
+#         Option: write_affinity (optional, string)
+#         Specify which region to prefer when object PUT requests are made.
+#         E.g. write_affinity: "r1" - favours region 1 for object PUTs
+#
+#         Option: write_affinity_node_count (optional, string)
+#         Specify how many copies to prioritise in specified region on
+#         handoff nodes for Object PUT requests.
+#         Requires "write_affinity" to be set in order to be useful.
+#         This is a short term way to ensure replication happens locally,
+#         Swift's eventual consistency will ensure proper distribution over
+#         time.
+#         e.g. write_affinity_node_count: "2 * replicas" - this would try to
+#         store Object PUT replicas on up to 6 disks in region 1 assuming
+#         replicas is 3, and write_affinity = r1
+#
+#         Option: statsd_host (optional, string)
+#         Swift supports statsd metrics, this option sets the statsd host that will
+#         receive statsd metrics.
+#
+#         Option: statsd_port (optional, integer, default 8125)
+#         Statsd port, requires statsd_host set.
+#
+#         Option: statsd_metric_prefix (optional, string, default ansible_host)
+#         Specify a prefix that will be prepended to all metrics on this host.
+#
+#         The following statsd related options are a little more complicated and are
+#         used to tune how many samples are sent to statsd. If you need to tweak these
+#         settings then first read:  https://docs.openstack.org/swift/latest/admin_guide.html
+#
+#         Option: statsd_default_sample_rate (optional, float, default 1.0)
+#         Option: statsd_sample_rate_factor (optional, float, default 1.0)
+#
+# Example:
+#
+# Define three swift proxy hosts:
+#
+# swift-proxy_hosts:
+#
+#   infra1:
+#     ip: 172.29.236.101
+#     container_vars:
+#       swift_proxy_vars:
+#         read_affinity: "r1=100"
+#         write_affinity: "r1"
+#         write_affinity_node_count: "2 * replicas"
+#   infra2:
+#     ip: 172.29.236.102
+#     container_vars:
+#       swift_proxy_vars:
+#         read_affinity: "r2=100"
+#         write_affinity: "r2"
+#         write_affinity_node_count: "2 * replicas"
+#   infra3:
+#     ip: 172.29.236.103
+#     container_vars:
+#       swift_proxy_vars:
+#         read_affinity: "r3=100"
+#         write_affinity: "r3"
+#         write_affinity_node_count: "2 * replicas"
+#
+# --------
+#
+# Level: swift_hosts (required)
+# List of target hosts on which to deploy the swift storage services.
+# Recommend three minimum target hosts for these services.
+#
+#   Level: <value> (required, string)
+#   Name of a storage host.
+#
+#     Option: ip (required, string)
+#     IP address of this target host, typically the IP address assigned to
+#     the management bridge.
+#
+#     Note: The following levels and options override any values higher
+#     in the structure and generally apply to advanced deployments.
+#
+#     Level: container_vars (optional)
+#     Contains options for this target host.
+#
+#       Level: swift_vars (optional)
+#       Contains swift options for this target host. Typical deployments
+#       use this level to define a unique zone for each storage host.
+#
+#         Option: storage_ip (optional, string)
+#         IP address to use for accessing the account, container, and object
+#         services if different than the IP address of the storage network
+#         bridge on the target host. Also requires manual configuration of
+#         the host.
+#
+#         Option: repl_ip (optional, string)
+#         IP address to use for replication services if different than the IP
+#         address of the replication network bridge on the target host. Also
+#         requires manual configuration of the host.
+#
+#         Option: region (optional, integer)
+#         Region of all disks.
+#
+#         Option: zone (optional, integer)
+#         Zone of all disks.
+#
+#         Option: weight (optional, integer)
+#         Weight of all disks.
+#
+#         Option: statsd_host (optional, string)
+#         Swift supports statsd metrics, this option sets the statsd host that will
+#         receive statsd metrics.
+#
+#         Option: statsd_port (optional, integer, default 8125)
+#         Statsd port, requires statsd_host set.
+#
+#         Option: statsd_metric_prefix (optional, string, default ansible_host)
+#         Specify a prefix that will prepended all metrics on this host.
+#
+#         The following statsd related options are a little more complicated and are
+#         used to tune how many samples are sent to statsd. If you need to tweak these
+#         settings then first read: https://docs.openstack.org/swift/latest/admin_guide.html
+#
+#         Option: statsd_default_sample_rate (optional, float, default 1.0)
+#         Option: statsd_sample_rate_factor (optional, float, default 1.0)
+#
+#         Level: groups (optional)
+#         List of one of more Ansible groups that apply to this host.
+#
+#         Example:
+#
+#         Deploy the account ring, container ring, and 'silver' policy.
+#
+#         groups:
+#           - account
+#           - container
+#           - silver
+#
+#         Level: drives (optional)
+#         Contains the mount points of disks specific to this host.
+#
+#         Level or option: name (optional, string)
+#         Mount point of a disk specific to this host. Use one entry for
+#         each disk. Functions as a level for disks that contain additional
+#         options.
+#
+#           Option: storage_ip (optional, string)
+#           IP address to use for accessing the account, container, and object
+#           services of a disk if different than the IP address of the storage
+#           network bridge on the target host. Also requires manual
+#           configuration of the host.
+#
+#           Option: repl_ip (optional, string)
+#           IP address to use for replication services of a disk if different
+#           than the IP address of the replication network bridge on the target
+#           host. Also requires manual configuration of the host.
+#
+#           Option: region (optional, integer)
+#           Region of a disk.
+#
+#           Option: zone (optional, integer)
+#           Zone of a disk.
+#
+#           Option: weight (optional, integer)
+#           Weight of a disk.
+#
+#           Level: groups (optional)
+#           List of one or more Ansible groups that apply to this disk.
+#
+# Example:
+#
+# Define four storage hosts. The first three hosts contain typical options
+# and the last host contains advanced options.
+#
+# swift_hosts:
+#   swift-node1:
+#     ip: 172.29.236.151
+#     container_vars:
+#       swift_vars:
+#         zone: 0
+#   swift-node2:
+#     ip: 172.29.236.152
+#     container_vars:
+#       swift_vars:
+#         zone: 1
+#   swift-node3:
+#     ip: 172.29.236.153
+#     container_vars:
+#       swift_vars:
+#         zone: 2
+#   swift-node4:
+#     ip: 172.29.236.154
+#     container_vars:
+#       swift_vars:
+#         storage_ip: 198.51.100.11
+#         repl_ip: 203.0.113.11
+#         region: 2
+#         zone: 0
+#         weight: 200
+#         statsd_host: statsd2.example.net
+#         statsd_metric_prefix: swift-node4
+#         groups:
+#           - account
+#           - container
+#           - silver
+#         drives:
+#           - name: sdc
+#             storage_ip: 198.51.100.21
+#             repl_ip: 203.0.113.21
+#             weight: 75
+#             groups:
+#               - gold
+#           - name: sdd
+#           - name: sde
+#           - name: sdf

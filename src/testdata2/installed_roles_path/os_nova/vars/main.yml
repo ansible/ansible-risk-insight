@@ -1,0 +1,118 @@
+---
+# Copyright 2017, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+_nova_is_first_play_host: "{{ (nova_services['nova-conductor']['group'] in group_names and inventory_hostname == (groups[nova_services['nova-conductor']['group']] | intersect(ansible_play_hosts)) | first) | bool }}"
+
+nova_venv_packages: |-
+  {%- set pkg_list = nova_pip_packages | union(nova_user_pip_packages) %}
+  {%- if nova_oslomsg_amqp1_enabled | bool %}
+  {%-   set _ = pkg_list.extend(nova_optional_oslomsg_amqp1_pip_packages) %}
+  {%- endif %}
+  {%- if (nova_console_type == 'novnc') %}
+  {%-   set _ = pkg_list.extend(nova_novnc_pip_packages) %}
+  {%- endif %}
+  {%- if (nova_services['nova-compute']['group'] in group_names) %}
+  {%-   if nova_virt_type == 'ironic' %}
+  {%-     set _ = pkg_list.extend(nova_compute_ironic_pip_packages) %}
+  {%-   endif %}
+  {%- endif %}
+  {{- pkg_list | unique }}
+
+#
+# Compile a list of the services on a host based on whether
+# the host is in the host group and the service is enabled.
+#
+filtered_nova_services: |-
+  {% set services = [] %}
+  {% for key, value in nova_services.items() %}
+  {%   if (value['group'] in group_names) and
+          (('condition' not in value) or
+           ('condition' in value and value['condition'])) and
+           not ('wsgi_app' in value and value['wsgi_app']) %}
+  {%     set _ = value.update({'service_key': key}) %}
+  {%     set _ = services.append(value) %}
+  {%   endif %}
+  {% endfor %}
+  {{ services | sort(attribute='start_order') }}
+
+uwsgi_nova_services: |-
+  {% set services = {} %}
+  {% for key, value in nova_services.items() %}
+  {%   if (value['group'] in group_names) and
+         (('condition' not in value) or ('condition' in value and value['condition']))
+         and ('wsgi_app' in value and value['wsgi_app']) %}
+  {%     set _ = value.update(
+            {
+             'wsgi_path':  nova_bin ~ '/' ~ value.wsgi_name,
+             'wsgi_venv': ((nova_install_method == 'source') | ternary(nova_bin | dirname, None)),
+             'uwsgi_uid': nova_system_user_name,
+             'uwsgi_guid': nova_system_group_name,
+             'uwsgi_processes': nova_wsgi_processes,
+             'uwsgi_threads': nova_wsgi_threads
+           }
+         ) %}
+  {%     set _ = services.update({key: value}) %}
+  {%   endif %}
+  {% endfor %}
+  {{ services }}
+
+# Define all Nova mountpoints when using NFS. If defined
+# the corresponding directory will only be created by the
+# mount point task.
+nova_mount_points: |-
+  {% set mps = [] %}
+  {% for mp in nova_nfs_client %}
+  {%   set _ = mps.append(mp.local_path) %}
+  {% endfor %}
+  {{ mps }}
+
+_nova_rootwrap_conf_overrides:
+  DEFAULT:
+    filters_path: "/etc/nova/rootwrap.d,/usr/share/nova/rootwrap"
+    exec_dirs: "{{ nova_bin }},/sbin,/usr/sbin,/bin,/usr/bin,/usr/local/bin,/usr/local/sbin"
+
+nova_core_files:
+  - tmp_f: "/tmp/api-paste.ini"
+    target_f: "/etc/nova/api-paste.ini"
+    config_overrides: "{{ nova_api_paste_ini_overrides }}"
+    config_type: "ini"
+  - tmp_f: "/tmp/rootwrap.conf"
+    target_f: "/etc/nova/rootwrap.conf"
+    config_overrides: "{{ _nova_rootwrap_conf_overrides | combine(nova_rootwrap_conf_overrides, recursive=True) }}"
+    config_type: "ini"
+    owner: "root"
+    group: "{{ nova_system_group_name }}"
+    mode: "0640"
+
+_nova_scheduler_filters: |-
+  {% set default_filters = nova_scheduler_default_filters %}
+  {% if default_filters is not iterable and default_filters is string %}
+  {%   set filters = default_filters.split(',')  %}
+  {% else %}
+  {%   set filters = default_filters %}
+  {% endif %}
+  {{ filters + nova_scheduler_extra_filters }}
+
+_qemu_default_conf_dict: |-
+  {% set qemu_dict = {} %}
+  {% if nova_rbd_inuse or nova_cinder_rbd_inuse %}
+  {%   set _ = qemu_dict.update({'max_files': '32768'}) %}
+  {%   set _ = qemu_dict.update({'max_processes': '131072'}) %}
+  {% endif %}
+  {{ qemu_dict }}
+
+_nova_qemu_conf: "{{ _qemu_default_conf_dict | combine(qemu_conf_dict) }}"
+
+_nova_oslomsg_heartbeat_in_pthread: "{{ (nova_services['nova-compute']['group'] in group_names) | ternary(False, True) }}"

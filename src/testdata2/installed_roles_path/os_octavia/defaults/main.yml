@@ -1,0 +1,562 @@
+---
+# Copyright 2017, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+## Verbosity Options
+debug: False
+
+# Set the host which will execute the shade modules
+# for the service setup. The host must already have
+# clouds.yaml properly configured.
+octavia_service_setup_host: "{{ openstack_service_setup_host | default('localhost') }}"
+octavia_service_setup_host_python_interpreter: "{{ openstack_service_setup_host_python_interpreter | default((octavia_service_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable'])) }}"
+
+# Set installation method.
+octavia_install_method: "{{ service_install_method | default('source') }}"
+octavia_venv_python_executable: "{{ openstack_venv_python_executable | default('python3') }}"
+
+## Allow TLS listener
+octavia_tls_listener_enabled: True
+
+# Legacy policy disables the requirement for load-balancer service users to
+# have one of the load-balancer:* roles.  It provides a similar policy to
+# legacy OpenStack policies where any user or admin has access to load-balancer
+# resources that they own.  Users with the admin role has access to all
+# load-balancer resources, whether they own them or not.
+octavia_legacy_policy: False
+
+# Set the package install state for distribution packages
+# Options are 'present' and 'latest'
+octavia_package_state: "{{ package_state | default('latest') }}"
+
+octavia_git_repo: https://opendev.org/openstack/octavia
+octavia_git_install_branch: master
+octavia_upper_constraints_url: "{{ requirements_git_url | default('https://releases.openstack.org/constraints/upper/' ~ requirements_git_install_branch | default('master')) }}"
+octavia_git_constraints:
+  - "--constraint {{ octavia_upper_constraints_url }}"
+
+octavia_pip_install_args: "{{ pip_install_options | default('') }}"
+
+# Name of the virtual env to deploy into
+octavia_venv_tag: "{{ venv_tag | default('untagged') }}"
+octavia_bin: "{{ _octavia_bin }}"
+
+octavia_clients_endpoint: internalURL
+
+octavia_auth_strategy: keystone
+
+## Barbican certificates
+octavia_barbican_enabled: false
+
+## Cinder Volume
+octavia_cinder_enabled: False
+cinder_default_availability_zone: "{{ octavia_amp_availability_zone }}"
+octavia_cinder_volume_size: 16
+octavia_cinder_volume_type: "volumes-hdd"
+
+## Database info
+octavia_db_setup_host: "{{ openstack_db_setup_host | default('localhost') }}"
+octavia_db_setup_python_interpreter: "{{ openstack_db_setup_python_interpreter | default((octavia_db_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable'])) }}"
+octavia_galera_address: "{{ galera_address | default('127.0.0.1') }}"
+octavia_galera_user: octavia
+octavia_galera_database: octavia
+octavia_galera_use_ssl: "{{ galera_use_ssl | default(False) }}"
+octavia_galera_ssl_ca_cert: "{{ galera_ssl_ca_cert | default('') }}"
+octavia_db_max_overflow: "{{ openstack_db_max_overflow | default('50') }}"
+octavia_db_max_pool_size: "{{ openstack_db_max_pool_size |  default('5') }}"
+octavia_db_pool_timeout: "{{ openstack_db_pool_timeout | default('30') }}"
+octavia_db_connection_recycle_time: "{{ openstack_db_connection_recycle_time | default('600') }}"
+octavia_galera_port: "{{ galera_port | default('3306') }}"
+
+## Oslo Messaging
+
+# RPC
+octavia_oslomsg_rpc_host_group: "{{ oslomsg_rpc_host_group | default('rabbitmq_all') }}"
+octavia_oslomsg_rpc_setup_host: "{{ (octavia_oslomsg_rpc_host_group in groups) | ternary(groups[octavia_oslomsg_rpc_host_group][0], 'localhost') }}"
+octavia_oslomsg_rpc_transport: "{{ oslomsg_rpc_transport | default('rabbit') }}"
+octavia_oslomsg_rpc_servers: "{{ oslomsg_rpc_servers | default('127.0.0.1') }}"
+octavia_oslomsg_rpc_port: "{{ oslomsg_rpc_port | default('5672') }}"
+octavia_oslomsg_rpc_use_ssl: "{{ oslomsg_rpc_use_ssl | default(False) }}"
+octavia_oslomsg_rpc_userid: octavia
+octavia_oslomsg_rpc_vhost: /octavia
+octavia_oslomsg_rpc_ssl_version: "{{ oslomsg_rpc_ssl_version | default('TLSv1_2') }}"
+octavia_oslomsg_rpc_ssl_ca_file: "{{ oslomsg_rpc_ssl_ca_file | default('') }}"
+
+# Notify
+octavia_oslomsg_notify_host_group: "{{ oslomsg_notify_host_group | default('rabbitmq_all') }}"
+octavia_oslomsg_notify_setup_host: "{{ (octavia_oslomsg_notify_host_group in groups) | ternary(groups[octavia_oslomsg_notify_host_group][0], 'localhost') }}"
+octavia_oslomsg_notify_transport: "{{ oslomsg_notify_transport | default('rabbit') }}"
+octavia_oslomsg_notify_servers: "{{ oslomsg_notify_servers | default('127.0.0.1') }}"
+octavia_oslomsg_notify_port: "{{ oslomsg_notify_port | default('5672') }}"
+octavia_oslomsg_notify_use_ssl: "{{ oslomsg_notify_use_ssl | default(False) }}"
+octavia_oslomsg_notify_userid: "{{ octavia_oslomsg_rpc_userid }}"
+octavia_oslomsg_notify_password: "{{ octavia_oslomsg_rpc_password }}"
+octavia_oslomsg_notify_vhost: "{{ octavia_oslomsg_rpc_vhost }}"
+octavia_oslomsg_notify_ssl_version: "{{ oslomsg_notify_ssl_version | default('TLSv1_2') }}"
+octavia_oslomsg_notify_ssl_ca_file: "{{ oslomsg_notify_ssl_ca_file | default('') }}"
+
+## (Qdrouterd) integration
+# TODO(ansmith): Change structure when more backends will be supported
+octavia_oslomsg_amqp1_enabled: "{{ octavia_oslomsg_rpc_transport == 'amqp' }}"
+
+octavia_ceilometer_enabled: "{{ (groups['ceilometer_all'] is defined) and (groups['ceilometer_all'] | length > 0) }}"
+
+## octavia User / Group
+octavia_system_user_name: octavia
+octavia_system_group_name: octavia
+octavia_system_shell: /bin/false
+octavia_system_comment: octavia system user
+octavia_system_home_folder: "/var/lib/{{ octavia_system_user_name }}"
+octavia_system_slice_name: octavia
+octavia_lock_dir: "{{ openstack_lock_dir | default('/run/lock') }}"
+
+## Auth
+octavia_service_region: "{{ service_region | default('RegionOne') }}"
+octavia_service_project_name: "service"
+octavia_service_user_name: "octavia"
+octavia_service_role_names:
+  - admin
+  - service
+octavia_service_token_roles:
+  - service
+octavia_service_token_roles_required: "{{ openstack_service_token_roles_required | default(True) }}"
+octavia_service_project_domain_id: default
+octavia_service_user_domain_id: default
+octavia_keystone_auth_plugin: "{{ octavia_keystone_auth_type }}"
+octavia_keystone_auth_type: password
+
+## octavia api service type and data
+octavia_service_name: octavia
+octavia_service_description: "Octavia Load Balancing Service"
+octavia_service_port: 9876
+octavia_service_proto: http
+octavia_service_publicuri_proto: "{{ openstack_service_publicuri_proto | default(octavia_service_proto) }}"
+octavia_service_adminuri_proto: "{{ openstack_service_adminuri_proto | default(octavia_service_proto) }}"
+octavia_service_internaluri_proto: "{{ openstack_service_internaluri_proto | default(octavia_service_proto) }}"
+octavia_service_type: load-balancer
+octavia_service_publicuri: "{{ octavia_service_publicuri_proto }}://{{ external_lb_vip_address }}:{{ octavia_service_port }}"
+octavia_service_adminuri: "{{ octavia_service_adminuri_proto }}://{{ internal_lb_vip_address }}:{{ octavia_service_port }}"
+octavia_service_internaluri: "{{ octavia_service_internaluri_proto }}://{{ internal_lb_vip_address }}:{{ octavia_service_port }}"
+
+octavia_service_in_ldap: "{{ service_ldap_backend_enabled | default(False) }}"
+
+## RPC
+octavia_rpc_thread_pool_size: 64
+octavia_rpc_conn_pool_size: 30
+
+## Timeouts
+octavia_amp_active_retries: 10
+
+## Plugin dirs
+octavia_plugin_dirs:
+  - /usr/lib/octavia
+  - /usr/local/lib/octavia
+
+# Common pip packages
+octavia_pip_packages:
+  - cryptography
+  - keystonemiddleware
+  - osprofiler
+  - PyMySQL
+  - pymemcache
+  - python-glanceclient
+  - python-keystoneclient
+  - python-memcached
+  - python-neutronclient
+  - python-novaclient
+  - python-openstackclient
+  - python-octaviaclient
+  - "git+{{ octavia_git_repo }}@{{ octavia_git_install_branch }}#egg=octavia"
+  - systemd-python
+
+# Memcached override
+octavia_memcached_servers: "{{ memcached_servers }}"
+
+# Specific pip packages provided by the user
+octavia_user_pip_packages: []
+
+octavia_optional_oslomsg_amqp1_pip_packages:
+  - oslo.messaging[amqp1]
+
+octavia_api_init_overrides: {}
+octavia_worker_init_overrides: {}
+octavia_housekeeping_init_overrides: {}
+octavia_health_manager_init_overrides: {}
+
+## Service Name-Group Mapping
+octavia_services:
+  octavia-api:
+    group: octavia-api
+    service_name: octavia-api
+    start_order: 4
+    init_config_overrides: "{{ octavia_api_init_overrides }}"
+    wsgi_app: True
+    wsgi_name: octavia-wsgi
+    uwsgi_overrides: "{{ octavia_api_uwsgi_ini_overrides }}"
+    uwsgi_port: "{{ octavia_service_port }}"
+    uwsgi_bind_address: "{{ octavia_uwsgi_bind_address }}"
+  octavia-worker:
+    group: octavia-worker
+    service_name: octavia-worker
+    start_order: 1
+    init_config_overrides: "{{ octavia_worker_init_overrides }}"
+    execstarts: "{{ octavia_bin }}/octavia-worker"
+    execreloads: "/bin/kill -HUP $MAINPID"
+  octavia-housekeeping:
+    group: octavia-housekeeping
+    service_name: octavia-housekeeping
+    start_order: 3
+    init_config_overrides: "{{ octavia_housekeeping_init_overrides }}"
+    execstarts: "{{ octavia_bin }}/octavia-housekeeping"
+    execreloads: "/bin/kill -HUP $MAINPID"
+  octavia-health-manager:
+    group: octavia-health-manager
+    service_name: octavia-health-manager
+    start_order: 2
+    init_config_overrides: "{{ octavia_health_manager_init_overrides }}"
+    execstarts: "{{ octavia_bin }}/octavia-health-manager"
+    execreloads: "/bin/kill -HUP $MAINPID"
+
+# Required secrets for the role
+octavia_required_secrets:
+  - keystone_auth_admin_password
+  - octavia_container_mysql_password
+  - octavia_oslomsg_rpc_password
+  - octavia_oslomsg_notify_password
+  - octavia_service_password
+  - memcached_encryption_key
+
+## Octavia configs
+# Load balancer topology options are SINGLE, ACTIVE_STANDBY
+# ACTIVE_STANDBY is recommended for production settings
+octavia_loadbalancer_topology: SINGLE
+
+# Image tag for the amphora image in glance
+octavia_glance_image_tag: octavia-amphora-image
+# add here the id of the image owner to avoid faked images being used
+octavia_amp_image_owner_id:
+# download the image from an artefact server
+# Note: The default is the Octavia test image so don't use that in prod
+octavia_download_artefact: True
+# The URL to download from
+octavia_artefact_url: http://tarballs.openstack.org/octavia/test-images/test-only-amphora-x64-haproxy-ubuntu-focal.qcow2
+# Set the directory where the downloaded image will be stored
+# on the octavia_service_setup_host host. If the host is localhost,
+# then the user running the playbook must have access to it.
+octavia_amp_image_path: "{{ lookup('env', 'HOME') }}/openstack-ansible/octavia"
+octavia_amp_image_path_owner: "{{ lookup('env', 'USER') }}"
+# enable uploading image to glance automatically
+octavia_amp_image_upload_enabled: "{{ octavia_download_artefact }}"
+
+# Name of the Octavia security group
+octavia_security_group_name: octavia_sec_grp
+# Restrict access to only authorized hosts
+octavia_security_group_rule_cidr:
+# ssh enabled - switch to True if you need ssh access to the amphora
+octavia_ssh_enabled: False
+octavia_ssh_key_name: octavia_key
+octavia_keypair_setup_host: "{{ openstack_service_setup_host | default('localhost') }}"
+octavia_keypair_setup_host_python_interpreter: "{{ openstack_service_setup_host_python_interpreter | default((octavia_keypair_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable'])) }}"
+# port the agent listens on
+octavia_agent_port: "9443"
+octavia_health_manager_port: 5555
+
+#Octavia Nova flavor
+octavia_amp_flavor_name: "m1.amphora"
+octavia_amp_ram: 1024
+octavia_amp_vcpu: 1
+octavia_amp_disk: 20
+#octavia_amp_extra_specs:
+
+# only increase when it's a really busy system since this is by deployed host,
+# e.g. 3 hosts, 5 workers (this param) per host, results in 15 worker total
+octavia_task_flow_max_workers: 5
+
+# Enable provisioning status sync with neutron db
+octavia_sync_provisioning_status: False
+
+# For convenience, we make use of the neutron message vhost
+# for the LBAAS event stream. We could make a completely
+# separate vhost, but the old LBAAS functionality is
+# deprecated so it's a bit pointless unless there is demand
+# for doing it. As such, we provide these defaults here for
+# the template to use.
+neutron_oslomsg_rpc_userid: neutron
+neutron_oslomsg_rpc_vhost: /neutron
+neutron_oslomsg_rpc_transport: "{{ octavia_oslomsg_rpc_transport }}"
+neutron_oslomsg_rpc_port: "{{ octavia_oslomsg_rpc_port }}"
+neutron_oslomsg_rpc_servers: "{{ octavia_oslomsg_rpc_servers }}"
+neutron_oslomsg_rpc_use_ssl: "{{ octavia_oslomsg_rpc_use_ssl }}"
+
+# For additional security use a different user on the Neutron queue
+# for Octavia with restricted access to only the event streamer
+# queues
+octavia_neutron_oslomsg_rpc_userid: "{{ neutron_oslomsg_rpc_userid }}"
+octavia_neutron_oslomsg_rpc_password: "{{ neutron_oslomsg_rpc_password }}"
+
+# this controls if Octavia should add an anti-affinity hint to make sure
+# two amphora are not placed pn the same host (the most common setup of
+# ant affinity features in Nova).
+# Since AIO only has one compute host this is set to false
+octavia_enable_anti_affinity: False
+
+# Some installations put hardware more suited for load balancing in special
+# availability zones. This allows to target a specific availability zone
+# for amphora creation
+octavia_amp_availability_zone: nova
+
+# List of haproxy template files to copy from deployment host to octavia hosts
+# octavia_user_haproxy_templates:
+#  - src: "/etc/openstack_deploy/octavia/haproxy_templates/base.cfg.j2"
+#    dest: "/etc/octavia/templates/base.cfg.j2"
+#  - src: "/etc/openstack_deploy/octavia/haproxy_templates/haproxy.cfg.j2"
+#    dest: "/etc/octavia/templates/haproxy.cfg.j2"
+#  - src: "/etc/openstack_deploy/octavia/haproxy_templates/macros.cfg.j2"
+#    dest: "/etc/octavia/templates/macros.cfg.j2"
+octavia_user_haproxy_templates: {}
+# Path of custom haproxy template file
+#octavia_haproxy_amphora_template: /etc/octavia/templates/haproxy.cfg.j2
+
+# Name of the Octavia management network in Neutron
+octavia_neutron_management_network_name: lbaas-mgmt
+# Name of the Neutron provider net in the system (flat, vlan, ...)
+octavia_provider_network_name: lbaas
+# Network type
+octavia_provider_network_type: flat
+# Network segmentation ID if vlan, gre...
+#octavia_provider_segmentation_id:
+# Network CIDR
+octavia_management_net_subnet_cidr: 172.29.232.0/22
+# Example allocation range:
+# octavia_management_net_subnet_allocation_pools: "172.29.232.10-172.29.235.200"
+octavia_management_net_subnet_allocation_pools: ""
+# Do we require the Neutron DHCP server
+octavia_management_net_dhcp: "True"
+# Should Octavia set up the network and subnet?
+octavia_service_net_setup: True
+# This should match net_name from provider_networks structure in openstack_user_config
+octavia_provider_inventory_net_name: "{{ octavia_provider_network_name }}"
+# This gets container managment network structure based on octavia_provider_inventory_net_name
+octavia_provider_network: "{{ provider_networks|map(attribute='network')|selectattr('net_name','defined')|selectattr('net_name', 'equalto', octavia_provider_inventory_net_name)|list|first }}"
+# The name of the network address pool
+octavia_container_network_name: "{{ octavia_provider_network['ip_from_q'] }}_address"
+octavia_hm_group: "octavia-health-manager"
+# Note: We use some heuristics here but if you do anything special make sure to use the
+# ip addresses on the right network. This will use the container networking to figure out the ip
+octavia_hm_hosts: "{% for host in groups[octavia_hm_group] %}{{ hostvars[host]['container_networks'][octavia_container_network_name]['address'] }}{% if not loop.last %},{% endif %}{% endfor %}"
+# Set this to the right container port aka the eth you connect to the octavia
+# management network
+octavia_container_interface: "{{ octavia_provider_network.container_interface }}"
+# Set this to true to drop the iptables rules
+octavia_ip_tables_fw: True
+# The iptable rules
+octavia_iptables_rules:
+  - # Allow icmp
+    chain: INPUT
+    protocol: icmp
+    ctstate: NEW
+    icmp_type: 8
+    jump: ACCEPT
+  - # Allow existing connections:
+    chain: INPUT
+    in_interface: "{{ octavia_container_interface }}"
+    ctstate:  RELATED,ESTABLISHED
+    jump: ACCEPT
+  - # Allow heartbeat:
+    chain: INPUT
+    in_interface: "{{ octavia_container_interface }}"
+    protocol: udp
+    destination_port: "{{ octavia_health_manager_port }}"
+    jump: ACCEPT
+  - # Reject INPUT:
+    chain: INPUT
+    in_interface: "{{ octavia_container_interface }}"
+    reject_with: icmp-port-unreachable
+  - # Reject FORWARD:
+    chain: FORWARD
+    in_interface: "{{ octavia_container_interface }}"
+    reject_with: icmp-port-unreachable
+  - # Allow icmp6
+    chain: INPUT
+    protocol: icmpv6
+    jump: ACCEPT
+    ip_version: ipv6
+  - # Allow existing connections
+    chain: INPUT
+    in_interface: "{{ octavia_container_interface }}"
+    ctstate:  RELATED,ESTABLISHED
+    jump: ACCEPT
+    ip_version: ipv6
+  - # Allow heartbeat
+    chain: INPUT
+    in_interface: "{{ octavia_container_interface }}"
+    protocol: udp
+    destination_port: "{{ octavia_health_manager_port }}"
+    jump: ACCEPT
+    ip_version: ipv6
+  - # Reject INPUT
+    chain: INPUT
+    in_interface: "{{ octavia_container_interface }}"
+    reject_with: icmp6-port-unreachable
+    ip_version: ipv6
+  - # Reject FORWARD
+    chain: FORWARD
+    in_interface: "{{ octavia_container_interface }}"
+    reject_with: icmp6-port-unreachable
+    ip_version: ipv6
+
+# uWSGI Settings
+octavia_wsgi_processes_max: 16
+octavia_wsgi_processes: "{{ [[(ansible_facts['processor_vcpus']//ansible_facts['processor_threads_per_core'])|default(1), 1] | max * 2, octavia_wsgi_processes_max] | min }}"
+octavia_wsgi_threads: 1
+octavia_uwsgi_bind_address: "{{ openstack_service_bind_address | default('0.0.0.0') }}"
+octavia_api_uwsgi_ini_overrides: {}
+
+# Set up the drivers
+octavia_amphora_driver: amphora_haproxy_rest_driver
+octavia_compute_driver: compute_nova_driver
+octavia_network_driver: allowed_address_pairs_driver
+
+#
+# Certificate generation
+#
+
+# Set the host which will execute the openssl_* modules
+# for the certificate generation. The host must already
+# have access to pyOpenSSL.
+octavia_cert_setup_host: "{{ openstack_pki_setup_host | default('localhost') }}"
+
+# Set the directory where the certificates will be stored
+# on the above host. If the host is localhost, then the user
+# running the playbook must have access to it.
+octavia_cert_dir: "{{ openstack_pki_dir | default(lookup('env', 'HOME') ~ '/openstack-ansible') }}"
+octavia_cert_keys_dir: "{{ octavia_cert_dir }}/certs/private/"
+octavia_cert_certs_dir: "{{ octavia_cert_dir }}/certs/certs/"
+octavia_cert_dir_owner: "{{ lookup('env', 'USER') }}"
+
+octavia_cert_client_req_common_name: 'www.example.com' # change this to something more real
+octavia_cert_client_req_country_name: 'US'
+octavia_cert_client_req_state_or_province_name: 'Denial'
+octavia_cert_client_req_locality_name: 'Nowhere'
+octavia_cert_client_req_organization_name: 'Dis'
+octavia_cert_validity_days: 1825 # 5 years
+octavia_generate_certs: True # generate self signed client certs
+octavia_generate_client_cert: True
+octavia_generate_ca: True
+octavia_regenerate_client_cert: ''
+octavia_regenerate_ca: ''
+
+octavia_cert_authorities:
+  - name: "OctaviaServerRoot"
+    country: "{{ octavia_cert_client_req_country_name }}"
+    state_or_province_name: "{{ octavia_cert_client_req_state_or_province_name }}"
+    organization_name: "{{ octavia_cert_client_req_organization_name }}"
+    locality_name: "{{ octavia_cert_client_req_locality_name }}"
+    cn: "Octavia Server CA"
+    provider: selfsigned
+    basic_constraints: "CA:TRUE"
+    key_passphrase: "{{ octavia_ca_private_key_passphrase }}"
+    key_usage:
+      - digitalSignature
+      - cRLSign
+      - keyCertSign
+    not_after: "+{{ octavia_cert_validity_days }}d"
+  - name: "OctaviaClientRoot"
+    country: "{{ octavia_cert_client_req_country_name }}"
+    state_or_province_name: "{{ octavia_cert_client_req_state_or_province_name }}"
+    organization_name: "{{ octavia_cert_client_req_organization_name }}"
+    locality_name: "{{ octavia_cert_client_req_locality_name }}"
+    cn: "Octavia Client CA"
+    provider: selfsigned
+    basic_constraints: "CA:TRUE"
+    key_passphrase: "{{ octavia_cert_client_password }}"
+    key_usage:
+      - digitalSignature
+      - cRLSign
+      - keyCertSign
+    not_after: "+{{ octavia_cert_validity_days }}d"
+
+octavia_cert_certificates:
+  - name: "octavia_client"
+    provider: ownca
+    cn: "{{ octavia_cert_client_req_common_name }}"
+    signed_by: "OctaviaClientRoot"
+    ownca_key_passphrase: "{{ octavia_cert_client_password }}"
+    key_usage:
+      - nonRepudiation
+      - digitalSignature
+      - keyEncipherment
+    extended_key_usage:
+      - clientAuth
+      - emailProtection
+
+# Installation details for SSL certificates
+octavia_cert_install_certificates:
+  # Server CA
+  - src: "{{ octavia_ca_certificate | default(octavia_cert_dir ~ '/roots/OctaviaServerRoot/certs/OctaviaServerRoot.crt') }}"
+    dest: "/etc/octavia/certs/server_ca.pem"
+    owner: "{{ octavia_system_user_name }}"
+    group: "{{ octavia_system_group_name }}"
+    mode: "0640"
+  - src: "{{ octavia_ca_private_key | default(octavia_cert_dir ~ '/roots/OctaviaServerRoot/private/OctaviaServerRoot.key.pem') }}"
+    dest: "/etc/octavia/certs/ca_key.pem"
+    owner: "{{ octavia_system_user_name }}"
+    group: "{{ octavia_system_group_name }}"
+    mode: "0640"
+  # Client CA
+  - src: "{{ octavia_client_ca | default(octavia_cert_dir ~ '/roots/OctaviaClientRoot/certs/OctaviaClientRoot.crt') }}"
+    dest: "/etc/octavia/certs/client_ca.pem"
+    owner: "{{ octavia_system_user_name }}"
+    group: "{{ octavia_system_group_name }}"
+    mode: "0640"
+  # Client certificate
+  - src: "{{ octavia_client_cert | default(octavia_cert_certs_dir ~ '/octavia_client.crt') }}"
+    dest: "/etc/octavia/certs/client.pem.crt"
+    owner: "{{ octavia_system_user_name }}"
+    group: "{{ octavia_system_group_name }}"
+    mode: "0640"
+  - src: "{{ octavia_client_key | default(octavia_cert_keys_dir ~ '/octavia_client.key.pem') }}"
+    dest: "/etc/octavia/certs/client.pem.key"
+    owner: "{{ octavia_system_user_name }}"
+    group: "{{ octavia_system_group_name }}"
+    mode: "0640"
+
+
+# Custom client CA
+#octavia_client_ca: "{{ octavia_cert_dir }}/ca_01.pem"
+## Custom client certs
+#octavia_client_cert: "{{ octavia_cert_dir }}/client.pem"
+#octavia_client_key: "{{ octavia_cert_dir }}/client.key.pem"
+## server
+#octavia_server_ca: "{{ octavia_ca_certificate }}"
+## ca certs
+#octavia_ca_private_key: "{{ octavia_cert_dir }}/private/cakey.pem"
+octavia_ca_private_key_passphrase: "{{ octavia_cert_client_password }}"
+#octavia_ca_certificate: "{{ octavia_cert_dir }}/ca_server_01.pem"
+
+
+# Quotas for the Octavia user - assuming active/passive topology
+octavia_num_instances: 10000 # 5000 LB in active/passive
+octavia_ram: "{{ (octavia_num_instances|int)*1024 }}"
+octavia_num_server_groups: "{{ ((octavia_num_instances|int)*0.5)|int|abs }}"
+octavia_num_server_group_members: 50
+octavia_num_cores: "{{ octavia_num_instances }}"
+octavia_num_secgroups: "{{ (octavia_num_instances|int)*1.5|int|abs }}" # average 3 listener per lb
+octavia_num_ports: "{{ (octavia_num_instances|int)*10 }}" # at least instances * 10
+octavia_num_security_group_rules: "{{ (octavia_num_secgroups|int)*100 }}"
+
+## Tunable overrides
+octavia_octavia_conf_overrides: {}
+octavia_api_paste_ini_overrides: {}
+octavia_policy_overrides: {}

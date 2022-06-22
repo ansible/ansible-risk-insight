@@ -1,0 +1,65 @@
+# {{ ansible_managed }}
+
+[Match]
+Name={{ item.1.interface }}
+
+{% if item.1.address is defined and (item.1.address | lower) == 'dhcp' %}
+[DHCP]
+UseDNS={{ (item.1.usedns | default(false) | bool) | ternary('yes', 'no') }}
+UseNTP=yes
+RouteMetric=20
+{% endif %}
+
+{% for route in item.1.static_routes | default([]) %}
+[Route]
+Source={{ route['cidr'] }}
+Gateway={{ route['gateway'] }}
+Metric={{ 20 + loop.index }}
+
+{% endfor %}
+
+{%- if item.1.address is not defined %}
+{#   Address is not defined #}
+{%   set _addresses = [] %}
+{% elif item.1.address is iterable and item.1.address is not string %}
+{#   Address is a list, multiple addresses defined #}
+{%   set _addresses = item.1.address %}
+{% else %}
+{#   Single address defined #}
+{%   set _addresses = [item.1] %}
+{% endif %}
+
+[Network]
+{% for _addr in _addresses %}
+{%   if _addr is string %}
+{%       set _addr = {'address': _addr} %}
+{%   endif %}
+{%   if _addr.address == 'dhcp' %}
+DHCP=yes
+{%   else %}
+{%   set _addr_cidr = (_addr.address ~ '/' ~ _addr.netmask | default('')).rstrip('/') | ansible.utils.ipaddr('host') %}
+Address={{ _addr_cidr }}
+{%   endif %}
+{%   if _addr.gateway is defined %}
+Gateway={{ item.1.gateway }}
+{%   endif %}
+{% endfor %}
+{% if item.1.bridge is defined %}
+Bridge={{ item.1.bridge }}
+{% elif item.1.bond is defined %}
+Bond={{ item.1.bond }}
+{% elif item.1.vlan is defined %}
+VLAN={{ item.1.vlan }}
+{% elif item.1.macvlan is defined %}
+MACVLAN={{ item.1.macvlan }}
+{% elif item.1.vxlan is defined %}
+VXLAN={{ item.1.vxlan }}
+{% endif %}
+{% if item.1.ipforward is defined %}
+IPForward={{ (item.1.ipforward | bool) | ternary('yes', 'no') }}
+{% endif %}
+
+[Link]
+{% if item.1.mtu is defined %}
+MTUBytes={{ item.1.mtu }}
+{% endif %}

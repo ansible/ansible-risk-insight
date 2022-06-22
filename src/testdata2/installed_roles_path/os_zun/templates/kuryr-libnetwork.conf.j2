@@ -1,0 +1,37 @@
+[DEFAULT]
+
+debug = {{ debug | bool }}
+use_stderr = false
+use_journal = true
+
+# Directory for Kuryr vif binding executables. (string value)
+bindir = {{ zun_bin | dirname }}/libexec/kuryr
+
+# Kuryr URL for accessing Kuryr through json rpc. (string value)
+kuryr_uri = http://{{ zun_kuryr_service_address }}:{{ zun_kuryr_service_port }}
+
+# Kuryr plugin scope reported to libnetwork. (string value)
+capability_scope = global
+
+# Do processing external connectivity (boolean value)
+process_external_connectivity = false
+
+
+[binding]
+# The name prefix of the veth endpoint put inside the container. (string value)
+veth_dst_prefix = veth
+
+
+[neutron]
+# Configuration options for OpenStack Neutron
+
+auth_url = {{ keystone_service_adminurl }}
+auth_type = {{ zun_keystone_auth_plugin }}
+endpoint_type = internal
+insecure = {{ keystone_service_internaluri_insecure | bool }}
+password = {{ zun_kuryr_service_password }}
+project_domain_id = {{ zun_service_project_domain_id }}
+project_name = {{ zun_service_project_name }}
+user_domain_id = {{ zun_service_user_domain_id }}
+username = {{ zun_kuryr_service_username }}
+vif_plugging_is_fatal = true

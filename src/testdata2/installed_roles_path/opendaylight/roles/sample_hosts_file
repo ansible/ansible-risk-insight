@@ -1,0 +1,27 @@
+[all:vars]
+lab_http_proxy=""
+lab_https_proxy=""
+mgmt_lab_ip_prefix="10.20.30"
+data_lab_ip_prefix="10.20.31"
+infrastructure_server="odl-registry"
+registry_ip_address="10.20.32.1"
+docker_registry_port=4000
+docker_registry="{{ infrastructure_server }}:{{ docker_registry_port }}"
+service_host_phys_host="20"
+
+[cluster0:children]
+service-node-hosts
+compute-node-hosts
+
+[compute-node-hosts]
+pod1-05 ansible_host=10.20.30.5  rackpos=5
+pod1-06 ansible_host=10.20.30.6  rackpos=6
+pod1-08 ansible_host=10.20.30.8  rackpos=8
+pod1-09 ansible_host=10.20.30.9  rackpos=9
+pod1-10 ansible_host=10.20.30.10 rackpos=10
+
+[service-node-hosts]
+pod1-20 ansible_host=10.20.30.20 rackpos=20
+
+# vim: set et ai sw=2 ts=2 ft=dosini :
+

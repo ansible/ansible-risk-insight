@@ -1,0 +1,47 @@
+[composite:aodh+noauth]
+use = egg:Paste#urlmap
+/ = aodhversions_pipeline
+/v2 = aodhv2_noauth_pipeline
+/healthcheck = healthcheck
+
+[composite:aodh+keystone]
+use = egg:Paste#urlmap
+/ = aodhversions_pipeline
+/v2 = aodhv2_keystone_pipeline
+/healthcheck = healthcheck
+
+[app:healthcheck]
+use = egg:oslo.middleware#healthcheck
+oslo_config_project = aodh
+
+[pipeline:aodhversions_pipeline]
+pipeline = cors http_proxy_to_wsgi aodhversions
+
+[app:aodhversions]
+paste.app_factory = aodh.api.app:app_factory
+root = aodh.api.controllers.root.VersionsController
+
+[pipeline:aodhv2_keystone_pipeline]
+pipeline = cors http_proxy_to_wsgi request_id authtoken aodhv2
+
+[pipeline:aodhv2_noauth_pipeline]
+pipeline = cors http_proxy_to_wsgi request_id aodhv2
+
+[app:aodhv2]
+paste.app_factory = aodh.api.app:app_factory
+root = aodh.api.controllers.v2.root.V2Controller
+
+[filter:authtoken]
+paste.filter_factory = keystonemiddleware.auth_token:filter_factory
+oslo_config_project = aodh
+
+[filter:request_id]
+paste.filter_factory = oslo_middleware:RequestId.factory
+
+[filter:cors]
+paste.filter_factory = oslo_middleware.cors:filter_factory
+oslo_config_project = aodh
+
+[filter:http_proxy_to_wsgi]
+paste.filter_factory = oslo_middleware.http_proxy_to_wsgi:HTTPProxyToWSGI.factory
+oslo_config_project = aodh

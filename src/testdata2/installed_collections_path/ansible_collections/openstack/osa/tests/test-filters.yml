@@ -1,0 +1,82 @@
+---
+# Copyright 2016, @WalmartLabs
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+
+- name: Test filters
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Validate string_2_int filter
+      assert:
+        that:
+          - "{{ 'test' | string_2_int }} == 3752"
+
+    - name: Set pip package list facts
+      set_fact:
+         pip_package_list_1:
+           - pip==8.1.2
+           - setuptools==25.1.0
+           - wheel==0.29.0
+         pip_package_list_2:
+           - babel==2.3.4
+           - pip==8.1.0
+         pip_package_list_merged:
+           - babel==2.3.4
+           - pip==8.1.0
+           - setuptools==25.1.0
+           - wheel==0.29.0
+
+    - name: Set splitlines string facts
+      set_fact:
+        string_with_lines: |
+          this
+          is
+          a
+          test
+        string_split_lines:
+          - this
+          - is
+          - a
+          - test
+    - name: Set splitlines filter fact
+      set_fact:
+        string_split_lines_filtered: "{{ string_with_lines | splitlines }}"
+    - name: Validate splitlines filter
+      assert:
+        that: "string_split_lines_filtered == string_split_lines"
+
+    - name: Set git repo facts
+      set_fact:
+        git_repo: "git+https://git.openstack.org/openstack/nova@2bc8128d7793cc72ca2e146de3a092e1fef5033b#egg=nova&gitname=nova"
+        git_repo_name: nova
+        git_repo_link_parts:
+          name: nova
+          version: 2bc8128d7793cc72ca2e146de3a092e1fef5033b
+          plugin_path: null
+          url: "https://git.openstack.org/openstack/nova"
+          original: "git+https://git.openstack.org/openstack/nova@2bc8128d7793cc72ca2e146de3a092e1fef5033b#egg=nova&gitname=nova"
+
+    - name: Set deprecation variable facts
+      set_fact:
+        new_var: new
+        old_var: old
+    - name: Set deprecated filter fact
+      set_fact:
+        deprecated_value: "{{ new_var | deprecated(old_var, 'old_var', 'new_var', 'Next Release', false) }}"
+    - name: Validate deprecated filter
+      assert:
+        that: "deprecated_value == old_var"

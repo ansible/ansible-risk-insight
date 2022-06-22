@@ -1,0 +1,139 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Record the installation method
+  ini_file:
+    dest: "/etc/ansible/facts.d/openstack_ansible.fact"
+    section: "neutron"
+    option: "install_method"
+    value: "{{ neutron_install_method }}"
+
+- name: Refresh local facts to ensure the neutron section is present
+  setup:
+    filter: ansible_local
+    gather_subset: "!all"
+
+- name: Install neutron role packages
+  package:
+    name: "{{ neutron_package_list }}"
+    state: "{{ neutron_package_state }}"
+    update_cache: "{{ (ansible_facts['pkg_mgr'] == 'apt') | ternary('yes', omit) }}"
+    cache_valid_time: "{{ (ansible_facts['pkg_mgr'] == 'apt') | ternary(cache_timeout, omit) }}"
+  register: install_packages
+  until: install_packages is success
+  retries: 5
+  delay: 2
+
+- name: Remove known problem packages
+  package:
+    name: "{{ item }}"
+    state: absent
+  register: remove_packages
+  until: remove_packages is success
+  retries: 5
+  delay: 2
+  with_items: "{{ neutron_remove_distro_packages }}"
+
+# NOTE(jrosser)
+# ceilometer appears in u-c as is used by networking-odl stats plugin.
+# the new pip resolver will fail to install ceilometer if two contradictory
+# constraints are given which will always happen with a source install
+# and wheels built on the repo server. We must filter ceilometer out of u-c.
+#
+# NOTE(jrosser)
+# neutron itself also appears in u-c (!) as the split between neutron and
+# neutron-lib appears incomplete.
+- name: Retrieve the constraints URL
+  uri:
+    url: "{{ neutron_upper_constraints_url }}"
+    return_content: yes
+  register: _u_c_contents
+  check_mode: false
+
+- name: Install the python venv
+  import_role:
+    name: "python_venv_build"
+  vars:
+    venv_python_executable: "{{ neutron_venv_python_executable }}"
+    venv_build_constraints: "{{ _u_c_contents.content.split('\n') | reject('match', '^(ceilometer|neutron)=') | list }}"
+    venv_build_distro_package_list: "{{ neutron_devel_distro_packages }}"
+    venv_install_destination_path: "{{ neutron_bin | dirname }}"
+    venv_install_distro_package_list: "{{ neutron_package_list }}"
+    venv_pip_install_args: "{{ neutron_pip_install_args }}"
+    venv_pip_packages: "{{ neutron_venv_packages }}"
+    venv_facts_when_changed:
+      - section: "neutron"
+        option: "need_db_expand"
+        value: "True"
+      - section: "neutron"
+        option: "need_db_contract"
+        value: "True"
+      - section: "neutron"
+        option: "venv_tag"
+        value: "{{ neutron_venv_tag }}"
+  when: neutron_install_method == 'source'
+
+- name: Initialise the upgrade facts
+  ini_file:
+    dest: "/etc/ansible/facts.d/openstack_ansible.fact"
+    section: neutron
+    option: "{{ item.name }}"
+    value: "{{ item.state }}"
+  with_items:
+    - name: "need_db_expand"
+      state: "True"
+    - name: "need_db_contract"
+      state: "True"
+  when: (install_packages is changed) or
+        (ansible_local is not defined) or
+        ('openstack_ansible' not in ansible_local) or
+        ('neutron' not in ansible_local['openstack_ansible']) or
+        ('need_db_expand' not in ansible_local['openstack_ansible']['neutron']) or
+        ('need_db_contract' not in ansible_local['openstack_ansible']['neutron'])
+
+- name: Ensure Open vSwitch service is started and enabled
+  service:
+    name: "{{ neutron_ovs_service_name }}"
+    state: started
+    enabled: yes
+  when: neutron_needs_openvswitch | bool
+
+# NOTE(hwoarang) contains may share the same physical host so we only
+# need to execute the apparmor configuration once per physical host.
+- name: Record the first container on each physical host
+  delegate_to: 'localhost'
+  run_once: True
+  set_fact:
+    neutron_apparmor_hosts: |
+      {%- set apparmor_hosts = [] -%}
+      {%- set physical_hosts = [] -%}
+      {%- for host in groups[neutron_role_project_group] -%}
+      {%-   if hostvars[host]['physical_host'] is defined -%}
+      {%-     set phost = hostvars[host]['physical_host'] -%}
+      {%-     if phost not in physical_hosts -%}
+      {%-       set _ = apparmor_hosts.append(host) -%}
+      {%-       set _ = physical_hosts.append(phost) -%}
+      {%-     endif -%}
+      {%-   else -%}
+      {%-     set _ = apparmor_hosts.append('localhost') -%}
+      {%-   endif -%}
+      {%- endfor -%}
+      {{ apparmor_hosts | unique }}
+  when: ansible_pkg_mgr == 'apt'
+
+- import_tasks: neutron_apparmor.yml
+  when:
+    - ansible_facts['pkg_mgr'] == 'apt'
+    - inventory_hostname in neutron_apparmor_hosts

@@ -1,0 +1,10 @@
+{% set cluster_members = [] -%}
+{%- for node in groups[pacemaker_corosync_group] %}
+  {%- set _ = cluster_members.append(hostvars[node]['ansible_' + pacemaker_corosync_ring_interface].ipv4.address) -%}
+{% endfor -%}
+# Allow access to cluster members
+protocol udp dport (5404 5405 5406) {
+  @def $ITEMS = ( @ipfilter( ( {{ cluster_members | unique | join(" ") }} ) ) 
+);
+  saddr $ITEMS ACCEPT;
+}

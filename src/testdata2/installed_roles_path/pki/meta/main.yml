@@ -1,0 +1,17 @@
+galaxy_info:
+  author: City Networks, BBC
+  description: Installation and configuration of PKI infrastructure
+  company: City Networks, BBC
+  license: Apache2
+  min_ansible_version: 2.10
+  platforms:
+    - name: Ubuntu
+      versions:
+        - bionic
+        - focal
+    - name: EL
+      versions:
+        - 8
+  galaxy_tags:
+    - cloud
+    - openstack

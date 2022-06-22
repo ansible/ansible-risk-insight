@@ -1,0 +1,88 @@
+---
+# Copyright 2018, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Define the docker api
+  block:
+    - name: Get docker api version
+      command: >-
+        {% raw %}
+        docker version -f "{{ .Client.APIVersion }}"
+        {% endraw %}
+      failed_when: false
+      changed_when: false
+      register: docker_version
+
+    - name: Set docker api version fact
+      set_fact:
+        zun_docker_api_version: "{{ docker_version.stdout | trim }}"
+  when:
+    - zun_services['zun-compute']['group'] in group_names
+
+- name: Generate zun config
+  openstack.config_template.config_template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "{{ zun_system_user_name }}"
+    group: "{{ zun_system_group_name }}"
+    mode: "0640"
+    config_overrides: "{{ item.config_overrides }}"
+    config_type: "{{ item.config_type }}"
+  with_items:
+    - src: "zun.conf.j2"
+      dest: "/etc/zun/zun.conf"
+      config_overrides: "{{ zun_zun_conf_overrides }}"
+      config_type: "ini"
+    - src: "rootwrap.conf.j2"
+      dest: "/etc/zun/rootwrap.conf"
+      config_overrides: "{{ zun_rootwrap_conf_overrides }}"
+      config_type: "ini"
+    - src: "api-paste.ini.j2"
+      dest: "/etc/zun/api-paste.ini"
+      config_overrides: "{{ zun_api_paste_ini_overrides }}"
+      config_type: "ini"
+  notify:
+    - Restart uwsgi services
+    - Restart zun services
+  tags:
+    - zun-config
+    - zun-post-install
+
+- name: Implement policy.yaml if there are overrides configured
+  openstack.config_template.config_template:
+    content: "{{ zun_policy_overrides }}"
+    dest: "/etc/zun/policy.yaml"
+    config_type: yaml
+  when:
+    - zun_policy_overrides | length > 0
+  tags:
+    - zun-policy-override
+
+- name: Remove legacy policy.yaml file
+  file:
+    path: "/etc/zun/policy.yaml"
+    state: absent
+  when:
+    - zun_policy_overrides | length == 0
+  tags:
+    - zun-policy-override
+
+- name: Synchronize the zun DB schema
+  command: "{{ zun_bin }}/zun-db-manage --config-dir /etc/zun upgrade"
+  become: yes
+  become_user: "{{ zun_system_user_name }}"
+  changed_when: false
+  when:
+    - zun_services['zun-api']['group'] in group_names
+    - inventory_hostname == ((groups['zun_api'] | intersect(ansible_play_hosts)) | list)[0]

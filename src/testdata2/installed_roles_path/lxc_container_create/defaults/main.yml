@@ -1,0 +1,188 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+## Verbosity Options
+debug: False
+
+## Parameters provided to the wait_for_connection module after a container
+## reboot is triggered by the role
+lxc_container_wait_params:
+  # Wait 3 seconds before attempting the first connection
+  delay: 3
+  # Wait 60 seconds for the container to respond
+  timeout: 60
+
+lxc_container_config: /etc/lxc/lxc-openstack.conf
+lxc_container_config_list: []
+lxc_container_commands: ""
+lxc_container_extra_commands: "{{ _lxc_container_extra_commands | default('echo noop') }}"
+
+# A list of bind mounts to configure for the container, for example:
+# lxc_container_bind_mounts:
+#   - host_directory: "/openstack/{{ inventory_hostname }}/mydirectory"
+#     container_directory: "/opt/mydirectory"
+lxc_container_bind_mounts: []
+
+lxc_container_default_bind_mounts:
+  - host_directory: "/openstack/backup/{{ inventory_hostname }}"
+    container_directory: "/var/backup"
+
+# When using a base container to snapshot from for the overlayfs or LVM
+# copy-on-write backing stored, the base container prefix/name can be set.
+lxc_container_base_name_prefix: ''
+lxc_container_base_name: "{{ lxc_container_base_name_prefix }}{{ lxc_container_map.distro }}-{{ lxc_container_map.release }}-{{ lxc_container_map.arch }}"
+
+# Mappings from Ansible reported architecture to distro release architecture
+lxc_architecture_mapping:
+  x86_64: amd64
+  ppc64le: ppc64el
+  s390x: s390x
+  armv7l: armhf
+  aarch64: arm64
+
+# lxc container rootfs directory and cache path
+lxc_container_directory: "/var/lib/lxc"
+lxc_container_cache_path: "/var/cache/lxc"
+lxc_container_log_path: "/var/log/lxc"
+lxc_container_rootfs_directory: "{{ lxc_container_directory }}/{{ container_name }}/rootfs"
+
+# container_fs.* is only used with building on an LVM backend
+lxc_container_fs_size: 5G
+lxc_container_fs_type: ext4
+
+# The container creation process now allows ``copy-on-write`` to be set as
+#  the ``lxc_container_backing_method`` when the
+#  ``lxc_container_backing_store`` is set to ``lvm``. When this is set it
+#  will use a snapshot of the base container to build the containers.
+lxc_container_backing_method: null
+
+# The container backing store can be set to 'overlayfs' to use overlayfs
+# This should only be done for production use with a linux kernel > 3.14
+# which is when overlayfs was merged into the mainline kernel.
+# lxc_container_backing_store: overlayfs
+# Other store options are: ["machinectl", "btrfs", "dir", "zfs", "lvm"].
+lxc_container_backing_store: dir
+
+# If the container backing store is LVM, the automatic detection will
+# require the presence of the lxc_container_vg_name volume group. If
+# this is not found then the automatic detection will fail back to
+# using the directory backing.
+lxc_container_vg_name: lxc
+
+# Scripts allowing the configuration of pre/post-up/down scripts.
+# These are run as one shot services before or after networking is available.
+lxc_container_default_preup: []
+lxc_container_default_postup: []
+lxc_container_default_predown: []
+lxc_container_default_postdown: []
+
+lxc_container_default_mtu: "1500"
+
+lxc_container_domain: "openstack.local"
+
+# LXC image server
+lxc_image_cache_server: images.linuxcontainers.org
+
+## Default download template options
+##  This can be customized to use a local build server and options.
+##  By default these options will be fulfilled by the distro specific
+##  variable files found in vars/
+# lxc_container_download_template_options: >
+#   --dist NAME_OF_DISTRO
+#   --release DISTRO_RELEASE
+#   --arch CONTAINER_ARCH
+#   --force-cache
+#   --server SERVER_TO_GET_IMAGES_FROM
+lxc_container_template: download
+lxc_container_variant: default
+lxc_container_download_template_extra_options: ""
+lxc_container_download_template_options: >-
+  --dist {{ lxc_container_map.distro }}
+  --release {{ lxc_container_map.release }}
+  --arch {{ lxc_container_map.arch }}
+  --force-cache
+  --server {{ lxc_image_cache_server }}
+  --variant={{ properties['lxc_container_variant'] | default(lxc_container_variant) }}
+  {{ lxc_container_download_template_extra_options }}
+
+## Default machinectl template options
+##  This can be customized to use a local build server and options.
+##  By default these options will be fulfilled by the distro specific
+##  variable files found in vars/
+# lxc_container_download_template_options: >
+#   --dist NAME_OF_DISTRO
+#   --release DISTRO_RELEASE
+#   --arch CONTAINER_ARCH
+lxc_container_machinectl_template_options: >-
+  --dist {{ lxc_container_map.distro }}
+  --release {{ lxc_container_map.release }}
+  --arch {{ lxc_container_map.arch }}
+  --variant={{ properties['lxc_container_variant'] | default(lxc_container_variant) }}
+  {{ lxc_container_download_template_extra_options }}
+
+# Toggle the restart of containers via the handler.
+lxc_container_allow_restarts: yes
+
+lxc_container_network_veth_pair_prefix: "{{ inventory_hostname[-8:].replace('-', '').replace('_', '') }}"
+lxc_container_network_veth_pair: "{{ lxc_container_network_veth_pair_prefix }}_{{ item.value.interface }}"
+# In order to use "with_indexed_items" we need a specific var to reference item.1.interface
+# This is for the container-interface.ini.j2 template only.
+lxc_container_network_veth_pair_indexed: "{{ lxc_container_network_veth_pair_prefix }}_{{ item.1.interface }}"
+
+# A default set of container networks used within the LXC containers.
+lxc_container_networks:
+  lxcbr0_address:
+    bridge: lxcbr0
+    interface: eth0
+    type: veth
+
+# Enable destroying then recreating containers
+lxc_container_recreate: false
+
+# Enable running the veth wiring script
+lxc_container_veth_wiring: false
+
+# Enable systemd-resolved
+lxc_container_enable_resolved: true
+
+# User defined variable pointing to a specific variable file used when setting
+# up the base container image. Deployers can use the provided container variable
+# files by simply inputting the file name
+# "{{ ansible_facts['distribution'] }}-{{ ansible_facts['distribution_version'] }}-container.yml"
+# or by providing the full path to a local file containing all of the variables
+# needed to prepare a container.
+#lxc_user_defined_container: null
+
+# Dictionary of settings for containers
+properties: {}
+
+# Set "/var/log/journal/{{ machine_id }}" to be a bind mount to the physical
+# host. This option will link the container journal and the physical host
+# journals making it possible to log stream from the container on the physical
+# host.
+lxc_container_journal_link: true
+
+# Enable or Disable the BTRFS quota system, which is used for the
+# "/var/lib/machines" mount point (for the machinectl backing store), or for
+# any containers with a btrfs backing store. More information on the BTRFS
+# quota system can be found here:
+#  * https://btrfs.wiki.kernel.org/index.php/Quota_support
+lxc_host_btrfs_quota_disabled: false
+
+# Set the default qgroup limits used for btrfs file system quotas. The default
+# is "none". See the following documentation for more information:
+#  * https://btrfs.wiki.kernel.org/index.php/Manpage/btrfs-qgroup
+lxc_host_btrfs_qgroup_space_limit: none
+lxc_host_btrfs_qgroup_compression_limit: none

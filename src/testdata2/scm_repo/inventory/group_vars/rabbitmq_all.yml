@@ -1,0 +1,34 @@
+---
+# Copyright 2016, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+rabbitmq_port_bindings: |-
+  {%- set _rabbitmq_port_bindings = {'ssl_listeners': {}, 'tcp_listeners': {}} %}
+  {%- for network, data in container_networks.items() %}
+  {%-   if 'address' in data %}
+  {%-     set _ = _rabbitmq_port_bindings['ssl_listeners'].update({ container_networks[network]['address']: '5671' }) %}
+  {%-     set _ = _rabbitmq_port_bindings['tcp_listeners'].update({ container_networks[network]['address']: '5672' }) %}
+  {%-   endif %}
+  {%- endfor %}
+  {{ _rabbitmq_port_bindings }}
+
+rabbitmq_management_bind_address: "{{ management_address }}"
+
+rabbitmq_cluster_name: openstack
+
+# Ensure that the package state matches the global setting
+rabbitmq_package_state: "{{ rabbitmq_upgrade | default(False) | bool | ternary('latest', 'present') }}"
+
+# Ensure that all rabbitmq containers get a fixed mac address
+lxc_container_fixed_mac: true

@@ -1,0 +1,24 @@
+- hosts: all[0]
+  vars_files:
+    - "{{ zuul.executor.work_root }}/osa-gate-scenario.yml"
+  tasks:
+    - name: Run gate-check-commit.sh script
+      become: yes
+      become_user: root
+      shell: >-
+        scripts/gate-check-commit.sh
+        {{ scenario | quote }}
+        {{ action | quote }}
+        {{ install_method | quote }}
+      args:
+        chdir: "src/opendev.org/openstack/openstack-ansible"
+        executable: /bin/bash
+      environment:
+        # NOTE(logan): ARA is already installed in the gate environment by the
+        # pre-osa-aio pre-run playbook
+        SETUP_ARA: false
+        # NOTE(logan): The project is bootstrapped in the pre playbook so the
+        # bootstrapping can be skipped here
+        SKIP_OSA_RUNTIME_VENV_BUILD: 1
+        SKIP_OSA_BOOTSTRAP_AIO: 1
+        SKIP_OSA_ROLE_CLONE: 1

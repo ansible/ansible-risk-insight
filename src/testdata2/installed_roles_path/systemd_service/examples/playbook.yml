@@ -1,0 +1,27 @@
+---
+
+- name: Create a systemd unit file for ServiceX
+  hosts: localhost
+  become: true
+  roles:
+    - role: "systemd_service"
+      systemd_services:
+        - service_name: "test oneshot service1"
+          config_overrides:
+            Unit:
+              Description: Test oneshot service
+              After: network-online.target
+              Wants: network-online.target
+            Service:
+              RemainAfterExit: yes
+          service_type: oneshot
+          execstarts:
+            - "/bin/bash -c 'echo start1'"
+            - "/bin/bash -c 'echo start2'"
+          execstops:
+            - "/bin/bash -c 'echo stop1'"
+            - "/bin/bash -c 'echo stop2'"
+          enabled: yes
+          state: started
+          systemd_tempd_prefix: openstack
+          systemd_lock_path: /var/lock/networking

@@ -1,0 +1,7 @@
+[DEFAULT]
+
+[nsx_p]
+
+nsx_api_user = {{ nsx_api_user | default('admin') }}
+nsx_api_password = {{ nsx_api_password }}
+nsx_api_managers = {{ nsx_api_managers | join(',') }}

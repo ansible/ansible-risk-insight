@@ -1,0 +1,40 @@
+---
+# Copyright 2021, BBC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Include {{ pki_method }} CA variables
+  include_vars:
+    file: "{{ pki_method ~ '_ca.yml' }}"
+
+- name: Create PKI directories
+  file:
+    state: directory
+    path: "{{ item.path }}"
+    owner: "{{ item.owner | default(omit) }}"
+    mode: "{{ item.mode | default(omit) }}"
+  with_items:
+    - "{{ pki_ca_dirs }}"
+  delegate_to: "{{ pki_setup_host }}"
+  when: pki_create_ca | bool
+  check_mode: no
+
+- name: Create certificate authorities
+  include_tasks: "{{ pki_method }}/create_ca.yml"
+  loop: "{{ _pki_ca_defs }}"
+  loop_control:
+    loop_var: ca
+  vars:
+     ca_dir: "{{ pki_dir }}/roots/{{ ca.name }}"
+     ca_cert_prefix: "{{ ca_dir ~ '/certs/' ~ ca.name }}"
+  when: pki_create_ca | bool

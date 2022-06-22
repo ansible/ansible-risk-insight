@@ -1,0 +1,69 @@
+---
+# NOTE (leseb):
+# The playbook aims to takeover a cluster that was not configured with
+# ceph-ansible.
+#
+# The procedure is as follows:
+#
+# 1. Install Ansible and add your monitors and osds hosts in it. For more detailed information you can read the [Ceph Ansible Wiki](https://github.com/ceph/ceph-ansible/wiki)
+# 2. Set  `generate_fsid: false` in `group_vars`
+# 3. Get your current cluster fsid with `ceph fsid` and set `fsid` accordingly in `group_vars`
+# 4. Run the playbook called: `take-over-existing-cluster.yml` like this `ansible-playbook take-over-existing-cluster.yml`.
+# 5. Eventually run Ceph Ansible to validate everything by doing: `ansible-playbook site.yml`.
+
+- hosts: mons
+  become: True
+  tasks:
+    - import_role:
+        name: ceph-defaults
+    - import_role:
+        name: ceph-fetch-keys
+
+- hosts:
+  - mons
+  - osds
+  - mdss
+  - rgws
+  - nfss
+  - rbdmirrors
+  - clients
+  - mgrs
+  - iscsi-gw
+  become: true
+  tasks:
+    - import_role:
+        name: ceph-defaults
+
+  post_tasks:
+    - name: get the name of the existing ceph cluster
+      shell: |
+          set -o pipefail;
+          basename $(grep --exclude '*.bak' -R fsid /etc/ceph/ | egrep -o '^[^.]*' | head -n 1)
+      changed_when: false
+      register: cluster_name
+
+    - name: "stat {{ cluster_name.stdout }}.conf"
+      stat:
+        path: "/etc/ceph/{{ cluster_name.stdout }}.conf"
+      register: ceph_conf_stat
+
+      # Creates a backup of original ceph conf file in 'cluster_name-YYYYMMDDTHHMMSS.conf.bak' format
+    - name: "make a backup of original {{ cluster_name.stdout }}.conf"
+      copy:
+        src: "/etc/ceph/{{ cluster_name.stdout }}.conf"
+        dest: "/etc/ceph/{{ cluster_name.stdout }}-{{ ansible_date_time.iso8601_basic_short }}.conf.bak"
+        remote_src: true
+        owner: "{{ ceph_conf_stat.stat.pw_name }}"
+        group: "{{ ceph_conf_stat.stat.gr_name }}"
+        mode: "{{ ceph_conf_stat.stat.mode }}"
+
+    - name: generate ceph configuration file
+      action: config_template
+      args:
+        src: "roles/ceph-config/templates/ceph.conf.j2"
+        dest: "/etc/ceph/{{ cluster_name.stdout }}.conf"
+        owner: "{{ ceph_conf_stat.stat.pw_name }}"
+        group: "{{ ceph_conf_stat.stat.gr_name }}"
+        mode: "{{ ceph_conf_stat.stat.mode }}"
+        config_overrides: "{{ ceph_conf_overrides }}"
+        config_type: ini

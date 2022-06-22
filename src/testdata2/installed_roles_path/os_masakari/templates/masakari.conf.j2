@@ -1,0 +1,68 @@
+[DEFAULT]
+enabled_apis = masakari_api
+transport_url = {{ masakari_oslomsg_rpc_transport }}://{% for host in masakari_oslomsg_rpc_servers.split(',') %}{{ masakari_oslomsg_rpc_userid }}:{{ masakari_oslomsg_rpc_password }}@{{ host }}:{{ masakari_oslomsg_rpc_port }}{% if not loop.last %},{% else %}/{{ masakari_oslomsg_rpc_vhost }}{% if masakari_oslomsg_rpc_use_ssl | bool %}?ssl=1&ssl_version={{ masakari_oslomsg_rpc_ssl_version }}&ssl_ca_file={{ masakari_oslomsg_rpc_ssl_ca_file }}{% else %}?ssl=0{% endif %}{% endif %}{% endfor %}
+# Enable to specify listening IP other than default
+masakari_api_listen = {{ masakari_api_bind_address }}
+# Enable to specify port other than default
+masakari_api_listen_port = {{ masakari_api_service_port }}
+debug = False
+use_journal = true
+auth_strategy = keystone
+notification_driver = taskflow_driver
+# Nova endpoint
+nova_catalog_admin_info = compute:nova:adminURL
+nova_api_insecure = "{{ keystone_service_adminuri_insecure | default("false") }}"
+# Privileged credentials to interact with nova
+os_privileged_user_tenant = {{ masakari_service_project_name }}
+os_privileged_user_auth_url = {{ keystone_service_adminuri }}
+os_privileged_user_name = {{ masakari_service_user_name }}
+os_privileged_user_password = {{ masakari_service_password }}
+service_down_time = 60
+periodic_enable = true
+use_ssl = false
+
+[wsgi]
+# The paste configuration file path
+api_paste_config = {{ masakari_etc_dir }}/api-paste.ini
+
+[keystone_authtoken]
+auth_url = {{ keystone_service_adminuri }}
+www_authenticate_uri = {{ keystone_service_internaluri }}
+auth_type = password
+project_domain_id = {{ masakari_service_user_domain_id }}
+user_domain_id = {{ masakari_service_project_domain_id }}
+project_name = {{ masakari_service_project_name }}
+username = {{ masakari_service_user_name }}
+password = {{ masakari_service_password }}
+
+service_token_roles = {{ masakari_service_token_roles | join(',') }}
+service_token_roles_required = {{ masakari_service_token_roles_required | bool }}
+service_type = {{ masakari_service_type }}
+
+memcached_servers = {{ masakari_memcached_servers }}
+memcache_security_strategy = ENCRYPT
+memcache_secret_key = {{ memcached_encryption_key }}
+
+[database]
+connection = mysql+pymysql://{{ masakari_galera_user }}:{{ masakari_container_mysql_password }}@{{ masakari_galera_address }}/{{ masakari_galera_database }}?charset=utf8{% if masakari_galera_use_ssl | bool %}&ssl_verify_cert=true{% if masakari_galera_ssl_ca_cert | length > 0 %}&ssl_ca={{ masakari_galera_ssl_ca_cert }}{% endif %}{% endif +%}
+max_overflow = {{ masakari_db_max_overflow }}
+max_pool_size = {{ masakari_db_max_pool_size }}
+pool_timeout = {{ masakari_db_pool_timeout }}
+connection_recycle_time = {{ masakari_db_connection_recycle_time }}
+
+[taskflow]
+connection = mysql+pymysql://{{ masakari_galera_user }}:{{ masakari_container_mysql_password }}@{{ masakari_galera_address }}/{{ masakari_galera_database }}?charset=utf8{% if masakari_galera_use_ssl | bool %}&ssl_verify_cert=true{% if masakari_galera_ssl_ca_cert | length > 0 %}&ssl_ca={{ masakari_galera_ssl_ca_cert }}{% endif %}{% endif %}
+
+[host_failure]
+evacuate_all_instances = true
+add_reserved_host_to_aggregate = false
+ignore_instances_in_error_state = false
+
+[instance_failure]
+process_all_instances = false
+
+[oslo_messaging_rabbit]
+ssl = {{ masakari_oslomsg_notify_use_ssl | bool }}
+
+[oslo_messaging_notifications]
+transport_url = {{ masakari_oslomsg_notify_transport }}://{% for host in masakari_oslomsg_notify_servers.split(',') %}{{ masakari_oslomsg_notify_userid }}:{{ masakari_oslomsg_notify_password }}@{{ host }}:{{ masakari_oslomsg_notify_port }}{% if not loop.last %},{% else %}/{{ masakari_oslomsg_notify_vhost }}{% if masakari_oslomsg_notify_use_ssl | bool %}?ssl=1&ssl_version={{ masakari_oslomsg_notify_ssl_version }}&ssl_ca_file={{ masakari_oslomsg_notify_ssl_ca_file }}{% else %}?ssl=0{% endif %}{% endif %}{% endfor %}

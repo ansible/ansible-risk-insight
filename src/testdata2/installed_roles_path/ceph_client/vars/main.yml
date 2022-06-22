@@ -1,0 +1,94 @@
+---
+# Copyright 2015, Serge van Ginderachter <serge@vanginderachter.be>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+# http://ceph.com/docs/master/rbd/rbd-openstack/
+
+ceph_components:
+  - component: glance_api
+    package: "{{ python_ceph_packages }}"
+    client:
+      - '{{ glance_ceph_client }}'
+    service: '{{ ceph_glance_service_names }}'
+  - component: cinder_volume
+    package: "{{ [ 'ceph-common' ] + python_ceph_packages }}"
+    client:
+      - '{{ cinder_ceph_client }}'
+    service: '{{ ceph_cinder_service_names }}'
+  - component: cinder_backup
+    package: "{{ [ 'ceph-common' ] + python_ceph_packages }}"
+    client:
+      - '{{ cinder_backup_ceph_client }}'
+    service: '{{ ceph_cinder_service_names }}'
+  - component: nova_compute
+    package: "{{ libvirt_packages + [ 'ceph-common' ] + python_ceph_packages  }}"
+    client:
+      - '{{ nova_ceph_client }}'
+    service: '{{ ceph_nova_service_names }}'
+  - component: manila_share
+    package: "{{ ['ceph-common'] + python_ceph_packages  }}"
+    client:
+      - "{{ manila_ceph_client }}"
+    service: "{{ ceph_manila_service_names }}"
+
+ceph_extra_components: []
+# Gnocchi has been moved out from the integrated OSA repo, but can still
+# be optionally enabled by using the configuration in the os_gnocchi role repo
+# under the 'extras' directory
+#  - component: gnocchi_api
+#    package:
+#      - "{{ python_ceph_package }}"
+#    client:
+#      - '{{ gnocchi_ceph_client }}'
+#    service: '{{ ceph_gnocchi_service_names }}'
+
+ceph_client_filtered_packages: |-
+ {% set packages = [] %}
+ {% for comp in (ceph_components + ceph_extra_components) %}
+ {%   if comp.component in group_names %}
+ {%     for pkg_name in comp.package %}
+ {%       if pkg_name not in packages %}
+ {%          set _ = packages.append(pkg_name) %}
+ {%       endif %}
+ {%     endfor %}
+ {%   endif %}
+ {% endfor %}
+ {{ packages }}
+
+ceph_client_filtered_services: |-
+ {% set services = [] %}
+ {% for comp in (ceph_components + ceph_extra_components) %}
+ {%   if comp.component in group_names and 'service' in comp %}
+ {%     set _ = services.append(comp.service) %}
+ {%   endif %}
+ {% endfor %}
+ {{ services }}
+
+ceph_client_filtered_clients: |-
+ {% set clients = [] %}
+ {% for comp in (ceph_components + ceph_extra_components) %}
+ {%   if comp.component in group_names %}
+ {%     if ((comp.component != 'cinder_backup') or
+           ((cinder_service_backup_program_enabled is defined and
+             cinder_service_backup_program_enabled | bool) and
+            (cinder_service_backup_driver is defined and
+             'ceph' in cinder_service_backup_driver))) %}
+ {%       for client in comp.client %}
+ {%         set _ = clients.append(client) %}
+ {%       endfor %}
+ {%     endif %}
+ {%   endif %}
+ {% endfor %}
+ {{ clients }}

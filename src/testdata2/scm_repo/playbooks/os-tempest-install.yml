@@ -1,0 +1,55 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Gather tempest facts
+  hosts: utility_all[0]
+  gather_facts: "{{ osa_gather_facts | default(True) }}"
+  tasks:
+    - name: Gather additional facts
+      include_tasks: "common-tasks/gather-hardware-facts.yml"
+      when: osa_gather_facts | default(True)
+  tags:
+    - always
+
+- name: Installation and setup of Tempest
+  hosts: utility_all[0]
+  gather_facts: false
+  user: root
+  vars_files:
+    - "defaults/repo_packages/openstack_services.yml"
+    - "defaults/repo_packages/openstack_testing.yml"
+    - "defaults/{{ install_method }}_install.yml"
+  pre_tasks:
+    - name: End playbook
+      meta: end_play
+      when:
+        - (not (tempest_install | default(false)) | bool)
+
+  roles:
+    - role: "os_tempest"
+    - role: "openstack.osa.system_crontab_coordination"
+      tags:
+        - crontab
+
+  post_tasks:
+    - include_tasks: "common-tasks/rsyslog-client.yml"
+      vars:
+        rsyslog_client_log_rotate_file: utility_log_rotate
+        rsyslog_client_log_dir: "{{ tempest_log_dir }}"
+        rsyslog_client_config_name: "99-tempest-rsyslog-client.conf"
+
+  environment: "{{ deployment_environment_variables | default({}) }}"
+  tags:
+    - tempest

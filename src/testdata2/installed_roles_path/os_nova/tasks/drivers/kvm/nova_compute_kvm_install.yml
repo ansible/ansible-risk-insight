@@ -1,0 +1,57 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Make sure libvirt is started
+  service:
+    name: "{{ item }}"
+    state: "started"
+  with_items: "{{ libvirt_service_name }}"
+
+- name: Check the state of the default qemu save directory
+  stat:
+    path: "/var/lib/libvirt/qemu/save"
+  until: _qemu_save_dir.stat.exists | bool
+  retries: 5
+  delay: 10
+  failed_when: false
+  register: _qemu_save_dir
+
+- name: Check if the qemu save directory is empty
+  command: 'ls -1A /var/lib/libvirt/qemu/save'
+  changed_when: false
+  register: _qemu_save_dir_contents
+  when:
+    - _qemu_save_dir.stat.isdir is defined
+    - _qemu_save_dir.stat.isdir | bool
+
+- name: Move the existing save directory to nova_libvirt_save_path
+  command: "mv /var/lib/libvirt/qemu/save {{ nova_libvirt_save_path }}"
+  when:
+    - _qemu_save_dir.stat.isdir is defined
+    - _qemu_save_dir.stat.isdir | bool
+    - _qemu_save_dir_contents.stdout_lines | length == 0
+
+- name: Create the new save directory
+  file:
+    path: "{{ nova_libvirt_save_path }}"
+    state: directory
+
+- name: Symlink qemu save dir to nova_libvirt_save_path
+  file:
+    src: "{{ nova_libvirt_save_path }}"
+    dest: "/var/lib/libvirt/qemu/save"
+    state: link
+    owner: "{{ nova_qemu_user }}"
+    group: "{{ nova_qemu_group }}"

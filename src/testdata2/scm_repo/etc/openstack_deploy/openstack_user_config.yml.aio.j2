@@ -1,0 +1,241 @@
+---
+cidr_networks:
+{% if 'ironic' in bootstrap_host_scenarios_expanded %}
+  bmaas: 172.29.228.0/22
+{% endif %}
+{% if 'trove' in bootstrap_host_scenarios_expanded %}
+  dbaas: 172.29.252.0/22
+{% endif %}
+{% if 'octavia' in bootstrap_host_scenarios_expanded %}
+  lbaas: 172.29.232.0/22
+{% endif %}
+  container: 172.29.236.0/22
+  tunnel: 172.29.240.0/22
+  storage: 172.29.244.0/22
+
+used_ips:
+{% if 'ironic' in bootstrap_host_scenarios_expanded %}
+  - "172.29.228.1,172.29.228.10"
+  - "172.29.229.50,172.29.231.255"
+  - "172.29.228.100"
+{% endif %}
+{% if 'trove' in bootstrap_host_scenarios_expanded %}
+  - "172.29.252.1,172.29.252.10"
+  - "172.29.252.50,172.29.255.255"
+{% endif %}
+{% if 'octavia' in bootstrap_host_scenarios_expanded %}
+  - "172.29.232.1,172.29.232.10"
+  - "172.29.232.50,172.29.235.255"
+{% endif %}
+  - "172.29.236.1,172.29.236.50"
+  - "172.29.236.100"
+  - "172.29.236.101"
+  - "172.29.240.1,172.29.240.50"
+  - "172.29.240.100"
+  - "172.29.244.1,172.29.244.50"
+  - "172.29.244.100"
+  - "172.29.248.1,172.29.248.50"
+  - "172.29.248.100"
+
+global_overrides:
+  internal_lb_vip_address: 172.29.236.101
+  # The external IP is quoted simply to ensure that the .aio file can be used as input
+  # dynamic inventory testing.
+  external_lb_vip_address: "{{ bootstrap_host_public_address | default(ansible_facts['default_ipv4']['address']) }}"
+  management_bridge: "br-mgmt"
+  no_containers: {{ true if 'metal' in bootstrap_host_scenarios else false }}
+  provider_networks:
+    - network:
+        container_bridge: "br-mgmt"
+        container_type: "veth"
+        container_interface: "eth1"
+        ip_from_q: "container"
+        type: "raw"
+        group_binds:
+          - all_containers
+          - hosts
+        is_container_address: true
+        # define static routes to the neutron public IP ranges via br-mgmt
+        # this is AIO specific and relies on the host forwarding to reach instance
+        # floating ips using the br-mgmt interface as a gateway
+        static_routes:
+          # neutron public addresses, LXC
+          - cidr: 172.29.248.0/22
+            gateway: 172.29.236.100
+{% if 'ovn' in bootstrap_host_scenarios_expanded %}
+    - network:
+        container_bridge: "br-vxlan"
+        container_type: "veth"
+        container_interface: "eth10"
+        ip_from_q: "tunnel"
+        type: "geneve"
+        range: "1:1000"
+        net_name: "geneve"
+        group_binds:
+          - neutron_ovn_controller
+{% elif 'ovs' in bootstrap_host_scenarios_expanded %}
+    - network:
+        container_bridge: "br-vxlan"
+        container_type: "veth"
+        container_interface: "eth10"
+        ip_from_q: "tunnel"
+        type: "vxlan"
+        range: "1:1000"
+        net_name: "vxlan"
+        group_binds:
+          - neutron_openvswitch_agent
+{% else %}
+    - network:
+        container_bridge: "br-vxlan"
+        container_type: "veth"
+        container_interface: "eth10"
+        ip_from_q: "tunnel"
+        type: "vxlan"
+        range: "1:1000"
+        net_name: "vxlan"
+        group_binds:
+          - neutron_linuxbridge_agent
+{% endif %}
+{% if 'trove' in bootstrap_host_scenarios_expanded %}
+    - network:
+        container_bridge: "br-dbaas"
+        container_type: "veth"
+        container_interface: "eth13"
+        host_bind_override: "eth13"
+        ip_from_q: "dbaas"
+        type: "flat"
+        net_name: "dbaas-mgmt"
+        group_binds:
+          - neutron_linuxbridge_agent
+          - rabbitmq
+{% endif %}
+{% if 'octavia' in bootstrap_host_scenarios_expanded %}
+    - network:
+        container_bridge: "br-lbaas"
+        container_type: "veth"
+        container_interface: "eth14"
+        host_bind_override: "eth14"
+        ip_from_q: "lbaas"
+        type: "flat"
+        net_name: "lbaas"
+        group_binds:
+          - neutron_linuxbridge_agent
+          - octavia-worker
+          - octavia-housekeeping
+          - octavia-health-manager
+{% endif %}
+{% if 'ironic' in bootstrap_host_scenarios_expanded %}
+    - network:
+        container_bridge: "br-bmaas"
+        container_type: "veth"
+        container_interface: "eth15"
+        host_bind_override: "eth15"
+        ip_from_q: "bmaas"
+        type: "flat"
+        net_name: "bmaas"
+        group_binds:
+          - ironic_inspector
+{% endif %}
+{% if 'ovn' in bootstrap_host_scenarios_expanded %}
+    - network:
+        container_bridge: "br-provider"
+        container_type: "veth"
+        container_interface: "eth12"
+        network_interface: "eth12"
+        type: "vlan"
+        range: "101:200,301:400"
+        net_name: "vlan"
+        group_binds:
+          - neutron_ovn_controller
+    - network:
+        container_bridge: "br-provider"
+        container_type: "veth"
+        net_name: "vlan"
+        type: "flat"
+        group_binds:
+          - neutron_ovn_controller
+{% elif 'ovs' in bootstrap_host_scenarios_expanded %}
+    - network:
+        container_bridge: "br-provider"
+        container_type: "veth"
+        container_interface: "eth12"
+        network_interface: "eth12"
+        type: "vlan"
+        range: "101:200,301:400"
+        net_name: "vlan"
+        group_binds:
+          - neutron_openvswitch_agent
+    - network:
+        container_bridge: "br-provider"
+        container_type: "veth"
+        net_name: "vlan"
+        type: "flat"
+        group_binds:
+          - neutron_openvswitch_agent
+{% else %}
+    - network:
+        container_bridge: "br-vlan"
+        container_type: "veth"
+        container_interface: "eth12"
+        host_bind_override: "eth12"
+        type: "flat"
+        net_name: "flat"
+        group_binds:
+          - neutron_linuxbridge_agent
+    - network:
+        container_bridge: "br-vlan"
+        container_type: "veth"
+        container_interface: "eth11"
+        type: "vlan"
+        range: "101:200,301:400"
+        net_name: "vlan"
+        group_binds:
+          - neutron_linuxbridge_agent
+{% endif %}
+    - network:
+        container_bridge: "br-storage"
+        container_type: "veth"
+        container_interface: "eth2"
+        ip_from_q: "storage"
+        type: "raw"
+        group_binds:
+          - glance_api
+          - cinder_api
+          - cinder_volume
+          - nova_compute
+          - manila_share
+          - swift_proxy
+
+# keystone
+identity_hosts:
+  aio1:
+    ip: 172.29.236.100
+{% if 'keystone' in bootstrap_host_scenarios %}
+#   NOTE (jrosser) this ensures that we deploy 3 keystone containers
+#   during the os_keystone role test to validate ssh keys and fernet key sync
+    affinity:
+      keystone_container: 3
+{% endif %}
+
+# galera, memcache, rabbitmq, utility
+shared-infra_hosts:
+  aio1:
+    ip: 172.29.236.100
+{% if 'infra' in bootstrap_host_scenarios_expanded %}
+    affinity:
+      galera_container: 3
+      memcached_container: 3
+      rabbit_mq_container: 3
+{% endif %}
+
+repo-infra_hosts:
+  aio1:
+{% if bootstrap_host_install_method == 'distro' %}
+    affinity:
+      repo_container: 0
+{% endif %}
+{% if 'infra' in bootstrap_host_scenarios_expanded %}
+    affinity:
+      repo_container: 3
+{% endif %}
+    ip: 172.29.236.100

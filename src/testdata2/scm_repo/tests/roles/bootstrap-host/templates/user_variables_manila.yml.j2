@@ -1,0 +1,84 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+tempest_plugins:
+  - name: manila-tempest-plugin
+    repo: https://opendev.org/openstack/manila-tempest-plugin
+    branch: master
+
+tempest_flavors:
+  - name: tempest1
+    id: 201
+    ram: 256
+    disk: 1
+    vcpus: 1
+  - name: tempest2
+    id: 202
+    ram: 512
+    disk: 1
+    vcpus: 1
+  - name: manila-service-flavor
+    id: 100
+    ram: 350
+    disk: 5
+    vcpus: 1
+
+tempest_test_includelist:
+  - manila_tempest_tests.tests.scenario.test_share_basic_ops.TestShareBasicOpsNFS.test_mount_share_one_vm
+
+tempest_tempest_conf_overrides:
+  share:
+    # The first version of manila api which supports microversions
+    min_api_microversion: "2.0"
+    # Set this to the highest microversion supported by the openstack release
+    max_api_microversion: "2.67"
+    run_consistency_group_tests: False
+    run_snapshot_tests: False
+    capability_snapshot_support: True
+    multitenancy_enabled: False
+    run_shrink_tests: True
+    run_extend_tests: True
+    multi_backend: False
+    enable_protocols: nfs
+    run_ipv6_tests: False
+    share_creation_retry_number: 2
+    suppress_errors_in_cleanup: True
+    capability_storage_protocol: NFS
+    enable_ip_rules_for_protocols: nfs
+    image_with_share_tools: manila-service-image
+    image_password: manila
+    endpoint_type: internalURL
+
+tempest_images:
+  - url: "https://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img"
+    checksum: "sha256:c4110030e2edf06db87f5b6e4efc27300977683d53f040996d15dcc0ad49bb5a"
+    format: "qcow2"
+    name: "cirros"
+  - url: "http://tarballs.openstack.org/manila-image-elements/images/manila-service-image-master.qcow2"
+    format: "qcow2"
+    name: "manila-service-image"
+
+nova_console_type: disabled
+
+manila_backends:
+  cephfsnfs1:
+    cephfs_auth_id: manila
+    cephfs_cluster_name: ceph
+    cephfs_conf_path: /etc/ceph/ceph.conf
+    cephfs_ganesha_server_ip: 172.29.236.100
+    cephfs_ganesha_server_is_remote: False
+    cephfs_protocol_helper_type: NFS
+    driver_handles_share_servers: False
+    share_backend_name: CEPHFSNFS1
+    share_driver: manila.share.drivers.cephfs.driver.CephFSDriver
+    ganesha_rados_store_enable: False
+    ganesha_rados_store_pool_name: manila_data

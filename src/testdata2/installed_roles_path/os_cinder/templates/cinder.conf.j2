@@ -1,0 +1,186 @@
+# {{ ansible_managed }}
+
+[DEFAULT]
+use_journal = True
+# Disable stderr logging
+use_stderr = False
+debug = {{ debug }}
+fatal_deprecations = {{ cinder_fatal_deprecations }}
+my_ip = {{ cinder_management_address }}
+
+osapi_volume_workers = {{ cinder_osapi_volume_workers }}
+
+rootwrap_config = /etc/cinder/rootwrap.conf
+api_paste_config = /etc/cinder/api-paste.ini
+auth_strategy = {{ cinder_auth_strategy }}
+
+{% if cinder_active_active_cluster | bool %}
+cluster = {{ cinder_active_active_cluster_name }}
+{% endif %}
+
+## Cinder Scheduler
+{% if cinder_scheduler_default_filters is defined %}
+scheduler_default_filters={{ cinder_scheduler_default_filters | join(',') }}
+{% endif %}
+
+{% if cinder_services['cinder-volume']['group'] in group_names %}
+{% if cinder_service_backup_program_enabled == true %}
+
+## Cinder Backup
+backup_driver = {{ cinder_service_backup_driver }}
+backup_metadata_version = {{ cinder_service_backup_metadata_version }}
+backup_compression_algorithm = {{ cinder_service_backup_compression_algorithm }}
+{% if cinder_service_backup_driver == 'cinder.backup.drivers.swift.SwiftBackupDriver' %}
+swift_catalog_info = {{ cinder_swift_catalog_info }}
+backup_swift_auth = {{ cinder_service_backup_swift_auth }}
+{% if cinder_service_backup_swift_auth == 'single_user' %}
+backup_swift_url = {{ cinder_service_backup_swift_url }}
+backup_swift_user = {{ cinder_service_backup_swift_user }}
+backup_swift_tenant = {{ cinder_service_backup_swift_tenant }}
+backup_swift_key = {{ cinder_service_backup_swift_key }}
+backup_swift_auth_version = {{ cinder_service_backup_swift_auth_version }}
+{% endif %}
+backup_swift_container = {{ cinder_service_backup_swift_container }}
+backup_swift_object_size = {{ cinder_service_backup_swift_object_size }}
+backup_swift_retry_attempts = {{ cinder_service_backup_swift_retry_attempts }}
+backup_swift_retry_backoff = {{ cinder_service_backup_swift_retry_backoff }}
+{% elif cinder_service_backup_driver == 'cinder.backup.drivers.ceph.CephBackupDriver' %}
+backup_ceph_user = {{ cinder_service_backup_ceph_user }}
+backup_ceph_pool = {{ cinder_service_backup_ceph_pool }}
+{% endif %}
+{% endif %}
+{% endif %}
+
+## RabbitMQ RPC
+executor_thread_pool_size = {{ cinder_rpc_executor_thread_pool_size }}
+rpc_response_timeout = {{ cinder_rpc_response_timeout }}
+
+transport_url = {{ cinder_oslomsg_rpc_transport }}://{% for host in cinder_oslomsg_rpc_servers.split(',') %}{{ cinder_oslomsg_rpc_userid }}:{{ cinder_oslomsg_rpc_password }}@{{ host }}:{{ cinder_oslomsg_rpc_port }}{% if not loop.last %},{% else %}/{{ cinder_oslomsg_rpc_vhost }}{% if cinder_oslomsg_rpc_use_ssl | bool %}?ssl=1&ssl_version={{ cinder_oslomsg_rpc_ssl_version }}&ssl_ca_file={{ cinder_oslomsg_rpc_ssl_ca_file }}{% else %}?ssl=0{% endif %}{% endif %}{% endfor %}
+
+## Quota
+quota_volumes = {{ cinder_quota_volumes }}
+quota_snapshots = {{ cinder_quota_snapshots }}
+quota_consistencygroups = {{ cinder_quota_consistencygroups }}
+quota_gigabytes = {{ cinder_quota_gigabytes }}
+quota_backups = {{ cinder_quota_backups }}
+quota_backup_gigabytes = {{ cinder_quota_backup_gigabytes }}
+
+## Nova
+nova_catalog_info = {{ cinder_nova_catalog_info }}
+nova_catalog_admin_info = {{ cinder_nova_catalog_admin_info }}
+
+os_region_name = {{ cinder_service_region }}
+
+## Glance
+glance_api_servers = {{ cinder_glance_api_servers }}
+glance_num_retries = 0
+glance_api_version = 2
+volume_clear = {{ cinder_volume_clear }}
+volume_clear_size = {{ cinder_volume_clear_size }}
+volume_clear_ionice = {{ cinder_volume_clear_ionice }}
+volume_name_template = {{ cinder_volume_name_template }}
+
+storage_availability_zone = {{ cinder_storage_availability_zone }}
+default_availability_zone = {{ cinder_default_availability_zone }}
+
+target_helper = {{ cinder_target_helper }}
+iscsi_iotype = {{ cinder_iscsi_iotype }}
+target_ip_address = {{ cinder_storage_address }}
+iscsi_num_targets = {{ cinder_iscsi_num_targets }}
+target_port = {{ cinder_iscsi_port }}
+
+client_socket_timeout = {{ cinder_client_socket_timeout }}
+
+{% if cinder_default_volume_type is defined %}
+default_volume_type = {{ cinder_default_volume_type }}
+{% endif %}
+
+{% if cinder_backends is defined %}
+enabled_backends={% for backend in cinder_backends|dictsort %}{{ backend.0 }}{% if not loop.last %},{% endif %}{% endfor %}
+
+# Ensure that user can create a new volume by cloning image-volume
+allowed_direct_url_schemes = cinder
+
+# All given backend(s)
+{% for backend_section in cinder_backends|dictsort %}
+[{{ backend_section.0 }}]
+{% for key, value in (backend_section.1 | dictsort) if key not in ['extra_volume_types', 'shares'] %}
+{{ key }}={{ value }}
+{% endfor %}
+
+{% endfor %}
+{% endif %}
+
+[backend_defaults]
+target_helper = {{ cinder_target_helper }}
+
+[database]
+connection = mysql+pymysql://{{ cinder_galera_user }}:{{ cinder_container_mysql_password }}@{{ cinder_galera_address }}/{{ cinder_galera_database }}?charset=utf8{% if cinder_galera_use_ssl | bool %}&ssl_verify_cert=true{% if cinder_galera_ssl_ca_cert | length > 0 %}&ssl_ca={{ cinder_galera_ssl_ca_cert }}{% endif %}{% endif +%}
+max_overflow = {{ cinder_db_max_overflow }}
+max_pool_size = {{ cinder_db_max_pool_size }}
+pool_timeout = {{ cinder_db_pool_timeout }}
+connection_recycle_time = {{ cinder_db_connection_recycle_time }}
+
+[oslo_messaging_rabbit]
+heartbeat_in_pthread = {{ cinder_oslomsg_heartbeat_in_pthread }}
+
+[oslo_messaging_notifications]
+driver = {{ (cinder_ceilometer_enabled | bool) | ternary('messagingv2', 'noop') }}
+transport_url = {{ cinder_oslomsg_notify_transport }}://{% for host in cinder_oslomsg_notify_servers.split(',') %}{{ cinder_oslomsg_notify_userid }}:{{ cinder_oslomsg_notify_password }}@{{ host }}:{{ cinder_oslomsg_notify_port }}{% if not loop.last %},{% else %}/{{ cinder_oslomsg_notify_vhost }}{% if cinder_oslomsg_notify_use_ssl | bool %}?ssl=1&ssl_version={{ cinder_oslomsg_notify_ssl_version }}&ssl_ca_file={{ cinder_oslomsg_notify_ssl_ca_file }}{% else %}?ssl=0{% endif %}{% endif %}{% endfor %}
+
+[oslo_concurrency]
+lock_path = {{ cinder_lock_dir }}/{{ cinder_system_slice_name }}
+
+[profiler]
+enabled = {{ cinder_profiler_enabled }}
+trace_sqlalchemy = {{ cinder_profiler_trace_sqlalchemy }}
+hmac_keys = {{ cinder_profiler_hmac_key }}
+
+{% if cinder_barbican_enabled %}
+[barbican]
+auth_endpoint = {{ keystone_service_internaluri }}/v3
+barbican_endpoint_type = internal
+
+[key_manager]
+backend = barbican
+{% endif %}
+
+[keystone_authtoken]
+insecure = {{ keystone_service_internaluri_insecure | bool }}
+auth_type = {{ cinder_keystone_auth_type }}
+auth_url = {{ keystone_service_adminurl }}
+www_authenticate_uri = {{ keystone_service_internaluri }}
+project_domain_id = {{ cinder_service_project_domain_id }}
+user_domain_id = {{ cinder_service_user_domain_id }}
+project_name = {{ cinder_service_project_name }}
+username = {{ cinder_service_user_name }}
+password = {{ cinder_service_password }}
+region_name = {{ keystone_service_region }}
+
+memcached_servers = {{ cinder_memcached_servers }}
+
+token_cache_time = 300
+
+# if your memcached server is shared, use these settings to avoid cache poisoning
+memcache_security_strategy = ENCRYPT
+memcache_secret_key = {{ memcached_encryption_key }}
+
+service_token_roles_required = {{ cinder_service_token_roles_required | bool }}
+service_token_roles = {{ cinder_service_token_roles | join(',') }}
+service_type = {{ cinder_service_type }}
+
+[nova]
+interface = internal
+insecure = {{ keystone_service_internaluri_insecure | bool }}
+auth_type = {{ cinder_keystone_auth_type }}
+auth_url = {{ keystone_service_internalurl }}
+password = {{ cinder_service_password }}
+project_domain_id = {{ cinder_service_project_domain_id }}
+project_name = {{ cinder_service_project_name }}
+region_name = {{ keystone_service_region }}
+user_domain_id = {{ cinder_service_user_domain_id }}
+username = {{ cinder_service_user_name }}
+
+[oslo_policy]
+policy_file = /etc/cinder/policy.json
+

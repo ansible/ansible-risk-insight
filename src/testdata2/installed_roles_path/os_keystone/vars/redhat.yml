@@ -1,0 +1,82 @@
+---
+# Copyright 2016, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+keystone_distro_packages:
+  - ca-certificates
+  - cronie
+  - cronie-anacron
+  - git
+  - openssh-server
+  - rsync
+
+keystone_devel_distro_packages:
+  - cyrus-sasl-lib
+  - libffi-devel
+  - libxml2-devel
+  - libxslt-devel
+  - openldap-devel
+  - openssl-devel
+  - systemd-devel
+  - which
+
+keystone_service_distro_packages:
+  - openstack-keystone
+  - python3-systemd
+  - uwsgi
+  - uwsgi-plugin-python3
+
+keystone_apache_distro_packages:
+  - httpd
+  - httpd-tools
+  - mod_ssl
+
+keystone_idp_distro_packages:
+  - xmlsec1
+
+keystone_sp_apache_mod_packages:
+  - name: shibboleth
+    state: "{{ keystone_sp_apache_mod_shib | ternary('present', 'absent') }}"
+  - name: mod-auth-openidc
+    state: "{{ keystone_sp_apache_mod_auth_openidc | ternary('present', 'absent') }}"
+
+keystone_developer_mode_distro_packages:
+  - gcc
+
+keystone_oslomsg_amqp1_distro_packages:
+  - cyrus-sasl-lib
+  - cyrus-sasl-plain
+  - cyrus-sasl-md5
+
+keystone_apache_default_sites:
+  - "/etc/httpd/conf.d/userdir.conf"
+  - "/etc/httpd/conf.d/welcome.conf"
+  - "/etc/httpd/conf.d/ssl.conf"
+
+keystone_apache_conf: "/etc/httpd/conf/httpd.conf"
+keystone_apache_default_log_folder: "/var/log/httpd"
+keystone_apache_default_log_owner: "root"
+keystone_apache_default_log_grp: "root"
+keystone_apache_security_conf: "{{ keystone_apache_conf }}"
+
+keystone_apache_configs:
+  - { src: "keystone-ports.conf.j2", dest: "/etc/httpd/conf.d/ports.conf" }
+  - { src: "keystone-httpd.conf.j2", dest: "/etc/httpd/conf.d/keystone-httpd.conf" }
+  - { src: "keystone-httpd-mpm.conf.j2", dest: "/etc/httpd/conf.modules.d/mpm_{{ keystone_httpd_mpm_backend }}.conf" }
+
+keystone_system_service_name: httpd
+
+keystone_uwsgi_bin: '/usr/sbin'
+
+keystone_sshd: sshd

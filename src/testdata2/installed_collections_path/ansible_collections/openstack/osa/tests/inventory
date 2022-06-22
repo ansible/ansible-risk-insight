@@ -1,0 +1,20 @@
+[hosts]
+localhost
+
+[all_containers]
+container1 container_name=container1 ansible_remote_tmp=/var/tmp
+container2 container_name=container2
+
+# This is used to test I75f9d0f55ecd875caa1bf608a77c92f950b679a1
+[hosts]
+localhost_alt ansible_host=127.0.0.1
+[all_containers]
+container3 container_name=container3
+
+# This is meant to test If594914df53efacc6d5bba148f4f46280f5a117d
+[fake_hosts]
+fakehost ansible_host=1.1.1.1
+[hosts:children]
+fake_hosts
+[fake_containers]
+fakecontainer container_name=fakecontainer physical_host=fakehost

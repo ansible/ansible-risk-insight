@@ -1,0 +1,6 @@
+---
+project_cfg: opendaylight
+project: Ansible OpenDaylight
+version: master
+copyright: 2017, Daniel Farrell
+author: Daniel Farrell

@@ -1,0 +1,8 @@
+---
+- hosts: all
+  become: yes
+  roles:
+    - role: opendaylight
+      # Install ODL using default install method, but modifying
+      # the port where northbound interface is listening
+      nb_rest_port: 12345

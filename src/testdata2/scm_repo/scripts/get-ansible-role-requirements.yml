@@ -1,0 +1,176 @@
+---
+# Copyright 2016, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Clone the role ansible-role-requirements
+  hosts: localhost
+  connection: local
+  user: root
+  gather_facts: false
+  tasks:
+    - name: Gather minimal facts
+      setup:
+        gather_subset: '!all'
+
+    - name: Find the git version
+      command:
+        cmd: "git --version"
+      register: _git_version
+      changed_when: false
+      tags:
+        - skip_ansible_lint
+
+    - name: Set the git user agent for the deploy host
+      git_config:
+        scope: system
+        name: http.https://opendev.org/.userAgent
+        value: "{{ 'git/' ~ _git_version.stdout.split(' ')[2] ~ ' (osa/' ~ lookup('env', 'CURRENT_OSA_VERSION') ~ '/deploy)' }}"
+
+    - name: Remove target directory if required
+      file:
+        path: "{{ item.path | default(role_path_default) }}/{{ item.name | default(item.src | basename) }}"
+        state: absent
+      when:
+        - ((item.path | default(role_path_default) ~ '/' ~ item.name | default(item.src | basename) ~ '/.git') is not directory) or
+          (lookup('env', 'DROP_ROLE_DIRS') | bool is true)
+      with_items: "{{ required_roles }}"
+
+    - name: Ensure the default roles directory exists
+      file:
+        path: "{{ role_path_default }}"
+        state: directory
+
+    - name: Use Zuul provided sources in Zuul environment
+      block:
+        - name: Set Zuul sources path
+          set_fact:
+            zuul_src_path: "{{ lookup('env', 'ZUUL_SRC_PATH') }}"
+        - name: Check the Zuul src dir for cloned roles
+          stat:
+            path: "{{ zuul_src_path }}/{{ item.src.split('/')[-3:] | join('/') }}"
+            get_attributes: no
+            get_checksum: no
+            get_mime: no
+          register: zuul_roles
+          when:
+            - item.scm == "git" or item.scm is undefined
+          with_items: "{{ required_roles }}"
+        - name: Link the Zuul provided roles
+          file:
+            src: "{{ zuul_src_path }}/{{ item.item.src.split('/')[-3:] | join('/') }}"
+            dest: "{{ item.item.path | default(role_path_default) }}/{{ item.item.name | default(item.item.src | basename) }}"
+            state: link
+            owner: root
+            group: root
+          with_items: "{{ zuul_roles.results
+                          | selectattr('stat.exists')
+                          | list }}"
+        # NOTE(mnaser): We need to make sure that all the roles
+        #               are checked out by Zuul so we hard fail
+        #               if any roles are not.
+        - name: Fail if any roles were not cloned
+          fail:
+            msg: |
+              The following roles were not cloned automatically by Zuul,
+              make sure that they're included in required-projects {{ uncloned_roles|join(',') }}
+          when: uncloned_roles | length > 0
+          vars:
+            uncloned_roles: "{{ zuul_roles.results | rejectattr('stat.exists')
+                                                   | map(attribute='item')
+                                                   | map(attribute='src')
+                                                   | select('match', 'opendev.org')
+                                                   | list }}"
+
+        # Use the cached repos in the CI images rather than clone from opendev.org
+        - name: Generate list of openstack service repositories
+          set_fact:
+            service_git_repos: "{{ lookup('file', openstack_services_file).splitlines() |
+                                   select('contains', 'git_repo') |
+                                   select('contains', 'opendev.org') | list |
+                                   replace('https://', 'file:///openstack/src/') }}"
+
+        - name: Ensure overrides directory exists
+          file:
+            path: "{{ config_dir }}"
+            state: directory
+
+        - name: Create overrides for openstack_services git repos to use local cache
+          blockinfile:
+            path: "{{ config_dir }}/user_variables_zuulrepos.yml"
+            block: "{{ service_git_repos | join('\n') }}"
+            create: yes
+
+      when:
+        - "lookup('env', 'ZUUL_SRC_PATH') != ''"
+        - "lookup('env', 'UPGRADE_TARGET_BRANCH') == ''"
+    - name: Generate a list of user overridden roles
+      set_fact:
+        user_overridden_roles: "{{ user_roles | json_query('[*].name') }}"
+
+    - name: Generate a list of roles excluding user overridden roles
+      set_fact:
+        clone_roles: "{{ (clone_roles | default([])) + [ item ] }}"
+      when:
+        - item.scm == "git" or item.scm is undefined
+        - item.name not in user_overridden_roles
+      with_items: "{{ (zuul_roles.results | default([]) |
+                       selectattr('stat', 'defined') |
+                       rejectattr('stat.exists') |
+                       map(attribute='item') | list)
+                      | default(required_roles, True) }}"
+
+    - name: Append user overridden roles
+      set_fact:
+        clone_roles: "{{ clone_roles + user_roles }}"
+
+    - name: Clone git repos
+      block:
+        - name: Clone git repos (parallel)
+          openstack.osa.git_requirements:
+            default_path: "{{ role_path_default }}"
+            default_depth: "{{ role_clone_default_depth }}"
+            default_version: "master"
+            repo_info: "{{ clone_roles }}"
+            retries: "{{ git_clone_retries }}"
+            delay: "{{ git_clone_retry_delay }}"
+            force: true
+            core_multiplier: 4
+      rescue:
+        - name: Clone git repos (with git)
+          git:
+            repo: "{{ item.src }}"
+            dest: "{{ item.path | default(role_path_default) }}/{{ item.name | default(item.src | basename) }}"
+            version: "{{ item.version | default('master') }}"
+            refspec: "{{ item.refspec | default(omit) }}"
+            depth: "{{ item.depth | default(role_clone_default_depth| default(omit)) }}"
+            update: true
+            force: true
+          with_items: "{{ clone_roles }}"
+          register: git_clone
+          until: git_clone is success
+          retries: "{{ git_clone_retries }}"
+          delay: "{{ git_clone_retry_delay }}"
+
+  vars:
+    ansible_python_interpreter: "/opt/ansible-runtime/bin/python"
+    config_dir: "{{ lookup('env', 'OSA_CONFIG_DIR') | default('/etc/openstack_deploy', true) }}"
+    required_roles: "{{ lookup('file', role_file) | from_yaml }}"
+    openstack_services_file: "{{ playbook_dir }}/../playbooks/defaults/repo_packages/openstack_services.yml"
+    role_file: "{{ playbook_dir }}/../ansible-role-requirements.yml"
+    role_path_default: '/etc/ansible/roles'
+    user_roles: "{{ lookup('file', user_role_path, errors='ignore')|default([], true) | from_yaml }}"
+    user_role_path: "{{ config_dir ~ '/' ~ (user_role_file|default('')) }}"
+    git_clone_retries: 2
+    git_clone_retry_delay: 5
+    role_clone_default_depth: 20

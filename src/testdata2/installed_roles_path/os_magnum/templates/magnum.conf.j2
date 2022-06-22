@@ -1,0 +1,97 @@
+[DEFAULT]
+# Disable stderr logging
+use_stderr = False
+debug = {{ debug }}
+use_journal = True
+host = {{ ansible_host }}
+transport_url = {{ magnum_oslomsg_rpc_transport }}://{% for host in magnum_oslomsg_rpc_servers.split(',') %}{{ magnum_oslomsg_rpc_userid }}:{{ magnum_oslomsg_rpc_password }}@{{ host }}:{{ magnum_oslomsg_rpc_port }}{% if not loop.last %},{% else %}/{{ magnum_oslomsg_rpc_vhost }}{% if magnum_oslomsg_rpc_use_ssl | bool %}?ssl=1&ssl_version={{ magnum_oslomsg_rpc_ssl_version }}&ssl_ca_file={{ magnum_oslomsg_rpc_ssl_ca_file }}{% else %}?ssl=0{% endif %}{% endif %}{% endfor %}
+
+[api]
+host = {{ ansible_host }}
+
+[drivers]
+# NOTE(mnaser): Remove this once the following bug is fixed
+#               https://bugs.launchpad.net/magnum/+bug/1746510
+send_cluster_metrics = False
+
+[barbican_client]
+region_name = {{ magnum_barbican_service_region }}
+endpoint_type = internalURL
+
+[cinder_client]
+region_name = {{ magnum_cinder_service_region }}
+endpoint_type = internalURL
+
+[conductor]
+workers = {{ magnum_conductor_workers }}
+
+[database]
+connection = mysql+pymysql://{{ magnum_galera_user }}:{{ magnum_galera_password }}@{{ magnum_galera_address }}/{{ magnum_galera_database_name }}?charset=utf8{% if magnum_galera_use_ssl | bool %}&ssl_verify_cert=true{% if magnum_galera_ssl_ca_cert | length > 0 %}&ssl_ca={{ magnum_galera_ssl_ca_cert }}{% endif %}{% endif +%}
+max_overflow = {{ magnum_db_max_overflow }}
+max_pool_size = {{ magnum_db_max_pool_size }}
+pool_timeout = {{ magnum_db_pool_timeout }}
+connection_recycle_time = {{ magnum_db_connection_recycle_time }}
+
+[glance_client]
+region_name = {{ magnum_glance_service_region }}
+endpoint_type = internalURL
+
+[heat_client]
+region_name = {{ magnum_heat_service_region }}
+endpoint_type = internalURL
+
+[keystone_auth]
+auth_section = keystone_authtoken
+
+[keystone_authtoken]
+region_name = {{ magnum_keystone_service_region }}
+www_authenticate_uri = {{ keystone_service_internaluri }}
+auth_version = v3
+insecure = {{ keystone_service_internaluri_insecure | bool }}
+memcached_servers = {{ magnum_memcached_servers }}
+token_cache_time = 300
+auth_type = {{ magnum_keystone_auth_plugin }}
+auth_url = {{ keystone_service_internalurl }}
+project_domain_name = {{ magnum_service_project_domain_name }}
+user_domain_name = {{ magnum_service_user_domain_name }}
+project_name = {{ magnum_service_project_name }}
+username = {{ magnum_service_user_name }}
+password = {{ magnum_service_password }}
+service_token_roles_required = {{ magnum_service_token_roles_required | bool }}
+service_token_roles = {{ magnum_service_token_roles | join(',') }}
+service_type = {{ magnum_service_type }}
+
+[magnum_client]
+region_name = {{ magnum_service_region }}
+endpoint_type = publicURL
+
+[neutron_client]
+region_name = {{ magnum_neutron_service_region }}
+endpoint_type = internalURL
+
+[nova_client]
+region_name = {{ magnum_nova_service_region }}
+endpoint_type = internalURL
+
+[oslo_messaging_notifications]
+driver = {{ (magnum_ceilometer_enabled | bool) | ternary('messagingv2', 'noop') }}
+transport_url = {{ magnum_oslomsg_notify_transport }}://{% for host in magnum_oslomsg_notify_servers.split(',') %}{{ magnum_oslomsg_notify_userid }}:{{ magnum_oslomsg_notify_password }}@{{ host }}:{{ magnum_oslomsg_notify_port }}{% if not loop.last %},{% else %}/{{ magnum_oslomsg_notify_vhost }}{% if magnum_oslomsg_notify_use_ssl | bool %}?ssl=1&ssl_version={{ magnum_oslomsg_notify_ssl_version }}&ssl_ca_file={{ magnum_oslomsg_notify_ssl_ca_file }}{% else %}?ssl=0{% endif %}{% endif %}{% endfor %}
+
+[oslo_messaging_rabbit]
+ssl = {{ magnum_oslomsg_rpc_use_ssl }}
+rabbit_notification_exchange = magnum
+rabbit_notification_topic = notification
+
+[profiler]
+enabled = false
+
+[trust]
+trustee_domain_admin_password = {{ magnum_trustee_password }}
+trustee_domain_admin_name = {{ magnum_trustee_domain_admin_name }}
+trustee_domain_name = {{ magnum_trustee_domain_name }}
+cluster_user_trust = {{ magnum_cluster_user_trust }}
+trustee_keystone_interface= public
+trustee_keystone_region_name = {{ magnum_service_region }}
+
+[certificates]
+cert_manager_type = {{ magnum_cert_manager_type }}

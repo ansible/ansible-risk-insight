@@ -1,0 +1,22 @@
+# {{ ansible_managed }}
+
+{% if debug | bool %}
+# enabling debug mode according to http://wiki.libvirt.org/page/DebugLogs
+log_level = 1
+log_filters="{{ nova_libvirtd_debug_log_filters }}"
+log_outputs="1:file:/var/log/libvirt/libvirtd.log"
+{% endif %}
+# Flag listening for secure TLS connections on the public TCP/IP port.
+# NB, must pass the --listen flag to the libvirtd process for this to
+# have any effect.
+listen_tls = {{ nova_libvirtd_listen_tls }}
+# Listen for unencrypted TCP connections on the public TCP/IP port.
+# NB, must pass the --listen flag to the libvirtd process for this to
+# have any effect.
+listen_tcp = {{ nova_libvirtd_listen_tcp }}
+unix_sock_group = "{{ libvirt_group }}"
+unix_sock_ro_perms = "0777"
+unix_sock_rw_perms = "0770"
+auth_unix_ro = "none"
+auth_unix_rw = "none"
+auth_tcp = "{{ nova_libvirtd_auth_tcp }}"

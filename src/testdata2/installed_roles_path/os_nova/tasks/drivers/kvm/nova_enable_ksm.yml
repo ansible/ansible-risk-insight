@@ -1,0 +1,15 @@
+---
+- name: Enable ksm systemd service
+  service:
+    name: ksm
+    enabled: yes
+    state: started
+
+- name: Enable ksmtuned systemd service
+  service:
+    name: ksmtuned
+    enabled: yes
+    state: started
+  when:
+    - ansible_facts['pkg_mgr'] in ['dnf', 'apt']
+

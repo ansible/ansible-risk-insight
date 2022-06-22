@@ -1,0 +1,73 @@
+---
+- name: create ec profile
+  ceph_ec_profile:
+    name: "{{ item.value.ec_profile }}"
+    cluster: "{{ cluster }}"
+    k: "{{ item.value.ec_k }}"
+    m: "{{ item.value.ec_m }}"
+  delegate_to: "{{ groups[mon_group_name][0] }}"
+  loop: "{{ rgw_create_pools | dict2items }}"
+  when:
+    - item.value.type is defined
+    - item.value.type == 'ec'
+  environment:
+    CEPH_CONTAINER_IMAGE: "{{ ceph_docker_registry + '/' + ceph_docker_image + ':' + ceph_docker_image_tag if containerized_deployment | bool else None }}"
+    CEPH_CONTAINER_BINARY: "{{ container_binary }}"
+
+- name: set crush rule
+  ceph_crush_rule:
+    name: "{{ item.key }}"
+    cluster: "{{ cluster }}"
+    rule_type: erasure
+    profile: "{{ item.value.ec_profile }}"
+  environment:
+    CEPH_CONTAINER_IMAGE: "{{ ceph_docker_registry + '/' + ceph_docker_image + ':' + ceph_docker_image_tag if containerized_deployment | bool else None }}"
+    CEPH_CONTAINER_BINARY: "{{ container_binary }}"
+  loop: "{{ rgw_create_pools | dict2items }}"
+  delegate_to: "{{ groups[mon_group_name][0] }}"
+  when:
+    - item.value.type is defined
+    - item.value.type == 'ec'
+
+- name: create ec pools for rgw
+  ceph_pool:
+    name: "{{ item.key }}"
+    state: present
+    cluster: "{{ cluster }}"
+    pg_num: "{{ item.value.pg_num | default(omit) }}"
+    pgp_num: "{{ item.value.pgp_num | default(omit) }}"
+    size: "{{ item.value.size | default(omit) }}"
+    pg_autoscale_mode: "{{ item.value.pg_autoscale_mode | default(omit) }}"
+    target_size_ratio: "{{ item.value.target_size_ratio | default(omit) }}"
+    pool_type: erasure
+    erasure_profile: "{{ item.value.ec_profile }}"
+    application: rgw
+  loop: "{{ rgw_create_pools | dict2items }}"
+  delegate_to: "{{ groups[mon_group_name][0] }}"
+  when:
+    - item.value.type is defined
+    - item.value.type == 'ec'
+  environment:
+    CEPH_CONTAINER_IMAGE: "{{ ceph_docker_registry + '/' + ceph_docker_image + ':' + ceph_docker_image_tag if containerized_deployment | bool else None }}"
+    CEPH_CONTAINER_BINARY: "{{ container_binary }}"
+
+- name: create replicated pools for rgw
+  ceph_pool:
+    name: "{{ item.key }}"
+    state: present
+    cluster: "{{ cluster }}"
+    pg_num: "{{ item.value.pg_num | default(omit) }}"
+    pgp_num: "{{ item.value.pgp_num | default(omit) }}"
+    size: "{{ item.value.size | default(omit) }}"
+    min_size: "{{ item.value.min_size | default(omit) }}"
+    pg_autoscale_mode: "{{ item.value.pg_autoscale_mode | default(omit) }}"
+    target_size_ratio: "{{ item.value.target_size_ratio | default(omit) }}"
+    pool_type: replicated
+    rule_name: "{{ item.value.rule_name | default(ceph_osd_pool_default_crush_rule_name) }}"
+    application: rgw
+  loop: "{{ rgw_create_pools | dict2items }}"
+  delegate_to: "{{ groups[mon_group_name][0] }}"
+  when: item.value.type is not defined or item.value.type == 'replicated'
+  environment:
+    CEPH_CONTAINER_IMAGE: "{{ ceph_docker_registry + '/' + ceph_docker_image + ':' + ceph_docker_image_tag if containerized_deployment | bool else None }}"
+    CEPH_CONTAINER_BINARY: "{{ container_binary }}"

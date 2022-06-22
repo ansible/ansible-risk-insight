@@ -1,0 +1,100 @@
+---
+# Copyright 2016, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+cache_timeout: 600
+
+ironic_devel_distro_packages:
+  - git-core
+  - libffi-dev
+  - libsystemd-dev
+
+ironic_api_distro_packages:
+  - libxml2-dev
+  - python3-systemd
+
+ironic_conductor_distro_packages:
+  - libxml2-dev
+  - syslinux
+  - syslinux-common
+  - pxelinux
+  - libxslt1-dev
+  - qemu-utils
+  - libpq-dev
+  - python3-yaml
+  - ipmitool
+  - tftpd-hpa
+  - gdisk
+  - ipxe
+  - nginx
+  - grub-efi-amd64-signed
+  - shim-signed
+
+ironic_conductor_standalone_distro_packages:
+  - isc-dhcp-server
+
+ironic_library_modules_paths:
+  - "/usr/lib/PXELINUX/pxelinux.0"
+  - "/usr/lib/syslinux/modules/efi64/chain.c32"
+  - "/usr/lib/syslinux/modules/bios/ldlinux.c32"
+  - "/usr/lib/ipxe/undionly.kpxe"
+  - "/usr/lib/ipxe/ipxe.efi"
+
+ironic_uefi_modules:
+  - name: "bootx64.efi"
+    path: "/usr/lib/shim/shimx64.efi.signed"
+  - name: "grubx64.efi"
+    path: "/usr/lib/grub/x86_64-efi-signed/grubnetx64.efi.signed"
+
+ironic_tftpd_service_name: tftpd-hpa
+ironic_tftpd_root: /tftpboot
+
+ironic_inspector_distro_packages:
+   - libxml2-dev
+   - pxelinux
+   - syslinux
+   - syslinux-common
+   - syslinux-efi
+   - libxslt1-dev
+   - libpq-dev
+   - python3-yaml
+   - ipmitool
+
+ironic_inspector_http_distro_packages:
+   - nginx
+
+ironic_inspector_isc_dhcp_distro_packages:
+   - tftpd-hpa
+   - isc-dhcp-server
+
+ironic_inspector_dnsmasq_distro_packages:
+   - dnsmasq
+
+ironic_inspector_standalone_distro_packages:
+  - isc-dhcp-server
+
+ironic_inspector_devel_distro_packages:
+  - git-core
+  - libffi-dev
+  - libsystemd-dev
+
+ironic_inspector_library_modules_paths:
+  - "/usr/lib/PXELINUX/pxelinux.0"
+  - "/usr/lib/PXELINUX/lpxelinux.0"
+  - "/usr/lib/syslinux/modules/efi64/chain.c32"
+  - "/usr/lib/syslinux/modules/bios/ldlinux.c32"
+  - "/usr/lib/syslinux/modules/efi64/ldlinux.e64"
+
+ironic_nginx_conf_path: "sites-available"
+ironic_grub_dir: "/tftpboot/grub"

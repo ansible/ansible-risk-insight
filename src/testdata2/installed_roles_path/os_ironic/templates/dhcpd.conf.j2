@@ -1,0 +1,33 @@
+
+ddns-update-style interim;
+
+allow booting;
+allow bootp;
+
+ignore client-updates;
+set vendorclass = option vendor-class-identifier;
+option pxe-system-type code 93 = unsigned integer 16;
+set pxetype = option pxe-system-type;
+
+
+subnet {{ ironic_inspector_dhcp_subnet }} netmask {{ ironic_inspector_dhcp_subnet_mask }} {
+     option routers             {{ ironic_inspector_dhcp_gateway }};
+     option domain-name-servers {{ ironic_inspector_dhcp_nameservers}};
+     option subnet-mask         {{ ironic_inspector_dhcp_subnet_mask }};
+     range dynamic-bootp        {{ ironic_inspector_dhcp_pool_range }};
+     default-lease-time         {{ ironic_inspector_dhcp_lease_time }};
+     max-lease-time             43200;
+     next-server                {{ ironic_inspector_dhcp_interface }};
+     class "pxeclients" {
+          match if substring (option vendor-class-identifier, 0, 9) = "PXEClient";
+          if pxetype=6 or pxetype=7 {
+              filename "syslinux.efi";
+          } else {
+{% if ironic_inspector_boot_mode == "http" %}
+              filename "lpxelinux.0";
+{% else %}
+              filename "pxelinux.0";
+{% endif %}
+          }
+    }
+}

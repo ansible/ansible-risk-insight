@@ -1,0 +1,182 @@
+---
+- name: Playbook for functional testing ironic via its REST API
+  hosts: localhost
+  user: root
+  become: true
+  gather_facts: true
+  roles:
+    - role: "openstack_openrc"
+  post_tasks:
+    # needed by the functional test playbook below
+    - name: Install httplib2 so we can use the uri module
+      pip:
+        name: "{{ item }}"
+      with_items:
+        - httplib2
+        - python-openstackclient
+
+    - name: Get auth token
+      shell: >
+        . /root/openrc && openstack token issue --format yaml | awk '/^id\:/ {print $2}'
+      register: get_keystone_token
+      tags:
+       - skip_ansible_lint
+
+    - name: set token
+      set_fact:
+        keystone_token: "{{ get_keystone_token.stdout }}"
+
+    - name: Check the ironic-api
+      uri:
+        url: "{{ ironic_service_publicuri }}"
+        HEADER_X-Auth-Token: "{{ keystone_token }}"
+        status_code: 200
+
+    - name: list chassis
+      uri:
+        url: "{{ ironic_service_publicuri }}/v1/chassis"
+        HEADER_X-Auth-Token: "{{ keystone_token }}"
+        status_code: 200
+        return_content: yes
+      register: chassis_list
+
+    - name: test chassis list
+      assert: that="chassis_list.json.chassis == []"
+
+    - name: list drivers
+      uri:
+        HEADER_X-Auth-Token: "{{ keystone_token }}"
+        url: "{{ ironic_service_publicuri }}/v1/drivers"
+        status_code: 200
+        return_content: yes
+      register: driver_list
+    # Returning an empty driver list currently as of 20/09/2016
+    # - name: test drivers
+    #   assert: that="driver_list.json.drivers[0].name == 'agent_ipmitool'"
+
+    - name: list nodes
+      uri:
+        url: "{{ ironic_service_publicuri }}/v1/nodes"
+        HEADER_X-Auth-Token: "{{ keystone_token }}"
+        status_code: 200
+        return_content: yes
+      register: node_list
+
+    - name: test nodes list is empty
+      assert: that="node_list.json.nodes == []"
+    # Failing with an HTTP 400 as of 20/09/2016
+    # - name: create a node
+    #   uri:
+    #     url: "{{ ironic_service_publicuri }}/v1/nodes"
+    #     method: POST
+    #     HEADER_Content-Type: "application/json"
+    #     HEADER_X-OpenStack-Ironic-API-Version: "1.9"
+    #     HEADER_X-Auth-Token: "{{ keystone_token }}"
+    #     body_format: json
+    #     body: "{\"name\": \"restnode\", \"driver\": \"agent_ipmitool\", \"driver_info\": {\"ipmi_address\": \"1.2.3.4\"}}"
+    #     status_code: 201
+    #     return_content: yes
+    #   register: node_response
+    # - name: test node created
+    #   assert:
+    #     that:
+    #       - "node_response.json.target_power_state is none"
+    #       - "node_response.json.name == 'restnode'"
+    # - name: create a port
+    #   uri:
+    #     url: "{{ ironic_service_publicuri }}/v1/ports"
+    #     method: POST
+    #     HEADER_Content-Type: "application/json"
+    #     HEADER_X-OpenStack-Ironic-API-Version: "1.9"
+    #     HEADER_X-Auth-Token: "{{ keystone_token }}"
+    #     body_format: json
+    #     body: " {\"node_uuid\": \"{{ node_response.json.uuid }}\", \"address\": \"00:00:00:00:00:01\"}"
+    #     status_code: 201
+    #     return_content: yes
+    # - name: list ports
+    #   uri:
+    #     url: "{{ ironic_service_publicuri }}/v1/ports"
+    #     HEADER_X-Auth-Token: "{{ keystone_token }}"
+    #     HEADER_Content-Type: "application/json"
+    #     HEADER_X-OpenStack-Ironic-API-Version: "1.9"
+    #     body: " {\"node\": \"{{ node_response.json.uuid }}\"}"
+    #     body_format: json
+    #     return_content: yes
+    #   register: port_list
+    # - name: test port list
+    #   assert:
+    #     that:
+    #       - "port_list.json.ports|length == 1"
+    #       - "port_list.json.ports[0].address == \"00:00:00:00:00:01\""
+    # - name: add a second port
+    #   uri:
+    #     url: "{{ ironic_service_publicuri }}/v1/ports"
+    #     method: POST
+    #     HEADER_Content-Type: "application/json"
+    #     HEADER_X-OpenStack-Ironic-API-Version: "1.9"
+    #     HEADER_X-Auth-Token: "{{ keystone_token }}"
+    #     body_format: json
+    #     body: " {\"node_uuid\": \"{{ node_response.json.uuid }}\", \"address\": \"00:00:00:00:00:02\"}"
+    #     status_code: 201
+    #     return_content: yes
+    # - name: list ports again
+    #   uri:
+    #     url: "{{ ironic_service_publicuri }}/v1/ports"
+    #     HEADER_X-Auth-Token: "{{ keystone_token }}"
+    #     HEADER_Content-Type: "application/json"
+    #     HEADER_X-OpenStack-Ironic-API-Version: "1.9"
+    #     body: " {\"node\": \"{{ node_response.json.uuid }}\"}"
+    #     body_format: json
+    #     return_content: yes
+    #   register: port_list2
+    # - name: test second port exists
+    #   assert:
+    #     that:
+    #       - "port_list2.json.ports|length == 2"
+    # - name: validate a node
+    #   uri:
+    #     url: "{{ ironic_service_publicuri }}/v1/nodes/restnode/validate"
+    #     method: GET
+    #     HEADER_X-OpenStack-Ironic-API-Version: "1.9"
+    #     HEADER_X-Auth-Token: "{{ keystone_token }}"
+    #     status_code: 200
+    #     return_content: yes
+    #   register: validate_node
+    # - name: check results of validation
+    #   assert:
+    #     that:
+    #       - "validate_node.json.boot.result == false"
+    #       - "validate_node.json.boot.reason == \"Cannot validate PXE bootloader. Some parameters were missing in node's driver_info. Missing are: ['deploy_ramdisk', 'deploy_kernel']\""
+    #       - "validate_node.json.console.result == false"
+    #       - "validate_node.json.console.reason == \"Missing 'ipmi_terminal_port' parameter in node's driver_info.\""
+    #       - "validate_node.json.deploy.result == false"
+    #       - "validate_node.json.deploy.reason == \"Cannot validate PXE bootloader. Some parameters were missing in node's driver_info. Missing are: ['deploy_ramdisk', 'deploy_kernel']\""
+    #       - "validate_node.json.inspect.result is none"
+    #       - "validate_node.json.inspect.reason == \"not supported\""
+    #       - "validate_node.json.management.result == true"
+    #       - "validate_node.json.power.result == true"
+    #       - "validate_node.json.raid.result == true"
+    # - name: update a node
+    #   uri:
+    #     HEADER_X-Auth-Token: "{{ keystone_token }}"
+    #     url: "{{ ironic_service_publicuri }}/v1/nodes/restnode"
+    #     body: " [{\"path\": \"/name\", \"value\": \"renamednode\", \"op\": \"replace\"}]"
+    #     method: PATCH
+    #     HEADER_Content-Type: "application/json"
+    #     HEADER_X-OpenStack-Ironic-API-Version: "1.9"
+    #     status_code: 200
+    #     return_content: yes
+    #   register: patch_node
+    # - name: check results of update
+    #   assert: that="patch_node.json.name == 'renamednode'"
+    # - name: delete a node
+    #   uri:
+    #     url: "{{ ironic_service_publicuri }}/v1/nodes/renamednode"
+    #     method: DELETE
+    #     HEADER_Content-Type: "application/json"
+    #     HEADER_X-OpenStack-Ironic-API-Version: "1.9"
+    #     HEADER_X-Auth-Token: "{{ keystone_token }}"
+    #     status_code: 204
+    #     return_content: yes
+  vars_files:
+    - common/test-vars.yml

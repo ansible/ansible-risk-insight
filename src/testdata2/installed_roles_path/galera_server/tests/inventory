@@ -1,0 +1,15 @@
+[all]
+localhost
+container1
+container2
+container3
+
+[galera_all]
+container1
+container2
+container3
+
+[all_containers]
+container1
+container2
+container3

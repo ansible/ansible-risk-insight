@@ -1,0 +1,59 @@
+# {{ ansible_managed }}
+
+#
+# The number of 2M hugepages to reserve on system boot
+#
+# Default is 0
+# To e.g. let it reserve 64x 2M Hugepages set:
+# NR_2M_PAGES=64
+
+#
+# The number of 1G hugepages to reserve on system boot
+#
+# Default is 0
+# To e.g. let it reserve 2x 1G Hugepages set:
+# NR_1G_PAGES=2
+
+#
+# Dropping slab and pagecache can help to successfully allocate hugepages,
+# especially later in the lifecycle of a system.
+# This comes at the cost of loosing all slab and pagecache on (re)start
+# of the dpdk service - therefore the default is off.
+#
+# Default is 0
+# Set to 1 to enable it
+#DROPCACHE_BEFORE_HP_ALLOC=0
+
+# The DPDK library will use the first mounted hugetlbfs.
+# The init scripts try to ensure there is at least one default hugetlbfs
+# mountpoint on start.
+# If you have multiple hugetlbfs mountpoints for a complex (e.g. specific numa
+# policies) setup it should be controlled by the admin instead of this init
+# script. In that case specific mountpoints can be provided as parameters to
+# the DPDK library.
+
+# Hardware may support other granularities of hugepages (like 4M). But the
+# larger the hugepages the earlier those should be allocated.
+# Note: the dpdk init scripts will report warnings, but not fail if they could
+# not allocate the requested amount of hugepages.
+# The more or the larger the hugepages to be allocated are, the more it is
+# recommended to do the reservation as kernel commandline arguments.
+# To do so edit /etc/default/grub: GRUB_CMDLINE_LINUX_DEFAULT
+# and add [hugepagesz=xx] hugepages=yy ...
+#
+# Kernel commandline config:
+# hugepagesz sets the size for the next hugepages reservation (default 2M)
+# hugepages  reserves the given number of hugepages of the size set before
+#
+# After modifying /etc/default/grub, the command "update-grub" has to be
+# run in order to re-generate the grub config files. The new values will
+# be used after next reboot.
+#
+# example:
+# GRUB_CMDLINE_LINUX_DEFAULT="... hugepages=16 hugepagesz=1G hugepages=2"
+#
+# If the system supports it, this will reserve 16x 2M pages and 2x 1G pages.
+#
+
+NR_2M_PAGES={{ ovs_dpdk_nr_2m_pages }}
+NR_1G_PAGES={{ ovs_dpdk_nr_1g_pages }}

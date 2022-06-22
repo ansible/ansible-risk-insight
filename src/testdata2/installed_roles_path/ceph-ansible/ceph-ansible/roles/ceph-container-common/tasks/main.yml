@@ -1,0 +1,38 @@
+---
+- name: generate systemd ceph-mon target file
+  copy:
+    src: ceph.target
+    dest: /etc/systemd/system/ceph.target
+
+- name: enable ceph.target
+  service:
+    name: ceph.target
+    enabled: yes
+    daemon_reload: yes
+
+- name: include prerequisites.yml
+  include_tasks: prerequisites.yml
+
+- name: include registry.yml
+  include_tasks: registry.yml
+  when: ceph_docker_registry_auth | bool
+
+- name: include fetch_image.yml
+  include_tasks: fetch_image.yml
+  tags: fetch_container_image
+
+- name: get ceph version
+  command: >
+    {{ container_binary }} run --rm --net=host --entrypoint /usr/bin/ceph
+    {{ ceph_client_docker_registry }}/{{ ceph_client_docker_image }}:{{ ceph_client_docker_image_tag }}
+    --version
+  changed_when: false
+  check_mode: no
+  register: ceph_version
+
+- name: set_fact ceph_version ceph_version.stdout.split
+  set_fact:
+    ceph_version: "{{ ceph_version.stdout.split(' ')[2] }}"
+
+- name: include release.yml
+  include_tasks: release.yml

@@ -1,0 +1,58 @@
+---
+# this is for ceph-disk, the ceph-disk command is gone so we have to list /var/lib/ceph
+- name: get osd ids
+  shell: ls /var/lib/ceph/osd/ | sed 's/.*-//'  # noqa 306
+  args:
+    executable: /bin/bash
+  changed_when: false
+  failed_when: false
+  register: osd_ids_non_container
+
+- name: collect osd ids
+  ceph_volume:
+    cluster: "{{ cluster }}"
+    action: list
+  environment:
+    CEPH_CONTAINER_IMAGE: "{{ ceph_docker_registry + '/' + ceph_docker_image + ':' + ceph_docker_image_tag if containerized_deployment | bool else None }}"
+    CEPH_CONTAINER_BINARY: "{{ container_binary }}"
+  register: ceph_osd_ids
+
+- name: include_tasks systemd.yml
+  include_tasks: systemd.yml
+  when: containerized_deployment | bool
+
+- name: ensure systemd service override directory exists
+  file:
+    state: directory
+    path: "/etc/systemd/system/ceph-osd@.service.d/"
+  when:
+    - ceph_osd_systemd_overrides is defined
+    - ansible_facts['service_mgr'] == 'systemd'
+
+- name: add ceph-osd systemd service overrides
+  config_template:
+    src: "ceph-osd.service.d-overrides.j2"
+    dest: "/etc/systemd/system/ceph-osd@.service.d/ceph-osd-systemd-overrides.conf"
+    config_overrides: "{{ ceph_osd_systemd_overrides | default({}) }}"
+    config_type: "ini"
+  when:
+    - ceph_osd_systemd_overrides is defined
+    - ansible_facts['service_mgr'] == 'systemd'
+
+- name: ensure "/var/lib/ceph/osd/{{ cluster }}-{{ item }}" is present
+  file:
+    state: directory
+    path: "/var/lib/ceph/osd/{{ cluster }}-{{ item }}"
+    mode: "{{ ceph_directories_mode }}"
+    owner: "{{ ceph_uid if containerized_deployment | bool else 'ceph' }}"
+    group: "{{ ceph_uid if containerized_deployment | bool else 'ceph' }}"
+  with_items: "{{ ((ceph_osd_ids.stdout | default('{}', True) | from_json).keys() | list) | union(osd_ids_non_container.stdout_lines | default([])) }}"
+
+- name: systemd start osd
+  systemd:
+    name: ceph-osd@{{ item }}
+    state: started
+    enabled: yes
+    masked: no
+    daemon_reload: yes
+  with_items: "{{ ((ceph_osd_ids.stdout | default('{}', True) | from_json).keys() | list) | union(osd_ids_non_container.stdout_lines | default([])) }}"

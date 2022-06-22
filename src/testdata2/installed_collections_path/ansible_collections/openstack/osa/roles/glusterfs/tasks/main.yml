@@ -1,0 +1,155 @@
+---
+# Copyright 2022, BBC R&D.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Gather variables for each operating system
+  include_vars: "{{ lookup('first_found', params) }}"
+  vars:
+    params:
+      files:
+        - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_version'] | lower }}.yml"
+        - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_major_version'] | lower }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}-{{ ansible_facts['distribution_major_version'] | lower }}.yml"
+        - "{{ ansible_facts['distribution'] | lower }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}-{{ ansible_facts['distribution_version'].split('.')[0] }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}.yml"
+      paths:
+        - "{{ role_path }}/vars"
+  tags:
+    - always
+
+- name: Enable repos for redhat variants
+  when: ansible_pkg_mgr == 'dnf'
+  block:
+    - name: Enable extra repositories
+      command: dnf config-manager --set-enabled "{{ item }}"
+      changed_when: false
+      with_items: "{{ glusterfs_server_dnf_enable }}"
+
+    - name: Install gluster repo packages
+      package:
+        name: "{{ glusterfs_server_dnf_sig_packages }}"
+
+    # NOTE(jrosser) this task ensures that the release version is always 8-stream to support
+    # Rocky Linux as well as Centos-8-Stream. Remove this task when the repo itself supports both.
+    - name: Fix repo mirrorlist
+      lineinfile:
+        path: /etc/yum.repos.d/CentOS-Gluster-8.repo
+        regexp: '^mirrorlist'
+        line: 'mirrorlist=http://mirrorlist.centos.org?arch=$basearch&release=8-stream&repo=storage-gluster-8'
+      when:
+        - ansible_facts['distribution'] == "Rocky"
+        - ansible_facts['distribution_major_version'] == "8"
+
+    - name: Apply systemctl overrides
+      import_role:
+        name: systemd_service
+      vars:
+        systemd_services:
+          - service_name: systemd-tmpfiles-setup-dev
+            load: false
+            systemd_overrides_only: true
+            systemd_overrides:
+              Unit:
+                ConditionCapability: ""
+
+- name: Install glusterfs server packages
+  package:
+    name: "{{ glusterfs_server_distro_packages }}"
+    state: "{{ glusterfs_package_state }}"
+
+- name: Drop glusterfs-wait.sh script
+  copy:
+    src: glusterfs-wait.sh
+    dest: /usr/local/sbin
+    mode: 0744
+
+- name: Add glusterd.service overrides
+  import_role:
+    name: systemd_service
+  vars:
+    systemd_services:
+      - service_name: glusterd
+        systemd_overrides_only: true
+        systemd_overrides:
+          Service:
+            ExecStartPost: "/usr/local/sbin/glusterfs-wait.sh"
+
+- name: Configure systemd-tmpfiles to create /dev/fuse at boot
+  copy:
+    content: "c /dev/fuse 0600 - - - 10:229"
+    dest: "/etc/tmpfiles.d/openstack-ansible-glusterfs-server.conf"
+  when: not (is_metal | default(False))
+  register: _glusterfs_server_tmpfiles
+
+- name: Restart systemd-tmpfiles-setup-dev
+  service:
+    name: "systemd-tmpfiles-setup-dev"
+    enabled: yes
+    state: restarted
+  when:
+    - not (is_metal | default(False))
+    - _glusterfs_server_tmpfiles is changed
+
+- name: Start glusterfs server
+  service:
+    name: "{{ glusterfs_server_service }}"
+    enabled: true
+    state: started
+
+- name: Create gluster peers
+  gluster.gluster.gluster_peer:
+    nodes: "{{ glusterfs_server_cluster_members }}"
+  when: _glusterfs_is_last_play_host
+
+- name: Ensure glusterfs backing directory exists
+  file:
+    path: "{{ glusterfs_server_backing_dir }}"
+    state: directory
+  register: _backing_dir_create
+
+- name: Check brick status
+  throttle: 1
+  command: gluster volume status {{ glusterfs_server_volume_name }} {{ inventory_hostname| regex_replace('_', '-') }}:{{ glusterfs_server_bricks }} detail
+  register: _brick_online_status
+  changed_when: false
+  failed_when: false
+
+#NOTE (jrosser) run this task if we just created the data dir, the volume exists (status was available)
+#               and the brick on this node is offline. This covers a destroy/create of an existing host
+- name: Reset brick for a replaced node
+  vars:
+    brick: "{{ inventory_hostname | regex_replace('_', '-') }}:{{ glusterfs_server_bricks }}"
+  command: "{{ item }}"
+  when:
+    - _backing_dir_create is changed
+    - _brick_online_status.rc == 0
+    - (_brick_online_status.stdout_lines | select('contains', 'Online'))[0] | regex_search('N')
+  with_items:
+    - gluster volume reset-brick {{ glusterfs_server_volume_name }} {{ brick }} start
+    - gluster volume reset-brick {{ glusterfs_server_volume_name }} {{ brick }} {{ brick }} commit force
+
+- name: Create gluster volume
+  vars:
+    num_cluster_members: "{{ glusterfs_server_cluster_members | length }}"
+    cluster_has_replicas: "{{ (glusterfs_server_cluster_members | length) > 1 }}"
+  gluster.gluster.gluster_volume:
+    state: present
+    name: "{{ glusterfs_server_volume_name }}"
+    bricks: "{{ glusterfs_server_bricks }}"
+    replicas: "{{ cluster_has_replicas | ternary(num_cluster_members, omit) }}"
+    cluster: "{{ glusterfs_server_cluster_members | map('regex_replace', '_', '-') | list }}"
+    force: true
+  when: _glusterfs_is_last_play_host
+

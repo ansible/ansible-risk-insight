@@ -1,0 +1,9 @@
+---
+- hosts: compute-node-hosts
+  become: yes
+    # COMP_ID must be supplied as a variable or
+    # on the command line with:
+    # --extra-vars "COMP_ID=(11-250)"
+  roles:
+    - common
+    - compute

@@ -1,0 +1,18 @@
+---
+# This is an example playbook to execute Ansible tests.
+
+- name: Verify
+  hosts: all
+  tasks:
+    - name: Check bird is running
+      command: pgrep -a bird
+      register: bird_proc
+      changed_when: false
+    - name: Verify BIRD daemon operation
+      command: birdc show status
+      register: bird_health
+      changed_when: false
+    - name: Check role functions
+      assert:
+        that:
+          - "'Daemon is up and running' in bird_health.stdout"

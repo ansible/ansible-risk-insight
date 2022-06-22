@@ -1,0 +1,30 @@
+[DEFAULT]
+hostname = {{ ansible_facts['hostname'] }}
+processmonitor_manager = masakarimonitors.processmonitor.process.ProcessmonitorManager
+hostmonitor_manager = masakarimonitors.hostmonitor.host.HostmonitorManager
+use_journal = true
+
+[api]
+region = {{ masakari_service_region }}
+api_version = v1
+api_interface = internal
+auth_url = {{ keystone_service_adminuri }}
+www_authenticate_uri = {{ keystone_service_internaluri }}
+project_name = {{ masakari_service_project_name }}
+project_domain_id = {{ masakari_service_project_domain_id }}
+username = {{ masakari_service_user_name }}
+user_domain_id = {{ masakari_service_user_domain_id }}
+password = {{ masakari_service_password }}
+
+[host]
+disable_ipmi_check = {{ masakari_monitor_corosync_ipmi_check }}
+corosync_multicast_interfaces = {{ masakari_monitor_corosync_multicast_interface }}
+corosync_multicast_ports = {{ masakari_monitor_corosync_multicast_ports }}
+
+[process]
+check_interval = 5
+restart_retries = 3
+restart_interval = 5
+api_retry_max = 12
+api_retry_interval = 10
+process_list_path = /etc/masakarimonitors/process_list.yaml

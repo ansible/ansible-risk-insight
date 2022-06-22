@@ -1,0 +1,23 @@
+---
+- include: pull_service.yml
+
+- include: run_service.yml
+
+- name: Display control node status
+  debug:
+    msg: "Control node successfully spawned with status: '{{ control_node_spawn_result }}'"
+    verbosity: 1
+
+- name: Start Stacking service node
+  tags:
+    - service
+    - openstack
+    - stack
+  include: ../../common/tasks/start_stacking.yml
+  when:
+  - control_node_spawn_result is defined
+  - "{{ auto_stack }}"
+  - False
+
+# vim: set et sw=2 ts=2 :
+

@@ -1,0 +1,15 @@
+---
+
+# apparmor info
+profile_path: /root/workspace/docker-unconfined
+
+# docker configuration (daemon.json)
+systemd_docker_dropin_dir: '/etc/systemd/system/docker.service.d/'
+
+# docker registry in common/vars/main.yml
+debug_docker: 'true'
+docker_storage_driver: 'overlay2'
+enforce_os_security_enable: 'false'
+
+
+

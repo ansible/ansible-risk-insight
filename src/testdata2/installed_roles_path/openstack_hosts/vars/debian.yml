@@ -1,0 +1,95 @@
+---
+# Copyright 2019, VEXXHOST, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+## Defined required kernel
+openstack_host_required_kernel: 4.9.0-0-amd64
+openstack_host_sysstat_file: /etc/default/sysstat
+openstack_host_sysstat_cron_file: /etc/cron.d/sysstat
+openstack_host_cron_template: sysstat.cron.debian.j2
+openstack_host_module_file: /etc/modules
+
+## Kernel modules loaded on hosts
+openstack_host_kernel_modules:
+  - name: 8021q
+  - name: br_netfilter
+  - name: dm_multipath
+  - name: dm_snapshot
+  - name: ebtables
+  - name: ip6table_filter
+  - name: ip6_tables
+  - name: ip_tables
+  - name: ipt_MASQUERADE
+  - name: ipt_REJECT
+  - name: iptable_filter
+  - name: iptable_mangle
+  - name: iptable_nat
+  - name: ip_vs
+  - name: iscsi_tcp
+  - name: nbd
+  - name: nf_conntrack
+  - name: nf_defrag_ipv4
+  - name: nf_nat
+  - name: vhost_net
+  - name: x_tables
+
+## Base packages
+_openstack_host_distro_packages: []
+
+## Bare metal base packages
+_openstack_host_metal_distro_packages:
+  - apparmor-utils
+  - apt-transport-https
+  - bridge-utils
+  - curl
+  - dmeventd
+  - dstat
+  - ebtables
+  - htop
+  - iptables
+  - irqbalance
+  - libkmod2
+  - lvm2
+  - rsync
+  - rsyslog
+  - software-properties-common
+  - sysstat
+  - sudo
+  - time
+  - vlan
+  - wget
+
+_package_repos_keys:
+  - id: 0FB8E8DD19498FEC90B25E5E56056AB2FEE4EECB
+    url: "http://osbpo.debian.net/osbpo/dists/pubkey.gpg"
+    state: present
+
+_package_list:
+  - name: ca-certificates
+    state: latest
+
+_osbpo_release: "{{ openstack_distrib_code_name | lower }}"
+
+_package_repos:
+  - repo: "deb {{ apt_repo_url | default('http://osbpo.debian.net/osbpo/ ' ~ ansible_facts['distribution_release'] ~ '-' ~ _osbpo_release ~ '-backports main') }}"
+    state: present
+    filename: "osbpo"
+  - repo: "deb {{ apt_repo_url | default('http://osbpo.debian.net/osbpo/ ' ~ ansible_facts['distribution_release'] ~ '-' ~ _osbpo_release ~ '-backports-nochange main') }}"
+    state: present
+    filename: "osbpo"
+
+_openstack_ca_bundle_path: /etc/ssl/certs/ca-certificates.crt
+
+_openstack_hosts_package_manager_default_conf: |
+  APT::Install-Recommends "false";

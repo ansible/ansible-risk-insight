@@ -1,0 +1,71 @@
+---
+- name: include configure_repository.yml
+  include_tasks: configure_repository.yml
+  tags: package-configure
+
+- name: include installs/install_redhat_packages.yml
+  include_tasks: installs/install_redhat_packages.yml
+  when:
+    - ansible_facts['os_family'] == 'RedHat'
+    - (ceph_origin == 'repository' or ceph_origin == 'distro')
+  tags: package-install
+
+- name: include installs/install_suse_packages.yml
+  include_tasks: installs/install_suse_packages.yml
+  when: ansible_facts['os_family'] == 'Suse'
+  tags: package-install
+
+- name: include installs/install_on_debian.yml
+  include_tasks: installs/install_on_debian.yml
+  tags: package-install
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: include_tasks installs/install_on_clear.yml
+  include_tasks: installs/install_on_clear.yml
+  when: ansible_facts['os_family'] == 'ClearLinux'
+  tags: package-install
+
+- name: get ceph version
+  command: ceph --version
+  changed_when: false
+  check_mode: no
+  register: ceph_version
+
+- name: set_fact ceph_version
+  set_fact:
+    ceph_version: "{{ ceph_version.stdout.split(' ')[2] }}"
+
+# override ceph_stable_release for ceph_dev and rhcs installations since ceph_stable_release is not mandatory
+- name: include release-rhcs.yml
+  include_tasks: release-rhcs.yml
+  when: ceph_repository in ['rhcs', 'dev']
+      or
+      ceph_origin == 'distro'
+  tags: always
+
+- name: set_fact ceph_release - override ceph_release with ceph_stable_release
+  set_fact:
+    ceph_release: "{{ ceph_stable_release }}"
+  when:
+    - ceph_origin == 'repository'
+    - ceph_repository not in ['dev', 'rhcs', 'custom']
+  tags: always
+
+- name: include create_rbd_client_dir.yml
+  include_tasks: create_rbd_client_dir.yml
+
+- name: include configure_cluster_name.yml
+  include_tasks: configure_cluster_name.yml
+
+- name: include configure_memory_allocator.yml
+  include_tasks: configure_memory_allocator.yml
+  when:
+    - (ceph_tcmalloc_max_total_thread_cache | int) > 0
+    - (ceph_origin == 'repository' or ceph_origin == 'distro')
+
+- name: include selinux.yml
+  include_tasks: selinux.yml
+  when:
+    - ansible_facts['os_family'] == 'RedHat'
+    - inventory_hostname in groups.get(nfs_group_name, [])
+      or inventory_hostname in groups.get(rgwloadbalancer_group_name, [])

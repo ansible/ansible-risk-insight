@@ -1,0 +1,90 @@
+---
+# Copyright 2016, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# We set the python interpreter to the ansible runtime venv if
+# the delegation is to localhost so that we get access to the
+# appropriate python libraries in that venv. If the delegation
+# is to another host, we assume that it is accessible by the
+# system python instead.
+
+- include_role:
+    name: openstack.osa.service_setup
+    apply:
+      tags:
+        - common-service
+        - heat-config
+  vars:
+    _domain_name: "{{ heat_stack_user_domain_name }}"
+    _domain_name_description: "{{ heat_stack_domain_description }}"
+    _project_name: "{{ heat_project_name }}"
+    _project_domain: "{{ heat_project_domain_name }}"
+    _service_adminuri_insecure: "{{ keystone_service_adminuri_insecure }}"
+    _service_in_ldap: "{{ heat_service_in_ldap }}"
+    _service_setup_host: "{{ heat_service_setup_host }}"
+    _service_setup_host_python_interpreter: "{{ heat_service_setup_host_python_interpreter }}"
+    _service_project_name: "{{ heat_service_project_name }}"
+    _service_region: "{{ heat_service_region }}"
+    _service_users:
+      - name: "{{ heat_service_user_name }}"
+        password: "{{ heat_service_password }}"
+        domain: default
+        project: "{{ heat_service_project_name }}"
+        role: "{{ heat_service_role_names }}"
+        # We add the keystone role used by heat to delegate to the heat service user
+        # for performing deferred operations via trusts.
+      - name: "{{ heat_service_user_name }}"
+        role: "{{ heat_stack_owner_name }}"
+        project: "{{ heat_service_project_name }}"
+        domain: "{{ heat_service_user_domain_id }}"
+        # Any user creating stacks needs to have the 'heat_stack_owner' role assigned.
+        # We add to admin user here for testing purposes.
+      - name: "{{ keystone_admin_user_name }}"
+        role: "{{ heat_stack_owner_name }}"
+        project: "{{ heat_service_project_name }}"
+        domain: "{{ heat_service_user_domain_id }}"
+      - name: "{{ heat_stack_domain_admin }}"
+        password: "{{ heat_stack_domain_admin_password }}"
+        domain: "{{ heat_stack_user_domain_name }}"
+        project:
+        role: "{{ keystone_role_name | default('admin') }}"
+      - role: heat_stack_user
+    _service_endpoints:
+      - service: "{{ heat_service_name }}"
+        interface: "public"
+        url: "{{ heat_service_publicurl }}"
+      - service: "{{ heat_service_name }}"
+        interface: "internal"
+        url: "{{ heat_service_internalurl }}"
+      - service: "{{ heat_service_name }}"
+        interface: "admin"
+        url: "{{ heat_service_adminurl }}"
+      - interface: "public"
+        url: "{{ heat_cfn_service_publicurl }}"
+        service: "{{ heat_cfn_service_name }}"
+      - interface: "internal"
+        url: "{{ heat_cfn_service_internalurl }}"
+        service: "{{ heat_cfn_service_name }}"
+      - interface: "admin"
+        url: "{{ heat_cfn_service_adminurl }}"
+        service: "{{ heat_cfn_service_name }}"
+    _service_catalog:
+      - name: "{{ heat_service_name }}"
+        type: "{{ heat_service_type }}"
+        description: "{{ heat_service_description }}"
+      - name: "{{ heat_cfn_service_name }}"
+        type: "{{ heat_cfn_service_type }}"
+        description: "{{ heat_cfn_service_description }}"
+  tags:
+    - always

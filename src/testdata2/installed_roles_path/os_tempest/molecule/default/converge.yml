@@ -1,0 +1,10 @@
+---
+
+- name: Converge
+  hosts: all
+  gather_facts: false
+  tasks:
+
+    - name: this does nothing
+      debug:
+        msg: foo

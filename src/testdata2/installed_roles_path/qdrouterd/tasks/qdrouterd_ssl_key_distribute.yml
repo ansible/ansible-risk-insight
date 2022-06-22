@@ -1,0 +1,45 @@
+---
+# Copyright 2018, Red Hat, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Distribute self signed ssl key
+  copy:
+    dest: "{{ qdrouterd_ssl_key }}"
+    content: "{{ hostvars[groups[qdrouterd_host_group][0]]['qdrouterd_ssl_key_fact'] | b64decode }}"
+    owner: "qdrouterd"
+    group: "qdrouterd"
+    mode: "0640"
+  tags:
+    - qdrouterd-ssl
+
+- name: Distribute self signed ssl cert
+  copy:
+    dest: "{{ qdrouterd_ssl_cert }}"
+    content: "{{ hostvars[groups[qdrouterd_host_group][0]]['qdrouterd_ssl_cert_fact'] | b64decode }}"
+    owner: "qdrouterd"
+    group: "qdrouterd"
+    mode: "0640"
+  tags:
+    - qdrouterd-ssl
+
+- name: Ensure qdrouterd user owns the self-signed key and certificate
+  file:
+    path: "{{ item }}"
+    owner: qdrouterd
+    group: qdrouterd
+  with_items:
+    - "{{ qdrouterd_ssl_key }}"
+    - "{{ qdrouterd_ssl_cert }}"
+  tags:
+    - qdrouterd-ssl

@@ -1,0 +1,70 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Apply memcached config
+  template:
+    src: "{{ memcached_conf_template }}"
+    dest: "{{ memcached_conf_dest }}"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  notify: Restart memcached
+
+- name: Override systemd service file
+  copy:
+    src: "{{ memcached_systemd_service }}"
+    dest: "/etc/systemd/system/memcached.service"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  when: memcached_systemd_service is defined
+  notify: Restart memcached
+
+- name: Create memcached systemd service config dir
+  file:
+    path: "/etc/systemd/system/memcached.service.d"
+    state: "directory"
+    group: "root"
+    owner: "root"
+    mode: "0755"
+
+- name: Apply systemd options
+  template:
+    src: "{{ item.src }}"
+    dest: "/etc/systemd/system/memcached.service.d/{{ item.dest }}"
+    mode: "0644"
+  with_items:
+    - { src: "systemd.limits.conf.j2", dest: "limits.conf" }
+    - { src: "systemd.restart.conf.j2", dest: "restart.conf" }
+    - { src: "systemd.slice.conf.j2", dest: "slice.conf" }
+    - { src: "systemd.without-privatedevices.conf.j2", dest: "without-privatedevices.conf" }
+  notify:
+    - Restart memcached
+
+- name: Configure soft file limits
+  lineinfile:
+    dest: "/etc/security/limits.conf"
+    regexp: "^{{ memcached_user }}.*soft.*nofile.*"
+    state: "present"
+    line: "{{ memcached_user }}\tsoft\tnofile\t\t{{ memcached_file_limits }}" # noqa no-tabs
+    insertbefore: "^# End of file"
+
+- name: Configure hard file limits
+  lineinfile:
+    dest: "/etc/security/limits.conf"
+    regexp: "^{{ memcached_user }}.*hard.*nofile.*"
+    state: "present"
+    line: "{{ memcached_user }}\thard\tnofile\t\t{{ memcached_file_limits }}" # noqa no-tabs
+    insertbefore: "^# End of file"

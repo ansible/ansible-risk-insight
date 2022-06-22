@@ -1,0 +1,142 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Gather variables for each operating system
+  include_vars: "{{ lookup('first_found', params) }}"
+  vars:
+    params:
+      files:
+        - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_version'] | lower }}.yml"
+        - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_major_version'] | lower }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}-{{ ansible_facts['distribution_major_version'] | lower }}.yml"
+        - "{{ ansible_facts['distribution'] | lower }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}-{{ ansible_facts['distribution_version'].split('.')[0] }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}.yml"
+      paths:
+        - "{{ role_path }}/vars"
+  tags:
+    - always
+
+- name: Fail if our required secrets are not present
+  fail:
+    msg: "Please set the {{ item }} variable prior to applying this role."
+  when: (item is undefined) or (item is none)
+  with_items: "{{ ceilometer_required_secrets }}"
+  tags:
+    - always
+
+- name: Fail if service was deployed using a different installation method
+  fail:
+    msg: "Switching installation methods for OpenStack services is not supported"
+  when:
+    - ansible_local is defined
+    - ansible_local.openstack_ansible is defined
+    - ansible_local.openstack_ansible.ceilometer is defined
+    - ansible_local.openstack_ansible.ceilometer.install_method is defined
+    - ansible_local.openstack_ansible.ceilometer.install_method != ceilometer_install_method
+
+- name: Gather variables for installation method
+  include_vars: "{{ ceilometer_install_method }}_install.yml"
+  tags:
+    - always
+
+- import_tasks: ceilometer_pre_install.yml
+  tags:
+    - ceilometer-install
+
+- import_tasks: ceilometer_install.yml
+  tags:
+    - ceilometer-install
+
+- import_tasks: ceilometer_post_install.yml
+  tags:
+    - ceilometer-config
+
+- name: Run the systemd service role
+  import_role:
+    name: systemd_service
+  vars:
+    systemd_user_name: "{{ ceilometer_system_user_name }}"
+    systemd_group_name: "{{ ceilometer_system_group_name }}"
+    systemd_tempd_prefix: openstack
+    systemd_slice_name: ceilometer
+    systemd_lock_path: /var/lock/ceilometer
+    systemd_CPUAccounting: true
+    systemd_BlockIOAccounting: true
+    systemd_MemoryAccounting: true
+    systemd_TasksAccounting: true
+    systemd_services: |-
+      {% set services = [] %}
+      {% for service in ceilometer_services.values() %}
+      {%   if service.group | intersect(group_names) %}
+      {%     set _ = service.update({'enabled': 'yes', 'state': 'started'}) %}
+      {%     set _ = service.pop('group') %}
+      {%     set _ = services.append(service) %}
+      {%   endif %}
+      {% endfor %}
+      {{ services }}
+  tags:
+    - ceilometer-config
+    - systemd-service
+
+- include_role:
+    name: openstack.osa.service_setup
+    apply:
+      tags:
+        - common-service
+        - ceilometer-config
+  vars:
+    _service_adminuri_insecure: "{{ keystone_service_adminuri_insecure }}"
+    _service_in_ldap: "{{ ceilometer_service_in_ldap }}"
+    _service_setup_host: "{{ ceilometer_service_setup_host }}"
+    _service_setup_host_python_interpreter: "{{ ceilometer_service_setup_host_python_interpreter }}"
+    _service_project_name: "{{ ceilometer_service_project_name }}"
+    _service_region: "{{ ceilometer_service_region }}"
+    _service_users:
+      - name: "{{ ceilometer_service_user_name }}"
+        password: "{{ ceilometer_service_password }}"
+        role: "{{ ceilometer_role_name }}"
+  when:
+    - _ceilometer_is_first_play_host
+  tags:
+    - always
+
+- include_role:
+    name: openstack.osa.mq_setup
+    apply:
+      tags:
+        - common-mq
+        - ceilometer-config
+  vars:
+    _oslomsg_rpc_setup_host: "{{ ceilometer_oslomsg_rpc_setup_host }}"
+    _oslomsg_rpc_userid: "{{ ceilometer_oslomsg_rpc_userid }}"
+    _oslomsg_rpc_password: "{{ ceilometer_oslomsg_rpc_password }}"
+    _oslomsg_rpc_vhost: "{{ ceilometer_oslomsg_rpc_vhost }}"
+    _oslomsg_rpc_transport: "{{ ceilometer_oslomsg_rpc_transport }}"
+    _oslomsg_notify_setup_host: "{{ ceilometer_oslomsg_notify_setup_host }}"
+    _oslomsg_notify_userid: "{{ ceilometer_oslomsg_notify_userid }}"
+    _oslomsg_notify_password: "{{ ceilometer_oslomsg_notify_password }}"
+    _oslomsg_notify_vhost: "{{ ceilometer_oslomsg_notify_vhost }}"
+    _oslomsg_notify_transport: "{{ ceilometer_oslomsg_notify_transport }}"
+  when:
+    - _ceilometer_is_first_play_host
+  tags:
+    - always
+
+- import_tasks: ceilometer_db_setup.yml
+  when:
+    - _ceilometer_is_first_play_host
+  tags:
+    - ceilometer-config

@@ -1,0 +1,8 @@
+---
+- hosts: all
+  become: yes
+  roles:
+    - role: opendaylight
+      # Install the latest ODL Oxygen RPM from ODL Nexus CD repos
+      rpm_repo_url: "https://git.opendaylight.org/gerrit/gitweb?p=integration/packaging.git;a=blob_plain;f=packages/rpm/example_repo_configs/opendaylight-8-devel.repo"
+      extra_features: [odl-restconf-all]

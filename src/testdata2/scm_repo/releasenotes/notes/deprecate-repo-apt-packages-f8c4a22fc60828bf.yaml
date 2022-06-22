@@ -1,0 +1,5 @@
+---
+upgrade:
+  - The variable ``repo_server_packages`` that defines the list of packages
+    required to install a repo server has been replaced
+    by ``repo_server_distro_packages``.

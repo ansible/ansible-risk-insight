@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -ev
+
+export CPID="$(lxc-info -Hpn {{ inventory_hostname }})"
+
+function update_backup_resolvers {
+  if [[ -e "/proc/${CPID}/root/etc/resolv.conf.setup" ]]; then
+    mv /proc/${CPID}/root/etc/resolv.conf.setup /proc/${CPID}/root/etc/resolv.conf
+  elif [[ -e "/proc/${CPID}/root/etc/resolv.conf" ]]; then
+    cp /proc/${CPID}/root/etc/resolv.conf /proc/${CPID}/root/etc/resolv.conf.setup
+  fi
+}
+
+# If the setup is complete return as the process is complete
+if [[ -f "/var/lib/lxc/{{ inventory_hostname }}/setup.complete" ]]; then
+  exit 0
+fi
+
+# Backup the resolvers as the setup script is not executed within an NS.
+update_backup_resolvers
+
+# Use the host resolvers
+cat /etc/resolv.conf > /proc/${CPID}/root/etc/resolv.conf
+
+# Execute
+nsenter --mount=/proc/${CPID}/ns/mnt --pid=/proc/${CPID}/ns/pid \
+        --uts=/proc/${CPID}/ns/uts --ipc=/proc/${CPID}/ns/ipc \
+        -- /opt/container-setup.sh
+
+# Restore the resolvers
+update_backup_resolvers
+
+# Mark the setup as complete
+touch /var/lib/lxc/{{ inventory_hostname }}/setup.complete

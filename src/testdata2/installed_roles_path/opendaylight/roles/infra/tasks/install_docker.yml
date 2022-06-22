@@ -1,0 +1,15 @@
+---
+- name: Install the docker daemon
+  remote_user: root
+  become: yes
+  become_method: sudo
+  tags:
+    - docker
+    - packages
+    - installation
+  apt:
+    name: docker.io
+    state: present
+
+# vim: set et ts=2 sw=2 ai ft=yaml :
+

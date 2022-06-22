@@ -1,0 +1,311 @@
+# Copyright 2018, VEXXHOST, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- project-template:
+    name: openstack-ansible-deploy-base-jobs
+    check:
+      jobs:
+        - openstack-ansible-varstest-aio
+        - openstack-ansible-shastest-metal
+        - openstack-ansible-deploy-infra_lxc-validate
+        - openstack-tox-docs
+    gate:
+      jobs:
+        - openstack-ansible-varstest-aio
+        - openstack-ansible-shastest-metal
+        - openstack-ansible-deploy-infra_lxc-validate
+        - openstack-tox-docs
+    periodic:
+      jobs:
+        - openstack-ansible-deploy-translations-ubuntu-focal
+    experimental:
+      jobs:
+        - openstack-ansible-deploy-aio_qdrouterd-ubuntu-focal
+        - openstack-ansible-deploy_with_ansible_devel-aio-ubuntu-focal
+        - openstack-ansible-deploy_with_ansible_next-aio-ubuntu-focal
+
+- project-template:
+    name: openstack-ansible-deploy-aio_lxc-jobs
+    check:
+      jobs:
+        - openstack-ansible-deploy-aio_lxc-centos-8-stream
+        - openstack-ansible-deploy-aio_lxc-centos-9-stream
+        - openstack-ansible-deploy-aio_lxc-debian-bullseye
+        - openstack-ansible-deploy-aio_lxc-rockylinux-8
+        - openstack-ansible-deploy-aio_lxc-ubuntu-focal
+        - openstack-ansible-deploy-aio_lxc-ubuntu-jammy:
+            voting: false
+    gate:
+      jobs:
+        - openstack-ansible-deploy-aio_lxc-centos-8-stream
+        - openstack-ansible-deploy-aio_lxc-centos-9-stream
+        - openstack-ansible-deploy-aio_lxc-debian-bullseye
+        - openstack-ansible-deploy-aio_lxc-rockylinux-8
+        - openstack-ansible-deploy-aio_lxc-ubuntu-focal
+    periodic:
+      jobs:
+        - openstack-ansible-deploy-aio_lxc-ubuntu-focal
+        - openstack-ansible-upgrade-aio_lxc-ubuntu-focal
+
+- project-template:
+    name: openstack-ansible-upgrade-infra_lxc-jobs
+    check:
+      jobs:
+        - openstack-ansible-upgrade-infra_lxc-centos-8-stream:
+            voting: false
+        - openstack-ansible-upgrade-infra_lxc-ubuntu-focal
+    gate:
+      jobs:
+        - openstack-ansible-upgrade-infra_lxc-ubuntu-focal
+
+- project-template:
+    name: openstack-ansible-upgrade-aio_metal-jobs
+    check:
+      jobs:
+        - openstack-ansible-upgrade-aio_metal-centos-8-stream:
+            voting: false
+        - openstack-ansible-upgrade-aio_metal-ubuntu-focal
+    gate:
+      jobs:
+        - openstack-ansible-upgrade-aio_metal-ubuntu-focal
+
+- project-template:
+    name: openstack-ansible-deploy-infra_lxc-jobs
+    check:
+      jobs:
+        - openstack-ansible-deploy-infra_lxc-centos-8-stream
+        - openstack-ansible-deploy-infra_lxc-centos-9-stream
+        - openstack-ansible-deploy-infra_lxc-debian-bullseye
+        - openstack-ansible-deploy-infra_lxc-rockylinux-8
+        - openstack-ansible-deploy-infra_lxc-ubuntu-focal
+        - openstack-ansible-deploy-infra_lxc-ubuntu-jammy:
+            voting: false
+    gate:
+      jobs:
+        - openstack-ansible-deploy-infra_lxc-centos-8-stream
+        - openstack-ansible-deploy-infra_lxc-centos-9-stream
+        - openstack-ansible-deploy-infra_lxc-debian-bullseye
+        - openstack-ansible-deploy-infra_lxc-rockylinux-8
+        - openstack-ansible-deploy-infra_lxc-ubuntu-focal
+    periodic:
+      jobs:
+        - openstack-ansible-deploy-infra_lxc-ubuntu-focal
+
+- project-template:
+    name: openstack-ansible-deploy-hosts_lxc-jobs
+    check:
+      jobs:
+        - openstack-ansible-deploy-hosts_lxc-centos-8-stream
+        - openstack-ansible-deploy-hosts_lxc-centos-9-stream
+        - openstack-ansible-deploy-hosts_lxc-debian-bullseye
+        - openstack-ansible-deploy-hosts_lxc-rockylinux-8
+        - openstack-ansible-deploy-hosts_lxc-ubuntu-focal
+        - openstack-ansible-deploy-hosts_lxc-ubuntu-jammy:
+            voting: false
+    gate:
+      jobs:
+        - openstack-ansible-deploy-hosts_lxc-centos-8-stream
+        - openstack-ansible-deploy-hosts_lxc-centos-9-stream
+        - openstack-ansible-deploy-hosts_lxc-debian-bullseye
+        - openstack-ansible-deploy-hosts_lxc-rockylinux-8
+        - openstack-ansible-deploy-hosts_lxc-ubuntu-focal
+    periodic:
+      jobs:
+        - openstack-ansible-deploy-hosts_lxc-ubuntu-focal
+
+- project-template:
+    name: openstack-ansible-deploy-hosts_metal-jobs
+    check:
+      jobs:
+        - openstack-ansible-deploy-hosts_metal-centos-8-stream
+        - openstack-ansible-deploy-hosts_metal-centos-9-stream
+        - openstack-ansible-deploy-hosts_metal-debian-bullseye
+        - openstack-ansible-deploy-hosts_metal-rockylinux-8
+        - openstack-ansible-deploy-hosts_metal-ubuntu-focal
+        - openstack-ansible-deploy-hosts_metal-ubuntu-jammy:
+            voting: false
+    gate:
+      jobs:
+        - openstack-ansible-deploy-hosts_metal-centos-8-stream
+        - openstack-ansible-deploy-hosts_metal-centos-9-stream
+        - openstack-ansible-deploy-hosts_metal-debian-bullseye
+        - openstack-ansible-deploy-hosts_metal-rockylinux-8
+        - openstack-ansible-deploy-hosts_metal-ubuntu-focal
+    periodic:
+      jobs:
+        - openstack-ansible-deploy-hosts_metal-ubuntu-focal
+
+- project-template:
+    name: openstack-ansible-deploy-hosts_distro_lxc-jobs
+    check:
+      jobs:
+        - openstack-ansible-deploy-hosts_distro_lxc-centos-8-stream
+        - openstack-ansible-deploy-hosts_distro_lxc-debian-bullseye
+        - openstack-ansible-deploy-hosts_distro_lxc-ubuntu-focal
+    gate:
+      jobs:
+        - openstack-ansible-deploy-hosts_distro_lxc-centos-8-stream
+        - openstack-ansible-deploy-hosts_distro_lxc-debian-bullseye
+        - openstack-ansible-deploy-hosts_distro_lxc-ubuntu-focal
+
+- project-template:
+    name: openstack-ansible-deploy-aio_distro_lxc-jobs
+    experimental:
+      jobs:
+        - openstack-ansible-deploy-aio_distro_lxc-centos-8-stream
+        - openstack-ansible-deploy-aio_distro_lxc-debian-bullseye
+        - openstack-ansible-deploy-aio_distro_lxc-rockylinux-8
+        - openstack-ansible-deploy-aio_distro_lxc-ubuntu-focal
+
+- project-template:
+    name: openstack-ansible-deploy-aio_metal-jobs
+    check:
+      jobs:
+        - openstack-ansible-deploy-aio_metal-debian-bullseye
+        - openstack-ansible-deploy-aio_metal-centos-8-stream
+        - openstack-ansible-deploy-aio_metal-centos-9-stream
+        - openstack-ansible-deploy-aio_metal-ubuntu-focal
+        - openstack-ansible-deploy-aio_metal-ubuntu-jammy:
+            voting: false
+        - openstack-ansible-deploy-aio_metal-rockylinux-8
+        - openstack-ansible-upgrade-aio_metal-centos-8-stream:
+            voting: false
+        - openstack-ansible-upgrade-aio_metal-ubuntu-focal
+    gate:
+      jobs:
+        - openstack-ansible-deploy-aio_metal-debian-bullseye
+        - openstack-ansible-deploy-aio_metal-centos-8-stream
+        - openstack-ansible-deploy-aio_metal-centos-9-stream
+        - openstack-ansible-deploy-aio_metal-ubuntu-focal
+        - openstack-ansible-deploy-aio_metal-rockylinux-8
+
+- project-template:
+    name: openstack-ansible-deploy-aio_telemetry_metal-jobs
+    check:
+      jobs:
+        - openstack-ansible-deploy-aio_telemetry_metal-centos-8-stream
+        - openstack-ansible-deploy-aio_telemetry_metal-centos-9-stream
+        - openstack-ansible-deploy-aio_telemetry_metal-debian-bullseye
+        - openstack-ansible-deploy-aio_telemetry_metal-rockylinux-8
+        - openstack-ansible-deploy-aio_telemetry_metal-ubuntu-focal
+        - openstack-ansible-deploy-aio_telemetry_metal-ubuntu-jammy:
+            voting: false
+    gate:
+      jobs:
+        - openstack-ansible-deploy-aio_telemetry_metal-centos-8-stream
+        - openstack-ansible-deploy-aio_telemetry_metal-centos-9-stream
+        - openstack-ansible-deploy-aio_telemetry_metal-debian-bullseye
+        - openstack-ansible-deploy-aio_telemetry_metal-rockylinux-8
+        - openstack-ansible-deploy-aio_telemetry_metal-ubuntu-focal
+
+- project-template:
+    name: openstack-ansible-deploy-aio_distro_metal-jobs
+    check:
+      jobs:
+        - openstack-ansible-deploy-aio_distro_metal-centos-8-stream
+        - openstack-ansible-deploy-aio_distro_metal-ubuntu-focal
+    gate:
+      jobs:
+        - openstack-ansible-deploy-aio_distro_metal-ubuntu-focal
+    experimental:
+      jobs:
+        - openstack-ansible-deploy-aio_distro_metal-debian-bullseye
+
+- project-template:
+    name: openstack-ansible-deploy-nfs-jobs
+    check:
+      jobs:
+        - openstack-ansible-deploy-aio_nfs-ubuntu-focal
+        - openstack-ansible-deploy-aio_nfs-ubuntu-jammy:
+            voting: false
+    gate:
+      jobs:
+        - openstack-ansible-deploy-aio_nfs-ubuntu-focal
+
+- project-template:
+    name: openstack-ansible-deploy-ceph-jobs
+    check:
+      jobs:
+        - openstack-ansible-deploy-aio_ceph-ubuntu-focal
+        - openstack-ansible-deploy-aio_ceph-ubuntu-jammy:
+            voting: false
+    gate:
+      jobs:
+        - openstack-ansible-deploy-aio_ceph-ubuntu-focal
+    periodic:
+      jobs:
+        - openstack-ansible-deploy-aio_ceph-ubuntu-focal
+
+- project-template:
+    name: openstack-ansible-deploy-proxy-jobs
+    check:
+      jobs:
+        - openstack-ansible-deploy-aio_proxy-ubuntu-focal
+    gate:
+      jobs:
+        - openstack-ansible-deploy-aio_proxy-ubuntu-focal
+
+- project-template:
+    name: openstack-ansible-linters-jobs
+    check:
+      jobs:
+        - openstack-ansible-linters-ubuntu-focal
+    gate:
+      jobs:
+        - openstack-ansible-linters-ubuntu-focal
+
+- project-template:
+    name: openstack-ansible-lxc-backingstore-jobs
+    check:
+      jobs:
+        - openstack-ansible-deploy-hosts_lxc_zfs-ubuntu-focal
+        - openstack-ansible-deploy-hosts_lxc_btrfs-ubuntu-focal
+        - openstack-ansible-deploy-hosts_lxc_overlayfs-ubuntu-focal
+        - openstack-ansible-deploy-hosts_lxc_btrfs-debian-bullseye
+        - openstack-ansible-deploy-hosts_lxc_overlayfs-debian-bullseye
+        - openstack-ansible-deploy-hosts_lxc_overlayfs-rockylinux-8
+        - openstack-ansible-deploy-hosts_lxc_overlayfs-centos-8-stream
+    gate:
+      jobs:
+        - openstack-ansible-deploy-hosts_lxc_zfs-ubuntu-focal
+        - openstack-ansible-deploy-hosts_lxc_btrfs-ubuntu-focal
+        - openstack-ansible-deploy-hosts_lxc_overlayfs-ubuntu-focal
+        - openstack-ansible-deploy-hosts_lxc_btrfs-debian-bullseye
+        - openstack-ansible-deploy-hosts_lxc_overlayfs-debian-bullseye
+        - openstack-ansible-deploy-hosts_lxc_overlayfs-rockylinux-8
+        - openstack-ansible-deploy-hosts_lxc_overlayfs-centos-8-stream
+
+- project-template:
+    name: openstack-ansible-deploy-guide-jobs
+    description: |
+      Build the deploy-guide document and publish the result
+      using a promote job.
+    check:
+      jobs:
+        - build-openstack-deploy-guide:
+            files: &deploy-guide-triggers
+              - ^deploy-guide/.*
+              - ansible-role-requirements.yml
+              - bindep.txt
+              - doc/requirements.txt
+              - test-requirements.txt
+              - tox.ini
+    gate:
+      jobs:
+        - build-openstack-deploy-guide:
+            files: *deploy-guide-triggers
+    promote:
+      jobs:
+        - promote-deploy-guide:
+            files: *deploy-guide-triggers

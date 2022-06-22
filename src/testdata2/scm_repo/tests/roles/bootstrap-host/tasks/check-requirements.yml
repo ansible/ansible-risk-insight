@@ -1,0 +1,154 @@
+---
+# Copyright 2015, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Check for a supported Operating System
+  assert:
+    that:
+        (ansible_facts['distribution'] == 'Debian' and ansible_facts['distribution_release'] == 'bullseye') or
+        (ansible_facts['distribution'] == 'Ubuntu' and ansible_facts['distribution_release'] == 'focal') or
+        (ansible_facts['distribution'] == 'Ubuntu' and ansible_facts['distribution_release'] == 'jammy') or
+        (ansible_facts['os_family'] == 'RedHat' and ansible_facts['distribution_major_version'] == '8') or
+        (ansible_facts['os_family'] == 'RedHat' and ansible_facts['distribution_major_version'] == '9')
+    msg: >-
+          The only supported platforms for this release are Debian 11 (Bullseye),
+          Ubuntu 20.04 LTS (Focal), Ubuntu 22.04 (Yammy) CentOS 8 derivatives such
+          as Rocky Linux, CentOS 8 Stream and CentOS 9 Stream.
+  when: (check_operating_system | default(True))| bool
+  tags:
+    - check-operating-system
+
+- name: Check that bootstrap_host_scenario is not set with mutually exclusive options
+  assert:
+    that:
+      - not item.conditional
+    msg: "{{ item.msg }}"
+  with_items:
+    - conditional: "{{ (bootstrap_host_scenario is search('distro')) and (bootstrap_host_scenario is search('source')) }}"
+      msg: "The scenario key words 'distro' and 'source' are mutually exclusive."
+    - conditional: "{{ (bootstrap_host_scenario is search('lxc')) and (bootstrap_host_scenario is search('metal')) }}"
+      msg: "The scenario key words 'lxc' and 'metal' are mutually exclusive."
+
+- name: Identify the space available in /
+  # NOTE(hwoarang): df does not work reliably on btrfs filesystems
+  # https://btrfs.wiki.kernel.org/index.php/FAQ#How_much_free_space_do_I_have.3F
+  # As such, use the btrfs tools to determine the real available size on the
+  # disk
+  shell: |
+    set -o pipefail
+    if [[ $(df -T / | tail -n 1 | awk '{print $2}') == "btrfs" ]]; then
+        btrfs fi usage --kbytes / | awk '/^.*Free / {print $3}'| sed 's/\..*//'
+    else
+        df -BK / | awk '!/^Filesystem/ {print $4}' | sed 's/K//'
+    fi
+  args:
+    executable: /bin/bash
+  environment:
+    LC_ALL: en_US.UTF-8
+  when:
+    - bootstrap_host_data_disk_device == None
+  changed_when: false
+  register: root_space_available
+  tags:
+    - check-disk-size
+
+# Convert root_space_available to bytes.
+- name: Set root disk facts
+  set_fact:
+    host_root_space_available_bytes: "{{ ( root_space_available.stdout | int) * 1024 | int }}"
+  when:
+    - bootstrap_host_data_disk_device == None
+  tags:
+    - check-disk-size
+
+- name: Fail when disk can not be found
+  fail:
+    msg: |
+      Can not find disk {{ bootstrap_host_data_disk_device }}
+  when:
+    - bootstrap_host_data_disk_device != None
+    - ansible_facts['devices'] is defined
+    - ansible_facts['devices'].get(bootstrap_host_data_disk_device) == None
+  tags:
+    - check-disk-size
+
+- name: Set data disk facts
+  set_fact:
+    host_data_disk_sectors: "{{ (ansible_facts['devices'][bootstrap_host_data_disk_device]['sectors'] | int) }}"
+    host_data_disk_sectorsize: "{{ (ansible_facts['devices'][bootstrap_host_data_disk_device]['sectorsize'] | int) }}"
+  when:
+    - bootstrap_host_data_disk_device != None
+  tags:
+    - check-disk-size
+
+# Calculate the size of the bootstrap_host_data_disk_device by muliplying sectors with sectorsize.
+- name: Calculate data disk size
+  set_fact:
+    host_data_disk_size_bytes: "{{ ((host_data_disk_sectors | int) * (host_data_disk_sectorsize | int)) | int }}"
+  when:
+    - bootstrap_host_data_disk_device != None
+  tags:
+    - check-disk-size
+
+# Convert bootstrap_host_data_disk_min_size to bytes.
+- name: Set min size fact
+  set_fact:
+    host_data_disk_min_size_bytes: "{{ ((bootstrap_host_data_disk_min_size | int) * 1024**3) | int }}"
+  tags:
+    - check-disk-size
+
+- name: Set size facts
+  set_fact:
+    root_gb_available: "{{ ((host_root_space_available_bytes | int ) / 1024**3) | round(2, 'floor') }}"
+  when: bootstrap_host_data_disk_device == None
+  tags:
+    - check-disk-size
+
+- name: Set disk size facts
+  set_fact:
+    disk_gb_available: "{{ ((host_data_disk_size_bytes | int ) / 1024**3) | round(2, 'floor') }}"
+  when: bootstrap_host_data_disk_device != None
+  tags:
+    - check-disk-size
+
+- name: Fail if there is not enough space available in /
+  fail:
+    msg: |
+      Not enough space available in /.
+      Found {{ root_gb_available }} GB, required {{ bootstrap_host_data_disk_min_size }} GB)
+  when:
+    - bootstrap_host_data_disk_device == None
+    - (host_root_space_available_bytes | int) < (host_data_disk_min_size_bytes | int)
+  tags:
+    - check-disk-size
+
+- name: Fail if there is not enough disk space available (disk specified)
+  fail:
+    msg: |
+      Not enough disk space available.
+      Found {{ disk_gb_available }} GB, required {{ bootstrap_host_data_disk_min_size }} GB)
+  when:
+    - bootstrap_host_data_disk_device != None
+    - (host_data_disk_size_bytes | int) < (host_data_disk_min_size_bytes | int)
+  tags:
+    - check-disk-size
+
+- name: Ensure that the kernel has VXLAN, VLAN, and bonding support
+  modprobe:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - vxlan
+    - bonding
+    - 8021q

@@ -1,0 +1,6 @@
+---
+features:
+  - CentOS 7 support has been added to the ``galera_client`` role.
+upgrade:
+  - The variable ``galera_client_apt_packages`` has been replaced
+    by ``galera_client_distro_packages``.

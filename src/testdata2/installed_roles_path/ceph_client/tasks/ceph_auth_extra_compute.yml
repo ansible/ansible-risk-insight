@@ -1,0 +1,178 @@
+---
+# Copyright 2016, Walmart Stores, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+- name: Create key files for nova_compute on extra cluster(s)
+  shell: ceph auth get-key client.{{ item.client_name }} > /etc/ceph/ceph.client.{{ item.client_name }}.key.tmp
+  with_items: "{{ ceph_extra_confs }}"
+  delegate_to: "{{ item.mon_host }}"
+  when:
+    - item.client_name is defined
+    - item.mon_host is defined
+
+- name: Get extra key files
+  command: "scp {{ item.mon_host }}:/etc/ceph/ceph.client.{{ item.client_name }}.key.tmp /tmp/{{ item.mon_host }}{{ item.client_name }}.key.tmp"
+  changed_when: false
+  delegate_to: localhost
+  with_items: "{{ ceph_extra_confs }}"
+  when:
+    - item.mon_host is defined
+    - item.client_name is defined
+
+- name: Distribute extra key files
+  copy:
+    src: "/tmp/{{ item.mon_host }}{{ item.client_name }}.key.tmp"
+    dest: "/tmp/{{ item.mon_host }}{{ item.client_name }}.key.tmp"
+  with_items: "{{ ceph_extra_confs }}"
+  when:
+    - item.mon_host is defined
+    - item.client_name is defined
+
+- name: Remove temp extra key files
+  file:
+    path: "/etc/ceph/ceph.client.{{ item.client_name }}.key.tmp"
+    state: absent
+  delegate_to: "{{ item.mon_host }}"
+  with_items: "{{ ceph_extra_confs }}"
+  when:
+    - item.mon_host is defined
+    - item.keyring_src is defined
+    - item.client_name is defined
+
+- name: Provide extra xml files to create the secrets
+  template:
+    src: secret.xml.j2
+    dest: /tmp/{{ item.mon_host }}{{ item.client_name }}-secret.xml
+    mode: "0600"
+  with_items: "{{ ceph_extra_confs }}"
+  when:
+    - item.client_name is defined
+    - item.mon_host is defined
+    - item.secret_uuid is defined
+
+- name: Check if extra secret(s) are defined in libvirt pt1
+  shell: "virsh secret-dumpxml {{ item.secret_uuid }} 2>&1 >/dev/null && touch /tmp/{{ item.secret_uuid }}.libvirt_secret_exists"
+  changed_when: false
+  failed_when:  false
+  with_items: "{{ ceph_extra_confs }}"
+  when:
+    - item.secret_uuid is defined
+  tags:
+    - always
+
+- name: Check if extra secret(s) are defined in libvirt pt2
+  shell: "ls /tmp | grep \\.libvirt_secret_exists | awk -F'.' '{print $1}'"
+  changed_when: false
+  failed_when:  false
+  register: libvirt_secret_exists
+  with_items: "{{ ceph_extra_confs }}"
+  when:
+    - item.secret_uuid is defined
+  tags:
+    - always
+
+- name: Define libvirt nova extra secret(s)
+  command: "virsh secret-define --file /tmp/{{ item.mon_host }}{{ item.client_name }}-secret.xml"
+  changed_when: false
+  with_items: "{{ ceph_extra_confs }}"
+  when:
+    - item.client_name is defined
+    - item.mon_host is defined
+    - item.secret_uuid is defined
+    - item.secret_uuid not in libvirt_secret_exists.results[0].stdout_lines
+  notify:
+    - Restart os services
+
+- name: Check if extra secret values are set in libvirt pt1
+  shell: "virsh secret-get-value {{ item.secret_uuid }} 2>&1 >/dev/null && touch /tmp/{{ item.secret_uuid }}.libvirt_secret_value_exists "
+  changed_when: false
+  failed_when:  false
+  register: libvirt_nova_set
+  with_items: "{{ ceph_extra_confs }}"
+  when:
+    - item.secret_uuid is defined
+
+- name: Check if extra secret values are set in libvirt pt2
+  shell: "ls /tmp | grep \\.libvirt_secret_value_exists | awk -F'.' '{print $1}'"
+  changed_when: false
+  failed_when:  false
+  register: libvirt_secret_value_exists
+  with_items: "{{ ceph_extra_confs }}"
+  when:
+    - item.secret_uuid is defined
+  tags:
+    - always
+
+- name: Set extra secret value(s) in libvirt
+  shell: "virsh secret-set-value --secret {{ item.secret_uuid }} --base64 $(cat /tmp/{{ item.mon_host }}{{ item.client_name }}.key.tmp)"
+  with_items: "{{ ceph_extra_confs }}"
+  when:
+    - item.client_name is defined
+    - item.mon_host is defined
+    - item.secret_uuid is defined
+    - item.secret_uuid  not in  libvirt_secret_value_exists.results[0].stdout_lines
+  notify:
+    - Restart os services
+
+# Cleanup temp files
+- name: Remove libvirt nova secret detection file
+  file:
+    path: "/tmp/{{ item.secret_uuid }}.libvirt_secret_exists"
+    state: "absent"
+  with_items: "{{ ceph_extra_confs }}"
+  tags:
+    - always
+
+- name: Remove libvirt nova secret value detection file
+  file:
+    path: "/tmp/{{ item.secret_uuid }}.libvirt_secret_value_exists"
+    state: "absent"
+  with_items: "{{ ceph_extra_confs }}"
+  tags:
+    - always
+
+- name: Remove libvirt nova secret file
+  file:
+    path: "/tmp/{{ item.mon_host }}{{ item.client_name }}-secret.xml"
+    state: "absent"
+  with_items: "{{ ceph_extra_confs }}"
+  when:
+    - item.mon_host is defined
+    - item.client_name is defined
+  tags:
+    - always
+
+- name: Remove libvirt key file
+  file:
+    path: "/tmp/{{ item.mon_host }}{{ item.client_name }}.key.tmp"
+    state: "absent"
+  with_items: "{{ ceph_extra_confs }}"
+  when:
+    - item.mon_host is defined
+    - item.client_name is defined
+  tags:
+    - always
+
+- name: Remove libvirt key file localhost
+  file:
+    path: "/tmp/{{ item.mon_host }}{{ item.client_name }}.key.tmp"
+    state: "absent"
+  delegate_to: localhost
+  when:
+    - item.mon_host is defined
+    - item.client_name is defined
+  with_items: "{{ ceph_extra_confs }}"
+  tags:
+    - always

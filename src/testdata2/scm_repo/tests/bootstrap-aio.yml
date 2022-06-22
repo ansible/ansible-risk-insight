@@ -1,0 +1,49 @@
+---
+# Copyright 2015, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Bootstrap the All-In-One (AIO)
+  hosts: localhost
+  gather_facts: True
+  user: root
+  roles:
+    - role: "bootstrap-host"
+  vars_files:
+    - "{{ playbook_dir }}/../playbooks/defaults/repo_packages/openstack_services.yml"
+  environment: "{{ deployment_environment_variables | default({}) }}"
+  pre_tasks:
+    - name: Run setup module
+      setup:
+        gather_subset:
+          - network
+          - hardware
+          - virtual
+    - name: Ensure sshd is installed
+      package:
+        name: openssh-server
+        state: present
+    - name: Ensure sshd is running
+      service:
+        name: sshd
+        state: started
+        enabled: yes
+  post_tasks:
+    - name: Check that new network interfaces are up
+      assert:
+        that:
+          - ansible_facts['eth12']['active'] | bool
+          - ansible_facts['eth13']['active'] | bool
+          - ansible_facts['eth14']['active'] | bool
+    - name: Clear facts
+      meta: clear_facts

@@ -1,0 +1,7 @@
+---
+
+- name: create odl nb user
+  odl_usermod:
+    username: "{{ odl_nb_username }}"
+    password: "{{ odl_nb_password }}"
+    state: present

@@ -1,0 +1,147 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Run the apt package pinning role
+  include_role:
+    name: apt_package_pinning
+  vars:
+    apt_package_pinning_file_name: "rabbitmq.pref"
+    apt_package_pinning_priority: 999
+    apt_pinned_packages:
+      - package: "*"
+        release: "cloudsmith/rabbitmq/rabbitmq-erlang"
+      - package: "erlang*"
+        version: "{{ rabbitmq_erlang_version_spec }}"
+        priority: 1000
+      - package: "rabbitmq-server"
+        version: "{{ rabbitmq_package_version }}"
+        priority: 1000
+
+- name: Install GPG keys
+  apt_key:
+    data: "{{ lookup('file', item.file) }}"
+  with_items: "{{ rabbitmq_gpg_keys | selectattr('file', 'defined') | list }}"
+  tags:
+    - rabbitmq-apt-keys
+
+# When updating the cache in the apt_repository
+# task, and the update fails, a retry does not
+# detect a change the second attempt and therefore
+# does not update the cache, resulting in a changed
+# repo config, but no updated cache. To work around
+# this bug we implement the change of repo config
+# and the cache update as two separate tasks.
+- name: Add rabbitmq repo
+  apt_repository:
+    repo: "{{ rabbitmq_repo.repo }}"
+    state: "{{ rabbitmq_repo.state }}"
+    filename: "{{ rabbitmq_repo.filename | default(omit) }}"
+    update_cache: no
+  register: add_rabbitmq_repos
+  when:
+    - rabbitmq_install_method == 'external_repo'
+  tags:
+    - rabbitmq-repos
+
+# When updating the cache in the apt_repository
+# task, and the update fails, a retry does not
+# detect a change the second attempt and therefore
+# does not update the cache, resulting in a changed
+# repo config, but no updated cache. To work around
+# this bug we implement the change of repo config
+# and the cache update as two separate tasks.
+- name: Add erlang repo
+  apt_repository:
+    repo: "{{ rabbitmq_erlang_repo.repo }}"
+    state: "{{ rabbitmq_erlang_repo.state }}"
+    filename: "{{ rabbitmq_erlang_repo.filename | default(omit) }}"
+    update_cache: no
+  register: add_erlang_repos
+  when:
+    - rabbitmq_erlang_install_method == 'external_repo'
+  tags:
+    - rabbitmq-repos
+
+# NOTE(noonedeadpunk): Remove this after Z release
+- name: Remove old repos
+  apt_repository:
+    repo: "{{ item.repo }}"
+    state: absent
+    filename: "{{ item.filename | default(omit) }}"
+    update_cache: no
+  with_items:
+    - repo: "deb https://packagecloud.io/rabbitmq/rabbitmq-server/{{ ansible_facts['distribution'] | lower }} {{ ansible_facts['distribution_release'] | lower }} main"
+      filename: "{{ rabbitmq_repo.filename | default(omit) }}"
+      condition: "{{ (rabbitmq_install_method == 'external_repo') }}"
+    - repo: "deb https://packages.erlang-solutions.com/{{ ansible_facts['distribution'] | lower }} {{ ansible_facts['distribution_release'] | lower }} contrib"
+      filename: "{{ rabbitmq_erlang_repo.filename | default(omit) }}"
+      condition: "{{ (rabbitmq_erlang_install_method == 'external_repo') }}"
+  when:
+    - item.condition | default(True)
+    - rabbitmq_upgrade | bool
+
+# Due to our Ansible strategy, a skipped task does not
+# have a dictionary result, so we have to cater to the
+# situation where either of the apt_repository tasks
+# may not have the results dict in the register. As
+# such we validate that the register is a mapping (dict).
+- name: Update Apt cache
+  apt:
+    update_cache: yes
+  when:
+    - (add_rabbitmq_repos is mapping and add_rabbitmq_repos is changed) or
+      (add_erlang_repos is mapping and add_erlang_repos is changed)
+  register: update_apt_cache
+  until: update_apt_cache is success
+  retries: 5
+  delay: 2
+  tags:
+    - rabbitmq-repos
+
+- name: Install RabbitMQ package dependencies
+  apt:
+    pkg: "{{ rabbitmq_dependencies }}"
+    state: "{{ rabbitmq_package_state }}"
+    update_cache: yes
+    cache_valid_time: "{{ cache_timeout }}"
+  register: install_packages
+  until: install_packages is success
+  retries: 5
+  delay: 2
+  tags:
+    - rabbitmq-apt-packages
+
+- name: Install the RabbitMQ package deb
+  apt:
+    deb: "{{ rabbitmq_package_path }}"
+  register: install_rabbitmq
+  when:
+    - rabbitmq_install_method == 'file'
+  tags:
+    - rabbitmq-package-deb
+    - rabbitmq-apt-packages
+
+- name: Install RabbitMQ packages
+  package:
+    name: "{{ rabbitmq_distro_packages }}"
+    state: "{{ rabbitmq_package_state }}"
+  register: install_packages
+  until: install_packages is success
+  retries: 5
+  delay: 2
+  when:
+    - rabbitmq_install_method != 'file'
+  tags:
+    - rabbitmq-apt-packages

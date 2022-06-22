@@ -1,0 +1,67 @@
+---
+# Copyright 2016, Logan Vig <logan2211@gmail.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Versions published at https://github.com/etcd-io/etcd/releases
+etcd_version: 3.3.10
+etcd_download_arch: "{{ etcd_arch_translation[ansible_architecture] | default(ansible_architecture) }}"
+# yamllint disable-line rule:line-length
+etcd_download_url: "https://github.com/etcd-io/etcd/releases/download/v{{ etcd_version }}/etcd-v{{ etcd_version }}-linux-{{ etcd_download_arch }}.tar.gz"
+etcd_download_checksum: 'sha256:1620a59150ec0a0124a65540e23891243feb2d9a628092fb1edcc23974724a45'
+
+etcd_arch_translation:
+  x86_64: amd64
+  aarch64: arm64
+
+## System info
+etcd_system_user_name: etcd
+etcd_system_group_name: etcd
+etcd_system_slice_name: etcd
+etcd_system_shell: /bin/false
+etcd_system_comment: etcd system user
+etcd_system_user_home: "/var/lib/{{ etcd_system_user_name }}"
+
+# This MUST be an IP address becaus etcd will not bind hostnames
+etcd_local_address: "{{ ansible_host | default('127.0.0.1') }}"
+# This can be a FQDN which is used by cluster members/clients for incoming
+# connections to this node
+etcd_advertise_address: "{{ etcd_local_address }}"
+
+etcd_cluster_group: etcd
+# install type can be server or gateway. servers join the cluster as
+# full members, while gateways operate as cluster clients
+# see https://coreos.com/etcd/docs/latest/op-guide/gateway.html for more info
+# about gateways
+etcd_install_type: server
+
+etcd_url_scheme: "{{ (etcd_user_ssl_cert is defined and
+                      etcd_user_ssl_key is defined) |
+                     ternary('https', 'http') }}"
+
+etcd_gateway_address: 127.0.0.1
+etcd_gateway_port: 2379
+etcd_gateway_args: >-
+  --endpoints {{ _etcd_gateway_endpoints | join(',') }}
+  --listen-addr {{ etcd_gateway_address }}:{{ etcd_gateway_port }}
+
+etcd_initial_token: etcd-cluster-01
+etcd_data_dir: "{{ etcd_system_user_home }}"
+etcd_conf_dir: /etc/etcd
+
+etcd_ssl_cert: "{{ etcd_conf_dir }}/etcd.pem"
+etcd_ssl_key: "{{ etcd_conf_dir }}/etcd.key"
+etcd_ssl_ca_cert: "/usr/local/share/ca-certificates/etcd-ca.pem"
+
+etcd_client_port: 2379
+etcd_peer_port: 2380

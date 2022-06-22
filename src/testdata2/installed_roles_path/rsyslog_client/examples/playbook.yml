@@ -1,0 +1,11 @@
+- name: Install rsyslog 
+  hosts: rsyslog
+  user: root
+  roles:
+    - role: "rsyslog_client"
+      rsyslog_client_log_rotate_file: test_log_rotate
+      rsyslog_client_log_dir: "/var/log"
+      rsyslog_client_config_name: "99-test-rsyslog-client.conf"
+      rsyslog_client_log_files:
+        - /var/log/dmesg
+        - /var/log/udev

@@ -1,0 +1,53 @@
+---
+# Copyright 2016 IBM Corp
+# Copyright 2015, Serge van Ginderachter <serge@vanginderachter.be>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+## APT Cache Options
+cache_timeout: 600
+
+# Ceph GPG Keys
+# This should be a list of dicts, with each dict giving
+# a valid set of arguments to the apt_key module. These
+# could specify either a key file or a URL.
+ceph_gpg_keys:
+  - id: 460f3994
+    file: /etc/ssl/ceph-key
+
+# The apt-key command won't del a key when you give it the hash_id, so we have
+# to use the short key ID here instead.
+ceph_revoked_gpg_keys:
+  - '17ED316D'
+
+# Ceph.com repository variables
+ceph_apt_repo_url_region: "download"  # or "eu" for Netherlands based mirror
+ceph_apt_repo_url: "http://{{ ceph_apt_repo_url_region }}.ceph.com/debian-{{ ceph_stable_release }}"
+
+# LibVirt differentials between Debian and Ubuntu
+libvirt_packages:
+  - "{{ (ansible_facts['distribution'] == 'Ubuntu' and ansible_facts['distribution_major_version'] is version('20', '<')) | ternary('libvirt-bin', 'libvirt-daemon-system') }}"
+
+libvirt_service_name: libvirtd
+
+python_ceph_packages:
+  - python3-ceph
+  - python3-cephfs
+  - python3-rados
+  - python3-rbd
+
+# Apt repositories
+ceph_apt_repos:
+  ceph:
+    repo: "deb {{ ceph_apt_repo_url }} {{ ansible_facts['distribution_release'] }} main"
+    state: "present"

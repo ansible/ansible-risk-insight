@@ -1,0 +1,88 @@
+---
+# Copyright 2015, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Stop libvirt-bin
+  service:
+    name: "{{ item }}"
+    enabled: yes
+    state: "stopped"
+  listen:
+    - Restart libvirt-bin
+    - "cert installed"
+  with_items:
+    - "{{ libvirt_service_name }}"
+  when:
+    - "'nova_compute' in group_names"
+    - nova_virt_type != 'ironic'
+
+- name: Enable sockets when needed
+  service:
+    name: "{{ item.name | default(item) }}"
+    state: "{{ item.condition | default(False) | ternary('started', 'stopped') }}"
+    enabled: "{{ item.condition | default(False) }}"
+    masked: no
+  with_items:
+    - name: libvirtd-tls.socket
+      condition: "{{ nova_libvirtd_listen_tls | bool }}"
+    - name: libvirtd-tcp.socket
+      condition: "{{ nova_libvirtd_listen_tcp | bool }}"
+  listen:
+    - Restart libvirt-bin
+
+- name: Start libvirt-bin
+  service:
+    name: "{{ item }}"
+    enabled: yes
+    state: "started"
+  with_items:
+    - "{{ libvirt_service_name }}"
+  listen:
+    - Restart libvirt-bin
+    - "cert installed"
+  when:
+    - "'nova_compute' in group_names"
+    - nova_virt_type != 'ironic'
+
+- name: Stop services
+  service:
+    name: "{{ item.service_name }}"
+    enabled: yes
+    state: "stopped"
+    daemon_reload: yes
+  with_items: "{{ filtered_nova_services }}"
+  register: _stop
+  until: _stop is success
+  retries: 5
+  delay: 2
+  listen:
+    - "Restart nova services"
+    - "venv changed"
+    - "cert installed"
+
+- name: Start services
+  service:
+    name: "{{ item.service_name }}"
+    enabled: yes
+    state: "started"
+    daemon_reload: yes
+  with_items: "{{ filtered_nova_services }}"
+  register: _start
+  until: _start is success
+  retries: 5
+  delay: 2
+  listen:
+    - "Restart nova services"
+    - "venv changed"
+    - "cert installed"

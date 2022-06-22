@@ -1,0 +1,125 @@
+---
+# Copyright 2016, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# We set the python interpreter to the ansible runtime venv if
+# the delegation is to localhost so that we get access to the
+# appropriate python libraries in that venv. If the delegation
+# is to another host, we assume that it is accessible by the
+# system python instead.
+- name: Setup the security groups
+  delegate_to: "{{ octavia_service_setup_host }}"
+  vars:
+    ansible_python_interpreter: "{{ octavia_service_setup_host_python_interpreter }}"
+  block:
+    - name: Setup the service project quota
+      openstack.cloud.quota:
+        cloud: default
+        interface: admin
+        name: "{{ octavia_service_project_name }}"
+        cores: "{{ octavia_num_cores }}"
+        instances: "{{ octavia_num_instances }}"
+        ram: "{{ octavia_ram }}"
+        server_groups: "{{ octavia_num_server_groups }}"
+        server_group_members: "{{ octavia_num_server_group_members }}"
+        security_group: "{{ octavia_num_secgroups }}"
+        security_group_rule: "{{ octavia_num_security_group_rules }}"
+        port: "{{ octavia_num_ports }}"
+
+    - name: Create Octavia security group
+      openstack.cloud.security_group:
+        auth:
+          auth_url: "{{ keystone_service_adminurl }}"
+          username: "{{ octavia_service_user_name }}"
+          password: "{{ octavia_service_password }}"
+          project_name: "{{ octavia_service_project_name }}"
+          user_domain_name: "{{ octavia_service_user_domain_id }}"
+          project_domain_name: "{{ octavia_service_project_domain_id }}"
+        state: present
+        name: "{{ octavia_security_group_name }}"
+        description: "security group for octavia amphora"
+        interface: admin
+        verify: "{{ not keystone_service_adminuri_insecure }}"
+      register: add_security_group
+      until: add_security_group is success
+      retries: 5
+      delay: 10
+
+    - name: Create security group rule for agent
+      openstack.cloud.security_group_rule:
+        auth:
+          auth_url: "{{ keystone_service_adminurl }}"
+          username: "{{ octavia_service_user_name }}"
+          password: "{{ octavia_service_password }}"
+          project_name: "{{ octavia_service_project_name }}"
+          user_domain_name: "{{ octavia_service_user_domain_id }}"
+          project_domain_name: "{{ octavia_service_project_domain_id }}"
+        state: present
+        protocol: "tcp"
+        port_range_min: "{{ octavia_agent_port }}"
+        port_range_max: "{{ octavia_agent_port }}"
+        remote_ip_prefix: "{{ octavia_security_group_rule_cidr }}"
+        security_group: "{{ octavia_security_group_name }}"
+        interface: admin
+        verify: "{{ not keystone_service_adminuri_insecure }}"
+      register: add_security_group_rule
+      until: add_security_group_rule is success
+      retries: 5
+      delay: 10
+
+    - name: Create security group rule for ssh
+      openstack.cloud.security_group_rule:
+        auth:
+          auth_url: "{{ keystone_service_adminurl }}"
+          username: "{{ octavia_service_user_name }}"
+          password: "{{ octavia_service_password }}"
+          project_name: "{{ octavia_service_project_name }}"
+          user_domain_name: "{{ octavia_service_user_domain_id }}"
+          project_domain_name: "{{ octavia_service_project_domain_id }}"
+        state: present
+        security_group: "{{ octavia_security_group_name }}"
+        protocol: tcp
+        port_range_min: 22
+        port_range_max: 22
+        remote_ip_prefix: "{{ octavia_security_group_rule_cidr }}"
+        interface: admin
+        verify: "{{ not keystone_service_adminuri_insecure }}"
+      register: add_security_group_rule
+      until: add_security_group_rule is success
+      retries: 5
+      delay: 10
+      when:
+        - octavia_ssh_enabled | bool
+
+    - name: Create security group rule for icmp
+      openstack.cloud.security_group_rule:
+        auth:
+          auth_url: "{{ keystone_service_adminurl }}"
+          username: "{{ octavia_service_user_name }}"
+          password: "{{ octavia_service_password }}"
+          project_name: "{{ octavia_service_project_name }}"
+          user_domain_name: "{{ octavia_service_user_domain_id }}"
+          project_domain_name: "{{ octavia_service_project_domain_id }}"
+        state: present
+        security_group: "{{ octavia_security_group_name }}"
+        protocol: icmp
+        remote_ip_prefix: "{{ octavia_security_group_rule_cidr }}"
+        interface: admin
+        verify: "{{ not keystone_service_adminuri_insecure }}"
+      register: add_security_group_rule
+      until: add_security_group_rule is success
+      retries: 5
+      delay: 10
+      when:
+        - debug | bool

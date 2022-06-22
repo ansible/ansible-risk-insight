@@ -1,0 +1,29 @@
+---
+# Copyright 2020, VEXXHOST, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+tempest_test_includelist:
+  - zun_tempest_plugin.tests.tempest.api
+
+tempest_test_excludelist:
+  - test: zun_tempest_plugin.tests.tempest.api.test_containers.TestContainer.test_run_container_with_image_driver_glance
+    reason: This test requires direct access to the Docker daemon API on localhost
+  - test: zun_tempest_plugin.tests.tempest.api.test_capsules.TestCapsule.test_create_capsule_full
+    reason: This test repeatedly fails in CI in particular for Ubuntu Focal
+  - test: zun_tempest_plugin.tests.tempest.api.test_containers.TestContainer.test_run_container_with_cinder_volume_dynamic_created
+    reason: Cinder volume error
+
+tempest_tempest_conf_overrides:
+  container_service:
+    min_microversion: 1.27

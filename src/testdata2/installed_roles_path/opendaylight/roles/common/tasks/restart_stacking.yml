@@ -1,0 +1,31 @@
+---
+# file: common/tasks/restart_stacking.yml
+# info: restarts compute nodes
+#       to force restart, pass
+#       --extra-vars "restart_containers=True"
+- name: Set devstack to 'OFFLINE' mode for compute nodes
+  tags:
+    - openstack
+    - stack
+    - restart
+  shell: |
+    docker exec --user stack "{{ container_name }}" sed -i 's:^# \(OFFLINE=True\):\1:g' /home/stack/compute.odl.local.conf
+    docker exec --user stack "{{ container_name }}" sed -i 's:^# \(RECLONE=False\):\1:g' /home/stack/compute.odl.local.conf
+  when:
+    - stack_in_offline_mode
+    - "'compute' in container_name"
+
+- name: RE-start stacking (devstack) in container "{{ container_name }}"
+  tags:
+    - openstack
+    - stack
+    - restart
+  remote_user: root
+  become: yes
+  become_method: sudo
+  shell: docker exec --detach --user stack "{{ container_name }}" /bin/bash -c /home/stack/restart.sh
+
+- include: kill_chown.yml
+
+# vim: set et sw=2 ts=2 :
+

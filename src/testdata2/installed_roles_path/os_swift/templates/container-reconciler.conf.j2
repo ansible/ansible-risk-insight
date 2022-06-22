@@ -1,0 +1,41 @@
+# {{ ansible_managed }}
+
+[DEFAULT]
+# Disable stderr logging
+use_stderr = False
+swift_dir = /etc/swift
+user = {{ swift_system_user_name }}
+
+{% set _statsd_host = swift_vars.statsd_host | default(swift.statsd_host | default(statsd_host | default(False))) %}
+{% if _statsd_host | bool %}
+log_statsd_host = {{ _statsd_host }}
+log_statsd_port = {{ swift_vars.statsd_port | default(swift.statsd_port | default(statsd_port)) }}
+log_statsd_default_sample_rate = {{ swift_vars.statsd_default_sample_rate | default(swift.statsd_default_sample_rate | default(statsd_default_sample_rate)) }}
+log_statsd_sample_rate_factor = {{ swift_vars.statsd_sample_rate_factor | default(swift.statsd_sample_rate_factor | default(statsd_sample_rate_factor))}}
+log_statsd_metric_prefix = {{ swift_vars.statsd_metric_prefix | default(swift.statsd_metric_prefix | default(inventory_hostname)) }}
+{% endif %}
+
+[container-reconciler]
+# The reconciler will re-attempt reconciliation if the source object is not
+# available up to reclaim_age seconds before it gives up and deletes the entry
+# in the queue.
+reclaim_age = {{ reclaim_age | default(604800) }}
+# The cycle time of the daemon
+interval = 30
+# Server errors from requests will be retried by default
+request_tries = 3
+
+[pipeline:main]
+pipeline = catch_errors proxy-logging cache proxy-server
+
+[app:proxy-server]
+use = egg:swift#proxy
+
+[filter:cache]
+use = egg:swift#memcache
+
+[filter:proxy-logging]
+use = egg:swift#proxy_logging
+
+[filter:catch_errors]
+use = egg:swift#catch_errors

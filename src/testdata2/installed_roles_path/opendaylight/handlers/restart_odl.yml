@@ -1,0 +1,5 @@
+- name: Restart ODL
+  when: in_container.rc == 1
+  service:
+    name=opendaylight
+    state=restarted

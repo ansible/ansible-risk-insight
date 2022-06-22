@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -x -e
+
+real_name="$3"
+link_name="/tmp/{{ cache_basename }}"
+
+if [[ ${real_name} != ${link_name} ]]; then
+  ln --symbolic "${real_name}" "${link_name}"
+fi

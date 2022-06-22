@@ -1,0 +1,44 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Record the installation method
+  ini_file:
+    dest: "/etc/ansible/facts.d/openstack_ansible.fact"
+    section: "horizon"
+    option: "install_method"
+    value: "{{ horizon_install_method }}"
+
+- name: Refresh local facts to ensure the horizon section is present
+  setup:
+    filter: ansible_local
+    gather_subset: "!all"
+
+- name: Install distro packages
+  package:
+    name: "{{ horizon_package_list }}"
+    state: "{{ horizon_package_state }}"
+    update_cache: "{{ (ansible_facts['pkg_mgr'] == 'apt') | ternary('yes', omit) }}"
+    cache_valid_time: "{{ (ansible_facts['pkg_mgr'] == 'apt') | ternary(cache_timeout, omit) }}"
+  register: install_packages
+  until: install_packages is success
+  retries: 5
+  delay: 2
+  notify:
+    - Compile messages
+    - Restart apache2
+
+- name: Install horizon packages from PIP
+  include_tasks: horizon_install_source.yml
+  when: horizon_install_method == 'source'

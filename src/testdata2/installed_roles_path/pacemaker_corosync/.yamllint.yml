@@ -1,0 +1,14 @@
+---
+rules:
+  line-length: disable
+  truthy:
+    allowed-values:
+      - 'True'
+      - 'true'
+      - 'yes'
+      - 'False'
+      - 'false'
+      - 'no'
+
+ignore: |
+  .github/

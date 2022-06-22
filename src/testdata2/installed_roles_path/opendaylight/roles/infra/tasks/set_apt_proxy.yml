@@ -1,0 +1,12 @@
+---
+- name: Set proxy in apt.conf
+  tags:
+    - proxy
+    - network
+    - packages
+  lineinfile:
+    dest: /etc/apt/apt.conf
+    regexp: '^Acquire::http::Proxy'
+    line: "Acquire::http::Proxy \"{{ lab_http_proxy }}\";"
+    create: yes
+    state: present

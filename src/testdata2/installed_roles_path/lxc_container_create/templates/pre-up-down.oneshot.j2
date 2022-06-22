@@ -1,0 +1,19 @@
+[Unit]
+Description=Pre-up Pre-down oneshot networking service
+Before=network-pre.target
+Wants=network-pre.target
+After=local-fs.target
+
+[Service]
+Type=oneshot
+
+{% for command in item.value.preup | default([]) | union(lxc_container_default_preup) %}
+ExecStart={{ command }}
+{% endfor %}
+
+{% for command in item.value.predown | default([]) | union(lxc_container_default_predown) %}
+ExecStop={{ command }}
+{% endfor %}
+
+[Install]
+WantedBy=multi-user.target

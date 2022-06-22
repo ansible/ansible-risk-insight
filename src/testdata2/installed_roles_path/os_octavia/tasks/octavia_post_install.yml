@@ -1,0 +1,148 @@
+---
+# Copyright 2017, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# iptables module doesn't see empty string as a null value so this is the only
+# way to get a configurable rule definition in right now
+- name: iptables rules
+  iptables: "{{ item }}"
+  with_items: "{{ octavia_iptables_rules }}"
+  when: octavia_ip_tables_fw | bool
+
+# This is totally odd: If you run the commands via run-parts (as the script
+# in the distro does) they return 1; but do their job. If you run them
+# directly they work. Ignoring errors for now --
+- name: save iptables rules (Debian/Ubuntu)
+  command: netfilter-persistent save
+  failed_when: false
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: save iptables rules (CentOS)
+  shell: iptables-save > /etc/sysconfig/iptables
+  when:
+    - ansible_facts['distribution'] == 'CentOS'
+
+- name: Copy user provided HAProxy templates
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "{{ octavia_system_user_name }}"
+    group: "{{ octavia_system_group_name }}"
+    mode: "0640"
+  with_items: "{{ octavia_user_haproxy_templates }}"
+
+- name: Set octavia_nova_flavor_uuid if it is not already set
+  delegate_to: "{{ octavia_service_setup_host }}"
+  vars:
+    ansible_python_interpreter: "{{ octavia_service_setup_host_python_interpreter }}"
+  when:
+    - octavia_nova_flavor_uuid is not defined
+  block:
+    - name: Get Octavia flavor details
+      openstack.cloud.compute_flavor_info:
+        auth:
+          auth_url: "{{ keystone_service_adminurl }}"
+          username: "{{ octavia_service_user_name }}"
+          password: "{{ octavia_service_password }}"
+          project_name: "{{ octavia_service_project_name }}"
+          user_domain_name: "{{ octavia_service_user_domain_id }}"
+          project_domain_name: "{{ octavia_service_project_domain_id }}"
+        region_name: "{{ octavia_service_region }}"
+        name: "{{ octavia_amp_flavor_name }}"
+        interface: admin
+        verify: "{{ not keystone_service_adminuri_insecure }}"
+      register: get_flavor_info
+      until: get_flavor_info is success
+      retries: 5
+
+    - name: Set Octavia flavor UUID fact
+      set_fact:
+        octavia_nova_flavor_uuid: "{{ get_flavor_info.openstack_flavors[0].id }}"
+
+- name: Set octavia_neutron_management_network_uuid if it is not already set
+  delegate_to: "{{ octavia_service_setup_host }}"
+  vars:
+    ansible_python_interpreter: "{{ octavia_service_setup_host_python_interpreter }}"
+  when:
+    - octavia_neutron_management_network_uuid is not defined
+    - octavia_neutron_management_network_name is defined
+  block:
+    - name: Get octavia management network details
+      openstack.cloud.networks_info:
+        auth:
+          auth_url: "{{ keystone_service_adminurl }}"
+          username: "{{ octavia_service_user_name }}"
+          password: "{{ octavia_service_password }}"
+          project_name: "{{ octavia_service_project_name }}"
+          user_domain_name: "{{ octavia_service_user_domain_id }}"
+          project_domain_name: "{{ octavia_service_project_domain_id }}"
+        region_name: "{{ octavia_service_region }}"
+        name: "{{ octavia_neutron_management_network_name }}"
+        interface: admin
+        verify: "{{ not keystone_service_adminuri_insecure }}"
+      register: get_net_info
+      until: get_net_info is success
+      retries: 5
+      delay: 10
+
+    - name: Set Octavia management network UUID fact
+      set_fact:
+        octavia_neutron_management_network_uuid: "{{ get_net_info.openstack_networks[0].id }}"
+
+- name: Set octavia_amp_image_owner_id if it is not already set
+  delegate_to: "{{ octavia_service_setup_host }}"
+  vars:
+    ansible_python_interpreter: "{{ octavia_service_setup_host_python_interpreter }}"
+  when:
+    - octavia_amp_image_owner_id is not defined
+  block:
+    - name: Get octavia service project details
+      openstack.cloud.project_info:
+        auth:
+          auth_url: "{{ keystone_service_adminurl }}"
+          username: "{{ octavia_service_user_name }}"
+          password: "{{ octavia_service_password }}"
+          project_name: "{{ octavia_service_project_name }}"
+          user_domain_name: "{{ octavia_service_user_domain_id }}"
+          project_domain_name: "{{ octavia_service_project_domain_id }}"
+        name: "{{ octavia_service_project_name }}"
+        interface: admin
+        domain: "{{ octavia_service_project_domain_id }}"
+        verify: "{{ not keystone_service_adminuri_insecure }}"
+      register: get_project_info
+      until: get_project_info is success
+      retries: 5
+      delay: 10
+
+    - name: Set Octavia amp image owner UUID fact
+      set_fact:
+        octavia_amp_image_owner_id: "{{ get_project_info.openstack_projects[0].id }}"
+
+- name: Drop octavia Config(s)
+  openstack.config_template.config_template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "{{ octavia_system_user_name }}"
+    group: "{{ octavia_system_group_name }}"
+    mode: "0640"
+    config_overrides: "{{ item.config_overrides }}"
+    config_type: "{{ item.config_type }}"
+  with_items:
+    - src: "octavia.conf.j2"
+      dest: "/etc/octavia/octavia.conf"
+      config_overrides: "{{ octavia_octavia_conf_overrides }}"
+      config_type: "ini"
+  notify:
+    - Restart octavia services
+    - Restart uwsgi services

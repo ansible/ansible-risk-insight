@@ -1,0 +1,275 @@
+---
+- name: include check_system.yml
+  include_tasks: check_system.yml
+
+- name: validate repository variables in non-containerized scenario
+  include_tasks: check_repository.yml
+  when: not containerized_deployment | bool
+
+- name: validate osd_objectstore
+  fail:
+    msg: "osd_objectstore must be either 'bluestore' or 'filestore'"
+  when: osd_objectstore not in ['bluestore', 'filestore']
+
+- name: validate monitor network configuration
+  fail:
+    msg: "Either monitor_address, monitor_address_block or monitor_interface must be provided"
+  when:
+    - mon_group_name in group_names
+    - monitor_address == 'x.x.x.x'
+    - monitor_address_block == 'subnet'
+    - monitor_interface == 'interface'
+
+- name: validate radosgw network configuration
+  fail:
+    msg: "Either radosgw_address, radosgw_address_block or radosgw_interface must be provided"
+  when:
+    - rgw_group_name in group_names
+    - radosgw_address == 'x.x.x.x'
+    - radosgw_address_block == 'subnet'
+    - radosgw_interface == 'interface'
+
+- name: validate osd nodes
+  when: osd_group_name in group_names
+  block:
+    - name: validate lvm osd scenario
+      fail:
+        msg: 'devices or lvm_volumes must be defined for lvm osd scenario'
+      when:
+        - not osd_auto_discovery | default(false) | bool
+        - devices is undefined
+        - lvm_volumes is undefined
+
+    - name: validate filestore lvm osd scenario
+      fail:
+        msg: 'data and journal keys must be defined in lvm_volumes'
+      when:
+        - osd_objectstore == 'filestore'
+        - not osd_auto_discovery | default(false) | bool
+        - lvm_volumes is defined
+        - lvm_volumes | length > 0
+        - item.data is undefined or item.journal is undefined
+      with_items: '{{ lvm_volumes }}'
+
+    - name: validate bluestore lvm osd scenario
+      fail:
+        msg: 'data key must be defined in lvm_volumes'
+      when:
+        - osd_objectstore == 'bluestore'
+        - not osd_auto_discovery | default(false) | bool
+        - lvm_volumes is defined
+        - lvm_volumes | length > 0
+        - item.data is undefined
+      with_items: '{{ lvm_volumes }}'
+
+- name: debian based systems tasks
+  when: ansible_facts['os_family'] == 'Debian'
+  block:
+    - name: fail if local scenario is enabled on debian
+      fail:
+        msg: "'local' installation scenario not supported on Debian systems"
+      when: ceph_origin == 'local'
+
+    - name: fail if rhcs repository is enabled on debian
+      fail:
+        msg: "RHCS isn't supported anymore on Debian distribution"
+      when:
+        - ceph_origin == 'repository'
+        - ceph_repository == 'rhcs'
+
+# SUSE/openSUSE Leap only supports the following:
+# - ceph_origin == 'distro'
+# - ceph_origin == 'repository' and ceph_repository == 'obs'
+- name: SUSE/openSUSE Leap based system tasks
+  when: ansible_facts['os_family'] == 'Suse'
+  block:
+    - name: Check ceph_origin definition on SUSE/openSUSE Leap
+      fail:
+        msg: "Unsupported installation method origin:{{ ceph_origin }}"
+      when: ceph_origin not in ['distro', 'repository']
+
+    - name: Check ceph_repository definition on SUSE/openSUSE Leap
+      fail:
+        msg: "Unsupported installation method origin:{{ ceph_origin }} repo:{{ ceph_repository }}'
+                  only valid combination is ceph_origin == 'repository' and ceph_repository == 'obs'"
+      when:
+        - ceph_origin == 'repository'
+        - ceph_repository != 'obs'
+
+- name: validate ntp daemon type
+  fail:
+    msg: "ntp_daemon_type must be one of chronyd, ntpd, or timesyncd"
+  when:
+    - ntp_service_enabled | bool
+    - ntp_daemon_type not in ['chronyd', 'ntpd', 'timesyncd']
+
+# Since NTPd can not be installed on Atomic...
+- name: abort if ntp_daemon_type is ntpd on Atomic
+  fail:
+    msg: installation can't happen on Atomic and ntpd needs to be installed
+  when:
+    - is_atomic | default(False) | bool
+    - ansible_facts['os_family'] == 'RedHat'
+    - ntp_daemon_type == 'ntpd'
+
+- name: make sure journal_size configured
+  debug:
+    msg: "WARNING: journal_size is configured to {{ journal_size }}, which is less than 5GB. This is not recommended and can lead to severe issues."
+  when:
+    - journal_size|int < 5120
+    - osd_objectstore == 'filestore'
+    - osd_group_name in group_names
+
+- name: include check_devices.yml
+  include_tasks: check_devices.yml
+  when:
+    - osd_group_name in group_names
+    - not osd_auto_discovery | default(False) | bool
+
+- name: include check_eth_mon.yml
+  include_tasks: check_eth_mon.yml
+  when:
+    - mon_group_name in group_names
+    - monitor_interface != "dummy"
+    - monitor_address == "x.x.x.x"
+    - monitor_address_block == "subnet"
+
+- name: include check_ipaddr_mon.yml
+  include_tasks: check_ipaddr_mon.yml
+  when:
+    - mon_group_name in group_names
+    - monitor_interface == "interface"
+    - monitor_address == "x.x.x.x"
+    - monitor_address_block != "subnet"
+
+- name: include check_eth_rgw.yml
+  include_tasks: check_eth_rgw.yml
+  when:
+    - rgw_group_name in group_names
+    - radosgw_interface != "dummy"
+    - radosgw_address == "x.x.x.x"
+    - radosgw_address_block == "subnet"
+
+- name: include check_rgw_pools.yml
+  include_tasks: check_rgw_pools.yml
+  when:
+    - inventory_hostname in groups.get(rgw_group_name, [])
+    - rgw_create_pools is defined
+
+- name: include check_rgw_multisite.yml
+  include_tasks: check_rgw_multisite.yml
+  when:
+    - inventory_hostname in groups.get(rgw_group_name, [])
+    - rgw_multisite | bool
+
+- name: include check_iscsi.yml
+  include_tasks: check_iscsi.yml
+  when: iscsi_gw_group_name in group_names
+
+- name: warn about radosgw_civetweb_num_threads option deprecation
+  debug:
+    msg: "WARNING: radosgw_civetweb_num_threads variable is deprecated. Please use radosgw_thread_pool_size instead"
+  when:
+    - radosgw_frontend_type == 'civetweb'
+    - radosgw_civetweb_num_threads is defined
+
+- name: include check_nfs.yml
+  include_tasks: check_nfs.yml
+  when: inventory_hostname in groups.get(nfs_group_name, [])
+
+- name: include check_rbdmirror.yml
+  include_tasks: check_rbdmirror.yml
+  when:
+    - rbdmirror_group_name in group_names
+    - ceph_rbd_mirror_configure | default(false) | bool
+
+- block:
+    - name: fail if monitoring group doesn't exist
+      fail:
+        msg: "you must add a monitoring group and add at least one node."
+      when: groups[monitoring_group_name] is undefined
+
+    - name: fail when monitoring doesn't contain at least one node.
+      fail:
+        msg: "you must add at least one node in the monitoring hosts group"
+      when: groups[monitoring_group_name] | length < 1
+
+    - name: fail when dashboard_admin_password and/or grafana_admin_password are not set
+      fail:
+        msg: "you must set dashboard_admin_password and grafana_admin_password."
+      when:
+        - dashboard_admin_password is undefined
+          or grafana_admin_password is undefined
+  when: dashboard_enabled | bool
+
+- name: validate container registry credentials
+  fail:
+    msg: 'ceph_docker_registry_username and/or ceph_docker_registry_password variables need to be set'
+  when:
+    - ceph_docker_registry_auth | bool
+    - (ceph_docker_registry_username is not defined or ceph_docker_registry_password is not defined) or
+      (ceph_docker_registry_username | string | length == 0 or ceph_docker_registry_password | string | length == 0)
+
+- name: validate container service and container package
+  fail:
+    msg: 'both container_package_name and container_service_name should be defined'
+  when:
+    - (container_package_name is undefined and container_service_name is defined) or
+      (container_package_name is defined and container_service_name is undefined)
+
+- name: validate openstack_keys key format
+  fail:
+    msg: '{{ item.name }} key format invalid'
+  with_items: '{{ openstack_keys }}'
+  when:
+    - osd_group_name in group_names
+    - openstack_keys is defined
+    - openstack_keys | length > 0
+    - item.key is defined
+    - item.key is not match("^[a-zA-Z0-9+/]{38}==$")
+
+- name: validate clients keys key format
+  fail:
+    msg: '{{ item.name }} key format invalid'
+  with_items: '{{ keys }}'
+  when:
+    - client_group_name in group_names
+    - keys is defined
+    - keys | length > 0
+    - item.key is defined
+    - item.key is not match("^[a-zA-Z0-9+/]{38}==$")
+
+- name: validate openstack_keys caps
+  fail:
+    msg: '{{ item.name }} key has no caps defined'
+  with_items: '{{ openstack_keys }}'
+  when:
+    - osd_group_name in group_names
+    - openstack_keys is defined
+    - openstack_keys | length > 0
+    - item.caps is not defined
+
+- name: validate clients keys caps
+  fail:
+    msg: '{{ item.name }} key has no caps defined'
+  with_items: '{{ keys }}'
+  when:
+    - client_group_name in group_names
+    - keys is defined
+    - keys | length > 0
+    - item.caps is not defined
+
+- name: check virtual_ips is defined
+  fail:
+    msg: "virtual_ips is not defined."
+  when:
+    - rgwloadbalancer_group_name in group_names
+    - groups[rgwloadbalancer_group_name] | length > 0
+    - virtual_ips is not defined
+
+- name: validate virtual_ips length
+  fail:
+    msg: "There are more virual_ips defined than rgwloadbalancer nodes"
+  when:
+    - rgwloadbalancer_group_name in group_names
+    - (virtual_ips | length) > (groups[rgwloadbalancer_group_name] | length)

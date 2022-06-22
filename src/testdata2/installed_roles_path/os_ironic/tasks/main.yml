@@ -1,0 +1,187 @@
+---
+# Copyright 2015, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Gather variables for each operating system
+  include_vars: "{{ lookup('first_found', params) }}"
+  vars:
+    params:
+      files:
+        - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_version'] | lower }}.yml"
+        - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_major_version'] | lower }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}-{{ ansible_facts['distribution_major_version'] | lower }}.yml"
+        - "{{ ansible_facts['distribution'] | lower }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}-{{ ansible_facts['distribution_version'].split('.')[0] }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}.yml"
+      paths:
+        - "{{ role_path }}/vars"
+  tags:
+    - always
+
+- include_role:
+    name: openstack.osa.db_setup
+    apply:
+      tags:
+        - common-db
+        - ironic-config
+  when:
+    - _ironic_api_is_first_play_host
+  vars:
+    _oslodb_setup_host: "{{ ironic_db_setup_host }}"
+    _oslodb_ansible_python_interpreter: "{{ ironic_db_setup_python_interpreter }}"
+    _oslodb_setup_endpoint: "{{ ironic_galera_address }}"
+    _oslodb_setup_port: "{{ ironic_galera_port }}"
+    _oslodb_databases:
+      - name: "{{ ironic_galera_database }}"
+        users:
+          - username: "{{ ironic_galera_user }}"
+            password: "{{ ironic_container_mysql_password }}"
+  tags:
+    - always
+
+- include_role:
+    name: openstack.osa.db_setup
+    apply:
+      tags:
+        - common-db
+        - ironic-config
+  when:
+    - _ironic_inspector_is_first_play_host
+  vars:
+    _oslodb_setup_host: "{{ ironic_inspector_db_setup_host }}"
+    _oslodb_ansible_python_interpreter: "{{ ironic_inspector_db_setup_python_interpreter }}"
+    _oslodb_setup_endpoint: "{{ ironic_inspector_galera_address }}"
+    _oslodb_setup_port: "{{ ironic_inspector_galera_port }}"
+    _oslodb_databases:
+      - name: "{{ ironic_inspector_galera_database }}"
+        users:
+          - username: "{{ ironic_inspector_galera_user }}"
+            password: "{{ ironic_inspector_container_mysql_password }}"
+  tags:
+    - always
+
+- include_role:
+    name: openstack.osa.mq_setup
+    apply:
+      tags:
+        - common-mq
+        - ironic-config
+  when:
+    - _ironic_api_is_first_play_host
+  vars:
+    _oslomsg_rpc_setup_host: "{{ ironic_oslomsg_rpc_setup_host }}"
+    _oslomsg_rpc_userid: "{{ ironic_oslomsg_rpc_userid }}"
+    _oslomsg_rpc_password: "{{ ironic_oslomsg_rpc_password }}"
+    _oslomsg_rpc_vhost: "{{ ironic_oslomsg_rpc_vhost }}"
+    _oslomsg_rpc_transport: "{{ ironic_oslomsg_rpc_transport }}"
+    _oslomsg_notify_setup_host: "{{ ironic_oslomsg_notify_setup_host }}"
+    _oslomsg_notify_userid: "{{ ironic_oslomsg_notify_userid }}"
+    _oslomsg_notify_password: "{{ ironic_oslomsg_notify_password }}"
+    _oslomsg_notify_vhost: "{{ ironic_oslomsg_notify_vhost }}"
+    _oslomsg_notify_transport: "{{ ironic_oslomsg_notify_transport }}"
+  tags:
+    - always
+
+- import_tasks: ironic_pre_install.yml
+  tags:
+    - ironic-install
+
+- name: Install the python venv
+  import_role:
+    name: "python_venv_build"
+  vars:
+    venv_python_executable: "{{ ironic_venv_python_executable }}"
+    venv_build_constraints: "{{ ironic_git_constraints }}"
+    venv_build_distro_package_list: "{{ ironic_devel_distro_packages }}"
+    venv_install_destination_path: "{{ ironic_bin | dirname }}"
+    venv_install_distro_package_list: "{{ ironic_packages_list }}"
+    venv_pip_install_args: "{{ ironic_pip_install_args }}"
+    venv_pip_packages: "{{ ironic_venv_packages }}"
+    venv_facts_when_changed:
+      - section: "ironic"
+        option: "venv_tag"
+        value: "{{ ironic_venv_tag }}"
+  tags:
+    - ironic-install
+
+- import_tasks: ironic_post_install.yml
+  tags:
+    - ironic-config
+
+- name: Import uwsgi role
+  import_role:
+    name: uwsgi
+  vars:
+    uwsgi_services: "{{ uwsgi_ironic_services }}"
+    uwsgi_install_method: "source"
+  tags:
+    - ironic-config
+    - uwsgi
+
+- import_tasks: ironic_conductor_post_install.yml
+  when: "ironic_services['ironic-conductor']['group'] in group_names"
+  tags:
+    - ironic-config
+
+- import_tasks: ironic_db_setup.yml
+  tags:
+    - ironic-config
+
+- import_tasks: ironic_inspector_pre_install.yml
+  when: inventory_hostname in groups['ironic_inspector']
+  tags:
+    - ironic-inspector
+
+- name: Run the systemd service role
+  import_role:
+    name: systemd_service
+  vars:
+    systemd_user_name: "{{ ironic_system_user_name }}"
+    systemd_group_name: "{{ ironic_system_group_name }}"
+    systemd_tempd_prefix: openstack
+    systemd_slice_name: "{{ ironic_system_slice_name }}"
+    systemd_lock_dir: "{{ ironic_lock_dir }}"
+    systemd_CPUAccounting: true
+    systemd_BlockIOAccounting: true
+    systemd_MemoryAccounting: true
+    systemd_TasksAccounting: true
+    systemd_services: "{{ filtered_ironic_services }}"
+  tags:
+    - ironic-config
+    - systemd-service
+
+- include_role:
+    name: openstack.osa.service_setup
+    apply:
+      tags:
+        - common-service
+        - ironic-config
+  vars:
+    _service_adminuri_insecure: "{{ keystone_service_adminuri_insecure }}"
+    _service_in_ldap: "{{ ironic_service_in_ldap }}"
+    _service_setup_host: "{{ ironic_service_setup_host }}"
+    _service_setup_host_python_interpreter: "{{ ironic_service_setup_host_python_interpreter }}"
+    _service_project_name: "{{ ironic_service_project_name }}"
+    _service_region: "{{ ironic_service_region }}"
+    _service_users: "{{ ironic_service_user_list }}"
+    _service_endpoints: "{{ ironic_service_endpoint_list }}"
+    _service_catalog: "{{ ironic_service_catalog_list }}"
+  when: (_ironic_api_is_first_play_host or _ironic_inspector_is_first_play_host)
+  tags:
+    - always
+
+- import_tasks: ironic_inspector_post_install.yml
+  when: inventory_hostname in groups['ironic_inspector']
+  tags:
+    - ironic-inspector

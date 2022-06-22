@@ -1,0 +1,9 @@
+---
+# task to link a container to a bridge
+- include: link_container_netns.yml
+  register: netns_to_delete
+
+- include: add_veth_links_to_container.yml
+
+# vim: set et ts=2 sw=2 ai ft=yaml :
+

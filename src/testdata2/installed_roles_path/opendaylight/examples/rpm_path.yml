@@ -1,0 +1,10 @@
+---
+- hosts: all
+  become: yes
+  roles:
+    - role: opendaylight
+      # Install from a local/remote path to an ODL RPM. Not including this
+      # causes the install to use a repo for the RPM, which is recommended.
+      odl_install_method: "rpm_path"
+      # Accept default (local/remote) path to ODL RPM
+      # rpm_path: ""

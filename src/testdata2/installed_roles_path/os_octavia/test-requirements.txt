@@ -1,0 +1,7 @@
+# These requirements are used in addition to the test-requirements.txt
+# set out in the openstack-ansible-tests repository. Requirements here
+# should *only* be for the purpose of including in the runtime venv
+# for test purposes. Anything that is destined to be used in production
+# should not be here, but instead in a *_pip_packages list.
+
+python-octaviaclient>=1.6.0 # Apache-2.0

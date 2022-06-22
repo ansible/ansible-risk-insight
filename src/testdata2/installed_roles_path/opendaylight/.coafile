@@ -1,0 +1,73 @@
+[all]
+ignore = .tox/**,
+    .git/**,
+    .gitignore,
+    .gitreview,
+    **.log,
+    node_modules/**,
+    **.sw?,
+    **.orig,
+    **/.vagrant**
+
+[all.git]
+bears = GitCommitBear
+ignore_length_regex = Signed-off-by,
+    Also-by,
+    Co-authored-by,
+    http://,
+    https://
+
+[all.spacing]
+bears = SpaceConsistencyBear
+use_spaces = True
+enforce_newline_at_EOF = False
+files = **
+default_actions = SpaceConsistencyBear: ApplyPatchAction
+
+[all.Documentation]
+bears = WriteGoodLintBear
+files = **.markdown,
+    **.md,
+    **.rst
+allow_so_beginning = False
+allow_there_is = False
+allow_cliche_phrases = False
+
+[all.linelength]
+bears = LineLengthBear
+enabled = False
+max_line_length = 100
+
+[all.markdown]
+bears = MarkdownBear
+files = **.markdown,
+    **.md
+default_actions = MarkdownBear: ApplyPatchAction
+
+[all.rest]
+bears = RSTcheckBear,
+    reSTLintBear
+files = **.rst
+
+[all.yaml]
+bears = YAMLLintBear
+yamllint_config = .yamllint
+files = **.yaml, **.yml
+
+[all.json]
+bears = JSONFormatBear
+files = **.json
+default_actions = JSONFormatBear: ApplyPatchAction
+
+[all.xml]
+bears = XMLBear
+enabled = False
+files = **.xml
+
+[all.python]
+bears = PEP8Bear,
+    PyUnusedCodeBear,
+    PyImportSortBear
+files = **.py
+default_actions = PyUnusedCodeBear: ApplyPatchAction,
+    PyImportSortBear: ApplyPatchAction

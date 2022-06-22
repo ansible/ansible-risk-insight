@@ -1,0 +1,120 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Create rabbitmq config
+  register: rabbit_config
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "{{ rabbit_system_user_name }}"
+    group: "{{ rabbit_system_group_name }}"
+    mode: "{{ item.mode | default('0640') }}"
+  with_items:
+    - { src: "rabbitmq.conf.j2", dest: "/etc/rabbitmq/rabbitmq.conf" }
+    - { src: "advanced.config.j2", dest: "/etc/rabbitmq/advanced.config" }
+    - { src: "rabbitmq-server.j2", dest: "/etc/default/rabbitmq-server", mode: "0644" }
+    - { src: "rabbitmq-env.j2", dest: "/etc/rabbitmq/rabbitmq-env.conf" }
+  tags:
+    - rabbitmq-config
+
+# TODO(noonedeadpunk): Remove after Z release
+- name: Remove old rabbitmq config
+  file:
+    path: /etc/rabbitmq/rabbitmq.config
+    state: absent
+
+# TODO(noonedeadpunk): Remove task after Z release
+- name: Remove old systemd overrides
+  file:
+    path: "/etc/systemd/system/rabbitmq-server.service.d/{{ item }}"
+    state: absent
+  with_items:
+    - limits.conf
+    - systemd-restart-on-failure.conf
+  when: rabbitmq_upgrade | bool
+
+- name: Apply systemctl overrides
+  import_role:
+    name: systemd_service
+  vars:
+    systemd_user_name: "{{ rabbit_system_user_name }}"
+    systemd_group_name: "{{ rabbit_system_group_name }}"
+    systemd_services:
+      - service_name: rabbitmq-server
+        systemd_overrides_only: true
+        systemd_overrides: "{{ rabbitmq_init_overrides }}"
+
+- name: Configure rabbitmq plugins
+  community.rabbitmq.rabbitmq_plugin:
+    names: "{{ item.name }}"
+    state: "{{ item.state }}"
+    broker_state: offline
+  with_items: "{{ rabbitmq_plugins }}"
+  register: rabbitmq_plugin
+  tags:
+    - rabbitmq-config
+
+- include_tasks:
+    file: rabbitmq_restart.yml
+    apply:
+      tags: rabbitmq-config
+  when: rabbit_config is changed or rabbitmq_plugin is changed or (cookie_set is defined and cookie_set is changed) or rabbitmq_upgrade | bool
+  tags:
+    - always
+
+- name: Apply rabbitmq policies
+  community.rabbitmq.rabbitmq_policy:
+    node: "rabbit@{{ ansible_facts['hostname'] }}"
+    name: "{{ item.name }}"
+    pattern: "{{ item.pattern }}"
+    priority: "{{ item.priority | default(0) }}"
+    state: "{{ item.state | default(omit) }}"
+    tags: "{{ item.tags }}"
+  register: rabbitmq_policy
+  loop: "{{ (rabbitmq_apply_openstack_policies | bool) | ternary(rabbitmq_openstack_policies + rabbitmq_policies, rabbitmq_policies) }}"
+  tags:
+    - rabbitmq-config
+    - rabbitmq-cluster
+
+- include_tasks:
+    file: rabbitmq_restart.yml
+    apply:
+      tags: rabbitmq-config
+  when: rabbitmq_policy is changed
+  tags:
+    - always
+
+# This is being done because the rabbitctl command used by the module
+# is not very effective at returning proper status codes for failure
+# and the module does not error detection. until we can go upstream
+# to fix this issue this task being being done in two parts to ensure
+# that the "guest" user is eradicated.
+- name: Ensure default rabbitmq guest user is removed
+  community.rabbitmq.rabbitmq_user:
+    node: "rabbit@{{ ansible_facts['hostname'] }}"
+    user: guest
+    state: absent
+  when: inventory_hostname == groups[rabbitmq_host_group][0]
+  tags:
+    - rabbitmq-user
+
+- name: Ensure default rabbitmq guest user is removed
+  community.rabbitmq.rabbitmq_user:
+    node: "rabbit@{{ ansible_facts['hostname'] }}"
+    user: guest
+    state: absent
+  when: inventory_hostname != groups[rabbitmq_host_group][0]
+  tags:
+    - rabbitmq-user

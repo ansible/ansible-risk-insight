@@ -1,0 +1,234 @@
+---
+# Copyright 2016, Ian Cordasco
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+## Verbosity Options
+debug: False
+
+# Set the host which will execute the shade modules
+# for the service setup. The host must already have
+# clouds.yaml properly configured.
+barbican_service_setup_host: "{{ openstack_service_setup_host | default('localhost') }}"
+barbican_service_setup_host_python_interpreter: "{{ openstack_service_setup_host_python_interpreter | default((barbican_service_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable'])) }}"
+
+# Set the package install state for distribution packages
+# Options are 'present' and 'latest'
+barbican_package_state: "{{ package_state | default('latest') }}"
+
+# Set installation method.
+barbican_install_method: "{{ service_install_method | default('source') }}"
+barbican_venv_python_executable: "{{ openstack_venv_python_executable | default('python3') }}"
+
+# Toggle keystone authentication for barbican
+barbican_keystone_auth: "{{ (groups['keystone_all'] is defined) and (groups['keystone_all'] | length > 0) }}"
+
+## System info
+barbican_system_group_name: barbican
+barbican_system_user_name: barbican
+barbican_system_user_comment: Barbican System User
+barbican_system_user_shell: /bin/false
+barbican_system_user_home: "/var/lib/{{ barbican_system_user_name }}"
+barbican_etc_directory: /etc/barbican
+
+#Barbican services info
+barbican_keystone_listener_enable: false
+barbican_worker_enable: false
+barbican_retry_enable: false
+
+# Variable defines barbican store backends configuration. It supports multibackend scenario
+# in case list length > 1. Then additional key global_default should be present, otherwise
+# first element would be set as global default. For multibackend one backend should be set
+# as global_default: True
+barbican_backends_config:
+  software:
+    secret_store_plugin: store_crypto
+    crypto_plugin: simple_crypto
+
+# Variable defines barbican crypto configuration.
+barbican_plugins_config:
+  simple_crypto_plugin:
+    kek: "{{ barbican_simple_crypto_key | b64encode }}"
+
+## Service Name-Group Mapping
+barbican_services:
+  barbican-api:
+    group: barbican_all
+    service_name: barbican-api
+    init_config_overrides: "{{ barbican_init_config_overrides }}"
+    uwsgi_bind_address: "{{ barbican_service_host }}"
+    uwsgi_port: "{{ barbican_service_port }}"
+    uwsgi_overrides: "{{ barbican_uwsgi_init_overrides }}"
+    wsgi_app: True
+    wsgi_name: barbican-wsgi-api
+    start_order: 1
+  barbican-worker:
+    group: barbican_all
+    service_name: barbican-worker
+    init_config_overrides: "{{ barbican_init_config_overrides }}"
+    execstarts: "{{ barbican_bin }}/barbican-worker"
+    condition: "{{ barbican_worker_enable | bool }}"
+    start_order: 2
+  barbican-keystone-listener:
+    group: barbican_all
+    service_name: barbican-keystone-listener
+    init_config_overrides: "{{ barbican_init_config_overrides }}"
+    execstarts: "{{ barbican_bin }}/barbican-keystone-listener"
+    condition: "{{ barbican_keystone_listener_enable | bool }}"
+    start_order: 3
+  barbican-retry:
+    group: barbican_all
+    service_name: barbican-retry
+    init_config_overrides: "{{ barbican_init_config_overrides }}"
+    execstarts: "{{ barbican_bin }}/barbican-retry"
+    condition: "{{ barbican_retry_enable | bool }}"
+    start_order: 4
+
+
+# With `barbican_user_libraries` you can deploy libraries, needed for barbican
+# to interact with third party services like HSM
+#barbican_user_libraries:
+#  - src: /etc/openstack_deploy/barbican/libdpod.plugin
+#    dest: /opt/barbican/libs/libCryptoki2.so
+#    owner: root
+#    group: "{{ barbican_system_group_name }}"
+#  - src: /etc/openstack_deploy/barbican/Chrystoki.conf
+#    dest: /opt/barbican/Chrystoki.conf
+#    link: /etc/Chrystoki.conf
+
+barbican_user_libraries: []
+
+## Service Type and Data
+barbican_service_name: barbican
+barbican_service_user_name: barbican
+barbican_service_type: key-manager
+barbican_service_description: "OpenStack Key and Secrets Management (Barbican)"
+barbican_default_role_names:
+  - "key-manager:service-admin"
+  - creator
+  - observer
+  - audit
+barbican_service_role_names:
+  - admin
+  - creator
+  - service
+barbican_service_token_roles:
+  - service
+barbican_service_token_roles_required: "{{ openstack_service_token_roles_required | default(True) }}"
+barbican_service_region: "{{ service_region | default('RegionOne') }}"
+barbican_service_host: "{{ openstack_service_bind_address | default('0.0.0.0') }}"
+barbican_service_port: 9311
+barbican_service_proto: http
+barbican_service_publicuri_proto: "{{ openstack_service_publicuri_proto | default(barbican_service_proto) }}"
+barbican_service_adminuri_proto: "{{ openstack_service_adminuri_proto | default(barbican_service_proto) }}"
+barbican_service_internaluri_proto: "{{ openstack_service_internaluri_proto | default(barbican_service_proto) }}"
+barbican_service_publicurl: "{{ barbican_service_publicuri_proto }}://{{ external_lb_vip_address }}:{{ barbican_service_port }}"
+barbican_service_internalurl: "{{ barbican_service_internaluri_proto }}://{{ internal_lb_vip_address }}:{{ barbican_service_port }}"
+barbican_service_adminurl: "{{ barbican_service_adminuri_proto }}://{{ internal_lb_vip_address }}:{{ barbican_service_port }}"
+
+barbican_service_in_ldap: "{{ service_ldap_backend_enabled | default(False) }}"
+
+barbican_init_config_overrides: {}
+barbican_config_overrides: {}
+barbican_policy_overrides: {}
+barbican_paste_overrides: {}
+barbican_api_audit_map_overrides: {}
+barbican_vassals_api_overrides: {}
+
+## The git source/branch
+barbican_git_repo: "https://opendev.org/openstack/barbican"
+barbican_git_install_branch: master
+barbican_upper_constraints_url: "{{ requirements_git_url | default('https://releases.openstack.org/constraints/upper/' ~ requirements_git_install_branch | default('master')) }}"
+barbican_git_constraints:
+  - "--constraint {{ barbican_upper_constraints_url }}"
+
+barbican_pip_install_args: "{{ pip_install_options | default('') }}"
+
+# Name of the virtual env to deploy into
+barbican_venv_tag: "{{ venv_tag | default('untagged') }}"
+barbican_bin: "{{ _barbican_bin }}"
+
+# Database vars
+barbican_db_setup_host: "{{ openstack_db_setup_host | default('localhost') }}"
+barbican_db_setup_python_interpreter: "{{ openstack_db_setup_python_interpreter | default((barbican_db_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable'])) }}"
+barbican_galera_address: "{{ galera_address | default('127.0.0.1') }}"
+barbican_galera_database: barbican
+barbican_galera_user: barbican
+barbican_galera_use_ssl: "{{ galera_use_ssl | default(False) }}"
+barbican_galera_ssl_ca_cert: "{{ galera_ssl_ca_cert | default('') }}"
+barbican_galera_port: "{{ galera_port | default('3306') }}"
+# NOTE: barbican does not support pool_timeout so it is not set for this role
+barbican_db_max_overflow: "{{ openstack_db_max_overflow | default('50') }}"
+barbican_db_max_pool_size: "{{ openstack_db_max_pool_size | default('5') }}"
+barbican_db_connection_recycle_time: "{{ openstack_db_connection_recycle_time | default('600') }}"
+
+## Oslo Messaging
+barbican_ceilometer_enabled: "{{ (groups['ceilometer_all'] is defined) and (groups['ceilometer_all'] | length > 0) }}"
+
+# RPC
+barbican_oslomsg_rpc_host_group: "{{ oslomsg_rpc_host_group | default('rabbitmq_all') }}"
+barbican_oslomsg_rpc_setup_host: "{{ (barbican_oslomsg_rpc_host_group in groups) | ternary(groups[barbican_oslomsg_rpc_host_group][0], 'localhost') }}"
+barbican_oslomsg_rpc_transport: "{{ oslomsg_rpc_transport | default('rabbit') }}"
+barbican_oslomsg_rpc_servers: "{{ oslomsg_rpc_servers | default('127.0.0.1') }}"
+barbican_oslomsg_rpc_port: "{{ oslomsg_rpc_port | default('5672') }}"
+barbican_oslomsg_rpc_use_ssl: "{{ oslomsg_rpc_use_ssl | default(False) }}"
+barbican_oslomsg_rpc_userid: barbican
+barbican_oslomsg_rpc_vhost: /barbican
+barbican_oslomsg_rpc_ssl_version: "{{ oslomsg_rpc_ssl_version | default('TLSv1_2') }}"
+barbican_oslomsg_rpc_ssl_ca_file: "{{ oslomsg_rpc_ssl_ca_file | default('') }}"
+
+# Notify
+barbican_oslomsg_notify_host_group: "{{ oslomsg_notify_host_group | default('rabbitmq_all') }}"
+barbican_oslomsg_notify_setup_host: "{{ (barbican_oslomsg_notify_host_group in groups) | ternary(groups[barbican_oslomsg_notify_host_group][0], 'localhost') }}"
+barbican_oslomsg_notify_transport: "{{ oslomsg_notify_transport | default('rabbit') }}"
+barbican_oslomsg_notify_servers: "{{ oslomsg_notify_servers | default('127.0.0.1') }}"
+barbican_oslomsg_notify_port: "{{ oslomsg_notify_port | default('5672') }}"
+barbican_oslomsg_notify_use_ssl: "{{ oslomsg_notify_use_ssl | default(False) }}"
+barbican_oslomsg_notify_userid: "{{ barbican_oslomsg_rpc_userid }}"
+barbican_oslomsg_notify_password: "{{ barbican_oslomsg_rpc_password }}"
+barbican_oslomsg_notify_vhost: "{{ barbican_oslomsg_rpc_vhost }}"
+barbican_oslomsg_notify_ssl_version: "{{ oslomsg_notify_ssl_version | default('TLSv1_2') }}"
+barbican_oslomsg_notify_ssl_ca_file: "{{ oslomsg_notify_ssl_ca_file | default('') }}"
+
+## (Qdrouterd) integration
+# TODO(ansmith): Change structure when more backends will be supported
+barbican_oslomsg_amqp1_enabled: "{{ barbican_oslomsg_rpc_transport == 'amqp' }}"
+
+# Keystone AuthToken/Middleware
+barbican_keystone_auth_plugin: password
+barbican_service_project_domain_id: default
+barbican_service_user_domain_id: default
+barbican_service_project_name: service
+
+# uwsgi configuration vars
+barbican_wsgi_processes_max: 16
+barbican_wsgi_processes: "{{ [[(ansible_facts['processor_vcpus']//ansible_facts['processor_threads_per_core'])|default(1), 1] | max *2, barbican_wsgi_processes_max] | min }}"
+barbican_wsgi_threads: 1
+
+# Memcached override
+barbican_memcached_servers: "{{ memcached_servers }}"
+
+# packages required to run the barbican service
+barbican_pip_packages:
+  - "git+{{ barbican_git_repo }}@{{ barbican_git_install_branch }}#egg=barbican"
+  - osprofiler
+  - PyMySQL
+  - pymemcache
+  - python-memcached
+  - systemd-python
+barbican_user_pip_packages: []
+
+barbican_optional_oslomsg_amqp1_pip_packages:
+  - oslo.messaging[amqp1]
+
+barbican_uwsgi_init_overrides: {}

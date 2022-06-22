@@ -1,0 +1,156 @@
+# {{ ansible_managed }}
+
+Listen {{ keystone_web_server_bind_address }}:{{ keystone_service_port }}
+<VirtualHost {{ keystone_web_server_bind_address }}:{{ keystone_service_port }}>
+
+    <IfVersion >= 2.4>
+      ErrorLogFormat "%{cu}t %M"
+    </IfVersion>
+
+    LogLevel  {{  keystone_apache_log_level }}
+    ErrorLog  syslog:daemon
+    CustomLog "|/usr/bin/env logger -p daemon.info -t {{ keystone_system_service_name }}" {{ keystone_apache_custom_log_format }}
+    Options +FollowSymLinks
+
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Content-Security-Policy "default-src 'self' https: wss:;"
+    {% if keystone_sp != {} -%}
+    Header set Content-Security-Policy "script-src 'sha256-oBahlBFQem+nMs1JwgcBB03Hy8nRh5e8qEGTOcxmAuM=';"
+    {% endif -%}
+    Header set X-Frame-Options "{{ keystone_x_frame_options | default ('DENY') }}"
+
+    {% if (keystone_ssl | bool) and (keystone_external_ssl | bool) %}
+    RequestHeader set {{ keystone_secure_proxy_ssl_header }} "https"
+    {% elif not (keystone_ssl | bool) and (keystone_external_ssl | bool) %}
+    RequestHeader set {{ keystone_secure_proxy_ssl_header }} "http"
+    {% endif %}
+
+    {% if keystone_ssl | bool and keystone_service_internaluri_proto == "https" -%}
+    SSLEngine on
+    SSLCertificateFile    {{ keystone_ssl_cert }}
+    SSLCertificateKeyFile {{ keystone_ssl_key }}
+    {% if keystone_user_ssl_ca_cert is defined -%}
+    SSLCACertificateFile  {{ keystone_ssl_ca_cert }}
+    {% endif -%}
+    SSLCompression Off
+    SSLProtocol {{ keystone_ssl_protocol }}
+    SSLHonorCipherOrder On
+    {% if keystone_ssl_cipher_suite_tls12 != "" -%}
+    SSLCipherSuite {{ keystone_ssl_cipher_suite_tls12 }}
+    {% endif -%}
+    {% if keystone_ssl_cipher_suite_tls13 != "" -%}
+    SSLCipherSuite TLSv1.3 {{ keystone_ssl_cipher_suite_tls13 }}
+    {% endif -%}
+    SSLOptions +StdEnvVars +ExportCertData
+    {% endif -%}
+    {% if keystone_sp_apache_mod_auth_openidc -%}
+    OIDCClaimPrefix "{{ keystone_sp.trusted_idp_list.0.oidc_claim_prefix | default('OIDC-') }}"
+    OIDCResponseType "{{ keystone_sp.trusted_idp_list.0.oidc_resp_type | default('id_token') }}"
+    OIDCScope "{{ keystone_sp.trusted_idp_list.0.oidc_scope | default('openid email profile') }}"
+    OIDCProviderMetadataURL {{ keystone_sp.trusted_idp_list.0.oidc_provider_metadata_url }}
+    OIDCClientID {{ keystone_sp.trusted_idp_list.0.oidc_client_id }}
+    OIDCClientSecret {{ keystone_sp.trusted_idp_list.0.oidc_client_secret }}
+    OIDCCryptoPassphrase {{ keystone_sp.trusted_idp_list.0.oidc_crypto_passphrase }}
+    OIDCRedirectURI {{ keystone_sp.trusted_idp_list.0.oidc_redirect_uri }}
+    {% if keystone_sp.trusted_idp_list.0.oidc_auth_verify_jwks_uri is defined -%}
+    OIDCOAuthVerifyJwksUri {{ keystone_sp.trusted_idp_list.0.oidc_auth_verify_jwks_uri }}
+    {% endif -%}
+    {% if keystone_sp.trusted_idp_list.0.oidc_outgoing_proxy is defined -%}
+    OIDCOutgoingProxy {{ keystone_sp.trusted_idp_list.0.oidc_outgoing_proxy }}
+    {% endif -%}
+    {% if keystone_sp.trusted_idp_list.0.oidc_oauth_introspection_endpoint is defined -%}
+    OIDCOAuthIntrospectionEndpoint {{ keystone_sp.trusted_idp_list.0.oidc_oauth_introspection_endpoint }}
+    {% endif -%}
+    {% if keystone_sp.trusted_idp_list.0.oidc_oauth_client_id is defined -%}
+    OIDCOAuthClientID {{ keystone_sp.trusted_idp_list.0.oidc_oauth_client_id }}
+    {% endif -%}
+    {% if keystone_sp.trusted_idp_list.0.oidc_oauth_client_secret is defined -%}
+    OIDCOAuthClientSecret {{ keystone_sp.trusted_idp_list.0.oidc_oauth_client_secret }}
+    {% endif -%}
+    {% if keystone_cache_servers | length > 0 -%}
+    OIDCCacheType memcache
+    OIDCMemCacheServers "{{ keystone_cache_servers | join(' ') }}"
+    {% endif %}
+    {% if keystone_sp.trusted_idp_list.0.oidc_auth_request_params is defined -%}
+    OIDCAuthRequestParams {{ keystone_sp.trusted_idp_list.0.oidc_auth_request_params }}
+    {% endif %}
+    {% if keystone_sp.trusted_idp_list.0.oidc_state_max_number_of_cookies is defined -%}
+    OIDCStateMaxNumberOfCookies {{ keystone_sp.trusted_idp_list.0.oidc_state_max_number_of_cookies }}
+    {% endif %}
+    {% if keystone_sp.trusted_idp_list.0.oidc_default_url is defined -%}
+    OIDCDefaultURL {{ keystone_sp.trusted_idp_list.0.oidc_default_url }}
+    {% endif %}
+    {% if keystone_sp.trusted_idp_list.0.oidc_claim_delimiter is defined -%}
+    OIDCClaimDelimiter "{{ keystone_sp.trusted_idp_list.0.oidc_claim_delimiter }}"
+    {% endif %}
+
+    <Location /v3/OS-FEDERATION/identity_providers/{{ keystone_sp.trusted_idp_list.0.name }}/protocols/openid/auth>
+      Require valid-user
+      AuthType auth-openidc
+    </Location>
+
+    <Location /v3/auth/OS-FEDERATION/websso/openid>
+      Require valid-user
+      AuthType openid-connect
+    </Location>
+
+    <Location /v3/auth/OS-FEDERATION/identity_providers/{{ keystone_sp.trusted_idp_list.0.name }}/protocols/openid/websso>
+      Require valid-user
+      AuthType openid-connect
+    </Location>
+    {% endif %}
+    {%- if keystone_sp_apache_mod_shib -%}
+    ShibURLScheme {{ keystone_service_publicuri_proto }}
+
+    <Location /Shibboleth.sso>
+        SetHandler shib
+    </Location>
+
+    <Location /v3/auth/OS-FEDERATION/websso/saml2>
+        AuthType shibboleth
+        ShibRequestSetting requireSession 1
+        ShibRequestSetting exportAssertion 1
+        ShibRequireSession On
+        ShibExportAssertion On
+        Require valid-user
+    </Location>
+
+    <LocationMatch /v3/OS-FEDERATION/identity_providers/.*?/protocols/saml2/auth>
+        ShibRequestSetting requireSession 1
+        AuthType shibboleth
+        ShibExportAssertion Off
+        Require valid-user
+    </LocationMatch>
+    {% endif %}
+
+    {% if keystone_sp != {} -%}
+    <Directory /var/www/cgi-bin/keystone>
+        Options Indexes FollowSymLinks MultiViews
+        AllowOverride All
+        Order allow,deny
+        allow from all
+    </Directory>
+    {% endif %}
+
+    {% if keystone_sp_apache_mod_shib -%}
+    ProxyPass /Shibboleth.sso !
+    {% endif -%}
+
+    {% if keystone_security_txt_content is defined %}
+    AliasMatch "^/(.*)/security.txt$" "{{ keystone_security_txt_dir }}/security.txt"
+
+    <Directory "{{ keystone_security_txt_dir }}">
+        Options None
+        AllowOverride None
+        Order allow,deny
+        Allow from all
+    </Directory>
+
+    ProxyPass /security.txt !
+    ProxyPass /.well-known/security.txt !
+    {%- endif %}
+
+    ProxyPass / uwsgi://127.0.0.1:{{ keystone_uwsgi_ports['keystone-wsgi-public']['socket'] }}/
+
+</VirtualHost>

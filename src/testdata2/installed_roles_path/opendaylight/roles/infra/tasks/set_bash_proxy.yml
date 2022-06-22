@@ -1,0 +1,9 @@
+---
+- name: Set proxy in bash profile
+  tags:
+    - proxy
+    - network
+  lineinfile:
+    dest: /root/.profile
+    regexp: '^export http_proxy'
+    line: "export http_proxy={{ lab_http_proxy }}"

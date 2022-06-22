@@ -1,0 +1,85 @@
+---
+# Copyright 2021, City Network International AB
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Create static horizon dir
+  file:
+    path: "{{ item.path }}"
+    state: "directory"
+    owner: "{{ item.owner|default(horizon_system_user_name) }}"
+    group: "{{ item.group|default(horizon_system_group_name) }}"
+  with_items:
+    - { path: "{{ horizon_lib_dir }}/static", mode: "2755" }
+    - { path: "{{ horizon_lib_dir }}/openstack_dashboard", mode: "2755" }
+    - { path: "{{ horizon_lib_dir }}/openstack_dashboard/local", mode: "2755" }
+    - { path: "{{ horizon_lib_dir }}/openstack_dashboard/local/enabled", mode: "2755" }
+
+- name: Registering dashboards
+  find:
+    paths: "{{ horizon_lib_dir }}"
+    patterns: "^.*(dashboard|ui)$"
+    file_type: directory
+    use_regex: yes
+    excludes: "openstack_dashboard"
+    recurse: no
+  register: found_dashboards
+
+- name: Registering panels
+  find:
+    paths: |-
+      {% set dashboard_path = [] %}
+      {% for dashboard in found_dashboards.files %}
+      {%   for path in _dashboard_panels_location %}
+      {%     set _ = dashboard_path.append(dashboard.path + path) %}
+      {%   endfor %}
+      {% endfor %}
+      {{ dashboard_path }}
+    patterns: ["^_[0-9]{2,4}_.*.py$"]
+    file_type: file
+    use_regex: yes
+  register: found_panels
+
+- name: Registering policy files
+  find:
+    paths: |-
+      {% set policy_path = [] %}
+      {% for dashboard in found_dashboards.files %}
+      {%   for path in _dashboard_panels_location %}
+      {%     set _ = policy_path.append(dashboard.path + path) %}
+      {%   endfor %}
+      {% endfor %}
+      {{ policy_path }}
+    patterns: ["^.*_policy.(json|yaml)$"]
+    file_type: file
+    use_regex: yes
+  register: found_policy
+
+- name: Link policy files
+  file:
+    src: "{{ item.path }}"
+    dest: "{{ horizon_lib_dir }}/openstack_dashboard/conf/{{ item.path|basename }}"
+    state: link
+  with_items: "{{ found_policy.files }}"
+  notify:
+    - Compile messages
+
+- name: Enable project panels
+  file:
+    src: "{{ item.path }}"
+    path: "{{ horizon_dashboard_panel_dir }}/{{ item.path|basename }}"
+    state: link
+  with_items: "{{ found_panels.files }}"
+  notify:
+    - Compile messages
+    - Restart apache2

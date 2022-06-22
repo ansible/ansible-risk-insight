@@ -1,0 +1,15 @@
+---
+- include: set_proxies.yml
+  when: lab_http_proxy is defined
+
+- name: Install docker on host system
+  include: install_docker.yml
+
+- name: Update docker registry in /etc/hosts
+  include: update_etc_hosts.yml
+
+- name: Configure docker daemon
+  include: configure_docker_daemon.yml
+
+# vim: set et ts=2 sw=2 ai ft=yaml :
+

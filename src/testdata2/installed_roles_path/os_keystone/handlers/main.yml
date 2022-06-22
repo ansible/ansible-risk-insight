@@ -1,0 +1,108 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Restart web server
+  service:
+    name: "{{ keystone_system_service_name }}"
+    enabled: yes
+    state: restarted
+    daemon_reload: "{{ (ansible_facts['service_mgr'] == 'systemd') | ternary('yes', omit) }}"
+  register: _restart
+  until: _restart is success
+  retries: 5
+  delay: 2
+  listen:
+    - "venv changed"
+
+- name: Wait for web server to complete starting
+  wait_for:
+    host: "{{ keystone_web_server_bind_address }}"
+    port: "{{ item }}"
+    timeout: 25
+    delay: 10
+  with_items:
+    - "{{ keystone_service_port }}"
+  register: _wait_check
+  until: _wait_check is success
+  retries: 5
+  listen:
+    - "venv changed"
+    - "Restart web server"
+
+- name: Stop uWSGI
+  service:
+    name: "{{ item }}"
+    state: "stopped"
+    daemon_reload: "{{ (ansible_facts['service_mgr'] == 'systemd') | ternary('yes', omit) }}"
+  register: _stop
+  until: _stop is success
+  retries: 5
+  delay: 2
+  with_items: "{{ keystone_services.keys() | list }}"
+  listen:
+    - "venv changed"
+    - "Restart uWSGI"
+
+- name: Start uWSGI
+  service:
+    name: "{{ item }}"
+    enabled: yes
+    state: "started"
+    daemon_reload: "{{ (ansible_facts['service_mgr'] == 'systemd') | ternary('yes', omit) }}"
+  register: _start
+  until: _start is success
+  retries: 5
+  delay: 2
+  with_items: "{{ keystone_services.keys() | list }}"
+  listen:
+    - "venv changed"
+    - "Restart uWSGI"
+
+- name: Wait for uWSGI socket to be ready
+  wait_for:
+    port: "{{ item }}"
+    timeout: 25
+    delay: 10
+  with_items:
+    - "{{ keystone_uwsgi_ports['keystone-wsgi-public']['socket'] }}"
+  register: _wait_check
+  until: _wait_check is success
+  retries: 5
+  listen:
+    - "venv changed"
+    - "Restart uWSGI"
+
+- name: Restart Shibd
+  service:
+    name: "shibd"
+    enabled: yes
+    state: "restarted"
+    daemon_reload: "{{ (ansible_facts['service_mgr'] == 'systemd') | ternary('yes', omit) }}"
+  register: _restart
+  until: _restart is success
+  retries: 5
+  delay: 2
+
+- name: Flush all of the cache in memcached
+  vars:
+    nc_command:
+      debian: nc -q 1 $(awk '/^\-l/ {print $2}' "/etc/memcached.conf" | awk -F, '{print $1}') $(awk '/^\-p/ {print $2}' "/etc/memcached.conf")
+      redhat: nc $(awk -F '-l' '/^OPTIONS/ {print $2}' "/etc/sysconfig/memcached" | awk -F ',' '{gsub(/"/, "", $1); print $1}' | awk -F '-' '{print $1}') 11211
+  shell: "echo 'flush_all' | {{ nc_command.get(ansible_facts['os_family'] | lower) }}"
+  delegate_to: "{{ item }}"
+  with_items: "{{ groups.memcached_all }}"
+  listen: flush cache
+  when:
+    - keystone_flush_memcache | bool

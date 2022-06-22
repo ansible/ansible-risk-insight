@@ -1,0 +1,5 @@
+---
+deprecations:
+  - The variable ``tempest_public_net_physical_type`` will be
+    removed by Train release in the favor of
+    ``tempest_public_net_physical_name``.

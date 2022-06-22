@@ -1,0 +1,93 @@
+---
+# Copyright 2016, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Run functional tests
+  hosts: rabbitmq_all
+  any_errors_fatal: true
+  user: root
+  gather_facts: true
+  become: true
+  tasks:
+    - name: Check rabbitmq is running
+      command: "pgrep -f rabbit"
+      delegate_to: "{{ item }}"
+      when: ansible_host == item
+      with_items:
+        - 10.1.0.2
+        - 10.1.0.3
+        - 10.1.0.4
+
+    - name: Open rabbitmq.config
+      slurp:
+        src: "/etc/rabbitmq/rabbitmq.config"
+      register: rabbitmq_config
+
+    - name: Open enabled_plugins
+      slurp:
+        src: "/etc/rabbitmq/enabled_plugins"
+      register: enabled_plugins
+
+    - name: Read rabbitmq_ssl_cert
+      stat:
+        path: "{{ rabbitmq_ssl_cert }}"
+      register: rabbitmq_ssl_cert_stat
+
+    - name: Read rabbitmq_ssl_key
+      stat:
+        path: "{{ rabbitmq_ssl_key }}"
+      register: rabbitmq_ssl_key_stat
+
+    - name: Read rabbit files
+      set_fact:
+        enabled_plugins_contents: "{{ enabled_plugins.content | b64decode }}"
+        rabbitmq_config_contents: "{{ rabbitmq_config.content | b64decode }}"
+        rabbitmq_ssl_cert_checksum: "{{ rabbitmq_ssl_cert_stat.stat.checksum }}"
+        rabbitmq_ssl_key_checksum: "{{ rabbitmq_ssl_key_stat.stat.checksum }}"
+
+    - name: Check files contents
+      assert:
+        that:
+          - "'rabbitmq_management' in enabled_plugins_contents"
+
+    - name: Get status of rabbitmq
+      command: rabbitmqctl status
+      register: rabbitmqctl_status
+      changed_when: false
+
+    - name: Print rabbitmqctl status
+      debug:
+        var: rabbitmqctl_status
+
+    - name: Ensure SSL cert/key checksums are identical across cluster
+      assert:
+        that:
+          - hostvars['container1']['rabbitmq_ssl_cert_checksum'] == hostvars['container2']['rabbitmq_ssl_cert_checksum']
+          - hostvars['container2']['rabbitmq_ssl_cert_checksum'] == hostvars['container3']['rabbitmq_ssl_cert_checksum']
+          - hostvars['container1']['rabbitmq_ssl_key_checksum'] == hostvars['container2']['rabbitmq_ssl_key_checksum']
+          - hostvars['container2']['rabbitmq_ssl_key_checksum'] == hostvars['container3']['rabbitmq_ssl_key_checksum']
+
+    - name: Get the policy list
+      command: rabbitmqctl -q list_policies
+      register: rabbitmq_policies_output
+      changed_when: false
+
+    - name: Show the policies
+      debug:
+        var: rabbitmq_policies.stdout
+
+    # Expected policy: "/       HA      all     ^(?!amq\\.).*   {"ha-mode":"all"}       0"
+    - name: Validate that the expected policies are present
+      assert:
+        that: rabbitmq_policies_output.stdout is search("amq")

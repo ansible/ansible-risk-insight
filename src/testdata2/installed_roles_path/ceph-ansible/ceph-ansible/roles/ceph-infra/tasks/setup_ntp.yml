@@ -1,0 +1,66 @@
+---
+- name: set ntp service and chrony daemon name for Debian family
+  set_fact:
+    chrony_daemon_name: chrony
+    ntp_service_name: ntp
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: set ntp service and chrony daemon name for RedHat and Suse family
+  set_fact:
+    chrony_daemon_name: chronyd
+    ntp_service_name: ntpd
+  when: ansible_facts['os_family'] in ['RedHat', 'Suse']
+
+# Installation of NTP daemons needs to be a separate task since installations
+# can't happen on Atomic
+- name: install the ntp daemon
+  when: not is_atomic | bool
+  block:
+    - name: install ntpd
+      package:
+        name: ntp
+        state: present
+      register: result
+      until: result is succeeded
+      when: ntp_daemon_type == "ntpd"
+
+    - name: install chrony
+      package:
+        name: chrony
+        state: present
+      register: result
+      until: result is succeeded
+      when: ntp_daemon_type == "chronyd"
+
+- name: enable the ntp daemon and disable the rest
+  block:
+    - name: enable timesyncing on timesyncd
+      command: timedatectl set-ntp on
+      notify:
+        - disable ntpd
+        - disable chronyd
+      when: ntp_daemon_type == "timesyncd"
+
+    - name: disable time sync using timesyncd if we are not using it
+      command: timedatectl set-ntp no
+      when: ntp_daemon_type != "timesyncd"
+
+    - name: enable ntpd
+      service:
+        name: "{{ ntp_service_name }}"
+        enabled: yes
+        state: started
+      notify:
+        - disable chronyd
+        - disable timesyncd
+      when: ntp_daemon_type == "ntpd"
+
+    - name: enable chronyd
+      service:
+        name: "{{ chrony_daemon_name }}"
+        enabled: yes
+        state: started
+      notify:
+        - disable ntpd
+        - disable timesyncd
+      when: ntp_daemon_type == "chronyd"

@@ -1,0 +1,34 @@
+---
+- name: include common.yml
+  include_tasks: common.yml
+
+- name: include_tasks pre_requisite.yml
+  include_tasks: pre_requisite.yml
+  when: not containerized_deployment | bool
+
+- name: rgw pool creation tasks
+  include_tasks: rgw_create_pools.yml
+  run_once: true
+  when: rgw_create_pools is defined
+
+- name: include_tasks openstack-keystone.yml
+  include_tasks: openstack-keystone.yml
+  when: radosgw_keystone_ssl | bool
+
+- name: include_tasks start_radosgw.yml
+  include_tasks: start_radosgw.yml
+  when:
+    - not rgw_multisite | bool
+    - not containerized_deployment | bool
+
+- name: include start_docker_rgw.yml
+  include_tasks: start_docker_rgw.yml
+  when:
+    - not rgw_multisite | bool
+    - containerized_deployment | bool
+
+- name: include_tasks multisite/main.yml
+  include_tasks: multisite/main.yml
+  when:
+    - rgw_multisite | bool
+    - not multisite_called_from_handler_role | default(False) | bool

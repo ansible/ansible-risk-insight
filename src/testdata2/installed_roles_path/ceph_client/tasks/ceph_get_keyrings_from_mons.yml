@@ -1,0 +1,67 @@
+---
+# Copyright 2015, Serge van Ginderachter <serge@vanginderachter.be>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+## Ceph client keyrings
+
+#TODO: also be able to create users, keys and pools on ceph
+- name: Retrieve keyrings for openstack clients
+  # the first get makes sure the client exists, so the second only runs when it
+  # exists, the trick is the different output of both, the second has the right
+  # output to put in a keyring; ceph admin should have already created the user
+  shell: ceph auth get client.{{ item }} >/dev/null && ceph auth get-or-create client.{{ item }}
+  with_items: "{{ ceph_client_filtered_clients }}"
+  changed_when: false
+  delegate_to: '{{ ceph_mon_host }}'
+  register: ceph_client_keyrings
+  until: ceph_client_keyrings is success
+  retries: 3
+  tags:
+    - ceph-config
+    - always
+
+- name: Provision ceph client keyrings
+  # TODO: do we really need a template for this? what's the added value compare to
+  # ceph get-or-create ... ... -o file?
+  template:
+    src:      ceph.client.keyring.j2
+    dest:     /etc/ceph/ceph.client.{{ item.item }}.keyring
+    backup:   true
+    owner:    root
+    # TODO
+    group:    "{{ cephkeys_access_group }}"
+    # ideally the permission will be: 0600 and the owner/group will be either
+    # glance , nova or cinder. For keys that require access by different users
+    # (the cinder one) we should probably create a group 'cephkeys' and add
+    # nova/cinder to it.
+    # If I'm correct, the use case for multiple users is on the computre nodes,
+    # access needed by users libvirt-qemu and nova
+    mode:     0640
+  with_items: "{{ ceph_client_keyrings.results }}"
+  when:
+    - not item is skipped
+  notify:
+    - Restart os services
+
+## Ceph nova client libvirt secret
+- name: Retrieve nova secret from cephcluster
+  command: ceph auth get-key client.{{ nova_ceph_client }}
+  when:
+    - inventory_hostname in groups.nova_compute
+  changed_when: false
+  delegate_to: '{{ ceph_mon_host }}'
+  register: ceph_nova_secret
+  tags:
+    - always
+

@@ -1,0 +1,9 @@
+---
+- hosts: all
+  gather_facts: true
+  tasks:
+    - name: reboot the machines
+      reboot:
+        reboot_timeout: 180
+        test_command: uptime
+      become: yes

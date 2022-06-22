@@ -1,0 +1,87 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Synchronize the nova API DB schema
+  command: "{{ nova_bin }}/nova-manage api_db sync"
+  become: yes
+  become_user: "{{ nova_system_user_name }}"
+  changed_when: false
+
+# This is idempotent and therefore safe for greenfield
+# and brownfield installations.
+- name: Create the cell0 mapping entry in the nova API DB
+  command: >-
+    {{ nova_bin }}/nova-manage cell_v2 map_cell0
+      --database_connection mysql+pymysql://{{ nova_api_galera_user }}:{{ nova_api_container_mysql_password }}@{{ nova_api_galera_address }}/{{ nova_cell0_database }}?charset=utf8
+  become: yes
+  become_user: "{{ nova_system_user_name }}"
+  changed_when: false
+
+- name: Synchronize the nova DB schema
+  command: "{{ nova_bin }}/nova-manage db sync"
+  become: yes
+  become_user: "{{ nova_system_user_name }}"
+  changed_when: false
+
+- name: Perform online data migrations
+  command: "{{ nova_bin }}/nova-manage db online_data_migrations"
+  become: yes
+  become_user: "{{ nova_system_user_name }}"
+  when:
+    - "(nova_all_software_updated | default('no')) | bool"
+    - "ansible_local['openstack_ansible']['nova']['need_online_data_migrations'] | bool"
+  changed_when: false
+  register: data_migrations
+
+- name: Disable the online migrations requirement
+  ini_file:
+    dest: "/etc/ansible/facts.d/openstack_ansible.fact"
+    section: nova
+    option: need_online_data_migrations
+    value: False
+  when:
+    - data_migrations is not skipped
+    - data_migrations is succeeded
+
+# We need to check for existance of the cell, since nova-manage cell_v2 create_cell
+# might be not idempotent due to the bug https://bugs.launchpad.net/nova/+bug/1923899
+- name: Get UUID of new Nova Cell
+  shell: "{{ nova_bin }}/nova-manage cell_v2 list_cells | grep ' {{ nova_cell1_name }} '"
+  become: yes
+  become_user: "{{ nova_system_user_name }}"
+  changed_when: false
+  failed_when: false
+  register: _cell_uuid
+
+- name: Create the cell1 mapping entry in the nova API DB
+  command: >-
+    {{ nova_bin }}/nova-manage cell_v2 create_cell
+      --name {{ nova_cell1_name }}
+      --database_connection {scheme}://{username}:{password}@{hostname}:{port}/{path}?{query}
+      --transport-url {scheme}://{username}:{password}@{hostname}:{port}//{path}?{query}
+  become: yes
+  become_user: "{{ nova_system_user_name }}"
+  register: nova_cell1_create
+  # When upgrading, cell1 will already exist and nova-manage will
+  # give a return code of 2, so we therefore know that if the
+  # return code is:
+  # 0: the cell mapping record in the nova API database was
+  #    successfully implemented (greenfield install)
+  # 2: the cell mapping record in the nova API database already
+  #    exists (brownfield install). This is not working for templates
+  #    because of the bug https://bugs.launchpad.net/nova/+bug/1923899
+  failed_when: "nova_cell1_create.rc not in [0, 2]"
+  changed_when: "nova_cell1_create.rc == 0"
+  when: "_cell_uuid.rc == 1"

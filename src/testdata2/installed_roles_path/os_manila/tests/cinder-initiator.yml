@@ -1,0 +1,18 @@
+---
+- name: Set iSCSI InitiatorName
+  hosts: storage1
+  remote_user: root
+  gather_facts: false
+  any_errors_fatal: true
+  tasks:
+    - name: Get iSCSI InitiatorName
+      command: /usr/sbin/iscsi-iname
+      register: initiator_name
+      tags:
+        - skip_ansible_lint
+
+    - name: Write iSCSI InitiatorName
+      lineinfile:
+        path: /etc/iscsi/initiatorname.iscsi
+        regexp: '^InitiatorName='
+        line: "InitiatorName={{ initiator_name.stdout }}"

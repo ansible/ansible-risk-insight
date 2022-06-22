@@ -1,0 +1,19 @@
+---
+- name: get current default crush rule details
+  ceph_crush_rule:
+    name: null
+    cluster: "{{ cluster }}"
+    state: info
+  environment:
+    CEPH_CONTAINER_IMAGE: "{{ ceph_docker_registry + '/' + ceph_docker_image + ':' + ceph_docker_image_tag if containerized_deployment | bool else None }}"
+    CEPH_CONTAINER_BINARY: "{{ container_binary }}"
+  register: default_crush_rule_details
+  delegate_to: "{{ delegated_node | default(groups[mon_group_name][0]) }}"
+  run_once: true
+
+- name: get current default crush rule name
+  set_fact:
+    ceph_osd_pool_default_crush_rule_name: "{{ item.rule_name }}"
+  with_items: "{{ default_crush_rule_details.stdout | default('{}', True) | from_json }}"
+  run_once: True
+  when: item.rule_id | int == osd_pool_default_crush_rule | int

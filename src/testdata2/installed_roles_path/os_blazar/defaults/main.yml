@@ -1,0 +1,158 @@
+---
+# Copyright 2018, taseer94@gmail.com
+# All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Set the host which will execute the shade modules
+# for the service setup. The host must already have
+# clouds.yaml properly configured.
+blazar_service_setup_host: "{{ openstack_service_setup_host | default('localhost') }}"
+blazar_service_setup_host_python_interpreter: "{{ openstack_service_setup_host_python_interpreter | default((blazar_service_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable'])) }}"
+
+blazar_package_state: "{{ package_state | default('latest') }}"
+
+blazar_git_repo: https://opendev.org/openstack/blazar
+blazar_git_install_branch: master
+blazar_upper_constraints_url: "{{ requirements_git_url | default('https://releases.openstack.org/constraints/upper/' ~ requirements_git_install_branch | default('master')) }}"
+
+# Enable/Disable Ceilometer
+blazar_ceilometer_enabled: "{{ (groups['ceilometer_all'] is defined) and (groups['ceilometer_all'] | length > 0) }}"
+
+blazar_pip_install_args: "{{ pip_install_options | default('') }}"
+
+blazar_venv_tag: "{{ venv_tag | default('untagged') }}"
+blazar_bin: "/openstack/venvs/blazar-{{ blazar_venv_tag }}/bin"
+
+blazar_etc_dir: /etc/blazar
+blazar_config_option: "--config-file {{ blazar_etc_dir }}/blazar.conf"
+
+## Common PIP requirements
+blazar_pip_packages:
+  - "git+{{ blazar_git_repo }}@{{ blazar_git_install_branch }}#egg=blazar"
+  - blazar-nova
+  - osprofiler
+  - pymysql
+  - python-blazarclient
+  - systemd-python
+
+## blazar constraints
+blazar_git_constraints:
+  - "--constraint {{ blazar_upper_constraints_url }}"
+
+## System info
+blazar_system_user_name: blazar
+blazar_system_group_name: blazar
+blazar_system_shell: /bin/false
+blazar_system_comment: blazar system user
+blazar_system_user_home: "/var/lib/{{ blazar_system_user_name }}"
+
+## Database credentials
+blazar_db_setup_host: "{{ openstack_db_setup_host | default('localhost') }}"
+blazar_db_setup_python_interpreter: "{{ openstack_db_setup_python_interpreter | default((blazar_db_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable'])) }}"
+blazar_galera_address: "{{ galera_address | default('127.0.0.1') }}"
+blazar_galera_database: blazar
+blazar_galera_user: blazar
+blazar_galera_use_ssl: "{{ galera_use_ssl | default(False) }}"
+blazar_galera_ssl_ca_cert: "{{ galera_ssl_ca_cert | default('') }}"
+blazar_galera_port: "{{ galera_port | default('3306') }}"
+blazar_db_max_overflow: "{{ openstack_db_max_overflow | default('50') }}"
+blazar_db_max_pool_size: "{{ openstack_db_max_pool_size | default('5') }}"
+blazar_db_pool_timeout: "{{ openstack_db_pool_timeout | default('30') }}"
+blazar_db_connection_recycle_time: "{{ openstack_db_connection_recycle_time | default('600') }}"
+
+## Service Type and Data
+blazar_service_name: blazar
+blazar_service_region: "{{ service_region | default('RegionOne') }}"
+blazar_service_proto: http
+blazar_service_type: policy
+blazar_service_description: "blazar service"
+blazar_service_publicuri: "{{ blazar_service_publicuri_proto }}://{{ external_lb_vip_address }}:{{ blazar_service_port }}"
+blazar_service_publicurl: "{{ blazar_service_publicuri }}"
+blazar_service_internaluri: "{{ blazar_service_internaluri_proto }}://{{ internal_lb_vip_address }}:{{ blazar_service_port }}"
+blazar_service_internalurl: "{{ blazar_service_internaluri }}"
+blazar_service_adminuri: "{{ blazar_service_adminuri_proto }}://{{ internal_lb_vip_address }}:{{ blazar_service_port }}"
+blazar_service_adminurl: "{{ blazar_service_adminuri }}"
+blazar_service_registry_proto: "{{ blazar_service_proto }}"
+blazar_service_publicuri_proto: "{{ openstack_service_publicuri_proto | default(blazar_service_proto) }}"
+blazar_service_adminuri_proto: "{{ openstack_service_adminuri_proto | default(blazar_service_proto) }}"
+blazar_service_internaluri_proto: "{{ openstack_service_internaluri_proto | default(blazar_service_proto) }}"
+
+## Service name
+blazar_services:
+  blazar-api:
+    group: blazar_all
+    service_name: blazar-api
+    execstarts: "{{ blazar_bin }}/blazar-api {{ blazar_config_option }}"
+    init_config_overrides: "{{ blazar_api_init_config_overrides }}"
+    start_order: 1
+  blazar-manager:
+    group: blazar_all
+    service_name: blazar-manager
+    execstarts: "{{ blazar_bin }}/blazar-manager {{ blazar_config_option }}"
+    init_config_overrides: "{{ blazar_manager_init_config_overrides }}"
+    start_order: 2
+
+## Keystone
+blazar_service_project_domain_id: default
+blazar_service_project_name: service
+blazar_service_user_domain_id: default
+blazar_service_user_name: blazar
+blazar_service_role_names:
+  - admin
+  - service
+blazar_service_token_roles:
+  - service
+blazar_service_token_roles_required: "{{ openstack_service_token_roles_required | default(True) }}"
+blazar_keystone_auth_plugin: password
+
+blazar_service_in_ldap: "{{ service_ldap_backend_enabled | default(False) }}"
+
+## Oslo Messaging
+blazar_messaging_enabled: true
+
+# RPC
+blazar_oslomsg_rpc_host_group: "{{ oslomsg_rpc_host_group | default('rabbitmq_all') }}"
+blazar_oslomsg_rpc_setup_host: "{{ (blazar_oslomsg_rpc_host_group in groups) | ternary(groups[blazar_oslomsg_rpc_host_group][0], 'localhost') }}"
+blazar_oslomsg_rpc_transport: "{{ oslomsg_rpc_transport | default('rabbit') }}"
+blazar_oslomsg_rpc_servers: "{{ oslomsg_rpc_servers | default('127.0.0.1') }}"
+blazar_oslomsg_rpc_port: "{{ oslomsg_rpc_port | default('5672') }}"
+blazar_oslomsg_rpc_use_ssl: "{{ oslomsg_rpc_use_ssl | default(False) }}"
+blazar_oslomsg_rpc_userid: blazar
+blazar_oslomsg_rpc_vhost: /blazar
+blazar_oslomsg_rpc_ssl_version: "{{ oslomsg_rpc_ssl_version | default('TLSv1_2') }}"
+blazar_oslomsg_rpc_ssl_ca_file: "{{ oslomsg_rpc_ssl_ca_file | default('') }}"
+
+# Notify
+blazar_oslomsg_notify_host_group: "{{ oslomsg_notify_host_group | default('rabbitmq_all') }}"
+blazar_oslomsg_notify_setup_host: "{{ (blazar_oslomsg_notify_host_group in groups) | ternary(groups[blazar_oslomsg_notify_host_group][0], 'localhost') }}"
+blazar_oslomsg_notify_transport: "{{ oslomsg_notify_transport | default('rabbit') }}"
+blazar_oslomsg_notify_servers: "{{ oslomsg_notify_servers | default('127.0.0.1') }}"
+blazar_oslomsg_notify_port: "{{ oslomsg_notify_port | default('5672') }}"
+blazar_oslomsg_notify_use_ssl: "{{ oslomsg_notify_use_ssl | default(False) }}"
+blazar_oslomsg_notify_userid: "{{ blazar_oslomsg_rpc_userid }}"
+blazar_oslomsg_notify_vhost: "{{ blazar_oslomsg_rpc_vhost }}"
+blazar_oslomsg_notify_password: "{{ blazar_oslomsg_rpc_password }}"
+blazar_oslomsg_notify_ssl_version: "{{ oslomsg_notify_ssl_version | default('TLSv1_2') }}"
+blazar_oslomsg_notify_ssl_ca_file: "{{ oslomsg_notify_ssl_ca_file | default('') }}"
+
+blazar_bind_address: "{{ openstack_service_bind_address | default('0.0.0.0') }}"
+blazar_service_port: 1234
+blazar_program_name: blazar-server
+
+## Tunable overrides
+blazar_blazar_api_paste_ini_overrides: {}
+blazar_policy_overrides: {}
+blazar_blazar_conf_overrides: {}
+blazar_api_init_config_overrides: {}
+blazar_manager_init_config_overrides: {}

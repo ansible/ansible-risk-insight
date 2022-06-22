@@ -1,0 +1,66 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+component_skel:
+  cinder_api:
+    belongs_to:
+      - cinder_all
+  cinder_scheduler:
+    belongs_to:
+      - cinder_all
+  cinder_volume:
+    belongs_to:
+      - cinder_all
+  cinder_backup:
+    belongs_to:
+      - cinder_all
+
+
+container_skel:
+  cinder_api_container:
+    belongs_to:
+      - storage-infra_containers
+    contains:
+      - cinder_api
+      - cinder_scheduler
+  cinder_volumes_container:
+    belongs_to:
+      - storage_containers
+    contains:
+      - cinder_volume
+      - cinder_backup
+    properties:
+# When using LVM or any iSCSI based (see LP#1226855) cinder backends, such as
+# NetApp with iSCSI protocol, it is advised to run cinder-volumes on metal.
+# If you are using a different backend you may want to remove "is_metal: true".
+# Otherwise if cinder-volumes is already running in containers you may want to
+# leave is_metal off, alternatively you will have to migrate your volumes once
+# deployed on metal.
+      is_metal: true
+
+
+physical_skel:
+  storage-infra_containers:
+    belongs_to:
+      - all_containers
+  storage-infra_hosts:
+    belongs_to:
+      - hosts
+  storage_containers:
+    belongs_to:
+      - all_containers
+  storage_hosts:
+    belongs_to:
+      - hosts

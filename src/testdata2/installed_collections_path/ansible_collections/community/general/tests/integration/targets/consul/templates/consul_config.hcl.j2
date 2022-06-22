@@ -1,0 +1,9 @@
+# {{ ansible_managed }}
+server = true
+pid_file = "{{ remote_dir }}/consul.pid"
+ports {
+  http = 8500
+  https = 8501
+}
+key_file = "{{ remote_dir }}/privatekey.pem"
+cert_file = "{{ remote_dir }}/cert.pem"

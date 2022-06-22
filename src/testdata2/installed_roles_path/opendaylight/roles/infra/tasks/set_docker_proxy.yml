@@ -1,0 +1,23 @@
+---
+- name: Ensure systemd drop-in directory exists for docker
+  tags:
+    - docker
+    - daemon
+    - configure
+  file:
+    path: "{{ systemd_docker_dropin_dir }}"
+    state: directory
+    mode: 0755
+
+- name: Configure http_proxy & no_proxy for docker daemon
+  tags:
+    - docker
+    - daemon
+    - configure
+    - network
+  template:
+    src: ../templates/http-proxy.conf.j2
+    dest: "{{ systemd_docker_dropin_dir }}/http-proxy.conf"
+  register: docker_updated_result
+  notify: restart docker
+

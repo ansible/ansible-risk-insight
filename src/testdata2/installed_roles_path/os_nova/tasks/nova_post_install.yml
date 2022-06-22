@@ -1,0 +1,167 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# NOTE(cloudnull) this task is not in dict formation because it is
+#  dynamically loading facts from the nova_virt_types based on the
+#  nova_virt_type setting.
+- name: Set nova config facts
+  set_fact: '{{ item.key }}="{{ item.value }}"'
+  with_dict: "{{ nova_virt_types[nova_virt_type] }}"
+  when:
+    - item.key not in hostvars[inventory_hostname] or item.key is undefined
+  tags:
+    - nova-config
+    - nova-post-install
+
+# NOTE(cloudnull): This task is required to copy rootwrap filters that we need
+#                  and nova does not provide by default.
+- name: Create aux nova dir
+  file:
+    path: "{{ item.path | default(omit) }}"
+    state: "directory"
+    owner: "{{ item.owner|default(nova_system_user_name) }}"
+    group: "{{ item.group|default(nova_system_group_name) }}"
+    mode: "{{ item.mode | default(omit) }}"
+  with_items:
+    - path: "/etc/nova/rootwrap.d"
+      owner: "root"
+      group: "root"
+
+- name: Copy nova rootwrap filter config
+  copy:
+    src: "{{ item }}"
+    dest: "/etc/nova/rootwrap.d/"
+    owner: "root"
+    group: "root"
+  with_fileglob:
+    - rootwrap.d/*
+  notify:
+    - Restart nova services
+    - Restart uwsgi services
+  tags:
+    - nova-config
+    - nova-post-install
+
+- name: Generate nova config
+  openstack.config_template.config_template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "root"
+    group: "{{ item.group|default(nova_system_group_name) }}"
+    mode: "0640"
+    config_overrides: "{{ item.config_overrides }}"
+    config_type: "{{ item.config_type }}"
+  with_items:
+    - src: "nova.conf.j2"
+      dest: "/etc/nova/nova.conf"
+      config_overrides: "{{ nova_nova_conf_overrides }}"
+      config_type: "ini"
+    - src: "vendor_data.json.j2"
+      dest: "/etc/nova/vendor_data.json"
+      config_overrides: "{{ nova_vendor_data_overrides }}"
+      config_type: "json"
+  notify:
+    - Restart nova services
+    - Restart uwsgi services
+  tags:
+    - nova-config
+    - nova-post-install
+
+- name: Implement policy.yaml if there are overrides configured
+  openstack.config_template.config_template:
+    content: "{{ nova_policy_overrides }}"
+    dest: "/etc/nova/policy.yaml"
+    owner: "root"
+    group: "{{ nova_system_group_name }}"
+    mode: "0640"
+    config_type: yaml
+  when:
+    - nova_policy_overrides | length > 0
+  tags:
+    - nova-config
+    - nova-policy-override
+
+- name: Remove legacy policy.yaml file
+  file:
+    path: "/etc/nova/policy.yaml"
+    state: absent
+  when:
+    - nova_policy_overrides | length == 0
+  tags:
+    - nova-config
+    - nova-policy-override
+
+# NOTE(cloudnull): This is using "cp" instead of copy with a remote_source
+#                  because we only want to copy the original files once. and we
+#                  don't want to need multiple tasks.
+- name: Preserve original configuration file(s)
+  command: "cp {{ item.target_f }} {{ item.target_f }}.original"
+  args:
+    creates: "{{ item.target_f }}.original"
+  with_items: "{{ nova_core_files }}"
+
+- name: Fetch override files
+  fetch:
+    src: "{{ item.target_f }}"
+    dest: "{{ item.tmp_f }}"
+    flat: yes
+  changed_when: false
+  run_once: true
+  with_items: "{{ nova_core_files }}"
+
+- name: Copy common config
+  openstack.config_template.config_template:
+    src: "{{ item.tmp_f }}"
+    dest: "{{ item.target_f }}"
+    owner: "root"
+    group: "{{ item.group | default(nova_system_group_name) }}"
+    mode: "0640"
+    config_overrides: "{{ item.config_overrides }}"
+    config_type: "{{ item.config_type }}"
+  with_items: "{{ nova_core_files }}"
+  notify:
+    - Restart nova services
+    - Restart uwsgi services
+
+- name: Cleanup fetched temp files
+  file:
+    path: "{{ item.tmp_f }}"
+    state: absent
+  changed_when: false
+  delegate_to: localhost
+  run_once: true
+  with_items: "{{ nova_core_files }}"
+
+- name: Remove nova-compute config
+  file:
+    path: /etc/nova/nova-compute.conf
+    state: absent
+  notify:
+    - Restart nova services
+    - Restart uwsgi services
+  tags:
+    - nova-config
+    - nova-post-install
+
+- name: Drop sudoers file
+  template:
+    src: "sudoers.j2"
+    dest: "/etc/sudoers.d/{{ nova_system_user_name }}_sudoers"
+    mode: "0440"
+    owner: "root"
+    group: "root"
+  tags:
+    - sudoers
+    - nova-sudoers

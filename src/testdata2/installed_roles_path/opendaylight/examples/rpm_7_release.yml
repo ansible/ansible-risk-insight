@@ -1,0 +1,7 @@
+---
+- hosts: all
+  become: yes
+  roles:
+    - role: opendaylight
+      # Install latest service release of ODL Nitrogen RPM from the CBS repos
+      rpm_repo_url: "https://git.opendaylight.org/gerrit/gitweb?p=integration/packaging.git;a=blob_plain;f=packages/rpm/example_repo_configs/opendaylight-7-release.repo"

@@ -1,0 +1,295 @@
+---
+# Copyright 2016 Internet Solutions (Pty) Ltd
+# Copyright 2017 IBM Corp
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# (c) 2016 Donovan Francesco <donovan.francesco@is.co.za>
+# (c) 2016 Paul Stevens <paul.stevens@is.co.za>
+
+#python venv executable
+trove_venv_python_executable: "{{ openstack_venv_python_executable | default('python3') }}"
+
+# Set the host which will execute the shade modules
+# for the service setup. The host must already have
+# clouds.yaml properly configured.
+trove_service_setup_host: "{{ openstack_service_setup_host | default('localhost') }}"
+trove_service_setup_host_python_interpreter: "{{ openstack_service_setup_host_python_interpreter | default((trove_service_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable'])) }}"
+
+trove_package_state: "{{ package_state | default('latest') }}"
+
+debug: false
+trove_system_group_name: trove
+trove_system_user_name: trove
+trove_system_user_comment: Trove System User
+trove_system_user_shell: /bin/false
+trove_system_user_home: "/var/lib/{{ trove_system_user_name }}"
+trove_log_directory: /var/log/trove
+trove_etc_directory: /etc/trove
+
+trove_service_name: trove
+trove_service_user_name: trove
+trove_service_type: database
+trove_service_description: "OpenStack DBaaS (Trove)"
+trove_service_project_name: service
+trove_service_admin_role_names:
+  - admin
+  - service
+trove_service_token_roles:
+  - service
+trove_service_token_roles_required: "{{ openstack_service_token_roles_required | default(True) }}"
+trove_service_region: "{{ service_region | default('RegionOne') }}"
+trove_service_endpoint_type: internal
+trove_service_host: "{{ openstack_service_bind_address | default('0.0.0.0') }}"
+trove_service_port: 8779
+trove_service_proto: http
+trove_service_publicuri_proto: "{{ openstack_service_publicuri_proto | default(trove_service_proto) }}"
+trove_service_internaluri_proto: "{{ openstack_service_internaluri_proto | default(trove_service_proto) }}"
+trove_service_adminuri_proto: "{{ openstack_service_adminuri_proto | default(trove_service_proto) }}"
+trove_service_publicurl: "{{ trove_service_publicuri_proto }}://{{ external_lb_vip_address }}:{{ trove_service_port }}/v1.0/%(tenant_id)s"
+trove_service_internalurl: "{{ trove_service_internaluri_proto }}://{{ internal_lb_vip_address }}:{{ trove_service_port }}/v1.0/%(tenant_id)s"
+trove_service_adminurl: "{{ trove_service_adminuri_proto }}://{{ internal_lb_vip_address }}:{{ trove_service_port }}/v1.0/%(tenant_id)s"
+trove_auth_url: "{{ keystone_service_internalurl }}"
+
+trove_service_in_ldap: "{{ service_ldap_backend_enabled | default(False) }}"
+
+trove_profiler_enabled: false
+
+## Cap the maximum number of threads / workers when a user value is unspecified.
+trove_api_workers_max: 16
+trove_api_workers: "{{ [[(ansible_facts['processor_vcpus']//ansible_facts['processor_threads_per_core'])|default(1), 1] | max * 2, trove_api_workers_max] | min }}"
+
+# uWSGI settings
+trove_wsgi_threads: 1
+trove_use_uwsgi: True
+
+## Cap the maximum number of threads / workers when a user value is unspecified.
+trove_conductor_workers_max: 16
+trove_conductor_workers: "{{ [[(ansible_facts['processor_vcpus']//ansible_facts['processor_threads_per_core'])|default(1), 1] | max * 2, trove_conductor_workers_max] | min }}"
+
+# Enable/Disable Ceilometer
+trove_ceilometer_enabled: "{{ (groups['ceilometer_all'] is defined) and (groups['ceilometer_all'] | length > 0) }}"
+
+trove_pip_install_args: "{{ pip_install_options | default('') }}"
+
+# Name of the virtual env to deploy into
+trove_venv_tag: "{{ venv_tag | default('untagged') }}"
+trove_bin: "/openstack/venvs/trove-{{ trove_venv_tag }}/bin"
+
+trove_git_repo: "https://opendev.org/openstack/trove"
+trove_git_install_branch: master
+trove_upper_constraints_url: "{{ requirements_git_url | default('https://releases.openstack.org/constraints/upper/' ~ requirements_git_install_branch | default('master')) }}"
+trove_git_constraints:
+  - "--constraint {{ trove_upper_constraints_url }}"
+
+# Database vars
+trove_db_setup_host: "{{ openstack_db_setup_host | default('localhost') }}"
+trove_db_setup_python_interpreter: "{{ openstack_db_setup_python_interpreter | default((trove_db_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable'])) }}"
+trove_galera_address: "{{ galera_address | default('127.0.0.1') }}"
+trove_galera_database_name: trove
+trove_galera_user: trove
+trove_galera_use_ssl: "{{ galera_use_ssl | default(False) }}"
+trove_galera_ssl_ca_cert: "{{ galera_ssl_ca_cert | default('') }}"
+trove_galera_port: "{{ galera_port | default('3306') }}"
+trove_galera_connection_string: "mysql+pymysql://{{ trove_galera_user}}:{{ trove_galera_password }}@{{ trove_galera_address }}:{{ trove_galera_port }}/{{ trove_galera_database_name }}?charset=utf8{% if trove_galera_use_ssl | bool %}&ssl_verify_cert=true{% if trove_galera_ssl_ca_cert | length > 0 %}&ssl_ca={{ trove_galera_ssl_ca_cert }}{% endif %}{% endif %}"
+trove_db_max_overflow: "{{ openstack_db_max_overflow | default('50') }}"
+trove_db_max_pool_size: "{{ openstack_db_max_pool_size | default('5') }}"
+trove_db_pool_timeout: "{{ openstack_db_pool_timeout | default('30') }}"
+trove_db_connection_recycle_time: "{{ openstack_db_connection_recycle_time | default('600') }}"
+
+## Oslo Messaging vars
+# RPC
+trove_oslomsg_rpc_host_group: "{{ oslomsg_rpc_host_group | default('rabbitmq_all') }}"
+trove_oslomsg_rpc_setup_host: "{{ (trove_oslomsg_rpc_host_group in groups) | ternary(groups[trove_oslomsg_rpc_host_group][0], 'localhost') }}"
+trove_oslomsg_rpc_transport: "{{ oslomsg_rpc_transport | default('rabbit') }}"
+trove_oslomsg_rpc_servers: "{{ oslomsg_rpc_servers | default('127.0.0.1') }}"
+trove_oslomsg_rpc_port: "{{ oslomsg_rpc_port | default('5672') }}"
+trove_oslomsg_rpc_use_ssl: "{{ oslomsg_rpc_use_ssl | default(False) }}"
+trove_oslomsg_rpc_userid: trove
+trove_oslomsg_rpc_vhost: /trove
+
+# Notify
+trove_oslomsg_notify_host_group: "{{ oslomsg_notify_host_group | default('rabbitmq_all') }}"
+trove_oslomsg_notify_setup_host: "{{ (trove_oslomsg_notify_host_group in groups) | ternary(groups[trove_oslomsg_notify_host_group][0], 'localhost') }}"
+trove_oslomsg_notify_transport: "{{ oslomsg_notify_transport | default('rabbit') }}"
+trove_oslomsg_notify_servers: "{{ oslomsg_notify_servers | default('127.0.0.1') }}"
+trove_oslomsg_notify_port: "{{ oslomsg_notify_port | default('5672') }}"
+trove_oslomsg_notify_use_ssl: "{{ oslomsg_notify_use_ssl | default(False) }}"
+trove_oslomsg_notify_userid: "{{ trove_oslomsg_rpc_userid }}"
+trove_oslomsg_notify_password: "{{ trove_oslomsg_rpc_password }}"
+trove_oslomsg_notify_vhost: "{{ trove_oslomsg_rpc_vhost }}"
+
+## Qdrouterd integration
+# TODO(ansmith): Change structure when more backends will be supported
+trove_oslomsg_amqp1_enabled: "{{ trove_oslomsg_rpc_transport == 'amqp' }}"
+
+# Specific pip packages provided by the user
+trove_user_pip_packages: []
+
+# Rabbit vars
+trove_control_exchange: trove
+trove_rabbit_notification_topic: notification
+
+# The trove guest agent in the deployed DB VMs need access to OpenStack services (keystone, swift, etc)
+# and also to rabbitmq. The way it gets access (networking) these services may differ.
+# By default assume:
+#   OpenStack services are accesses through public interfaces
+#   Infrastructure services (rabbitmq) are accessed through the defined provider network.
+#
+# The value of 'net_name' field of the provider network network to use for infrastructure services
+trove_provider_net_name: dbaas-mgmt
+trove_provider_network: "{{ provider_networks|map(attribute='network')|selectattr('net_name','defined')|selectattr('net_name', 'equalto', trove_provider_net_name)|list|first }}"
+# The name of the network interface
+trove_provider_net_iface: "{{ (is_metal | bool) | ternary(trove_provider_network['container_bridge'], trove_provider_network['container_interface']) }}"
+trove_guest_endpoint_type: public
+trove_guest_rpc_host_group: "{{ oslomsg_rpc_host_group | default('rabbitmq_all') }}"
+trove_guest_oslomsg_rpc_servers: "{{ groups[trove_guest_rpc_host_group] | map('extract', hostvars, 'ansible_facts') | map(attribute=trove_provider_net_iface | replace('-','_')) | map(attribute='ipv4.address') | join(',') }}"
+trove_guest_oslomsg_rpc_use_ssl: "{{ oslomsg_rpc_use_ssl | default(False) }}"
+trove_guest_notify_host_group: "{{ oslomsg_notify_host_group | default('rabbitmq_all') }}"
+trove_guest_oslomsg_notify_servers:  "{{ groups[trove_guest_notify_host_group] | map('extract', hostvars, 'ansible_facts') | map(attribute=trove_provider_net_iface | replace('-','_')) | map(attribute='ipv4.address') | join(',') }}"
+trove_guest_oslomsg_notify_use_ssl: "{{ oslomsg_notify_use_ssl | default(False) }}"
+
+# Trove image settings.
+# Set the directory where the downloaded images will be stored
+# on the trove_service_setup_host host. If the host is localhost,
+# then the user running the playbook must have access to it.
+trove_image_local_path: "{{ lookup('env', 'HOME') }}/openstack-ansible/trove"
+trove_image_path_owner: "{{ lookup('env', 'USER') }}"
+## Example Glance Image - Fedora Atomic
+#  - name: ubuntu-bionic                #Name of the image in Glance
+#    disk_format: qcow2                 #Disk format (e.g. qcow2)
+#    image_format: bare                 #Image format
+#    public: true                       #Boolean - is the image public
+#    file: https://tarballs.opendev.org/openstack/trove/images/trove-master-guest-ubuntu-bionic.qcow2
+#    tags:
+#      - trove
+#    checksum: "sha256:9a5252e24b82a5edb1ce75b05653f59895685b0f1028112462e908a12deae518"
+trove_guestagent_images: []
+
+# For OpenStack services that have public, admin, and internal access, use the public ones for the guest VMs.
+trove_guest_auth_url: "{{ keystone_service_publicurl }}"
+trove_guest_swift_url: "{{ trove_service_publicuri_proto }}://{{ external_lb_vip_address }}:{{ swift_proxy_port }}/v1/AUTH_"
+
+trove_swift_enabled: "{{ (groups['swift_all'] is defined and groups['swift_all'] | length > 0) or (groups['ceph-rgw'] is defined and groups['ceph-rgw'] | length > 0) or (ceph_rgws is defined and ceph_rgws | length > 0) }}"
+trove_designate_enabled: "{{ (groups['designate_all'] is defined and groups['designate_all'] | length > 0) }}"
+trove_cinder_enabled: "{{ (groups['cinder_volume'] is defined and groups['cinder_volume'] | length > 0) }}"
+
+trove_service_neutron_endpoint_type: "{{ trove_service_endpoint_type }}"
+trove_service_cinder_endpoint_type: "{{ trove_service_endpoint_type }}"
+trove_service_nova_endpoint_type: "{{ trove_service_endpoint_type }}"
+trove_service_glance_endpoint_type: "{{ trove_service_endpoint_type }}"
+trove_service_swift_endpoint_type: "{{ trove_service_endpoint_type }}"
+
+trove_dns_domain_name: 'trove.com.'
+trove_dns_domain_id: '00000000-0000-0000-0000-000000000000'
+# Notification topics for designate.
+trove_notifications_designate: notifications_designate
+
+# Trove service network settings.
+# These values are used when creating an OpenStack network to be used by Trove. By default the network will
+# not be created.
+trove_service_net_setup: False
+trove_service_net_validate_certs: "False"
+trove_service_net_phys_net: dbaas-mgmt
+trove_service_net_type: flat
+trove_service_net_name: dbaas_service_net
+# Network segmentation ID if vlan, gre...
+# trove_service_net_segmentation_id:
+trove_service_subnet_name: dbaas_subnet
+trove_service_net_subnet_cidr: "172.29.252.0/22"
+trove_service_net_dhcp: "True"
+trove_service_net_allocation_pool_start: "172.29.252.110"
+trove_service_net_allocation_pool_end: "172.29.255.254"
+trove_service_net_endpoint_type: "{{ trove_service_endpoint_type }}"
+
+# UUID of security groups that will be attached to the management net of guests
+trove_management_security_groups: []
+
+# RPC encryption keys
+# See the Trove documentation as to the significance of the rpc encryption keys
+# Trove supplies default values but we enforce they not be left to their default values
+trove_enable_secure_rpc_messaging: "True"
+trove_required_secrets:
+  - trove_galera_password
+  - trove_oslomsg_rpc_password
+  - trove_oslomsg_notify_password
+  - trove_service_password
+  - trove_admin_user_password
+  - trove_taskmanager_rpc_encr_key
+  - trove_inst_rpc_key_encr_key
+  - trove_instance_rpc_encr_key
+
+# Keystone AuthToken/Middleware
+trove_keystone_auth_plugin: "{{ trove_keystone_auth_type }}"
+trove_keystone_auth_type: password
+trove_service_project_domain_name: Default
+trove_service_user_domain_name: Default
+trove_service_project_domain_id: default
+trove_service_user_domain_id: default
+
+#Glance images
+trove_glance_images: []
+
+trove_pip_packages:
+  - cryptography
+  - os-client-config
+  - osprofiler
+  - pexpect
+  - PyMySQL
+  - pymemcache
+  - python-troveclient
+  - python-memcached
+  - systemd-python
+  - "git+{{ trove_git_repo }}@{{ trove_git_install_branch }}#egg=trove"
+
+# Memcached override
+trove_memcached_servers: "{{ memcached_servers }}"
+
+trove_optional_oslomsg_amqp1_pip_packages:
+  - oslo.messaging[amqp1]
+
+## Tunable overrides
+trove_config_overrides: {}
+trove_api_paste_ini_overrides: {}
+trove_guestagent_config_overrides: {}
+trove_policy_overrides: {}
+trove_api_init_config_overrides: {}
+trove_api_uwsgi_ini_overrides: {}
+trove_conductor_init_config_overrides: {}
+trove_taskmanager_init_config_overrides: {}
+
+## Service Name-Group Mapping
+trove_services:
+  trove-api:
+    group: trove_api
+    service_name: trove-api
+    execstarts: "{{ trove_bin }}/trove-api"
+    init_config_overrides: "{{ trove_api_init_config_overrides }}"
+    wsgi_app: "{{ trove_use_uwsgi }}"
+    wsgi_name: trove-api-wsgi
+    uwsgi_overrides: "{{ trove_api_uwsgi_ini_overrides }}"
+    uwsgi_bind_address: "{{ trove_service_host }}"
+    uwsgi_port: "{{ trove_service_port }}"
+    start_order: 1
+  trove-conductor:
+    group: trove_conductor
+    service_name: trove-conductor
+    execstarts: "{{ trove_bin }}/trove-conductor"
+    init_config_overrides: "{{ trove_conductor_init_config_overrides }}"
+    start_order: 2
+  trove-taskmanager:
+    group: trove_taskmanager
+    service_name: trove-taskmanager
+    execstarts: "{{ trove_bin }}/trove-taskmanager"
+    init_config_overrides: "{{ trove_taskmanager_init_config_overrides }}"
+    start_order: 3

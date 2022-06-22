@@ -1,0 +1,672 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+## Verbosity Options
+debug: False
+
+# Set the host which will execute the shade modules
+# for the service setup. The host must already have
+# clouds.yaml properly configured.
+keystone_service_setup_host: "{{ openstack_service_setup_host | default('localhost') }}"
+keystone_service_setup_host_python_interpreter: "{{ openstack_service_setup_host_python_interpreter | default((keystone_service_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable'])) }}"
+
+# Set the package install state for distribution packages
+# Options are 'present' and 'latest'
+keystone_package_state: "{{ package_state | default('latest') }}"
+
+# Set installation method.
+keystone_install_method: "{{ service_install_method | default('source') }}"
+keystone_venv_python_executable: "{{ openstack_venv_python_executable | default('python3') }}"
+
+# Centos shibboleth repository options
+keystone_centos_shibboleth_mirror: "http://download.opensuse.org/repositories/security:/shibboleth/CentOS_7/"
+keystone_centos_shibboleth_key: "http://download.opensuse.org/repositories/security:/shibboleth/CentOS_7//repodata/repomd.xml.key"
+
+# Role standard API override this option in the OS variable files
+keystone_shibboleth_repo: {}
+
+keystone_git_repo: https://opendev.org/openstack/keystone
+keystone_git_install_branch: master
+keystone_upper_constraints_url: "{{ requirements_git_url | default('https://releases.openstack.org/constraints/upper/' ~ requirements_git_install_branch | default('master')) }}"
+keystone_git_constraints:
+  - "--constraint {{ keystone_upper_constraints_url }}"
+
+keystone_pip_install_args: "{{ pip_install_options | default('') }}"
+
+# Name of the virtual env to deploy into
+keystone_venv_tag: "{{ venv_tag | default('untagged') }}"
+keystone_bin: "{{ _keystone_bin }}"
+
+keystone_fatal_deprecations: False
+
+## System info
+keystone_system_user_name: keystone
+keystone_system_group_name: keystone
+keystone_system_additional_groups:
+  - ssl_cert
+
+keystone_system_shell: /bin/bash
+keystone_system_comment: keystone system user
+keystone_system_user_home: "/var/lib/{{ keystone_system_user_name }}"
+
+## Drivers
+keystone_auth_methods: "password,token,application_credential"
+keystone_identity_driver: sql
+keystone_token_provider: fernet
+keystone_token_expiration: 43200
+keystone_token_cache_time: 3600
+
+# Set the revocation driver used within keystone.
+keystone_revocation_driver: sql
+keystone_revocation_cache_time: 3600
+keystone_revocation_expiration_buffer: 1800
+
+## Fernet config vars
+keystone_fernet_tokens_key_repository: "/etc/keystone/fernet-keys"
+keystone_fernet_tokens_max_active_keys: 7
+# Any of the following rotation times are valid:
+#   reboot, yearly, annually, monthly, weekly, daily, hourly
+keystone_fernet_rotation: daily
+keystone_fernet_auto_rotation_script: /opt/keystone-fernet-rotate.sh
+
+## Credentials config vars
+keystone_credential_key_repository: /etc/keystone/credential-keys
+# Any of the following rotation times are valid:
+#   reboot, yearly, annually, monthly, weekly, daily, hourly
+keystone_credential_rotation: weekly
+keystone_credential_auto_rotation_script: /opt/keystone-credential-rotate.sh
+
+keystone_assignment_driver: sql
+
+keystone_resource_cache_time: 3600
+keystone_resource_driver: sql
+
+keystone_bind_address: "{{ openstack_service_bind_address | default('0.0.0.0') }}"
+
+## Database info
+keystone_db_setup_host: "{{ openstack_db_setup_host | default('localhost') }}"
+keystone_db_setup_python_interpreter: "{{ openstack_db_setup_python_interpreter | default((keystone_db_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable'])) }}"
+keystone_galera_address: "{{ galera_address | default('127.0.0.1') }}"
+keystone_galera_user: keystone
+keystone_galera_database: keystone
+keystone_galera_port: "{{ galera_port | default('3306') }}"
+keystone_database_connection_string: >-
+  mysql+pymysql://{{ keystone_galera_user }}:{{ keystone_container_mysql_password }}@{{ keystone_galera_address }}:{{keystone_galera_port}}/{{ keystone_galera_database }}?charset=utf8{% if keystone_galera_use_ssl | bool %}&ssl_verify_cert=true{% if keystone_galera_ssl_ca_cert | length > 0 %}&ssl_ca={{ keystone_galera_ssl_ca_cert }}{% endif %}{% endif %}
+## Database SSL
+keystone_galera_use_ssl: "{{ galera_use_ssl | default(False) }}"
+keystone_galera_ssl_ca_cert: "{{ galera_ssl_ca_cert | default('') }}"
+# Database tuning
+keystone_database_enabled: true
+keystone_db_max_overflow: "{{ openstack_db_max_overflow | default('50') }}"
+keystone_db_max_pool_size: "{{ openstack_db_max_pool_size | default('5') }}"
+keystone_db_pool_timeout: "{{ openstack_db_pool_timeout | default('30') }}"
+keystone_db_connection_recycle_time: "{{ openstack_db_connection_recycle_time | default('600') }}"
+
+## Oslo Messaging
+keystone_messaging_enabled: true
+
+# RPC
+keystone_oslomsg_rpc_host_group: "{{ oslomsg_rpc_host_group | default('rabbitmq_all') }}"
+keystone_oslomsg_rpc_setup_host: "{{ (keystone_oslomsg_rpc_host_group in groups) | ternary(groups[keystone_oslomsg_rpc_host_group][0], 'localhost') }}"
+keystone_oslomsg_rpc_transport: "{{ oslomsg_rpc_transport | default('rabbit') }}"
+keystone_oslomsg_rpc_servers: "{{ oslomsg_rpc_servers | default('127.0.0.1') }}"
+keystone_oslomsg_rpc_port: "{{ oslomsg_rpc_port | default('5672') }}"
+keystone_oslomsg_rpc_use_ssl: "{{ oslomsg_rpc_use_ssl | default(False) }}"
+keystone_oslomsg_rpc_userid: keystone
+keystone_oslomsg_rpc_vhost: /keystone
+keystone_oslomsg_rpc_ssl_version: "{{ oslomsg_rpc_ssl_version | default('TLSv1_2') }}"
+keystone_oslomsg_rpc_ssl_ca_file: "{{ oslomsg_rpc_ssl_ca_file | default('') }}"
+
+# Notify
+keystone_oslomsg_notify_host_group: "{{ oslomsg_notify_host_group | default('rabbitmq_all') }}"
+keystone_oslomsg_notify_setup_host: "{{ (keystone_oslomsg_notify_host_group in groups) | ternary(groups[keystone_oslomsg_notify_host_group][0], 'localhost') }}"
+keystone_oslomsg_notify_transport: "{{ oslomsg_notify_transport | default('rabbit') }}"
+keystone_oslomsg_notify_servers: "{{ oslomsg_notify_servers | default('127.0.0.1') }}"
+keystone_oslomsg_notify_port: "{{ oslomsg_notify_port | default('5672') }}"
+keystone_oslomsg_notify_use_ssl: "{{ oslomsg_notify_use_ssl | default(False) }}"
+keystone_oslomsg_notify_userid: "{{ keystone_oslomsg_rpc_userid }}"
+keystone_oslomsg_notify_password: "{{ keystone_oslomsg_rpc_password }}"
+keystone_oslomsg_notify_vhost: "{{ keystone_oslomsg_rpc_vhost }}"
+keystone_oslomsg_notify_ssl_version: "{{ oslomsg_notify_ssl_version | default('TLSv1_2') }}"
+keystone_oslomsg_notify_ssl_ca_file: "{{ oslomsg_notify_ssl_ca_file | default('') }}"
+
+## (Qdrouterd) info
+# TODO(ansmith): Change structure when more backends will be supported
+keystone_oslomsg_amqp1_enabled: "{{ keystone_oslomsg_rpc_transport == 'amqp' }}"
+
+## Role info
+keystone_role_name: admin
+
+## Admin info
+keystone_admin_user_name: admin
+keystone_admin_tenant_name: admin
+keystone_admin_description: Admin Tenant
+
+## Service Type and Data
+keystone_service_setup: true
+keystone_service_region: "{{ service_region | default('RegionOne') }}"
+keystone_service_name: keystone
+keystone_service_port: 5000
+keystone_service_type: identity
+keystone_service_description: "Keystone Identity Service"
+keystone_service_tenant_name: service
+keystone_service_project_description: "OpenStack Services"
+
+keystone_service_proto: http
+keystone_service_publicuri_proto: "{{ openstack_service_publicuri_proto | default(keystone_service_proto) }}"
+keystone_service_adminuri_proto: "{{ openstack_service_adminuri_proto | default(keystone_service_proto) }}"
+keystone_service_internaluri_proto: "{{ openstack_service_internaluri_proto | default(keystone_service_proto) }}"
+
+keystone_service_internaluri_insecure: false
+keystone_service_adminuri_insecure: false
+
+keystone_service_publicuri: "{{ keystone_service_publicuri_proto }}://{{ external_lb_vip_address }}:{{ keystone_service_port }}"
+keystone_service_internaluri: "{{ keystone_service_internaluri_proto }}://{{ internal_lb_vip_address }}:{{ keystone_service_port }}"
+keystone_service_adminuri: "{{ keystone_service_adminuri_proto }}://{{ internal_lb_vip_address }}:{{ keystone_service_port }}"
+
+## Set this value to override the "public_endpoint" keystone.conf variable
+#keystone_public_endpoint: "{{ keystone_service_publicuri }}"
+
+# Apache web server will handle all requests and will act as a
+# reverse proxy to uWSGI. If internal TLS/SSL certificates are configured,
+# they are implemented in this web server's configuration. Using a web server
+# for endpoints is far better for scale and allows the use of additional
+# modules to improve performance or security, leaving uWSGI to only have
+# to be used for running the service.
+#
+keystone_web_server_bind_address: "{{ openstack_service_bind_address | default('0.0.0.0') }}"
+
+## security.txt
+# When security risks in web services are discovered by independent security
+# researchers who understand the severity of the risk, they often lack the
+# channels to disclose them properly. As a result, security issues may be
+# left unreported. security.txt defines a standard to help organizations
+# define the process for security researchers to disclose security
+# vulnerabilities securely. For more information see https://securitytxt.org/
+# This content will be hosted at /security.txt and /.well-known/security.txt
+keystone_security_txt_dir: "/var/www/html"
+# keystone_security_txt_content: |
+#   # Please see https://securitytxt.org/ for details of the specification of this file
+
+## Apache setup
+keystone_apache_log_level: info
+keystone_apache_custom_log_format: combined
+keystone_apache_servertokens: "Prod"
+keystone_apache_serversignature: "Off"
+
+## Apache MPM tunables
+keystone_httpd_mpm_backend: event
+keystone_httpd_mpm_server_limit: "{{ keystone_wsgi_processes }}"
+keystone_httpd_mpm_start_servers: 2
+keystone_httpd_mpm_min_spare_threads: 25
+keystone_httpd_mpm_max_spare_threads: 75
+keystone_httpd_mpm_thread_limit: 64
+keystone_httpd_mpm_thread_child: 25
+keystone_httpd_mpm_max_requests: "{{ keystone_httpd_mpm_server_limit | int * keystone_httpd_mpm_thread_child | int }}"
+keystone_httpd_mpm_max_conn_child: 0
+
+## uWSGI setup
+keystone_wsgi_threads: 1
+## Cap the maximun number of processes when a user value is unspecified.
+keystone_wsgi_processes_max: 16
+keystone_wsgi_processes: "{{ [[ansible_facts['processor_vcpus']|default(1), 1] | max * 2, keystone_wsgi_processes_max] | min }}"
+keystone_uwsgi_bind_address: "{{ openstack_service_bind_address | default('0.0.0.0') }}"
+
+keystone_uwsgi_ports:
+  keystone-wsgi-public:
+    http: 37358
+    socket: 35358
+
+keystone_uwsgi_ini_overrides: {}
+keystone_default_uwsgi_overrides:
+  uwsgi:
+    socket: "127.0.0.1:{{ keystone_uwsgi_ports['keystone-wsgi-public']['socket'] }}"
+
+# set keystone_ssl to true to enable SSL configuration on the keystone containers
+keystone_ssl: "{{ openstack_backend_service_https | default(False) }}"
+
+# The local address used for the keystone node
+keystone_node_address: "{{ management_address | default('127.0.0.1') }}"
+
+# Storage location for SSL certificate authority
+keystone_pki_dir: "{{ openstack_pki_dir }}"
+
+# Delegated host for operating the certificate authority
+keystone_pki_setup_host: "{{ openstack_pki_setup_host | default('localhost') }}"
+
+keystone_pki_keys_path: "{{ keystone_pki_dir ~ '/certs/private/' }}"
+keystone_pki_certs_path: "{{ keystone_pki_dir ~ '/certs/certs/' }}"
+keystone_pki_intermediate_cert_name: "{{ openstack_pki_service_intermediate_cert_name }}"
+keystone_pki_intermediate_cert_path: "{{ keystone_pki_dir ~ '/roots/' ~ keystone_pki_intermediate_cert_name ~ '/certs/' ~ keystone_pki_intermediate_cert_name ~ '.crt' }}"
+keystone_pki_regen_cert: ''
+
+# By default, CA creation is controlled using the CA 'condition' field
+keystone_pki_create_ca: True
+# An optional private certificate authority for when Keystone is an IDP
+keystone_idp_authority_name: "KeystoneIDPAuthority"
+keystone_pki_authorities:
+  - name: "{{ keystone_idp_authority_name }}"
+    country: "GB"
+    state_or_province_name: "England"
+    organization_name: "Example Corporation"
+    organizational_unit_name: "IT Security"
+    cn: "Keystone IDP CA"
+    provider: selfsigned
+    basic_constraints: "CA:TRUE"
+    key_usage:
+      - digitalSignature
+      - keyCertSign
+    not_after: "+3650d"
+    condition: "{{ (keystone_idp['certfile'] is defined) and _keystone_is_first_play_host }}"
+
+# By default, certificate creation is controlled using the certificates 'condition' field
+keystone_pki_create_certificates: True
+# Server certificate for Apache
+keystone_pki_certificates:
+  - name: "keystone_{{ ansible_facts['hostname'] }}"
+    provider: ownca
+    cn: "{{ ansible_facts['hostname'] }}"
+    san: "{{ 'DNS:' ~ ansible_facts['hostname'] ~ ',IP:' ~ keystone_node_address }}"
+    signed_by: "{{ keystone_pki_intermediate_cert_name }}"
+    condition: "{{ keystone_ssl }}"
+
+# Set to the value of keystone_idp_authority_name to regenerate the IDP CA
+keystone_pki_regen_ca: ''
+
+# keystone destination files for Apache SSL certificates
+keystone_ssl_cert: /etc/ssl/certs/keystone.pem
+keystone_ssl_key: /etc/ssl/private/keystone.key
+keystone_ssl_ca_cert: /etc/ssl/certs/keystone-ca.pem
+
+# Installation details for SSL certificates
+keystone_pki_install_certificates:
+  # Apache certificates
+  - src: "{{ keystone_user_ssl_cert | default(keystone_pki_certs_path ~ 'keystone_' ~ ansible_facts['hostname'] ~ '.crt') }}"
+    dest: "{{ keystone_ssl_cert }}"
+    owner: "{{ keystone_system_user_name }}"
+    group: "{{ keystone_system_group_name }}"
+    mode: "0644"
+    condition: "{{ keystone_ssl }}"
+  - src: "{{ keystone_user_ssl_key | default(keystone_pki_keys_path ~ 'keystone_' ~ ansible_facts['hostname'] ~ '.key.pem') }}"
+    dest: "{{ keystone_ssl_key }}"
+    owner: "{{ keystone_system_user_name }}"
+    group: "{{ keystone_system_group_name }}"
+    mode: "0600"
+    condition: "{{ keystone_ssl }}"
+  - src: "{{ keystone_user_ssl_ca_cert | default(keystone_pki_intermediate_cert_path) }}"
+    dest: "{{ keystone_ssl_ca_cert }}"
+    owner: "{{ keystone_system_user_name }}"
+    group: "{{ keystone_system_group_name }}"
+    mode: "0644"
+    condition: "{{ keystone_ssl }}"
+  # IDP certificates
+  - src: "{{ keystone_pki_dir ~ '/roots/' ~ keystone_idp_authority_name ~ '/certs/' ~ keystone_idp_authority_name ~ '.crt' }}"
+    dest: "{{ keystone_idp['certfile'] | default('') }}"
+    owner: "{{ keystone_system_user_name }}"
+    group: "keystone_system_group_name"
+    mode: "0640"
+    condition: "{{ keystone_idp['certfile'] is defined | bool }}"
+  - src: "{{ keystone_pki_dir ~ '/roots/' ~ keystone_idp_authority_name ~ '/private/' ~ keystone_idp_authority_name ~ '.key.pem' }}"
+    dest: "{{ keystone_idp['keyfile'] | default('') }}"
+    owner: "{{ keystone_system_user_name }}"
+    group: "{{ keystone_system_group_name }}"
+    mode: "0640"
+    condition: "{{ keystone_idp['keyfile'] is defined | bool }}"
+
+keystone_ssl_protocol: "{{ ssl_protocol | default('ALL -SSLv2 -SSLv3 -TLSv1 -TLSv1.1') }}"
+# TLS v1.2 and below
+keystone_ssl_cipher_suite_tls12: "{{ keystone_ssl_cipher_suite | default(ssl_cipher_suite_tls12 | default('ECDH+AESGCM:DH+AESGCM:ECDH+AES256:DH+AES256:ECDH+AES128:DH+AES:RSA+AESGCM:RSA+AES:!aNULL:!MD5:!DSS')) }}"
+# TLS v1.3
+keystone_ssl_cipher_suite_tls13: "{{ ssl_cipher_suite_tls13 | default('TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256') }}"
+
+# Set these variables to deploy custom certificates
+#keystone_user_ssl_cert: <path to cert on ansible deployment host>
+#keystone_user_ssl_key: <path to cert on ansible deployment host>
+#keystone_user_ssl_ca_cert: <path to cert on ansible deployment host>
+
+# Set to true when terminating SSL/TLS at a load balancer
+keystone_external_ssl: "{{ (haproxy_ssl | default(True)) | bool }}"
+
+# External SSL forwarding proto
+keystone_secure_proxy_ssl_header: X-Forwarded-Proto
+
+## Override memcached_servers
+keystone_memcached_servers: "{{ memcached_servers }}"
+
+## Caching
+# This is a list of strings, each string contains a cache server's
+# information (IP:port for example)
+# The cache_servers default backend is memcached, so this variable
+# should point to a list of memcached servers.
+# If empty, caching is disabled.
+keystone_cache_servers: "{{ keystone_memcached_servers.split(',') }}"
+
+## LDAP Section
+# Define Keystone LDAP domain configuration here.
+# This may be used to add configuration for a LDAP identity back-end.
+# See the http://docs.openstack.org/admin-guide/identity-integrate-with-ldap.html
+#
+# Each top-level entry is a domain name. Each entry below that are key: value pairs for
+# the ldap section in the domain-specific configuration file.
+#
+# (EXAMPLE LAYOUT)
+# keystone_ldap:
+#   Users:
+#     url: "ldap://127.0.0.1"
+#     user: "root"
+#     password: "secrete"
+#     ...
+
+keystone_ldap: {}
+keystone_ldap_domain_config_dir: /etc/keystone/domains
+
+
+
+## Policy vars
+# Provide a list of access controls to update the default policy.json with. These changes will be merged
+# with the access controls in the default policy.json. E.g.
+#keystone_policy_overrides:
+#  identity:create_region: "rule:admin_required"
+#  identity:update_region: "rule:admin_required"
+
+## Federation
+
+# Enable the following section on the Keystone IdP
+keystone_idp: {}
+#keystone_idp:
+#  certfile: "/etc/keystone/ssl/idp_signing_cert.pem"
+#  keyfile: "/etc/keystone/ssl/idp_signing_key.pem"
+#  self_signed_cert_subject: "/C=US/ST=Texas/L=San Antonio/O=IT/CN={{ external_lb_vip_address }}"
+#  regen_cert: false
+#  idp_entity_id: "{{ keystone_service_publicuri }}/v3//OS-FEDERATION/saml2/idp"
+#  idp_sso_endpoint: "{{ keystone_service_publicuri }}/v3/OS-FEDERATION/saml2/sso"
+#  idp_metadata_path: /etc/keystone/saml2_idp_metadata.xml
+#  service_providers:
+#    - id: "sp_1"
+#      auth_url: https://example.com:5000/v3/OS-FEDERATION/identity_providers/idp/protocols/saml2/auth
+#      sp_url: https://example.com:5000/Shibboleth.sso/SAML2/ECP
+#  # the following settings are optional
+#  organization_name: example_company
+#  organization_display_name: Example Corp.
+#  organization_url: example.com
+#  contact_company: example_company
+#  contact_name: John
+#  contact_surname: Smith
+#  contact_email: jsmith@example.com
+#  contact_telephone: 555-55-5555
+#  contact_type: technical
+
+# Enable the following section in order to install and configure
+# Keystone as a Resource Service Provider (SP) and to configure
+# trusts with specific Identity Providers (IdP).
+keystone_sp: {}
+#keystone_sp:
+#  cert_duration_years: 5
+#  apache_mod: shibboleth  #or mod_auth_openidc
+#  cadf_notifications: false
+#  cadf_notifications_opt_out:
+#    - identity.authenticate.failed
+#    - identity.authenticate.pending
+#    - identity.authenticate.success
+#  trusted_dashboard_list:
+#    - "https://{{ external_lb_vip_address }}/auth/websso/"
+#    - "https://{{ horizon_server_name }}/auth/websso/"
+#  trusted_idp_list:
+#    note that only one of these is supported at any one time for now
+#    - name: "keystone-idp"
+#      domain_id: "default"
+#      display_name: "Keystone IDP" # Optional, used in Horizon IDP dropdown
+#      entity_ids:
+#         - 'https://keystone-idp:5000/v3/OS-FEDERATION/saml2/idp'
+#      metadata_uri: 'https://keystone-idp:5000/v3/OS-FEDERATION/saml2/metadata'
+#      metadata_file: 'metadata-keystone-idp.xml'
+#      metadata_reload: 1800
+#      federated_identities:
+#        - domain: default
+#          project: fedproject
+#          group: fedgroup
+#          role: _member_
+#      protocols:
+#        - name: saml2
+#          mapping:
+#            name: keystone-idp-mapping
+#            rules:
+#              - remote:
+#                  - type: openstack_user
+#                local:
+#                  - group:
+#                      name: fedgroup
+#                      domain:
+#                        name: Default
+#                    user:
+#                      name: '{0}'
+#          attributes:
+#            - name: openstack_user
+#              id: openstack_user
+#            - name: openstack_roles
+#              id: openstack_roles
+#            - name: openstack_project
+#              id: openstack_project
+#            - name: openstack_user_domain
+#              id: openstack_user_domain
+#            - name: openstack_project_domain
+#              id: openstack_project_domain
+#
+#    - name: 'testshib-idp'
+#      entity_ids:
+#        - 'https://idp.testshib.org/idp/shibboleth'
+#      metadata_uri: 'http://www.testshib.org/metadata/testshib-providers.xml'
+#      metadata_file: 'metadata-testshib-idp.xml'
+#      metadata_reload: 1800
+#      federated_identities:
+#        - domain: default
+#          project: fedproject
+#          group: fedgroup
+#          role: _member_
+#      protocols:
+#        - name: saml2
+#          mapping:
+#            name: testshib-idp-mapping
+#            rules:
+#              - remote:
+#                  - type: eppn
+#                local:
+#                  - group:
+#                      name: fedgroup
+#                      domain:
+#                        name: Default
+#                  - user:
+#                      name: '{0}'
+#
+#    - name: 'adfs-idp'
+#      entity_ids:
+#       - 'http://adfs.contoso.com/adfs/services/trust'
+#      metadata_uri: 'https://adfs.contoso.com/FederationMetadata/2007-06/FederationMetadata.xml'
+#      metadata_file: 'metadata-adfs-idp.xml'
+#      metadata_reload: 1800
+#      federated_identities:
+#        - domain: default
+#          project: fedproject
+#          group: fedgroup
+#          role: _member_
+#      protocols:
+#        - name: saml2
+#          mapping:
+#            name: adfs-idp-mapping
+#            rules:
+#              - remote:
+#                  - type: upn
+#                local:
+#                  - group:
+#                      name: fedgroup
+#                      domain:
+#                        name: Default
+#                  - user:
+#                      name: '{0}'
+#          attributes:
+#            - name: 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn'
+#              id: upn
+#
+#    - name: "keycloak-oidc-idp"
+#      oidc_provider_metadata_url: https://identity-provider/.well-known/openid-configuration
+#      oidc_client_id: keystone
+#      oidc_client_secret: secret
+#      oidc_crypto_passphrase: random string
+#      oidc_redirect_uri: https://keystone:5000/v3/OS-FEDERATION/identity_providers/keycloak-idp/protocols/openid/auth
+#      oidc_oauth_introspection_endpoint: endpoint address (optional)
+#      oidc_oauth_client_id: string (optional)
+#      oidc_oauth_client_secret: secret (optional)
+#      oidc_outgoing_proxy: "proxy address" (optional setting)
+#      oidc_auth_request_params: param=some+url+encoded+value&param2=and+another+one (optional)
+#      oidc_state_max_number_of_cookies: 5 false (optional)
+#      oidc_default_url: https://example.com/callback (optional)
+#      entity_ids:
+#        - 'https://identity-provider/openid-endpoint/'
+#      federated_identities:
+#        - domain: default
+#          project: fedproject
+#          group: fedgroup
+#          role: _member_
+#      protocols:
+#        - name: openid
+#          mapping:
+#            name: keycloak-oidc-idp-openid-mapping
+#            rules:
+#              - remote:
+#                  - type: OIDC-email
+#                local:
+#                  - group:
+#                      name: fedgroup
+#                      domain:
+#                        name: Default
+#                    user:
+#                      name: '{0}'
+
+keystone_service_in_ldap: "{{ service_ldap_backend_enabled | default(False) }}"
+
+# Keystone notification settings
+keystone_ceilometer_enabled: "{{ (groups['ceilometer_all'] is defined) and (groups['ceilometer_all'] | length > 0) }}"
+
+# Common pip packages
+keystone_pip_packages:
+  - "git+{{ keystone_git_repo }}@{{ keystone_git_install_branch }}#egg=keystone"
+  - ldappool
+  - osprofiler
+  - PyMySQL
+  - pymemcache
+  - python-memcached
+  - python-openstackclient
+  - systemd-python
+  - uWSGI
+  - pyngus
+
+# Specific pip packages provided by the user
+keystone_user_pip_packages: []
+
+# optional pip packages
+keystone_optional_oslomsg_amqp1_pip_packages:
+  - oslo.messaging[amqp1]
+
+# NOTE(cloudnull): Tunable SSO callback file file-based overrides If defined,
+#                  it'll be read from the deployment host, interpreted by the
+#                  template engine and copied to the target host.
+# keystone_sso_callback_file_path: "/etc/openstack_deploy/keystone/sso_callback_template.html"
+
+#: Tunable file-based overrides
+# The contents of these files, if they exist, are read from the
+# specified path on the deployment host, interpreted by the
+# template engine and copied to the target host. If they do
+# not exist then they will be generated on first playbook run.
+shibboleth_cert_user_file_path: "/etc/openstack_deploy/keystone/sp-cert.pem"
+shibboleth_key_user_file_path: "/etc/openstack_deploy/keystone/sp-key.pem"
+
+#: Tunable var-based overrides
+# The contents of these are templated over the default files.
+keystone_keystone_conf_overrides: {}
+keystone_keystone_default_conf_overrides: {}
+keystone_policy_overrides: {}
+
+keystone_required_secrets:
+  - keystone_auth_admin_password
+  - keystone_container_mysql_password
+  - keystone_oslomsg_rpc_password
+  - keystone_oslomsg_notify_password
+  - keystone_rabbitmq_password
+
+keystone_uwsgi_init_overrides: {}
+
+## Service Name-Group Mapping
+keystone_services:
+  keystone-wsgi-public:
+    group: keystone_all
+    wsgi_app: True
+    wsgi_path: "{{ keystone_bin }}/keystone-wsgi-public"
+    uwsgi_overrides: "{{ keystone_default_uwsgi_overrides | combine(keystone_uwsgi_ini_overrides, recursive=True) }}"
+    uwsgi_bind_address: "{{ keystone_uwsgi_bind_address }}"
+    uwsgi_port: "{{ keystone_uwsgi_ports['keystone-wsgi-public']['http'] }}"
+
+## Extra HTTP headers for Keystone
+# Add any additional headers here that Keystone should return.
+#
+# Example:
+#
+#   keystone_extra_headers:
+#     - parameter: "Access-Control-Expose-Headers"
+#       value: "X-Subject-Token"
+#     - parameter: "Access-Control-Allow-Headers"
+#       value: "Content-Type, X-Auth-Token"
+#     - parameter: "Access-Control-Allow-Origin"
+#       value: "*"
+keystone_extra_headers: []
+
+# List of trusted IPs which can pass X-Forwarded-For
+keystone_set_real_ip_from: []
+
+# Toggle whether memcache should be flushed when doing
+# database migrations. This is sometimes useful when
+# doing upgrades, but should not usually be required.
+# ref: https://bugs.launchpad.net/openstack-ansible/+bug/1793389
+keystone_flush_memcache: no
+
+# host which holds the ssh certificate authority
+keystone_ssh_keypairs_setup_host: "{{ openstack_ssh_keypairs_setup_host | default('localhost') }}"
+
+# directory on the deploy host to create and store SSH keypairs
+keystone_ssh_keypairs_dir: "{{ openstack_ssh_keypairs_dir | default('/etc/openstack_deploy/ssh_keypairs') }}"
+
+#Each keystone host needs a signed ssh certificate to log into the others
+keystone_ssh_keypairs:
+  - name: "keystone-{{ inventory_hostname }}"
+    cert:
+      signed_by: "{{ openstack_ssh_signing_key }}"
+      principals: "{{ keystone_ssh_key_principals | default('keystone') }}"
+      valid_from: "{{ keystone_ssh_key_valid_from | default('always') }}"
+      valid_to: "{{ keystone_ssh_key_valid_to | default('forever') }}"
+
+#Each keystone host needs the signed ssh certificate installing to the keystone user
+keystone_ssh_keypairs_install_keys:
+  owner: "{{ keystone_system_user_name }}"
+  group: "{{ keystone_system_group_name }}"
+  keys:
+    - cert: "keystone-{{ inventory_hostname }}"
+      dest: "{{ keystone_system_user_home }}/.ssh/id_rsa"
+
+#Each compute host must trust the SSHD certificate authoritiy in the sshd configuration
+keystone_ssh_keypairs_install_ca: "{{ openstack_ssh_keypairs_authorities }}"
+
+#Each compute host must allow SSH certificates with the appropriate principal to log into the keystone user
+keystone_ssh_keypairs_principals:
+  - user: "{{ keystone_system_user_name }}"
+    principals: "{{ keystone_ssh_key_principals | default(['keystone']) }}"

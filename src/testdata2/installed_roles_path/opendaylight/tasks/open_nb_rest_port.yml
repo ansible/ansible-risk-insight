@@ -1,0 +1,17 @@
+---
+- include_tasks: in_container.yml
+
+- name: Check if FirewallD service is running
+  command: systemctl is-active firewalld
+  failed_when: false
+  changed_when: false
+  register: firewalld_status
+  when: in_container.rc == 1
+
+- name: Open ODL NB REST port via FirewallD
+  when: in_container.rc == 1 and firewalld_status.stdout == 'active'
+  firewalld:
+    port={{ nb_rest_port }}/tcp
+    state=enabled
+    immediate=yes
+    permanent=yes

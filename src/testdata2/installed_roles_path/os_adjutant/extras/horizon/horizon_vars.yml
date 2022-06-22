@@ -1,0 +1,6 @@
+## Adjutant
+horizon_enable_adjutant_ui: False
+
+horizon_pip_packages:
+  - adjutant-dashboard
+  - python-adjutantclient

@@ -1,0 +1,60 @@
+#
+# {{ ansible_managed }}
+#
+options {
+        {% if ansible_pkg_mgr == 'apt' %}
+        directory "/var/cache/bind";
+        {% elif ansible_pkg_mgr == 'dnf' %}
+        directory "/var/named";
+        {% endif %}
+
+        // If there is a firewall between you and nameservers you want
+        // to talk to, you may need to fix the firewall to allow multiple
+        // ports to talk.  See http://www.kb.cert.org/vuls/id/800113
+
+        // If your ISP provided one or more IP addresses for stable
+        // nameservers, you probably want to use them as forwarders.
+        // Uncomment the following block, and insert the addresses replacing
+        // the all-0's placeholder.
+
+        // forwarders {
+        //      0.0.0.0;
+        // };
+
+        //========================================================================
+        // If BIND logs error messages about the root key being expired,
+        // you will need to update your keys.  See https://www.isc.org/bind-keys
+        //========================================================================
+        dnssec-validation auto;
+
+        auth-nxdomain no;    # conform to RFC1035
+        listen-on-v6 { any; };
+        allow-new-zones yes;
+        request-ixfr no;
+        recursion no;
+};
+
+{% if designate_rndc_keys is defined %}
+include "/etc/rndc.key";
+
+controls {
+        inet 127.0.0.1 allow { localhost; } keys { "rndc-key"; };
+};
+{% endif %}
+
+{% if ansible_pkg_mgr == 'dnf' %}
+logging {
+        channel default_debug {
+                file "data/named.run";
+                severity dynamic;
+        };
+};
+
+zone "." IN {
+        type hint;
+        file "named.ca";
+};
+
+include "/etc/named.rfc1912.zones";
+include "/etc/named.root.key";
+{% endif %}

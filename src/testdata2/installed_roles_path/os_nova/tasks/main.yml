@@ -1,0 +1,303 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Gather variables for each operating system
+  include_vars: "{{ lookup('first_found', params) }}"
+  vars:
+    params:
+      files:
+        - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_version'] | lower }}.yml"
+        - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_major_version'] | lower }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}-{{ ansible_facts['distribution_major_version'] | lower }}.yml"
+        - "{{ ansible_facts['distribution'] | lower }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}-{{ ansible_facts['distribution_version'].split('.')[0] }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}.yml"
+      paths:
+        - "{{ role_path }}/vars"
+  tags:
+    - always
+
+- name: Fail when virt type is unsupported
+  fail:
+    msg: "Unsupported Virt Type Provided {{ nova_supported_virt_types }}"
+  when:
+    - nova_virt_type is defined
+    - nova_virt_type not in nova_supported_virt_types
+  tags:
+    - always
+
+- name: Fail if service was deployed using a different installation method
+  fail:
+    msg: "Switching installation methods for OpenStack services is not supported"
+  when:
+    - ansible_local is defined
+    - ansible_local.openstack_ansible is defined
+    - ansible_local.openstack_ansible.nova is defined
+    - ansible_local.openstack_ansible.nova.install_method is defined
+    - ansible_local.openstack_ansible.nova.install_method != nova_install_method
+
+- name: Gather variables for installation method
+  include_vars: "{{ nova_install_method }}_install.yml"
+  tags:
+    - always
+
+- include_role:
+    name: openstack.osa.db_setup
+    apply:
+      tags:
+        - common-db
+        - nova-config
+  when:
+    - _nova_is_first_play_host
+  vars:
+    _oslodb_setup_host: "{{ nova_db_setup_host }}"
+    _oslodb_ansible_python_interpreter: "{{ nova_db_setup_python_interpreter }}"
+    _oslodb_setup_endpoint: "{{ nova_galera_address }}"
+    _oslodb_setup_port: "{{ nova_galera_port }}"
+    _oslodb_databases:
+      - name: "{{ nova_galera_database }}"
+        users:
+          - username: "{{ nova_galera_user }}"
+            password: "{{ nova_container_mysql_password }}"
+      - name: "{{ nova_api_galera_database }}"
+        users:
+          - username: "{{ nova_api_galera_user }}"
+            password: "{{ nova_api_container_mysql_password }}"
+      - name: "{{ nova_cell0_database }}"
+        users:
+          - username: "{{ nova_api_galera_user }}"
+            password: "{{ nova_api_container_mysql_password }}"
+  tags:
+    - always
+
+- include_role:
+    name: openstack.osa.mq_setup
+    apply:
+      tags:
+        - common-mq
+        - nova-config
+  when:
+    - _nova_is_first_play_host
+  vars:
+    _oslomsg_rpc_setup_host: "{{ nova_oslomsg_rpc_setup_host }}"
+    _oslomsg_rpc_userid: "{{ nova_oslomsg_rpc_userid }}"
+    _oslomsg_rpc_password: "{{ nova_oslomsg_rpc_password }}"
+    _oslomsg_rpc_vhost: "{{ nova_oslomsg_rpc_vhost }}"
+    _oslomsg_rpc_transport: "{{ nova_oslomsg_rpc_transport }}"
+    _oslomsg_notify_setup_host: "{{ nova_oslomsg_notify_setup_host }}"
+    _oslomsg_notify_userid: "{{ nova_oslomsg_notify_userid }}"
+    _oslomsg_notify_password: "{{ nova_oslomsg_notify_password }}"
+    _oslomsg_notify_vhost: "{{ nova_oslomsg_notify_vhost }}"
+    _oslomsg_notify_transport: "{{ nova_oslomsg_notify_transport }}"
+  tags:
+    - always
+
+- import_tasks: nova_virt_detect.yml
+  when:
+    - nova_virt_type is not defined
+  tags:
+    - always
+    - nova-config
+
+- import_tasks: nova_mdev_detect.yml
+  tags:
+    - always
+    - nova-config
+
+- import_tasks: nova_pre_install.yml
+  tags:
+    - nova-install
+
+- import_tasks: nova_install.yml
+  tags:
+    - nova-install
+
+- name: refresh local facts
+  setup:
+    filter: ansible_local
+    gather_subset: "!all"
+  tags:
+    - nova-config
+
+# Create certs after libvirt groups have been created but before handlers
+- name: Create and install SSL certificates for compute hosts
+  include_role:
+    name: pki
+    tasks_from: main_certs.yml
+  vars:
+    pki_setup_host: "{{ nova_pki_setup_host }}"
+    pki_dir: "{{ nova_pki_dir }}"
+    pki_create_certificates: "{{ nova_user_ssl_cert is not defined and nova_user_ssl_key is not defined }}"
+    pki_regen_cert: "{{ nova_pki_regen_cert }}"
+    pki_certificates: "{{ nova_pki_compute_certificates }}"
+    pki_install_certificates: "{{ nova_pki_compute_install_certificates }}"
+  when:
+    - nova_libvirtd_listen_tls == 1
+    - "'nova_compute' in group_names"
+    - nova_virt_type != 'ironic'
+
+# Create certs after nova groups have been created but before handlers
+- name: Create and install SSL certificates for console hosts
+  include_role:
+    name: pki
+    tasks_from: main_certs.yml
+  vars:
+    pki_setup_host: "{{ nova_pki_setup_host }}"
+    pki_dir: "{{ nova_pki_dir }}"
+    pki_create_certificates: "{{ nova_user_ssl_cert is not defined and nova_user_ssl_key is not defined }}"
+    pki_regen_cert: "{{ nova_pki_regen_cert }}"
+    pki_certificates: "{{ nova_pki_console_certificates }}"
+    pki_install_certificates: "{{ nova_pki_console_install_certificates }}"
+  when:
+    - nova_qemu_vnc_tls == 1
+    - nova_console_type == 'novnc'
+    - "'nova_console' in group_names"
+
+- import_tasks: nova_post_install.yml
+  tags:
+    - nova-config
+
+- include_role:
+    name: openstack.osa.service_setup
+    apply:
+      tags:
+        - common-service
+        - nova-config
+  vars:
+    _service_adminuri_insecure: "{{ keystone_service_adminuri_insecure }}"
+    _service_in_ldap: "{{ nova_service_in_ldap }}"
+    _service_setup_host: "{{ nova_service_setup_host }}"
+    _service_setup_host_python_interpreter: "{{ nova_service_setup_host_python_interpreter }}"
+    _service_project_name: "{{ nova_service_project_name }}"
+    _service_region: "{{ nova_service_region }}"
+    _service_users:
+      - name: "{{ nova_service_user_name }}"
+        password: "{{ nova_service_password }}"
+        role: "{{ nova_service_role_names }}"
+    _service_endpoints:
+      - service: "{{ nova_service_name }}"
+        interface: "public"
+        url: "{{ nova_service_publicurl }}"
+      - service: "{{ nova_service_name }}"
+        interface: "internal"
+        url: "{{ nova_service_internalurl }}"
+      - service: "{{ nova_service_name }}"
+        interface: "admin"
+        url: "{{ nova_service_adminurl }}"
+    _service_catalog:
+      - name: "{{ nova_service_name }}"
+        type: "{{ nova_service_type }}"
+        description: "{{ nova_service_description }}"
+  when:
+    - _nova_is_first_play_host
+  tags:
+    - always
+
+- import_tasks: nova_db_setup.yml
+  when:
+    - _nova_is_first_play_host
+  tags:
+    - nova-config
+
+- name: Import uwsgi role
+  import_role:
+    name: uwsgi
+  vars:
+    uwsgi_services: "{{ uwsgi_nova_services }}"
+    uwsgi_install_method: "{{ nova_install_method }}"
+  tags:
+    - nova-config
+    - uwsgi
+
+- name: Run the systemd service role
+  import_role:
+    name: systemd_service
+  vars:
+    systemd_user_name: "{{ nova_system_user_name }}"
+    systemd_group_name: "{{ nova_system_group_name }}"
+    systemd_tempd_prefix: openstack
+    systemd_slice_name: "{{ nova_system_slice_name }}"
+    systemd_lock_dir: "{{ nova_lock_dir }}"
+    systemd_CPUAccounting: true
+    systemd_BlockIOAccounting: true
+    systemd_MemoryAccounting: true
+    systemd_TasksAccounting: true
+    systemd_services: |-
+      {% set services = [] %}
+      {% for service in filtered_nova_services %}
+      {%
+        set _ = service.update(
+          {
+            'enabled': 'yes',
+            'state': 'started',
+            'config_overrides': service.init_config_overrides
+          }
+        )
+      %}
+      {%   set _ = service.pop('init_config_overrides') -%}
+      {%   set _ = services.append(service) -%}
+      {% endfor %}
+      {{ services }}
+  tags:
+    - nova-config
+    - systemd-service
+
+- import_tasks: nova_compute.yml
+  when:
+    - nova_virt_type != 'ironic'
+    - "nova_services['nova-compute']['group'] in group_names"
+  tags:
+    - nova-compute
+
+- name: Include ceph_client role
+  import_role:
+    name: ceph_client
+  vars:
+    openstack_service_system_user: "{{ nova_system_user_name }}"
+    openstack_service_venv_bin: "{{ (nova_install_method == 'source') | ternary(nova_bin, '') }}"
+  when:
+    - nova_virt_type != 'ironic'
+    - nova_services['nova-compute']['group'] in group_names
+    - (nova_rbd_inuse | bool) or (nova_glance_rbd_inuse | bool)
+  tags:
+    - ceph
+
+- name: Flush handlers
+  meta: flush_handlers
+
+# We delegate this back to the conductor because that is
+# where we want to isolate the clouds.yaml configuration,
+# rather than have it implemented on all compute nodes.
+- import_tasks: nova_compute_wait.yml
+  delegate_to: "{{ nova_conductor_setup_host }}"
+  when:
+    - "nova_services['nova-compute']['group'] in group_names"
+    - "nova_discover_hosts_in_cells_interval | int < 1"
+  vars:
+    compute_host_to_wait_for: "{{ ansible_facts['nodename'] }}"
+  tags:
+    - nova-config
+
+# We have to delegate this back to the conductor
+# because the compute hosts do not have access to
+# the database connection string and therefore
+# cannot run nova-manage.
+- import_tasks: nova_db_post_setup.yml
+  delegate_to: "{{ nova_conductor_setup_host }}"
+  run_once: true
+  when:
+    - "nova_services['nova-compute']['group'] in group_names"
+  tags:
+    - nova-config

@@ -1,0 +1,7 @@
+{% if global_environment_variables is defined %}
+{%   for key, value in global_environment_variables.items() %}
+{%     if value %}
+{{ key }}={{ value }}
+{%     endif %}
+{%   endfor %}
+{% endif %}

@@ -1,0 +1,6 @@
+---
+- name: Install tacker server
+  hosts: tacker_all
+  user: root
+  roles:
+    - { role: "os_tacker", tags: [ "os-tacker" ] }

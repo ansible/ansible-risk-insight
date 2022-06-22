@@ -1,0 +1,151 @@
+---
+# Copyright 2016, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Unfortunately yum is case-insensitive, and RDO has mariadb-* packages,
+# while the MariaDB repo has MariaDB-* packages and they conflict.
+# To work around this we have to query for any installed RDO/CentOS
+# packages using rpm, then remove them. We have to remove them without
+# dependencies, otherwise for distro package installation types on shared
+# hosts it removes far too many packages.
+- name: Remove conflicting packages
+  shell: |
+    exit_code=0
+    for pkg in {{ galera_mariadb_distro_packages_remove | join(' ') }}; do
+      if rpm --query --quiet ${pkg}; then
+        rpm -ev --nodeps ${pkg}
+        exit_code=2
+      fi
+    done
+    exit ${exit_code}
+  register: _remove_existing_mariadb_packages
+  changed_when: _remove_existing_mariadb_packages.rc == 2
+  failed_when: _remove_existing_mariadb_packages.rc not in [0, 2]
+  args:
+    warn: no
+    executable: /bin/bash
+
+# In CentOS systems, /etc/my.cnf.d may already exist on the
+# system. We need to ensure that it is removed if that is true so
+# that we can replace it with symlinks to the directories expected
+# to be used by the MariaDB packages instead.
+- name: Stat /etc/my.cnf.d
+  stat:
+    path: /etc/my.cnf.d
+    get_attributes: no
+    get_checksum: no
+    get_mime: no
+  register: mycnfd_stat
+
+- name: Destroy my.cnf.d dir if is dir
+  file:
+    path: /etc/my.cnf.d
+    state: absent
+    force: true
+  when:
+    - mycnfd_stat.stat.isdir is defined
+    - mycnfd_stat.stat.isdir
+
+# We replace the default paths for the system with symlinks to
+# the paths used by the MariaDB packages so ensure that any other
+# system expectations are still met.
+- name: Update the local file system CRUD
+  file:
+    src: "{{ item.src | default(omit) }}"
+    path: "{{ item.path }}"
+    state: "{{ item.state }}"
+    force: "{{ item.force | default(omit) }}"
+    mode: "{{ item.mode | default(omit) }}"
+  with_items:
+    - path: "/etc/mysql"
+      state: "directory"
+      mode: '0755'
+    - path: "/etc/mysql/conf.d"
+      state: "directory"
+    - src: "/usr/lib64/galera"
+      path: "/usr/lib/galera"
+      state: "link"
+      force: true
+    - src: "/etc/mysql/conf.d"
+      path: "/etc/my.cnf.d"
+      state: "link"
+      force: true
+    - src: "/etc/mysql/my.cnf"
+      path: "/etc/my.cnf"
+      state: "link"
+      force: true
+
+- name: If a keyfile is provided, copy the gpg keyfile to the key location
+  copy:
+    src: "gpg/{{ item.key | basename }}"
+    dest: "{{ item.key }}"
+    mode: '0644'
+  with_items: "{{ galera_gpg_keys }}"
+
+- name: Install gpg keys
+  rpm_key: "{{ key }}"
+  with_items: "{{ galera_gpg_keys }}"
+  loop_control:
+    loop_var: key
+  register: _add_yum_keys
+  until: _add_yum_keys is success
+  retries: 5
+  delay: 2
+
+- name: Add galera repo
+  yum_repository:
+    name: "{{ galera_repo.name }}"
+    description: "{{ galera_repo.description }}"
+    baseurl: "{{ galera_repo.baseurl }}"
+    gpgkey: "{{ galera_repo.gpgkey | default(omit) }}"
+    gpgcheck: yes
+    enabled: yes
+    priority: 25
+  when: galera_repo != {}
+  register: add_galera_repos
+  until: add_galera_repos is success
+  retries: 5
+  delay: 2
+
+- name: Enable module_hotfixes
+  lineinfile:
+    dest: "/etc/yum.repos.d/{{ galera_repo.name }}.repo"
+    line: "module_hotfixes=1"
+    regexp: "^module_hotfixes"
+    insertafter: "^enabled"
+  when: galera_repo != {}
+
+# When changing the repo URL, the metadata does
+# not reliably update, resulting in the right
+# URL being used, but the wrong package list.
+# This is why we force the metadata to be
+# cleaned out whenever the repo config changes.
+- name: Force the expiry of the repo metadata
+  command: "{{ ansible_facts['pkg_mgr'] }} clean metadata"
+  args:
+    warn: no
+  when: add_galera_repos is changed
+  tags:
+    - skip_ansible_lint
+
+- name: Install galera role remote packages
+  package:
+    name: "{{ galera_packages_list }}"
+    state: "{{ galera_package_state }}"
+  register: install_remote_packages
+  until: install_remote_packages is success
+  retries: 5
+  delay: 2
+  notify:
+    - Restart all mysql

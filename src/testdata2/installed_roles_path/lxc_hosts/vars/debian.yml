@@ -1,0 +1,55 @@
+---
+# Copyright 2016, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+_lxc_hosts_container_build_command: "debootstrap --variant minbase {{ ansible_facts['distribution_release'] }} /var/lib/machines/{{ lxc_container_base_name }} "
+
+_lxc_cache_map:
+  distro: "{{ ansible_facts['distribution'] | lower }}"
+  arch: "{{ lxc_architecture_mapping.get( ansible_facts['architecture'] ) }}"
+  release: "{{ ansible_facts['distribution_major_version'] }}"
+  copy_from_host:
+    - /etc/apt/sources.list
+    - /etc/apt/apt.conf.d/
+    - /etc/apt/trusted.gpg.d/
+    - /etc/apt/trusted.gpg
+    - /etc/apt/preferences.d/
+    - /etc/environment
+    - /etc/localtime
+    - /etc/protocols
+
+_lxc_cache_prep_template: "prep-scripts/debian_prep.sh.j2"
+
+_lxc_cache_distro_libpython:
+  buster: libpython3.7
+  bullseye: libpython3.9
+  focal: libpython3.8
+  jammy: libpython3.10
+
+# This list should contain a minimum set of packages. Add extra packages via roles that require them.
+_lxc_cache_distro_packages:
+  - ca-certificates
+  - dbus
+  - iputils-ping
+  - iproute2
+  - locales
+  - netbase
+  - openssh-server
+  - python3
+  -  "{{ _lxc_cache_distro_libpython[ansible_facts['distribution_release'] | lower] }}"
+  - rsync              # os_keystone runs serial=1 and uses rsync before the distro packages have been installed on all keystone targets
+  - sudo
+  - systemd
+  - systemd-sysv
+  - tzdata

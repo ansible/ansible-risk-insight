@@ -1,0 +1,11 @@
+# This file should only be used to set python package pins that are
+# not present in OpenStack's upper-constraints. Any pins present in
+# this file will override any requirements set in *requirements.txt,
+# upper-constraints and any roles/vars.
+#
+# Use this file with caution!
+#
+
+pip==21.3.1
+wheel==0.37.0
+uWSGI==2.0.20

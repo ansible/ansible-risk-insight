@@ -1,0 +1,56 @@
+---
+# Copyright 2016, Tata Consultancy Services
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Record the installation method
+  ini_file:
+    dest: "/etc/ansible/facts.d/openstack_ansible.fact"
+    section: "designate"
+    option: "install_method"
+    value: "{{ designate_install_method }}"
+
+- name: Refresh local facts to ensure the designate section is present
+  setup:
+    filter: ansible_local
+    gather_subset: "!all"
+
+- name: Install designate distro packages
+  package:
+    name: "{{ designate_package_list }}"
+    state: "{{ designate_package_state }}"
+    update_cache: "{{ (ansible_facts['pkg_mgr'] == 'apt') | ternary('yes', omit) }}"
+    cache_valid_time: "{{ (ansible_facts['pkg_mgr'] == 'apt') | ternary(cache_timeout, omit) }}"
+  register: install_packages
+  until: install_packages is success
+  retries: 5
+  delay: 2
+
+- name: Install the python venv
+  include_role:
+    name: "python_venv_build"
+  vars:
+    venv_python_executable: "{{ designate_venv_python_executable }}"
+    venv_build_constraints: "{{ designate_git_constraints }}"
+    venv_build_distro_package_list: "{{ designate_devel_distro_packages }}"
+    venv_install_destination_path: "{{ designate_bin | dirname }}"
+    venv_pip_install_args: "{{ designate_pip_install_args }}"
+    venv_pip_packages: >-
+      {{ designate_pip_packages |
+           union(designate_user_pip_packages) |
+             union(((designate_oslomsg_amqp1_enabled | bool) | ternary(designate_optional_oslomsg_amqp1_pip_packages, []))) }}
+    venv_facts_when_changed:
+      - section: "designate"
+        option: "venv_tag"
+        value: "{{ designate_venv_tag }}"
+  when: designate_install_method == 'source'

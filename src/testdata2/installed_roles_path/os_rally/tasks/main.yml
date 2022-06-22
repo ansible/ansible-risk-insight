@@ -1,0 +1,86 @@
+---
+# Copyright 2016, Comcast Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Gather variables for each operating system
+  include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_version'] | lower }}.yml"
+    - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_major_version'] | lower }}.yml"
+    - "{{ ansible_facts['os_family'] | lower }}-{{ ansible_facts['distribution_major_version'] | lower }}.yml"
+    - "{{ ansible_facts['distribution'] | lower }}.yml"
+    - "{{ ansible_facts['os_family'] | lower }}-{{ ansible_facts['distribution_version'].split('.')[0] }}.yml"
+    - "{{ ansible_facts['os_family'] | lower }}.yml"
+  tags:
+    - always
+
+
+- include_role:
+    name: openstack.osa.db_setup
+    apply:
+      tags:
+        - common-db
+        - rally-config
+  vars:
+    _oslodb_setup_host: "{{ rally_db_setup_host }}"
+    _oslodb_ansible_python_interpreter: "{{ rally_db_setup_python_interpreter }}"
+    _oslodb_setup_endpoint: "{{ rally_galera_address }}"
+    _oslodb_setup_port: "{{ rally_galera_port }}"
+    _oslodb_databases:
+      - name: "{{ rally_galera_database }}"
+        users:
+          - username: "{{ rally_galera_user }}"
+            password: "{{ rally_galera_password }}"
+  tags:
+    - always
+
+- include_tasks: rally_pre_install.yml
+  tags:
+    - rally-install
+
+- name: Retrieve the constraints URL
+  uri:
+    url: "{{ rally_upper_constraints_url }}"
+    return_content: yes
+  register: _u_c_contents
+  check_mode: false
+
+- name: Install the python venv
+  import_role:
+    name: "python_venv_build"
+  vars:
+    venv_python_executable: "{{ rally_venv_python_executable }}"
+    venv_build_constraints: "{{ _u_c_contents.content.split('\n') | reject('match', '^PyYAML=') | list }}"
+    venv_build_global_constraints: "{{ [] }}"
+    venv_build_distro_package_list: "{{ rally_devel_distro_packages }}"
+    venv_install_destination_path: "{{ rally_bin | dirname }}"
+    venv_install_distro_package_list: "{{ rally_distro_packages }}"
+    venv_pip_install_args: "{{ rally_pip_install_args }}"
+    venv_pip_packages: "{{ rally_pip_packages }}"
+    venv_wheel_build_enable: false
+    venv_facts_when_changed:
+      - section: "rally"
+        option: "venv_tag"
+        value: "{{ rally_venv_tag }}"
+  tags:
+    - rally-install
+
+- include_tasks: rally_post_install.yml
+  tags:
+    - rally-config
+
+- include_tasks: rally_db_setup.yml
+  when: inventory_hostname == groups['utility_all'][0]
+  tags:
+    - rally-config

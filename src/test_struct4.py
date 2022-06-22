@@ -1,18 +1,17 @@
 import unittest
-from struct4 import Module, Collection, Task, Role, Playbook, Repository, config
+from struct4 import Module, Collection, Task, Role, Playbook, Repository
 
 
 class TestStruct3(unittest.TestCase):
     """test class of struct4.py
     """
-    config.set(collections_path="testdata/installed_collections_path")
 
     def test_module(self):
         """test method for Module
         """
 
         m = Module()
-        m.load("testdata/installed_collections_path/ansible_collections/community/general/plugins/modules/files/archive.py")
+        m.load("testdata/installed_collections_path/ansible_collections/community/general/plugins/modules/files/archive.py", collection_name="community.general")
         expected = "community.general.archive"
         actual = m.fqcn
         self.assertEqual(expected, actual)
@@ -74,12 +73,12 @@ class TestStruct3(unittest.TestCase):
         actual = len(r.playbooks)
         self.assertEqual(expected, actual)
 
-        expected = 758
-        actual = len(r.get_module_dict())
+        expected = 762
+        actual = len(r.module_dict)
         self.assertEqual(expected, actual)
         
         expected = "testdata/installed_collections_path/ansible_collections/community/general/plugins/modules/files/archive.py"
-        m = r.get_module("community.general.archive")
+        m = r.get_module_by_fqcn("community.general.archive")
         actual = m.defined_in
         self.assertEqual(expected, actual)
 
@@ -93,8 +92,24 @@ class TestStruct3(unittest.TestCase):
         r2 = Repository()
         r2.from_json(data_str)
 
-        expected = 758
-        actual = len(r2.get_module_dict())
+        expected = 762
+        actual = len(r2.module_dict)
+        self.assertEqual(expected, actual)
+
+
+    # testdata2
+    def test_repository_2(self):
+        """test method for Repository
+        """
+        r = Repository()
+        r.load("testdata2/scm_repo", "testdata2/installed_collections_path", "testdata2/installed_roles_path")
+
+        expected = 943
+        actual = len(r.module_dict)
+        self.assertEqual(expected, actual)
+
+        expected = 91
+        actual = len(r.role_dict)
         self.assertEqual(expected, actual)
 
 

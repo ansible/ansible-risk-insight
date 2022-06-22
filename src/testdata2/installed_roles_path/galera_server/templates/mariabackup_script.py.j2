@@ -1,0 +1,248 @@
+#!/usr/bin/python3
+# {{ ansible_managed }}
+from subprocess import Popen, PIPE
+from argparse import ArgumentParser
+from shutil import rmtree
+from time import strftime, mktime, sleep
+from datetime import datetime, timedelta
+import socket
+import os
+
+def get_opts():
+    parser = ArgumentParser(
+        usage="python3 mariabackup_script <destdir> [--full-backup][--increment] [--suffix=<suffix>] [--defaults-file=<defaults-file>]",
+        prog="Mariadb Backup Script",
+        description="""
+        This program makes a mariadb backup with Mariabackup
+        """,)
+    parser.add_argument(
+        "destdir",
+        help="Specifying directory for storing backups",
+        )
+    parser.add_argument(
+        "-f",
+        "--full-backup",
+        action="store_true",
+        dest="fullbackup_flag",
+        default=False,
+        help="Flag for creation of full backup",
+        )
+    parser.add_argument(
+        "-i",
+        "--increment",
+        action="store_true",
+        dest="increment_flag",
+        default=False,
+        help="Flag to make incremental backup, based on the latest backup",
+        )
+    parser.add_argument(
+        "-c",
+        "--copies",
+        dest="copies_flag",
+        default=False,
+        type=int,
+        help="Specifying how much copies to rotate",
+        )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        dest="check_flag",
+        default=False,
+        help="Checking last mariadb full backup for their relevancy",
+        )
+    parser.add_argument(
+        "--warning",
+        dest="warning_value",
+        default=False,
+        type=int,
+        help="When to raise warning (for --check) in days",
+        )
+    parser.add_argument(
+        "--critical",
+        dest="critical_value",
+        default=False,
+        type=int,
+        help="When to raise critical (for --check) in days",
+        )
+    parser.add_argument(
+        "-s",
+        "--suffix",
+        dest="suffix",
+        default=False,
+        type=str,
+        help="Added to the filename of backups"
+        )
+    parser.add_argument(
+        "--defaults-file",
+        dest="defaults_file",
+        type=str,
+        help="A cnf file can specified to the mariabackup process"
+        )
+    opts = parser.parse_args()
+    return opts
+
+
+def check_backups(dest, warning, critical, full_backup_filename):
+    try:
+        last_mariabackup_full = datetime.strptime(max([os.path.normpath(dest+'/'+f) for f in os.listdir(dest) if f.startswith(full_backup_filename)], key=os.path.getmtime).split(full_backup_filename)[1], '%Y%m%d-%H%M%S')
+    except ValueError:
+        print("No files found, you may need to check your destination directory or add a suffix.")
+        raise SystemExit()
+    warning_time = datetime.today() - timedelta(days=warning)
+    critical_time = datetime.today() - timedelta(days=critical)
+    print_info = "Last mariadb backup date "+str(last_mariabackup_full)
+    if last_mariabackup_full < critical_time:
+        print(print_info)
+        raise SystemExit(2)
+    elif last_mariabackup_full < warning_time:
+        print(print_info)
+        raise SystemExit(1)
+    else:
+        print(print_info)
+        raise SystemExit(0)
+
+
+def create_full_backup(dest, curtime, full_backup_filename, extra_mariabackup_args):
+    check_lock_file()
+    get_lock_file()
+    try:
+        #Creating full backup
+        err = open(os.path.normpath(dest+"/backup.log"), "w")
+        mariabackup_run = Popen(
+        ["/usr/bin/mariabackup"] + extra_mariabackup_args + ["--backup", "--target-dir="+os.path.normpath(dest+"/"+full_backup_filename+curtime)], stdout=None, stderr=err
+        )
+        mariabackup_run.wait()
+        mariabackup_res = mariabackup_run.communicate()
+        if mariabackup_run.returncode:
+            print(mariabackup_res[1])
+        err.close()
+        #Preparing full backup
+        err_p = open(os.path.normpath(dest+"/prepare.log"), "w")
+        mariabackup_prep = Popen(
+        ["/usr/bin/mariabackup"] + extra_mariabackup_args + ["--prepare", "--target-dir="+os.path.normpath(dest+"/"+full_backup_filename+curtime)], stdout=None, stderr=err_p
+        )
+        mariabackup_prep.wait()
+        mariabackup_prep_res = mariabackup_prep.communicate()
+        if mariabackup_prep.returncode:
+            print(mariabackup_prep_res[1])
+        err_p.close()
+    except OSError:
+        print("Please, check that Mariabackup is installed")
+    except Exception as e:
+        print(e)
+    finally:
+        os.unlink("/var/run/mariabackup-galera/db_backup.pid")
+
+
+def create_increment_backup(dest, curtime, increment_backup_filename, extra_mariabackup_args):
+    check_lock_file()
+    get_lock_file()
+    try:
+        basedir = max([ os.path.normpath(dest+'/'+f) for f in os.listdir(dest) if f.startswith('mariabackup-')], key=os.path.getmtime)
+    except ValueError:
+        print("No full backup found, cannot create incremental backup.")
+        os.unlink("/var/run/mariabackup-galera/db_backup.pid")
+        raise SystemExit(1)
+    try:
+        err = open(os.path.normpath(dest+"/increment.err"), "w")
+        #Creating incremental backup
+        mariabackup_run = Popen(
+        ["/usr/bin/mariabackup"] + extra_mariabackup_args + ["--backup", "--target-dir="+os.path.normpath(dest+"/"+increment_backup_filename+curtime), "--incremental-basedir="+basedir], stdout=None, stderr=err
+        )
+        mariabackup_run.wait()
+        mariabackup_res = mariabackup_run.communicate()
+        if mariabackup_run.returncode:
+            print(mariabackup_res[1])
+        err.close()
+    except OSError:
+        print("Please, check that Mariabackup is installed")
+    except Exception as e:
+        print(e)
+    finally:
+        os.unlink("/var/run/mariabackup-galera/db_backup.pid")
+
+
+def rotate_backups(dest, copies, full_backup_filename, increment_backup_filename):
+    check_lock_file()
+    get_lock_file()
+    full_list = [os.path.normpath(dest+'/'+f) for f in os.listdir(dest) if f.startswith(full_backup_filename)]
+    increment_list = [ os.path.normpath(dest+'/'+f) for f in os.listdir(dest) if f.startswith(increment_backup_filename)]
+    # Rotate full backups
+    if len(full_list) > copies:
+        full_list.sort()
+        while len(full_list) > copies:
+            oldest_full_backup = min(full_list, key=os.path.getmtime)
+            full_list.remove(oldest_full_backup)
+            rmtree(oldest_full_backup)
+        # Remove all incremental backups older than the oldest full backup
+        oldest_full_backup_timestamp = parsedate(oldest_full_backup.split(full_backup_filename)[1])
+        for increment in increment_list:
+            increment_timestamp = parsedate(increment.split(increment_backup_filename)[1])
+            if increment_timestamp < oldest_full_backup_timestamp:
+                rmtree(increment)
+    os.unlink("/var/run/mariabackup-galera/db_backup.pid")
+
+
+def parsedate(s):
+    return mktime(datetime.strptime(s, '%Y%m%d-%H%M%S').timetuple())
+
+
+def check_lock_file():
+    timer = 0
+    while os.path.isfile("/var/run/mariabackup-galera/db_backup.pid"):
+        sleep(60)
+        timer += 1
+        if timer == 120:
+            print("timeout of waiting another process is reached")
+            raise SystemExit(1)
+
+
+def get_lock_file():
+    try:
+        pid = open('/var/run/mariabackup-galera/db_backup.pid', 'w')
+        pid.write(str(os.getpid()))
+        pid.close()
+    except Exception as e:
+        print(e)
+
+
+def main():
+    opts = get_opts()
+    curtime = strftime("%Y%m%d-%H%M%S")
+
+    if not opts.copies_flag and opts.fullbackup_flag:
+        raise NameError("--copies flag is required for running full backup.")
+
+    full_backup_filename = "mariabackup-full_"
+    increment_backup_filename = "mariabackup-increment_"
+    if opts.suffix:
+        full_backup_filename = ("mariabackup-full-" + opts.suffix + "_")
+        increment_backup_filename = ("mariabackup-increment-" + opts.suffix + "_")
+
+    extra_mariabackup_args = []
+    # --defaults-file must be specified straight after the process
+    if opts.defaults_file:
+        extra_mariabackup_args = ["--defaults-file=" + opts.defaults_file] + extra_mariabackup_args
+
+    if opts.fullbackup_flag and opts.increment_flag:
+        raise NameError("Only one flag can be specified per operation")
+    elif opts.fullbackup_flag:
+        create_full_backup(opts.destdir, curtime, full_backup_filename, extra_mariabackup_args)
+        rotate_backups(opts.destdir, opts.copies_flag, full_backup_filename, increment_backup_filename)
+        raise SystemExit()
+    elif opts.increment_flag:
+        create_increment_backup(opts.destdir, curtime, increment_backup_filename, extra_mariabackup_args)
+        raise SystemExit()
+    elif opts.check_flag:
+        pass
+    else:
+        raise NameError("either --increment or --full-backup flag is required")
+
+    if opts.check_flag and (opts.warning_value and opts.critical_value):
+        check_backups(warning = opts.warning_value, critical = opts.critical_value, dest = opts.destdir, full_backup_filename = full_backup_filename)
+    else:
+        raise NameError("--warning and --critical thresholds should be specified for check")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,73 @@
+---
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Drop Sahara Config(s)
+  openstack.config_template.config_template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "{{ sahara_system_user_name }}"
+    group: "{{ sahara_system_group_name }}"
+    mode: "0644"
+    config_overrides: "{{ item.config_overrides }}"
+    config_type: "{{ item.config_type }}"
+  with_items:
+    - src: "api-paste.ini.j2"
+      dest: "/etc/sahara/api-paste.ini"
+      config_overrides: "{{ sahara_api_paste_ini_overrides }}"
+      config_type: "ini"
+    - src: "sahara.conf.j2"
+      dest: "/etc/sahara/sahara.conf"
+      config_overrides: "{{ sahara_conf_overrides }}"
+      config_type: "ini"
+    - src: "rootwrap.conf.j2"
+      dest: "/etc/sahara/rootwrap.conf"
+      owner: "root"
+      group: "root"
+      config_overrides: "{{ sahara_rootwrap_conf_overrides }}"
+      config_type: "ini"
+  notify:
+    - Restart sahara services
+    - Restart uwsgi services
+
+- name: Implement policy.yaml if there are overrides configured
+  openstack.config_template.config_template:
+    content: "{{ sahara_policy_overrides }}"
+    dest: "/etc/sahara/policy.yaml"
+    owner: "{{ sahara_system_user_name }}"
+    group: "{{ sahara_system_group_name }}"
+    mode: "0644"
+    config_type: yaml
+  when:
+    - sahara_policy_overrides | length > 0
+  tags:
+    - sahara-policy-override
+
+- name: Remove legacy policy.yaml file
+  file:
+    path: "/etc/sahara/policy.yaml"
+    state: absent
+  when:
+    - sahara_policy_overrides | length == 0
+  tags:
+    - sahara-policy-override
+
+- name: Drop rootwrap filter(s)
+  copy:
+    src: "{{ item }}"
+    dest: "/etc/sahara/rootwrap.d/"
+    owner: "root"
+    group: "root"
+  with_fileglob:
+    - rootwrap.d/*
+  notify:
+    - Restart sahara services

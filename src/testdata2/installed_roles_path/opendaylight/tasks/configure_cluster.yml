@@ -1,0 +1,16 @@
+- name: Create initial folder in Opendaylight
+  file:
+    path: /opt/opendaylight/configuration/initial
+    state: directory
+    mode: 0777
+
+- name: Add module-shards.conf file
+  template:
+    src: "module-shards.conf.j2"
+    dest: "/opt/opendaylight/configuration/initial/module-shards.conf"
+
+- name: Add akka.conf file
+  template:
+    src: "akka.conf.j2"
+    dest: "/opt/opendaylight/configuration/initial/akka.conf"
+

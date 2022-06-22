@@ -1,0 +1,115 @@
+---
+# Copyright 2017, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Check Kernel Version
+  fail:
+    msg: >
+      Wrong kernel Version found
+      [ {{ ansible_facts['kernel'] }} < {{ openstack_host_required_kernel }} ]
+      Resolve this issue before continuing.
+  when:
+    - ansible_facts['kernel'] is version(openstack_host_required_kernel, '<')
+
+- name: Install distro packages for bare metal nodes
+  package:
+    name: "{{ openstack_host_metal_distro_packages }}"
+    state: "{{ openstack_hosts_package_state }}"
+  register: install_packages
+  until: install_packages is success
+  retries: 5
+  delay: 2
+
+- name: Install user defined extra distro packages for bare metal nodes
+  package:
+    name: "{{ openstack_host_extra_metal_distro_packages }}"
+    state: "{{ openstack_hosts_package_state }}"
+  when:
+    - openstack_host_extra_metal_distro_packages | length > 0
+  register: install_packages
+  until: install_packages is success
+  retries: 5
+  delay: 2
+
+- name: check how kernel modules are implemented (statically builtin, dynamic, not set)
+  slurp:
+    src: "/boot/config-{{ ansible_facts['kernel'] }}"
+  register: modules
+  when:
+    - openstack_host_specific_kernel_modules | length > 0
+
+- name: Fail fast if we can't load a module
+  fail:
+    msg: "{{ item.pattern }} is not set"
+  with_items: "{{ openstack_host_specific_kernel_modules  }}"
+  when:
+    - item.pattern is defined
+    - (modules.content | b64decode).find(item.pattern + ' is not set') != -1
+
+- name: "Load kernel module(s)"
+  modprobe:
+    name: "{{ item.name }}"
+  with_items: "{{ openstack_host_kernel_modules + openstack_host_specific_kernel_modules }}"
+  when:
+    - item.name | length > 0
+    - item.pattern is undefined or (item.pattern is defined and (modules.content | b64decode).find(item.pattern + '=m') != -1)
+
+- name: Write list of modules to load at boot
+  template:
+    src: modprobe.conf.j2
+    dest: "{{ openstack_host_module_file }}"
+
+- name: Adding new system tuning
+  sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_set: "{{ item.set|default('yes') }}"
+    state: "{{ item.state|default('present') }}"
+    reload: no
+  with_items: "{{ openstack_kernel_options + openstack_user_kernel_options }}"
+  failed_when: false
+
+- name: Configure sysstat
+  include_tasks: openstack_sysstat.yml
+  when:
+    - openstack_host_sysstat_enabled | bool
+
+- name: Create a directory to hold systemd journals on disk
+  file:
+    path: /var/log/journal
+    state: directory
+  register: journald_directory
+  when:
+    - openstack_host_keep_journals | bool
+
+# NOTE(mhayden): The linter is skipped here since the command does not create
+# any files. The command ensures that proper permissions and SELinux contests
+# are set.
+- name: Create tmpfiles structure in journald directory
+  command: systemd-tmpfiles --create --prefix /var/log/journal
+  when:
+    - journald_directory is changed
+    - openstack_host_keep_journals | bool
+  notify:
+    - Restart systemd-journald
+  tags:
+    - skip_ansible_lint
+
+- name: Configure legacy alternative for ebtables on Debian
+  alternatives:
+    name: ebtables
+    path: /usr/sbin/ebtables-legacy
+  when:
+    - ansible_facts['distribution'] == 'Debian'
+    - ansible_facts['distribution_major_version'] == '10'

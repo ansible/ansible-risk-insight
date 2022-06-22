@@ -1,0 +1,11 @@
+---
+user_config: True
+test:
+  name: "test"
+  rule_name: "HDD"
+test2:
+  name: "test2"
+  rule_name: "HDD"
+pools:
+  - "{{ test }}"
+  - "{{ test2 }}"

@@ -1,0 +1,10 @@
+---
+collections:
+  - name: https://opendev.org/openstack/ansible-config_template
+    version: 1.2.1
+    type: git
+roles:
+  - name: systemd_service
+    src: https://opendev.org/openstack/ansible-role-systemd_service
+    scm: git
+    version: master

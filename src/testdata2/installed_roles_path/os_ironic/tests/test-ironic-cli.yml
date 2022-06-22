@@ -1,0 +1,128 @@
+---
+# Copyright 2016, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Test the ironic CLI
+  hosts: hosts
+  user: root
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Run the ironic chassis-list command
+      shell: >
+        . /root/openrc && ironic chassis-list
+      register: chassis_table
+      tags:
+        - skip_ansible_lint
+
+    - name: Check that the chassis-list command succeeded
+      assert:
+        that:
+          - "'Description' in chassis_table.stdout"
+
+    - name: Run the ironic node-list command
+      shell: >
+        . /root/openrc && ironic node-list
+      register: node_table
+      tags:
+        - skip_ansible_lint
+
+    - name: Check that the node-list command succeeded
+      assert:
+        that:
+          - "'UUID' in node_table.stdout"
+
+    - name: Run the ironic driver-list command
+      shell: >
+        . /root/openrc && ironic driver-list
+      register: driver_table
+      tags:
+        - skip_ansible_lint
+
+    - name: Check that the driver-list command succeeded
+      assert:
+        that:
+          - "'Supported' in driver_table.stdout"
+
+    - name: Create a node
+      shell: >
+        . /root/openrc && ironic node-create -d agent_ipmitool
+        -i ipmi_address=1.2.3.4
+        -i ipmi_password="TrickyPa55"
+        -i ipmi_username="admin"
+        -i deploy_ramdisk="http://example.com/ramdisk.qcow"
+        -i deploy_kernel="http://example.com/kernel.tgz"
+        -n happynode
+      register: node_created
+      tags:
+        - skip_ansible_lint
+
+    - name: Check that the node was created
+      assert:
+        that:
+          - "'happynode' in node_created.stdout"
+          - "'agent_ipmitool' in node_created.stdout"
+          - "'1.2.3.4' in node_created.stdout"
+          - "'admin' in node_created.stdout"
+          - "'http://example.com/ramdisk.qcow' in node_created.stdout"
+          - "'http://example.com/kernel.tgz' in node_created.stdout"
+
+    - name: Run the node-validate command
+      shell: >
+        . /root/openrc && ironic node-validate happynode
+      register: node_validated
+      tags:
+        - skip_ansible_lint
+
+    - name: Check that node-validate returned something sensible
+      assert:
+        that:
+          - "'Reason' in node_validated.stdout"
+
+    - name: Create a port
+      shell: >
+        . /root/openrc && ironic port-create -n $(ironic node-list | grep 'happynode' | cut -f 2 -d "|") -a de:ad:be:ef:de:ad
+      register: port_created
+      tags:
+        - skip_ansible_lint
+
+    - name: Check that the port was created
+      assert:
+        that:
+          - "'de:ad:be:ef:de:ad' in port_created.stdout"
+
+    - name: Update a node (in this case, change its name)
+      shell: >
+        . /root/openrc && ironic node-update happynode replace name=cheerynode
+      register: name_changed
+      tags:
+        - skip_ansible_lint
+
+    - name: Check that the name was changed
+      assert:
+        that:
+          - "'cheerynode' in name_changed.stdout"
+
+    - name: Remove a node
+      shell: >
+        . /root/openrc && ironic node-delete cheerynode
+      register: node_deleted
+      tags:
+        - skip_ansible_lint
+
+    - name: Check that a node was deleted
+      assert:
+        that:
+          - "'Deleted' in node_deleted.stdout"
+

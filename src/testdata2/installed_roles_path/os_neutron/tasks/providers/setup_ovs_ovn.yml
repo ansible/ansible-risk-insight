@@ -1,0 +1,90 @@
+# (c) 2018, James Denton <james.denton@rackspace.com>
+#
+# Copyright 2018, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Set openvswitch hostname
+  command: "ovs-vsctl set open_vswitch . external-ids:hostname='{{ ansible_facts['nodename'] }}'"
+  when:
+    - (neutron_services['neutron-ovn-northd']['group'] in group_names) or
+      (neutron_services['neutron-ovn-controller']['group'] in group_names)
+
+# (NOTE) This makes all computes eligible to be gateway nodes
+- name: Set CMS Options for Gateway Scheduling
+  command: "ovs-vsctl set open . external-ids:ovn-cms-options=enable-chassis-as-gw"
+  when:
+    - neutron_services['neutron-ovn-controller']['group'] in group_names
+
+- name: Configure OVN Southbound Connection
+  command: "ovs-vsctl set open . external-ids:ovn-remote={{ neutron_ovn_sb_connection }}"
+  when:
+    - neutron_services['neutron-ovn-controller']['group'] in group_names
+
+# (todo) Dynamic encap type
+- name: Configure Supported OVN Overlay Protocols
+  command: "ovs-vsctl set open . external-ids:ovn-encap-type=geneve,vxlan"
+  when:
+    - neutron_services['neutron-ovn-controller']['group'] in group_names
+
+- name: Configure Encapsulation Address for Overlay Traffic
+  command: "ovs-vsctl set open . external-ids:ovn-encap-ip={{ neutron_local_ip }}"
+  when:
+    - neutron_services['neutron-ovn-controller']['group'] in group_names
+
+# Create an ovsdb manager for Nova (os-vif)
+- name: Register existing OVSDB Manager(s)
+  command: ovs-vsctl get-manager
+  register: existing_ovsdb_manager
+  when:
+    - neutron_services['neutron-ovn-controller']['group'] in group_names
+
+- name: Create OVSDB Manager
+  command: ovs-vsctl --id @manager create Manager "target=\"{{ neutron_ovsdb_manager }}\"" -- add Open_vSwitch . manager_options @manager
+  when:
+    - neutron_services['neutron-ovn-controller']['group'] in group_names
+    - neutron_ovsdb_manager not in existing_ovsdb_manager.stdout_lines
+
+- name: Setup Network Provider Bridges
+  openvswitch_bridge:
+    bridge: "{{ bridge_mapping.split(':')[1] }}"
+    fail_mode: standalone
+    state: present
+  with_items: "{{ neutron_provider_networks.network_mappings.split(',') }}"
+  loop_control:
+    loop_var: bridge_mapping
+  when:
+    - neutron_services['neutron-ovn-controller']['group'] in group_names
+    - neutron_provider_networks.network_mappings is defined
+
+- name: Add ports to Network Provider Bridges
+  openvswitch_port:
+    bridge: "{{ interface_mapping.split(':')[0] }}"
+    port: "{{ interface_mapping.split(':')[1] }}"
+    state: present
+  with_items: "{{ neutron_provider_networks.network_interface_mappings.split(',') }}"
+  loop_control:
+    loop_var: interface_mapping
+  when:
+    - neutron_services['neutron-ovn-controller']['group'] in group_names
+    - neutron_provider_networks.network_interface_mappings is defined and (neutron_provider_networks.network_interface_mappings|length > 0)
+
+- name: Set the OVN Bridge Mappings in OVS
+  command: "ovs-vsctl set open . external-ids:ovn-bridge-mappings={{ neutron_provider_networks.network_mappings }}"
+  when:
+    - neutron_provider_networks.network_mappings is defined
+    - neutron_services['neutron-ovn-controller']['group'] in group_names
+
+- include_tasks: ovn_cluster_setup.yml
+  when:
+    - neutron_services['neutron-ovn-northd']['group'] in group_names

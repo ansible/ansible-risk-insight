@@ -1,0 +1,356 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# CONTAINER SETUP AND CONFIG
+- name: Write default container config
+  lineinfile:
+    dest: "/var/lib/lxc/{{ inventory_hostname }}/config"
+    line: "{{ item.split('=', 1)[0] }} = {{ item.split('=', 1)[1] }}"
+    backup: "true"
+  with_items: "{{ lxc_container_default_config_list | union(lxc_container_config_list) }}"
+  delegate_to: "{{ physical_host }}"
+  register: default_configuration_container
+  notify:
+    - Lxc container restart
+
+- name: Ensure containers have access RO cgroups
+  lineinfile:
+    dest: "/var/lib/lxc/{{ inventory_hostname }}/config"
+    line: "lxc.mount.auto = proc:mixed sys:ro cgroup:mixed"
+    regexp: "^lxc.mount.auto = proc:(rw|mixed) sys:ro cgroup:(ro|mixed)$"
+    insertafter: "^lxc.mount.auto"
+    backup: "true"
+  delegate_to: "{{ physical_host }}"
+
+- name: Ensure bind mount host directories exists
+  file:
+    path: "{{ item['host_directory'] }}"
+    state: "directory"
+  with_items: "{{ lxc_container_default_bind_mounts | union(_lxc_container_bind_mounts) | union(lxc_container_bind_mounts) }}"
+  delegate_to: "{{ physical_host }}"
+
+- name: Add bind mount configuration to container
+  lineinfile:
+    dest: "/var/lib/lxc/{{ inventory_hostname }}/config"
+    line: "lxc.mount.entry = {{ item['host_directory'] }} {{ item['container_directory'].lstrip('/') }} none bind,create=dir 0 0"
+    backup: "true"
+  with_items: "{{ lxc_container_default_bind_mounts | union(_lxc_container_bind_mounts) | union(lxc_container_bind_mounts) }}"
+  delegate_to: "{{ physical_host }}"
+  register: bind_configuration_container
+  notify:
+    - Lxc container restart
+
+- name: Create and start the container
+  lxc_container:
+    name: "{{ inventory_hostname }}"
+    state: started
+  delegate_to: "{{ physical_host }}"
+
+- name: Gather container facts
+  setup:
+    gather_subset: "!all"
+
+- name: Drop container setup script
+  template:
+    src: "container-setup.sh.j2"
+    dest: "/opt/container-setup.sh"
+    owner: "root"
+    group: "root"
+    mode: "0755"
+
+- name: Drop container first run script
+  template:
+    src: "container-first-run.sh.j2"
+    dest: "/var/lib/lxc/{{ inventory_hostname }}/container-first-run.sh"
+    owner: "root"
+    group: "root"
+    mode: "0755"
+  delegate_to: "{{ physical_host }}"
+
+- name: Execute first script
+  command: "/var/lib/lxc/{{ inventory_hostname }}/container-first-run.sh"
+  args:
+    creates: "/var/lib/lxc/{{ inventory_hostname }}/setup.complete"
+  register: container_extra_commands
+  until: container_extra_commands is success
+  retries: 5
+  delay: 2
+  delegate_to: "{{ physical_host }}"
+# CONTAINER SETUP AND CONFIG
+
+
+# VETH AND CONNECTIVITY SETTINGS
+- name: Create container mac script
+  template:
+    src: container_mac_generation.sh.j2
+    dest: "/var/lib/lxc/{{ inventory_hostname }}/{{ item.value.interface }}_mac_generation.sh"
+    mode: "0755"
+  delegate_to: "{{ physical_host }}"
+  with_dict: "{{ lxc_container_networks_combined }}"
+
+# TODO(noondeadpunk): Remove that in X cycle
+- name: Cleanup old mac scripts
+  file:
+    path: "/openstack/{{ inventory_hostname }}/{{ item.value.interface }}_mac_generation.sh"
+    state: absent
+  delegate_to: "{{ physical_host }}"
+  with_dict: "{{ lxc_container_networks_combined }}"
+
+- name: Set define static mac address from an existing interface
+  command: "/var/lib/lxc/{{ inventory_hostname }}/{{ item.value.interface }}_mac_generation.sh"
+  args:
+    creates: "/var/lib/lxc/{{ inventory_hostname }}/{{ item.value.interface }}.hwaddr"
+  delegate_to: "{{ physical_host }}"
+  with_dict: "{{ lxc_container_networks_combined }}"
+
+- name: Gather hardware addresses to be used as facts
+  slurp:
+    src: "/var/lib/lxc/{{ inventory_hostname }}/{{ item.value.interface }}.hwaddr"
+  changed_when: false
+  register: macs
+  with_dict: "{{ lxc_container_networks_combined }}"
+  delegate_to: "{{ physical_host }}"
+
+# NOTE(cloudnull): To dynamically set the mac address "facts" Ansible line
+#                  format is being used
+- name: Set fixed hardware address fact
+  set_fact: "{{ item.item.value.interface }}_mac_address={{ item.content | b64decode }}"
+  with_items:
+    - "{{ macs.results }}"
+
+# NOTE(andymccr): We need an index for the interfaces in LXC >= 3 converting
+#                 to a list and using with_indexed_items for this purpose.
+- name: LXC host config for container networks
+  template:
+    src: "container-interface.ini.j2"
+    dest: "/var/lib/lxc/{{ inventory_hostname }}/{{ item.1.interface }}.ini"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  with_indexed_items: "{{ (lxc_container_networks_combined.values() | list) | sort(attribute='interface') }}"
+  register: network_config
+  delegate_to: "{{ physical_host }}"
+
+- name: Container network includes
+  lineinfile:
+    dest: "/var/lib/lxc/{{ inventory_hostname }}/config"
+    line: "lxc.include = /var/lib/lxc/{{ inventory_hostname }}/{{ item.value.interface }}.ini"
+    backup: "true"
+  with_dict: "{{ lxc_container_networks_combined }}"
+  when: item.value.interface is defined
+  register: network_includes
+  delegate_to: "{{ physical_host }}"
+
+- name: Create wiring script
+  copy:
+    src: "lxc-veth-wiring.sh"
+    dest: "/var/lib/lxc/{{ inventory_hostname }}/lxc-veth-wiring.sh"
+    owner: "root"
+    group: "root"
+    mode: "0755"
+  delegate_to: "{{ physical_host }}"
+
+# Adds post-down and pre-start hooks
+- name: Drop veth cleanup script
+  template:
+    src: "veth-cleanup.sh.j2"
+    dest: "/var/lib/lxc/{{ inventory_hostname }}/veth-cleanup.sh"
+    owner: "root"
+    group: "root"
+    mode: "0755"
+  delegate_to: "{{ physical_host }}"
+
+- name: Defines a pre, post, and haltsignal configs
+  lineinfile:
+    dest: "/var/lib/lxc/{{ inventory_hostname }}/config"
+    line: "{{ item }}"
+    backup: "true"
+  with_items:
+    - "lxc.hook.pre-start = /var/lib/lxc/{{ inventory_hostname }}/veth-cleanup.sh"
+    - "lxc.hook.post-stop = /var/lib/lxc/{{ inventory_hostname }}/veth-cleanup.sh"
+    - "lxc.signal.halt = SIGRTMIN+4"
+  delegate_to: "{{ physical_host }}"
+
+- name: Run veth wiring
+  set_fact:
+    lxc_container_veth_wiring: true
+  when:
+    - ((not lxc_container_veth_wiring | bool) and
+       ((network_config is changed) and (network_includes is changed))) and
+      not ((default_configuration_container is changed) or
+           (bind_configuration_container is changed))
+
+- name: Run container veth wiring script
+  command: >-
+    /var/lib/lxc/{{ inventory_hostname }}/lxc-veth-wiring.sh
+    "{{ inventory_hostname }}"
+    "{{ lxc_container_network_veth_pair[-15:] }}"
+    "{{ item.value.interface }}"
+    "{{ item.value.bridge }}"
+    "{{ item.value.bridge_type | default('linux_bridge') }}"
+  register: wiring_script
+  with_dict: "{{ lxc_container_networks_combined }}"
+  when:
+    - lxc_container_veth_wiring | bool
+    - item.value.interface is defined
+    - item.value.type is not defined or item.value.type == 'veth'
+  failed_when: wiring_script.rc not in [3, 0]
+  changed_when: wiring_script.rc == 3
+  delegate_to: "{{ physical_host }}"
+
+- include_tasks: "lxc_container_network_new.yml"
+# VETH AND CONNECTIVITY SETTINGS
+
+
+# ENVIRONMENT AND HOSTNAME SETTINGS
+- name: Add global_environment_variables to environment file
+  blockinfile:
+    dest: "/etc/environment"
+    state: present
+    marker: "# {mark} Managed by OpenStack-Ansible"
+    insertbefore: EOF
+    block: "{{ lookup('template', 'environment.j2') }}"
+  remote_user: root
+
+- name: Create localhost config
+  lineinfile:
+    dest: "/etc/hosts"
+    regexp: "^127.0.0.1"
+    line: "127.0.0.1 localhost"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  remote_user: root
+
+- name: Ensure the hostnamed override directory exists
+  file:
+    path: "/etc/systemd/system/systemd-hostnamed.service.d"
+    state: "directory"
+
+- name: Create hostnamed override
+  template:
+    src: "systemd-hostnamed.conf"
+    dest: "/etc/systemd/system/systemd-hostnamed.service.d/hostnamed.conf"
+  notify:
+    - Enable hostnamed
+
+- name: Generate machine-id
+  command: "systemd-machine-id-setup"
+  args:
+    creates: "/etc/machine-id"
+  register: machine_id
+  notify:
+    - Lxc container restart
+
+- name: Ensure the dbus directory exists
+  file:
+    path: "/var/lib/dbus"
+    state: "directory"
+
+- name: Create dbus machine-id
+  copy:
+    src: "/etc/machine-id"
+    dest: "/var/lib/dbus/machine-id"
+    mode: "0444"
+    remote_src: "yes"
+  remote_user: root
+
+- name: Link container journal to host
+  block:
+    - name: Retrieve the machine-id
+      slurp:
+        src: /etc/machine-id
+      register: machine_id
+
+    - name: Set bind mount for journal linking
+      set_fact:
+        lxc_container_journal_path: "/var/log/journal/{{ (machine_id.content | b64decode).strip() }}"
+
+    - name: Ensure journal directory exists
+      file:
+        path: "{{ lxc_container_journal_path }}"
+        state: "directory"
+        group: "systemd-journal"
+        owner: "root"
+        mode: "02755"
+      delegate_to: "{{ item }}"
+      with_items:
+        - "{{ physical_host }}"
+        - "{{ inventory_hostname }}"
+
+    - name: Add bind mount configuration to container
+      lineinfile:
+        dest: "/var/lib/lxc/{{ inventory_hostname }}/config"
+        line: "lxc.mount.entry = {{ lxc_container_journal_path }} {{ lxc_container_journal_path.lstrip('/') }} none bind,create=dir 0 0"
+        backup: "true"
+      delegate_to: "{{ physical_host }}"
+  when:
+    - lxc_container_journal_link | bool
+# ENVIRONMENT AND HOSTNAME SETTINGS
+
+
+# POST UP/DOWN SERVICES AND KERNEL SETTINGS
+- name: Create post-up-down oneshot service
+  template:
+    src: "post-up-down.oneshot.j2"
+    dest: "/etc/systemd/system/post-up-down-{{ item.value.interface }}.service"
+    mode: "0644"
+    owner: "root"
+    group: "root"
+  with_dict: "{{ lxc_container_networks_combined }}"
+  notify:
+    - Reload systemd daemon
+
+- name: Create pre-up-down oneshot service
+  template:
+    src: "pre-up-down.oneshot.j2"
+    dest: "/etc/systemd/system/pre-up-down-{{ item.value.interface }}.service"
+    mode: "0644"
+    owner: "root"
+    group: "root"
+  with_dict: "{{ lxc_container_networks_combined }}"
+  notify:
+    - Reload systemd daemon
+
+- name: Ensure sysctl can be applied
+  template:
+    src: "sysctl-container.init.j2"
+    dest: "/etc/systemd/system/sysctl-container.service"
+    mode: "0644"
+    owner: "root"
+    group: "root"
+  remote_user: root
+  notify:
+    - Enable container sysctl service
+# POST UP/DOWN SERVICES AND KERNEL SETTINGS
+
+
+# SET CONTAINER FACTS
+- name: Allow the usage of local facts
+  file:
+    path: /etc/ansible/facts.d/
+    state: directory
+  tags:
+    - always
+
+- name: Record the container variant deployed
+  ini_file:
+    dest: "/etc/ansible/facts.d/openstack_ansible.fact"
+    section: lxc
+    option: variant
+    value: "{{ properties['lxc_container_variant'] | default(lxc_container_variant) }}"
+  tags:
+    - always
+# SET CONTAINER FACTS

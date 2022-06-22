@@ -1,0 +1,5 @@
+---
+- hosts: cluster0
+  roles:
+    - common
+    - network

@@ -1,0 +1,8 @@
+=======
+Actions
+=======
+
+.. toctree::
+   :glob:
+
+   actions/*

@@ -1,0 +1,54 @@
+---
+- name: Print debug info
+  tags:
+    - compute
+    - debug
+  debug:
+    msg: "Spawning compute node '{{ container_name }}' with COMP_ID={{ COMP_ID }}"
+#    verbosity: 1
+
+- name: Spawn compute node
+  remote_user: root
+  become: yes
+  become_method: sudo
+  tags:
+    - spawn
+    - compute
+    - containers
+    - docker
+  docker_container:
+    name: "{{ container_name }}"
+    hostname: "{{ container_name }}"
+    image: "{{ compute_container_image }}"
+    state: started
+    privileged: yes
+    capabilities: ALL
+    volumes:
+      - /dev:/dev
+      - /lib/modules:/lib/modules
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    published_ports:
+      - "{{ web_port_map }}"
+    stop_signal: SIGRTMIN+3
+    security_opts:
+      - "apparmor:docker-unconfined"
+    env:
+      TZ: "America/Los_Angeles"
+      ODL_NETWORK: "{{ use_odl_network }}"
+      SERVICE_HOST: "{{ service_host_mgmt_ip }}"
+      container: "docker"
+      http_proxy: "{{ lab_http_proxy }}"
+      https_proxy: "{{ lab_https_proxy }}"
+      no_proxy: "{{ lab_no_proxy }}"
+      TERM: screen
+  register: compute_node_spawn_result
+
+- name: Connect container to network with ansible (idempotent)
+  tags:
+    - network
+    - compute
+    - experimental
+  include_role:
+    name: network
+
+# vim: set et sw=2 ts=2 :

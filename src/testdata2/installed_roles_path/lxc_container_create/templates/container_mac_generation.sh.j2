@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+# {{ ansible_managed }}
+
+set -e
+
+# NOTE(cloudnull): Should a container already be up and running with a defined container interface
+#                  the shell command will use the MAC address already set within the container as
+#                  it's value. This allows the tasks to remain idempotent while ensuring that a
+#                  container restart isn't required to set a static mac.
+#                  This task is being done to allow a container to have a static mac address.
+#                  before this task a container had a dynamic mac address which would
+#                  change when a container was restarted. This restart process causes terrible
+#                  issues in several network intensive systems (RabbitMQ, Neutron, etc). To
+#                  resolve the rotating mac address issue this task is setting the mac in a hwaddr
+#                  file and a lookup is being used in the container-interface.ini template to render
+#                  the static hardware address as expected.
+C_PID="$(lxc-info --name {{ inventory_hostname }} --pid | awk '/PID:/ {print $2}')"
+C_ADDR="/proc/${C_PID}/root/sys/class/net/{{ item.value.interface }}/address"
+HARDWARE_ADDR="/var/lib/lxc/{{ inventory_hostname }}/{{ item.value.interface }}.hwaddr"
+HEXCHARS="0123456789abcdef"
+if ! cat "${C_ADDR}" > "${HARDWARE_ADDR}"; then
+  echo "00:16:3e$(
+    for i in {1..6}; do
+      echo -n "${HEXCHARS:$(( $RANDOM % 16 )):1}"
+    done | sed -e 's/\(..\)/:\1/g'
+  )" > "${HARDWARE_ADDR}"
+fi

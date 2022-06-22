@@ -1,0 +1,25 @@
+# {{ ansible_managed }}
+
+#
+# <bus>         Currently only "pci" is supported
+# <id>          Device ID on the specified bus
+# <driver>      Driver to bind against (vfio-pci, uio_pci_generic, igb_uio or
+#               rte_kni)
+#
+# Be aware that the two dpdk compatible drivers uio_pci_generic and vfio-pci are
+# part of linux-image-extra-<VERSION> package.
+# This package is not always installed by default - for example in cloud-images.
+# So please install it in case you run into missing module issues.
+#
+# For the module igb_uio, please install the dpdk-igb-uio-dkms package.
+# For the module rte_kni, please install the dpdk-rte-kni-dkms package.
+#
+# <bus> <id>            <driver>
+# pci   0000:04:00.0    vfio-pci
+# pci   0000:04:00.1    uio_pci_generic
+# pci   0000:05:00.0    igb_uio
+# pci   0000:06:00.0    rte_kni
+
+{% for pci_address in ovs_dpdk_pci_addresses %}
+pci   {{ pci_address }}    {{ ovs_dpdk_driver }}
+{% endfor %}

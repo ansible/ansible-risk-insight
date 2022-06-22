@@ -1,0 +1,14 @@
+---
+- name: Install ODL via RPM path
+  package:
+    name={{ rpm_path }}
+    state=present
+  when: ansible_os_family == 'RedHat'
+
+- name: Install ODL via RPM path
+  package:
+    name={{ suse_rpm_path }}
+    state=present
+  when: ansible_os_family == 'Suse'
+
+

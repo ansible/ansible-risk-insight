@@ -1,0 +1,15 @@
+# {{ ansible_managed }}
+
+# General
+[DEFAULT]
+debug = {{ debug }}
+
+# Drivers
+driver = {{ neutron_driver_metering }}
+interface_driver = {{ neutron_plugins[neutron_plugin_type].driver_interface }}
+
+# Intervals
+measure_interval = 30
+
+[AGENT]
+report_interval = 30
