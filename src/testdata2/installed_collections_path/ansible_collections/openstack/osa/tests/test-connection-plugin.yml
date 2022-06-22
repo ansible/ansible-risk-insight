@@ -1,0 +1,128 @@
+---
+# Copyright 2017, Logan Vig <logan2211@gmail.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Fail if sshd is running in the containers
+  hosts: all_containers:alt_containers
+  gather_facts: no
+  become: True
+  tasks:
+    - name: Ensure sshd is not running
+      command: pgrep sshd
+      register: sshd_pgrep
+      failed_when: "sshd_pgrep.rc == 0"
+      changed_when: false
+
+# The container3 ping validates I75f9d0f55ecd875caa1bf608a77c92f950b679a1
+- name: Test the connection plugin container awareness functions
+  hosts: all_containers:alt_containers
+  gather_facts: no
+  become: True
+  tasks:
+    - name: Test container ping
+      action:
+        module: ping
+
+# Test for I56d8afddbccf01f2944d2fdd505b601a4b048374
+- name: Test delegation in the container aware connection plugin
+  hosts: localhost
+  gather_facts: no
+  become: True
+  tasks:
+    - name: Test container delegation without templating
+      command: cat /etc/hostname
+      delegate_to: container1
+      register: delegated
+      failed_when: delegated.stdout != 'container1'
+      changed_when: false
+    - name: Test container delegation using templating
+      command: cat /etc/hostname
+      delegate_to: "{{ groups['all_containers'][1] }}"
+      register: delegated
+      failed_when: delegated.stdout != 'container2'
+      changed_when: false
+
+# Test for conditional delegation Ief2fecbc266adcc816336b601253d3e90c39c32b
+- name: Test conditional delegation
+  hosts: container1
+  gather_facts: no
+  become: True
+  vars:
+    delegate_control: "target-host"
+  tasks:
+    - name: Test conditional delegation
+      command: cat /etc/hostname
+      register: delegated
+      failed_when: delegated.stdout != 'container1'
+      changed_when: false
+      delegate_to: "{{ (delegate_control == 'deployment-host') | ternary('localhost', inventory_hostname) }}"
+
+# Test for If594914df53efacc6d5bba148f4f46280f5a117d
+- name: Test delegation between container physical_hosts
+  hosts: fakecontainer
+  gather_facts: no
+  become: True
+  tasks:
+    - name: Test delegation between containers on different hosts
+      action:
+        module: ping
+      delegate_to: "{{ groups['all_containers'][0] }}"
+
+- name: Test container_user attribute
+  hosts: container1
+  user: root
+  tasks:
+    - name: Ensure container alt user
+      user:
+        name: testing
+        group: users
+    - name: Execute command with container_user set
+      command: whoami
+      vars:
+        container_user: testing
+      register: whoami_output
+      changed_when: false
+      failed_when:
+        - whoami_output.stdout != 'testing'
+
+# Test for I69f2eed35859bdc149e5ed21441eab7c8a8352cf
+- name: Reinstall openssh-server for delegation to unknown inventory host
+  hosts: container3
+  tasks:
+    - name: Uninstall OpenSSH server
+      package:
+        name: "{{ openssh_server_package }}"
+        state: absent
+    - name: Install OpenSSH server
+      package:
+        name: "{{ openssh_server_package }}"
+        state: present
+    - name: Start OpenSSH server
+      systemd:
+        name: "{{ openssh_server_service }}"
+        enabled: yes
+        masked: no
+        daemon_reload: yes
+        state: restarted
+
+- name: Test delegation to host not in inventory
+  hosts: container1
+  remote_user: root
+  tasks:
+    - name: Test container delegation without using inventory name
+      command: cat /etc/hostname
+      delegate_to: 10.100.100.4
+      register: delegated
+      failed_when: delegated.stdout != 'container3'
+      changed_when: false

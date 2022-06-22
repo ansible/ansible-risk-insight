@@ -1,0 +1,828 @@
+---
+# Copyright 2017, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- job:
+    name: openstack-ansible-deploy
+    parent: base
+    description: |
+      Global parent for integrated OpenStack-Ansible tests
+    pre-run:
+      - zuul.d/playbooks/pre-gate-cleanup.yml
+      - zuul.d/playbooks/pre-gate-scenario.yml
+      - zuul.d/playbooks/pre-osa-aio.yml
+    run: zuul.d/playbooks/run.yml
+    post-run:
+      - zuul.d/playbooks/post.yml
+    timeout: 10800
+    irrelevant-files:
+      - ^\.git.*
+      - ^.*\.(example|md|rst)$
+      - ^deploy-guide/.*
+      - ^doc/.*
+      - ^releasenotes/.*
+      - ^setup\.(cfg|py)$
+      - ^tox.ini$
+      - ^Vagrantfile
+    vars:
+      #disable powertools/highavailabity for centos, do not install debian/ubuntu backports repo config
+      configure_mirrors_extra_repos: False
+
+- job:
+    name: openstack-ansible-deploy-aio-distro
+    parent: openstack-ansible-deploy
+    description: |
+      Run integrated tests for an OpenStack-Ansible project.
+      This should be used only for distro based tests.
+    required-projects: &r-p-no_services
+      # OSA repos
+      - name: openstack/openstack-ansible
+      - name: openstack/ansible-hardening
+      - name: openstack/openstack-ansible-apt_package_pinning
+      - name: openstack/ansible-config_template
+      - name: openstack/openstack-ansible-galera_client
+      - name: openstack/openstack-ansible-galera_server
+      - name: openstack/openstack-ansible-ceph_client
+      - name: openstack/openstack-ansible-haproxy_server
+      - name: openstack/openstack-ansible-lxc_container_create
+      - name: openstack/openstack-ansible-lxc_hosts
+      - name: openstack/openstack-ansible-memcached_server
+      - name: openstack/openstack-ansible-openstack_hosts
+      - name: openstack/openstack-ansible-os_keystone
+      - name: openstack/openstack-ansible-openstack_openrc
+      - name: openstack/openstack-ansible-os_adjutant
+      - name: openstack/openstack-ansible-os_aodh
+      - name: openstack/openstack-ansible-os_barbican
+      - name: openstack/openstack-ansible-os_blazar
+      - name: openstack/openstack-ansible-os_ceilometer
+      - name: openstack/openstack-ansible-os_cinder
+      - name: openstack/openstack-ansible-os_designate
+      - name: openstack/openstack-ansible-os_glance
+      - name: openstack/openstack-ansible-os_gnocchi
+      - name: openstack/openstack-ansible-os_heat
+      - name: openstack/openstack-ansible-os_horizon
+      - name: openstack/openstack-ansible-os_ironic
+      - name: openstack/openstack-ansible-os_magnum
+      - name: openstack/openstack-ansible-os_manila
+      - name: openstack/openstack-ansible-os_masakari
+      - name: openstack/openstack-ansible-os_mistral
+      - name: openstack/openstack-ansible-os_murano
+      - name: openstack/openstack-ansible-os_neutron
+      - name: openstack/openstack-ansible-os_nova
+      - name: openstack/openstack-ansible-os_octavia
+      - name: openstack/openstack-ansible-os_placement
+      - name: openstack/openstack-ansible-os_rally
+      - name: openstack/openstack-ansible-os_sahara
+      - name: openstack/openstack-ansible-os_senlin
+      - name: openstack/openstack-ansible-os_swift
+      - name: openstack/openstack-ansible-os_tacker
+      - name: openstack/openstack-ansible-os_tempest
+      - name: openstack/openstack-ansible-os_trove
+      - name: openstack/openstack-ansible-plugins
+      - name: openstack/ansible-role-qdrouterd
+      - name: openstack/openstack-ansible-rabbitmq_server
+      - name: openstack/openstack-ansible-repo_server
+      - name: openstack/openstack-ansible-rsyslog_client
+      - name: openstack/openstack-ansible-rsyslog_server
+      - name: openstack/ansible-role-systemd_service
+      - name: openstack/ansible-role-systemd_mount
+      - name: openstack/ansible-role-systemd_networkd
+      - name: openstack/ansible-role-python_venv_build
+      - name: openstack/ansible-role-uwsgi
+      - name: openstack/ansible-role-pki
+      # OpenStack service repos - listed here to make cached repos available in CI
+      - name: openstack/requirements
+      # Murano distro deployment does need access to valid git repo anyway
+      - name: openstack/murano
+      # All deployment scenarios including infra need keystone
+      - name: openstack/keystone
+
+- job:
+    name: openstack-ansible-deploy-aio-infra
+    parent: openstack-ansible-deploy
+    description: |
+      Run integrated tests for an OpenStack-Ansible project.
+      This should be used only for infra based tests.
+    required-projects: *r-p-no_services
+
+- job:
+    name: openstack-ansible-deploy-aio-hosts
+    parent: openstack-ansible-deploy
+    description: |
+      Run integrated tests for an OpenStack-Ansible project.
+      This should be used only for hosts based tests.
+    required-projects: *r-p-no_services
+
+
+- job:
+    name: openstack-ansible-deploy-aio
+    parent: openstack-ansible-deploy
+    description: |
+      Run integrated tests for an OpenStack-Ansible project.
+      This should be used only for source based tests.
+    required-projects:
+      # OSA repos
+      - name: openstack/openstack-ansible
+      - name: openstack/ansible-hardening
+      - name: openstack/openstack-ansible-apt_package_pinning
+      - name: openstack/ansible-config_template
+      - name: openstack/openstack-ansible-galera_client
+      - name: openstack/openstack-ansible-galera_server
+      - name: openstack/openstack-ansible-ceph_client
+      - name: openstack/openstack-ansible-haproxy_server
+      - name: openstack/openstack-ansible-lxc_container_create
+      - name: openstack/openstack-ansible-lxc_hosts
+      - name: openstack/openstack-ansible-memcached_server
+      - name: openstack/openstack-ansible-openstack_hosts
+      - name: openstack/openstack-ansible-os_keystone
+      - name: openstack/openstack-ansible-openstack_openrc
+      - name: openstack/openstack-ansible-os_adjutant
+      - name: openstack/openstack-ansible-os_aodh
+      - name: openstack/openstack-ansible-os_barbican
+      - name: openstack/openstack-ansible-os_blazar
+      - name: openstack/openstack-ansible-os_ceilometer
+      - name: openstack/openstack-ansible-os_cloudkitty
+      - name: openstack/openstack-ansible-os_cinder
+      - name: openstack/openstack-ansible-os_designate
+      - name: openstack/openstack-ansible-os_glance
+      - name: openstack/openstack-ansible-os_gnocchi
+      - name: openstack/openstack-ansible-os_heat
+      - name: openstack/openstack-ansible-os_horizon
+      - name: openstack/openstack-ansible-os_ironic
+      - name: openstack/openstack-ansible-os_magnum
+      - name: openstack/openstack-ansible-os_manila
+      - name: openstack/openstack-ansible-os_masakari
+      - name: openstack/openstack-ansible-os_mistral
+      - name: openstack/openstack-ansible-os_murano
+      - name: openstack/openstack-ansible-os_neutron
+      - name: openstack/openstack-ansible-os_nova
+      - name: openstack/openstack-ansible-os_octavia
+      - name: openstack/openstack-ansible-os_placement
+      - name: openstack/openstack-ansible-os_rally
+      - name: openstack/openstack-ansible-os_sahara
+      - name: openstack/openstack-ansible-os_senlin
+      - name: openstack/openstack-ansible-os_swift
+      - name: openstack/openstack-ansible-os_tacker
+      - name: openstack/openstack-ansible-os_tempest
+      - name: openstack/openstack-ansible-os_trove
+      - name: openstack/openstack-ansible-plugins
+      - name: openstack/ansible-role-qdrouterd
+      - name: openstack/openstack-ansible-rabbitmq_server
+      - name: openstack/openstack-ansible-repo_server
+      - name: openstack/openstack-ansible-rsyslog_client
+      - name: openstack/openstack-ansible-rsyslog_server
+      - name: openstack/ansible-role-systemd_service
+      - name: openstack/ansible-role-systemd_mount
+      - name: openstack/ansible-role-systemd_networkd
+      - name: openstack/ansible-role-python_venv_build
+      - name: openstack/ansible-role-uwsgi
+      - name: openstack/ansible-role-pki
+      # OpenStack service repos - listed here to make cached repos available in CI
+      - name: openstack/requirements
+      - name: openstack/adjutant
+      - name: openstack/adjutant-ui
+      - name: openstack/aodh
+      - name: openstack/barbican
+      - name: openstack/barbican-ui
+      - name: openstack/ceilometer
+      - name: openstack/cinder
+      - name: openstack/cloudkitty
+      - name: openstack/designate
+      - name: openstack/designate-dashboard
+      - name: openstack/glance
+      - name: openstack/heat
+      - name: openstack/heat-dashboard
+      - name: openstack/horizon
+      - name: openstack/ironic-ui
+      - name: openstack/magnum-ui
+      - name: openstack/masakari-dashboard
+      - name: openstack/neutron-fwaas-dashboard
+      - name: openstack/sahara-dashboard
+      - name: openstack/keystone
+      - name: openstack/manila
+      - name: openstack/murano
+      - name: openstack/neutron
+      - name: openstack/neutron-vpnaas
+      - name: openstack/neutron-fwaas
+      - name: openstack/neutron-dynamic-routing
+      - name: openstack/networking-odl
+      - name: openstack/networking-ovn
+      - name: openstack/networking-bgpvpn
+      - name: openstack/networking-sfc
+      - name: openstack/nova
+      - name: openstack/sahara
+      - name: openstack/senlin
+      - name: openstack/swift
+      - name: openstack/ironic
+      - name: openstack/ironic-inspector
+      - name: openstack/magnum
+      - name: openstack/masakari
+      - name: openstack/masakari-monitors
+      - name: openstack/mistral
+      - name: openstack/mistral-extra
+      - name: openstack/murano
+      - name: openstack/trove
+      - name: openstack/trove-dashboard
+      - name: openstack/octavia
+      - name: openstack/placement
+      - name: openstack/tacker
+      - name: openstack/octavia-dashboard
+      - name: openstack/blazar
+      - name: openstack/blazar-nova
+      - name: openstack/zun
+      - name: openstack/kuryr-libnetwork
+      - name: openstack/kuryr
+
+# Ensuring overrides work
+- job:
+    name: openstack-ansible-varstest-aio
+    parent: openstack-ansible-deploy-aio
+    nodeset: ubuntu-focal
+
+# Ensuring SHAs are valid
+- job:
+    name: openstack-ansible-shastest-metal
+    parent: openstack-ansible-deploy
+    nodeset: ubuntu-focal
+    irrelevant-files: []
+    files:
+      - ^ansible-collection-requirements\.yml
+      - ^ansible-role-requirements\.yml
+      - ^playbooks\/defaults\/repo_packages\/.*\.yml
+
+# Ensuring clustering and healthcheck-infrastructure playbook is valid
+- job:
+    name: openstack-ansible-deploy-infra_lxc-validate
+    parent: openstack-ansible-deploy-infra_lxc-ubuntu-focal
+    files:
+      - ^playbooks\/galera-install.yml
+      - ^playbooks\/rabbitmq-install.yml
+      - ^playbooks\/memcached-install.yml
+      - ^playbooks\/healthcheck-infrastructure.yml
+      - ^playbooks\/repo-install.yml
+      - ^playbooks\/haproxy-install.yml
+
+# Running linters check
+- job:
+    name: openstack-ansible-linters-ubuntu-focal
+    parent: openstack-ansible-deploy-aio
+    nodeset: ubuntu-focal
+    irrelevant-files: []
+
+# Experimental job for checking our AIO can deploy with
+# a different ansible version
+- job:
+    name: openstack-ansible-deploy_with_ansible_devel-aio-ubuntu-focal
+    parent: openstack-ansible-deploy-aio
+    nodeset: ubuntu-focal
+    branches: ^(devel|master)$
+    required-projects:
+      - name: github.com/ansible/ansible
+        override-checkout: devel
+    vars:
+      ansible_package: "file://{{ ansible_user_dir }}/src/github.com/ansible/ansible"
+
+# Experimental job for checking our AIO can deploy with
+# a different ansible version
+- job:
+    name: openstack-ansible-deploy_with_ansible_next-aio-ubuntu-focal
+    parent: openstack-ansible-deploy-aio
+    nodeset: ubuntu-focal
+    branches: ^(devel|master)$
+    required-projects:
+      - name: github.com/ansible/ansible
+        override-checkout: stable-2.7
+    vars:
+      ansible_package: "file://{{ ansible_user_dir }}/src/github.com/ansible/ansible"
+
+
+# ubuntu jammy
+- job:
+    name: openstack-ansible-deploy-aio_lxc-ubuntu-jammy
+    parent: openstack-ansible-deploy-aio
+    nodeset: ubuntu-jammy
+
+- job:
+    name: openstack-ansible-deploy-aio_ceph-ubuntu-jammy
+    parent: openstack-ansible-deploy-aio
+    nodeset: ubuntu-jammy
+
+- job:
+    name: openstack-ansible-deploy-aio_nfs-ubuntu-jammy
+    parent: openstack-ansible-deploy-aio
+    nodeset: ubuntu-jammy
+
+- job:
+    name: openstack-ansible-deploy-aio_proxy-ubuntu-jammy
+    parent: openstack-ansible-deploy-aio
+    nodeset: ubuntu-jammy
+
+- job:
+    name: openstack-ansible-deploy-aio_metal-ubuntu-jammy
+    parent: openstack-ansible-deploy-aio
+    nodeset: ubuntu-jammy
+
+- job:
+    name: openstack-ansible-upgrade-aio_metal-ubuntu-jammy
+    parent: openstack-ansible-deploy-aio
+    nodeset: ubuntu-jammy
+    timeout: 10800
+
+- job:
+    name: openstack-ansible-upgrade-aio_lxc-ubuntu-jammy
+    parent: openstack-ansible-deploy-aio
+    nodeset: ubuntu-jammy
+    timeout: 10800
+
+- job:
+    name: openstack-ansible-upgrade-infra_lxc-ubuntu-jammy
+    parent: openstack-ansible-deploy-aio-infra
+    nodeset: ubuntu-jammy
+    timeout: 10800
+
+- job:
+    name: openstack-ansible-deploy-infra_lxc-ubuntu-jammy
+    parent: openstack-ansible-deploy-aio-infra
+    nodeset: ubuntu-jammy
+
+- job:
+    name: openstack-ansible-deploy-hosts_lxc-ubuntu-jammy
+    parent: openstack-ansible-deploy-aio-hosts
+    nodeset: ubuntu-jammy
+
+- job:
+    name: openstack-ansible-deploy-hosts_metal-ubuntu-jammy
+    parent: openstack-ansible-deploy-aio-hosts
+    nodeset: ubuntu-jammy
+
+- job:
+    name: openstack-ansible-deploy-aio_telemetry_metal-ubuntu-jammy
+    parent: openstack-ansible-deploy-aio
+    nodeset: ubuntu-jammy
+
+- job:
+    name: openstack-ansible-deploy-aio_qdrouterd-ubuntu-jammy
+    parent: openstack-ansible-deploy-aio
+    nodeset: ubuntu-jammy
+
+- job:
+    name: openstack-ansible-deploy-translations-ubuntu-jammy
+    parent: openstack-ansible-deploy-aio
+    nodeset: ubuntu-jammy
+
+
+# ubuntu focal
+- job:
+    name: openstack-ansible-deploy-aio_lxc-ubuntu-focal
+    parent: openstack-ansible-deploy-aio
+    nodeset: ubuntu-focal
+
+- job:
+    name: openstack-ansible-deploy-aio_ceph-ubuntu-focal
+    parent: openstack-ansible-deploy-aio
+    nodeset: ubuntu-focal
+
+- job:
+    name: openstack-ansible-deploy-aio_nfs-ubuntu-focal
+    parent: openstack-ansible-deploy-aio
+    nodeset: ubuntu-focal
+
+- job:
+    name: openstack-ansible-deploy-aio_proxy-ubuntu-focal
+    parent: openstack-ansible-deploy-aio
+    nodeset: ubuntu-focal
+
+- job:
+    name: openstack-ansible-deploy-aio_metal-ubuntu-focal
+    parent: openstack-ansible-deploy-aio
+    nodeset: ubuntu-focal
+
+- job:
+    name: openstack-ansible-deploy-aio_distro_metal-ubuntu-focal
+    parent: openstack-ansible-deploy-aio-distro
+    nodeset: ubuntu-focal
+
+- job:
+    name: openstack-ansible-upgrade-aio_metal-ubuntu-focal
+    parent: openstack-ansible-deploy-aio
+    nodeset: ubuntu-focal
+    timeout: 10800
+
+- job:
+    name: openstack-ansible-upgrade-aio_lxc-ubuntu-focal
+    parent: openstack-ansible-deploy-aio
+    nodeset: ubuntu-focal
+    timeout: 10800
+
+- job:
+    name: openstack-ansible-upgrade-infra_lxc-ubuntu-focal
+    parent: openstack-ansible-deploy-aio-infra
+    nodeset: ubuntu-focal
+    timeout: 10800
+
+- job:
+    name: openstack-ansible-deploy-infra_lxc-ubuntu-focal
+    parent: openstack-ansible-deploy-aio-infra
+    nodeset: ubuntu-focal
+
+- job:
+    name: openstack-ansible-deploy-hosts_lxc-ubuntu-focal
+    parent: openstack-ansible-deploy-aio-hosts
+    nodeset: ubuntu-focal
+
+- job:
+    name: openstack-ansible-deploy-hosts_distro_lxc-ubuntu-focal
+    parent: openstack-ansible-deploy-aio-hosts
+    nodeset: ubuntu-focal
+
+- job:
+    name: openstack-ansible-deploy-hosts_metal-ubuntu-focal
+    parent: openstack-ansible-deploy-aio-hosts
+    nodeset: ubuntu-focal
+
+- job:
+    name: openstack-ansible-deploy-aio_distro_lxc-ubuntu-focal
+    parent: openstack-ansible-deploy-aio-distro
+    nodeset: ubuntu-focal
+
+- job:
+    name: openstack-ansible-deploy-aio_telemetry_metal-ubuntu-focal
+    parent: openstack-ansible-deploy-aio
+    nodeset: ubuntu-focal
+
+- job:
+    name: openstack-ansible-deploy-aio_qdrouterd-ubuntu-focal
+    parent: openstack-ansible-deploy-aio
+    nodeset: ubuntu-focal
+
+- job:
+    name: openstack-ansible-deploy-translations-ubuntu-focal
+    parent: openstack-ansible-deploy-aio
+    nodeset: ubuntu-focal
+
+- job:
+    name: openstack-ansible-deploy-hosts_lxc_zfs-ubuntu-focal
+    parent: openstack-ansible-deploy-aio
+    nodeset: ubuntu-focal
+
+- job:
+    name: openstack-ansible-deploy-hosts_lxc_btrfs-ubuntu-focal
+    parent: openstack-ansible-deploy-aio
+    nodeset: ubuntu-focal
+
+- job:
+    name: openstack-ansible-deploy-hosts_lxc_overlayfs-ubuntu-focal
+    parent: openstack-ansible-deploy-aio
+    nodeset: ubuntu-focal
+
+# centos 9 stream
+- job:
+    name: openstack-ansible-deploy-aio_lxc-centos-9-stream
+    parent: openstack-ansible-deploy-aio
+    nodeset: centos-9-stream
+
+- job:
+    name: openstack-ansible-deploy-infra_lxc-centos-9-stream
+    parent: openstack-ansible-deploy-aio
+    nodeset: centos-9-stream
+
+- job:
+    name: openstack-ansible-deploy-hosts_distro_lxc-centos-9-stream
+    parent: openstack-ansible-deploy-aio
+    nodeset: centos-9-stream
+
+- job:
+    name: openstack-ansible-deploy-hosts_lxc-centos-9-stream
+    parent: openstack-ansible-deploy-aio
+    nodeset: centos-9-stream
+
+- job:
+    name: openstack-ansible-deploy-hosts_metal-centos-9-stream
+    parent: openstack-ansible-deploy-aio
+    nodeset: centos-9-stream
+
+- job:
+    name: openstack-ansible-deploy-aio_distro_lxc-centos-9-stream
+    parent: openstack-ansible-deploy-aio-distro
+    nodeset: centos-9-stream
+
+- job:
+    name: openstack-ansible-deploy-aio_ceph-centos-9-stream
+    parent: openstack-ansible-deploy-aio
+    nodeset: centos-9-stream
+
+- job:
+    name: openstack-ansible-deploy-aio_nfs-centos-9-stream
+    parent: openstack-ansible-deploy-aio
+    nodeset: centos-9-stream
+
+- job:
+    name: openstack-ansible-deploy-aio_distro_ceph-centos-9-stream
+    parent: openstack-ansible-deploy-aio-distro
+    nodeset: centos-9-stream
+
+- job:
+    name: openstack-ansible-upgrade-aio_lxc-centos-9-stream
+    parent: openstack-ansible-deploy-aio
+    nodeset: centos-9-stream
+    timeout: 10800
+
+- job:
+    name: openstack-ansible-upgrade-infra_lxc-centos-9-stream
+    parent: openstack-ansible-deploy-aio
+    nodeset: centos-9-stream
+    timeout: 10800
+
+- job:
+    name: openstack-ansible-deploy-aio_metal-centos-9-stream
+    parent: openstack-ansible-deploy-aio
+    nodeset: centos-9-stream
+
+- job:
+    name: openstack-ansible-deploy-aio_telemetry_metal-centos-9-stream
+    parent: openstack-ansible-deploy-aio
+    nodeset: centos-9-stream
+
+- job:
+    name: openstack-ansible-deploy-aio_distro_metal-centos-9-stream
+    parent: openstack-ansible-deploy-aio-distro
+    nodeset: centos-9-stream
+    voting: false
+
+- job:
+    name: openstack-ansible-deploy-aio_nspawn-centos-9-stream
+    parent: openstack-ansible-deploy-aio
+    nodeset: centos-9-stream
+
+- job:
+    name: openstack-ansible-upgrade-aio_ceph-centos-9-stream
+    parent: openstack-ansible-deploy-aio
+    nodeset: centos-9-stream
+    timeout: 10800
+
+- job:
+    name: openstack-ansible-upgrade-aio_metal-centos-9-stream
+    parent: openstack-ansible-deploy-aio
+    nodeset: centos-9-stream
+    timeout: 10800
+
+# centos 8 stream
+- job:
+    name: openstack-ansible-deploy-aio_lxc-centos-8-stream
+    parent: openstack-ansible-deploy-aio
+    nodeset: centos-8-stream
+
+- job:
+    name: openstack-ansible-deploy-infra_lxc-centos-8-stream
+    parent: openstack-ansible-deploy-aio-infra
+    nodeset: centos-8-stream
+
+- job:
+    name: openstack-ansible-deploy-hosts_distro_lxc-centos-8-stream
+    parent: openstack-ansible-deploy-aio-hosts
+    nodeset: centos-8-stream
+
+- job:
+    name: openstack-ansible-deploy-hosts_lxc-centos-8-stream
+    parent: openstack-ansible-deploy-aio-hosts
+    nodeset: centos-8-stream
+
+- job:
+    name: openstack-ansible-deploy-hosts_metal-centos-8-stream
+    parent: openstack-ansible-deploy-aio-hosts
+    nodeset: centos-8-stream
+
+- job:
+    name: openstack-ansible-deploy-aio_distro_lxc-centos-8-stream
+    parent: openstack-ansible-deploy-aio-distro
+    nodeset: centos-8-stream
+
+- job:
+    name: openstack-ansible-deploy-aio_ceph-centos-8-stream
+    parent: openstack-ansible-deploy-aio
+    nodeset: centos-8-stream
+
+- job:
+    name: openstack-ansible-deploy-aio_nfs-centos-8-stream
+    parent: openstack-ansible-deploy-aio
+    nodeset: centos-8-stream
+
+- job:
+    name: openstack-ansible-deploy-aio_distro_ceph-centos-8-stream
+    parent: openstack-ansible-deploy-aio-distro
+    nodeset: centos-8-stream
+
+- job:
+    name: openstack-ansible-upgrade-aio_lxc-centos-8-stream
+    parent: openstack-ansible-deploy-aio
+    nodeset: centos-8-stream
+    timeout: 10800
+
+- job:
+    name: openstack-ansible-upgrade-infra_lxc-centos-8-stream
+    parent: openstack-ansible-deploy-aio-infra
+    nodeset: centos-8-stream
+    timeout: 10800
+
+- job:
+    name: openstack-ansible-deploy-aio_metal-centos-8-stream
+    parent: openstack-ansible-deploy-aio
+    nodeset: centos-8-stream
+
+- job:
+    name: openstack-ansible-deploy-aio_telemetry_metal-centos-8-stream
+    parent: openstack-ansible-deploy-aio
+    nodeset: centos-8-stream
+
+- job:
+    name: openstack-ansible-deploy-aio_distro_metal-centos-8-stream
+    parent: openstack-ansible-deploy-aio-distro
+    nodeset: centos-8-stream
+    voting: false
+
+- job:
+    name: openstack-ansible-deploy-aio_nspawn-centos-8-stream
+    parent: openstack-ansible-deploy-aio
+    nodeset: centos-8-stream
+
+- job:
+    name: openstack-ansible-upgrade-aio_ceph-centos-8-stream
+    parent: openstack-ansible-deploy-aio
+    nodeset: centos-8-stream
+    timeout: 10800
+
+- job:
+    name: openstack-ansible-upgrade-aio_metal-centos-8-stream
+    parent: openstack-ansible-deploy-aio
+    nodeset: centos-8-stream
+    timeout: 10800
+
+- job:
+    name: openstack-ansible-deploy-hosts_lxc_overlayfs-centos-8-stream
+    parent: openstack-ansible-deploy-aio
+    nodeset: centos-8-stream
+
+# rocky linux 8
+#
+- job:
+    name: openstack-ansible-deploy-aio_lxc-rockylinux-8
+    parent: openstack-ansible-deploy-aio
+    nodeset: rockylinux-8
+
+- job:
+    name: openstack-ansible-deploy-infra_lxc-rockylinux-8
+    parent: openstack-ansible-deploy-aio-infra
+    nodeset: rockylinux-8
+
+- job:
+    name: openstack-ansible-deploy-hosts_distro_lxc-rockylinux-8
+    parent: openstack-ansible-deploy-aio-hosts
+    nodeset: rockylinux-8
+
+- job:
+    name: openstack-ansible-deploy-hosts_lxc-rockylinux-8
+    parent: openstack-ansible-deploy-aio-hosts
+    nodeset: rockylinux-8
+
+- job:
+    name: openstack-ansible-deploy-hosts_metal-rockylinux-8
+    parent: openstack-ansible-deploy-aio-hosts
+    nodeset: rockylinux-8
+
+- job:
+    name: openstack-ansible-deploy-aio_distro_lxc-rockylinux-8
+    parent: openstack-ansible-deploy-aio-distro
+    nodeset: rockylinux-8
+
+- job:
+    name: openstack-ansible-deploy-aio_ceph-rockylinux-8
+    parent: openstack-ansible-deploy-aio
+    nodeset: rockylinux-8
+
+- job:
+    name: openstack-ansible-deploy-aio_nfs-rockylinux-8
+    parent: openstack-ansible-deploy-aio
+    nodeset: rockylinux-8
+
+- job:
+    name: openstack-ansible-deploy-aio_distro_ceph-rockylinux-8
+    parent: openstack-ansible-deploy-aio-distro
+    nodeset: rockylinux-8
+
+- job:
+    name: openstack-ansible-upgrade-aio_lxc-rockylinux-8
+    parent: openstack-ansible-deploy-aio
+    nodeset: rockylinux-8
+    timeout: 10800
+
+- job:
+    name: openstack-ansible-upgrade-infra_lxc-rockylinux-8
+    parent: openstack-ansible-deploy-aio-infra
+    nodeset: rockylinux-8
+    timeout: 10800
+
+- job:
+    name: openstack-ansible-deploy-aio_metal-rockylinux-8
+    parent: openstack-ansible-deploy-aio
+    nodeset: rockylinux-8
+
+- job:
+    name: openstack-ansible-deploy-aio_telemetry_metal-rockylinux-8
+    parent: openstack-ansible-deploy-aio
+    nodeset: rockylinux-8
+
+- job:
+    name: openstack-ansible-deploy-aio_distro_metal-rockylinux-8
+    parent: openstack-ansible-deploy-aio-distro
+    nodeset: rockylinux-8
+    voting: false
+
+- job:
+    name: openstack-ansible-deploy-aio_nspawn-rockylinux-8
+    parent: openstack-ansible-deploy-aio
+    nodeset: rockylinux-8
+
+- job:
+    name: openstack-ansible-upgrade-aio_ceph-rockylinux-8
+    parent: openstack-ansible-deploy-aio
+    nodeset: rockylinux-8
+    timeout: 10800
+
+- job:
+    name: openstack-ansible-upgrade-aio_metal-rockylinux-8
+    parent: openstack-ansible-deploy-aio
+    nodeset: rockylinux-8
+    timeout: 10800
+
+- job:
+    name: openstack-ansible-deploy-hosts_lxc_overlayfs-rockylinux-8
+    parent: openstack-ansible-deploy-aio
+    nodeset: rockylinux-8
+
+# debian bullseye
+
+- job:
+    name: openstack-ansible-deploy-aio_telemetry_metal-debian-bullseye
+    parent: openstack-ansible-deploy-aio
+    nodeset: debian-bullseye
+
+- job:
+    name: openstack-ansible-deploy-aio_lxc-debian-bullseye
+    parent: openstack-ansible-deploy-aio
+    nodeset: debian-bullseye
+
+- job:
+    name: openstack-ansible-deploy-infra_lxc-debian-bullseye
+    parent: openstack-ansible-deploy-aio-infra
+    nodeset: debian-bullseye
+
+- job:
+    name: openstack-ansible-deploy-hosts_lxc-debian-bullseye
+    parent: openstack-ansible-deploy-aio-hosts
+    nodeset: debian-bullseye
+
+- job:
+    name: openstack-ansible-deploy-hosts_distro_lxc-debian-bullseye
+    parent: openstack-ansible-deploy-aio-hosts
+    nodeset: debian-bullseye
+
+- job:
+    name: openstack-ansible-deploy-hosts_metal-debian-bullseye
+    parent: openstack-ansible-deploy-aio-hosts
+    nodeset: debian-bullseye
+
+- job:
+    name: openstack-ansible-deploy-aio_distro_lxc-debian-bullseye
+    parent: openstack-ansible-deploy-aio-distro
+    nodeset: debian-bullseye
+
+- job:
+    name: openstack-ansible-deploy-aio_metal-debian-bullseye
+    parent: openstack-ansible-deploy-aio
+    nodeset: debian-bullseye
+
+- job:
+    name: openstack-ansible-deploy-aio_distro_metal-debian-bullseye
+    parent: openstack-ansible-deploy-aio-distro
+    nodeset: debian-bullseye
+
+- job:
+    name: openstack-ansible-deploy-hosts_lxc_btrfs-debian-bullseye
+    parent: openstack-ansible-deploy-aio
+    nodeset: debian-bullseye
+
+- job:
+    name: openstack-ansible-deploy-hosts_lxc_overlayfs-debian-bullseye
+    parent: openstack-ansible-deploy-aio
+    nodeset: debian-bullseye

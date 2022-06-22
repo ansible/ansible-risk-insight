@@ -1,0 +1,75 @@
+---
+# Copyright 2015, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Test for expected user/project consistency
+  hosts: localhost
+  connection: local
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+  tasks:
+    - name: Check for expected users
+      os_user_facts:
+        cloud: default
+        name: "{{ item }}"
+        domain: default
+        endpoint_type: admin
+      with_items:
+        - "admin"
+        - "keystone"
+      register: _user_check
+      until: _user_check is success
+      retries: 5
+      delay: 10
+
+    - name: Check for expected projects
+      os_project_facts:
+        cloud: default
+        name: "{{ item }}"
+        domain: default
+        endpoint_type: admin
+      with_items:
+        - "admin"
+        - "service"
+      register: _project_check
+      until: _project_check is success
+      retries: 5
+      delay: 10
+
+- name: Test for SSL key/cert consistency
+  hosts: keystone_all
+  user: root
+  gather_facts: false
+  vars_files:
+    - common/test-vars.yml
+  tasks:
+    - name: Get SSL cert location and permissions
+      stat:
+        path: "/etc/ssl/certs/keystone.pem"
+      register: keystone_ssl_cert_stats
+
+    - name: Check SSL cert location and permissions
+      fail:
+        msg: "Keystone SSL cert permissions don't match 0640"
+      when: keystone_ssl_cert_stats.stat.mode != "0640"
+
+    - name: Get SSL key location and permissions
+      stat:
+        path: "/etc/ssl/private/keystone.key"
+      register: keystone_ssl_key_stats
+
+    - name: Check SSL key location and permissions
+      fail:
+        msg: "Keystone SSL key permissions don't match 0640"
+      when: keystone_ssl_key_stats.stat.mode != "0640"

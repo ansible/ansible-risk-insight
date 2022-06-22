@@ -1,0 +1,42 @@
+---
+# Copyright (c) 2017-2018 Ericsson AB and others.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Start Quagga Zebra RPC service
+  service:
+    name: zrpcd
+    state: restarted
+    enabled: yes
+  when: inventory_hostname == odl_bgp_speaker_host
+  listen: "configure odl for bgp"
+
+- name: Wait for ODL and BGP Server port to become available on the host
+  wait_for:
+    port: "{{ bgp_config_server_port }}"
+    delay: 90
+    timeout: 120
+  when: inventory_hostname == odl_bgp_speaker_host
+  listen: "configure odl for bgp"
+
+- name: Connect OpenDaylight with Quagga
+  command: "/opt/opendaylight/bin/client -h {{ odl_bgp_speaker_host_ip_address }} 'bgp-connect --host {{ odl_bgp_speaker_host_ip_address }} --port {{ bgp_config_server_port }} add'"
+  when: inventory_hostname == odl_bgp_speaker_host
+  listen: "configure odl for bgp"
+  ignore_errors: True
+
+- name: Configure Opendaylight as BGP speaker
+  command: "/opt/opendaylight/bin/client -h {{ odl_bgp_speaker_host_ip_address }} 'odl:configure-bgp -op start-bgp-server --as-num 100 --router-id {{ odl_bgp_speaker_host_ip_address }}'"
+  when: inventory_hostname == odl_bgp_speaker_host
+  listen: "configure odl for bgp"
+  ignore_errors: True

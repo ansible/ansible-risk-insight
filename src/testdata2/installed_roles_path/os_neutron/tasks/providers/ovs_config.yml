@@ -1,0 +1,46 @@
+---
+# Copyright 2018, Ericsson AB and Others
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Setup Network Provider Bridges
+  openvswitch_bridge:
+    bridge: "{{ bridge_mapping.split(':')[1] }}"
+    fail_mode: secure
+    state: present
+  with_items: "{{ neutron_provider_networks.network_mappings.split(',') }}"
+  loop_control:
+    loop_var: bridge_mapping
+  when:
+    - neutron_services['neutron-openvswitch-agent']['group'] in group_names
+    - neutron_plugin_type in ['ml2.ovs', 'ml2.ovs.dvr']
+    - neutron_provider_networks.network_mappings is defined and (neutron_provider_networks.network_mappings|length > 0)
+    - not ovs_dpdk_support
+
+- name: Add ports to Network Provider Bridges
+  openvswitch_port:
+    bridge: "{{ interface_mapping.split(':')[0] }}"
+    port: "{{ interface_mapping.split(':')[1] }}"
+    state: present
+  with_items: "{{ neutron_provider_networks.network_interface_mappings.split(',') }}"
+  loop_control:
+    loop_var: interface_mapping
+  when:
+    - neutron_services['neutron-openvswitch-agent']['group'] in group_names
+    - neutron_plugin_type in ['ml2.ovs', 'ml2.ovs.dvr']
+    - neutron_provider_networks.network_interface_mappings is defined and (neutron_provider_networks.network_interface_mappings|length > 0)
+    - not ovs_dpdk_support
+
+- include: setup_ovs_dpdk.yml
+  when:
+    - ovs_dpdk_support

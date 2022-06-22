@@ -1,0 +1,27 @@
+---
+- name: Only run "update_cache=yes" if the last one is more than 3600 seconds ago
+  tags:
+    - packages
+    - update_cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install packages if already installed ignore
+  tags:
+    - packages
+    - install
+  action: apt pkg={{item}} state=installed
+  with_items:
+       - bridge-utils
+       - git
+       - sshpass
+       - openssh-server
+       - tmux
+       - screen
+       - python
+       - vim
+       - python-docker
+
+# vim: set et ts=2 sw=2 ai ft=yaml :
+

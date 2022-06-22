@@ -1,0 +1,32 @@
+---
+# Copyright 2017, BBC R&D
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Configure swap sparse file
+  hosts: localhost
+  user: root
+  become: true
+  connection: local
+  tasks:
+    - name: Create swap file
+      command: "dd if=/dev/zero of=/var/lib/test-swap.img bs=1M count=128"
+      args:
+        creates: /var/lib/test-swap.img
+      register: create_swap
+
+    - name: Format the swap file
+      command: mkswap /var/lib/test-swap.img
+      failed_when: false
+      when:
+        - create_swap  is changed

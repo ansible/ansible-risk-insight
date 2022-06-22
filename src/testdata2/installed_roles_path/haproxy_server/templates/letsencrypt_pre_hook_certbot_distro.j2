@@ -1,0 +1,4 @@
+#!/bin/bash
+# swing load balancer over to this node by starting temporary http server for {{ haproxy_ssl_letsencrypt_pre_hook_timeout }} seconds
+
+timeout {{ haproxy_ssl_letsencrypt_pre_hook_timeout }} python3 -m http.server {{ haproxy_ssl_letsencrypt_certbot_backend_port }} --bind {{ haproxy_ssl_letsencrypt_certbot_bind_address }}

@@ -1,0 +1,66 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Record the installation method
+  ini_file:
+    dest: "/etc/ansible/facts.d/openstack_ansible.fact"
+    section: "ceilometer"
+    option: "install_method"
+    value: "{{ ceilometer_install_method }}"
+
+- name: Refresh local facts to ensure the ceilometer section is present
+  setup:
+    filter: ansible_local
+    gather_subset: "!all"
+
+- name: Install distro packages
+  package:
+    name: "{{ ceilometer_package_list }}"
+    state: "{{ ceilometer_package_state }}"
+    update_cache: "{{ (ansible_facts['pkg_mgr'] == 'apt') | ternary('yes', omit) }}"
+    cache_valid_time: "{{ (ansible_facts['pkg_mgr'] == 'apt') | ternary(cache_timeout, omit) }}"
+  register: install_packages
+  until: install_packages is success
+  retries: 5
+  delay: 2
+
+# NOTE(jrosser)
+# ceilometer appears in u-c
+# the new pip resolver will fail to install ceilometer if two contradictory
+# constraints are given which will always happen with a source install
+# and wheels built on the repo server. We must filter ceilometer out of u-c.
+- name: Retrieve the constraints URL
+  uri:
+    url: "{{ ceilometer_upper_constraints_url }}"
+    return_content: yes
+  register: _u_c_contents
+
+- name: Install the python venv
+  include_role:
+    name: "python_venv_build"
+  vars:
+    venv_python_executable: "{{ ceilometer_venv_python_executable }}"
+    venv_build_constraints: "{{ _u_c_contents.content.split('\n') | reject('match', '^ceilometer=') | list }}"
+    venv_build_distro_package_list: "{{ ceilometer_devel_distro_packages }}"
+    venv_install_destination_path: "{{ ceilometer_bin | dirname }}"
+    venv_install_distro_package_list: "{{ ceilometer_distro_packages }}"
+    venv_pip_install_args: "{{ ceilometer_pip_install_args }}"
+    venv_pip_packages: "{{ (ceilometer_oslomsg_amqp1_enabled | bool) | ternary(ceilometer_pip_packages + ceilometer_optional_oslomsg_amqp1_pip_packages + ceilometer_extra_pip_packages | default([]), ceilometer_pip_packages + ceilometer_extra_pip_packages | default([])) }}"
+    venv_packages_to_symlink: "{{ ceilometer_packages_to_symlink }}"
+    venv_facts_when_changed:
+      - section: "ceilometer"
+        option: "venv_tag"
+        value: "{{ ceilometer_venv_tag }}"
+  when: ceilometer_install_method == 'source'

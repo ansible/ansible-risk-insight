@@ -1,0 +1,20 @@
+# suggestion from bprodoehl
+# https://github.com/docker/docker/issues/5490
+# https://github.com/ewindisch/docker/commit/d45be4e65288f2978dfedd4a940f3debe128fd35
+include <tunables/global>
+
+profile docker-unconfined flags=(attach_disconnected,mediate_deleted) {
+  include <abstractions/base>
+  network,
+  capability,
+  file,
+  umount,
+  mount,
+  ptrace,
+  signal,
+  dbus,
+
+}
+
+# vim: ft=conf  :
+

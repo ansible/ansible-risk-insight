@@ -1,0 +1,52 @@
+---
+# Copyright 2017, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+#
+# Compile a list of the services on a host based on whether
+# the host is in the host group and the service is enabled.
+#
+filtered_zun_services: |-
+  {% set services = [] %}
+  {% for key, value in zun_services.items() %}
+  {%   if (value['group'] in group_names) and
+          (('condition' not in value) or
+           ('condition' in value and value['condition']))
+           and not ('wsgi_app' in value and value['wsgi_app']) %}
+  {%     set _ = value.update({'enabled': 'yes', 'state': 'started'}) %}
+  {%     set _ = value.update({'config_overrides': (zun_service_defaults | combine(value.init_config_overrides, recursive=True))}) %}
+  {%     set _ = value.pop('init_config_overrides') %}
+  {%     set _ = services.append(value) %}
+  {%   endif %}
+  {% endfor %}
+  {{ services | sort(attribute='start_order') }}
+
+uwsgi_zun_services: |-
+  {% set services = {} %}
+  {% for key, value in zun_services.items() %}
+  {%   if (value['group'] in group_names) and
+         (('service_enabled' not in value) or
+         ('service_enabled' in value and value['service_enabled']))
+         and ('wsgi_app' in value and value['wsgi_app']) %}
+  {%     set _ = value.update(
+           {
+             'wsgi_venv': zun_bin | dirname,
+             'uwsgi_processes': zun_wsgi_processes,
+             'uwsgi_threads': zun_wsgi_threads,
+           }
+         ) %}
+  {%     set _ = services.update({key: value}) %}
+  {%   endif %}
+  {% endfor %}
+  {{ services }}

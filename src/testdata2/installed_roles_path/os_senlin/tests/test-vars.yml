@@ -1,0 +1,6 @@
+---
+
+senlin_galera_address: "{{ galera_address }}"
+senlin_galera_password: "{{ galera_root_password }}"
+senlin_oslomsg_rpc_password: "{{ oslomsg_rpc_password }}"
+senlin_service_password: secrete

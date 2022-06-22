@@ -1,0 +1,35 @@
+---
+
+- hosts: localhost
+  connection: local
+  become: True
+  roles:
+    - role: opendaylight
+      rpm_repo_url: "https://git.opendaylight.org/gerrit/gitweb?p=integration/packaging.git;a=blob_plain;f=packages/rpm/example_repo_configs/opendaylight-93-release.repo"
+
+  post_tasks:
+    - name: get ODL version info
+      command: yum info opendaylight
+      register: initial_odl_version
+
+    - name: assert that ODL 9.3 is installed
+      assert:
+        that:
+          - "'Version     : 9.3.0' in initial_odl_version.stdout"
+
+- hosts: localhost
+  connection: local
+  become: True
+  roles:
+    - role: opendaylight
+      rpm_repo_url: "https://git.opendaylight.org/gerrit/gitweb?p=integration/packaging.git;a=blob_plain;f=packages/rpm/example_repo_configs/opendaylight-102-release.repo"
+
+  post_tasks:
+    - name: get ODL version info
+      command: yum info opendaylight
+      register: final_odl_version
+
+    - name: assert that ODL 10.2 is installed
+      assert:
+        that:
+          - "'Version     : 10.2.0' in final_odl_version.stdout"

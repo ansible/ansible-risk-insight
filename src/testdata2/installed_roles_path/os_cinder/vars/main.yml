@@ -1,0 +1,124 @@
+---
+# Copyright 2017, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+_cinder_is_first_api_play_host: "{{ (cinder_services['cinder-api']['group'] in group_names and inventory_hostname == (groups[cinder_services['cinder-api']['group']] | intersect(ansible_play_hosts)) | first) | bool }}"
+_cinder_is_first_play_host: "{{ (cinder_services['cinder-scheduler']['group'] in group_names and inventory_hostname == (groups[cinder_services['cinder-scheduler']['group']] | intersect(ansible_play_hosts)) | first) | bool }}"
+_cinder_is_last_play_host: "{{ (cinder_services['cinder-api']['group'] in group_names and inventory_hostname == (groups[cinder_services['cinder-api']['group']] | intersect(ansible_play_hosts)) | last) | bool }}"
+
+_cinder_rootwrap_conf_overrides:
+  DEFAULT:
+    filters_path: "/etc/cinder/rootwrap.d,/usr/share/cinder/rootwrap"
+    exec_dirs: "{{ cinder_bin }},/sbin,/usr/sbin,/bin,/usr/bin,/usr/local/bin,/usr/local/sbin"
+
+#
+# Compile a list of the services on a host based on whether
+# the host is in the host group and the service is enabled.
+# The service list is provided in the defined start order.
+#
+filtered_cinder_services: |-
+  {% set services = [] %}
+  {% for key, value in cinder_services.items() %}
+  {%   if (value['group'] in group_names) and
+          (('condition' not in value) or
+           ('condition' in value and value['condition'])) and
+           not ('wsgi_app' in value and value['wsgi_app']) %}
+  {%     set _ = value.update({'service_key': key}) %}
+  {%     set _ = services.append(value) %}
+  {%   endif %}
+  {% endfor %}
+  {{ services | sort(attribute='start_order') }}
+
+uwsgi_cinder_services: |-
+  {% set services = {} %}
+  {% for key, value in cinder_services.items() %}
+  {%   if (value['group'] in group_names) and
+         (('condition' not in value) or ('condition' in value and value['condition']))
+         and ('wsgi_app' in value and value['wsgi_app']) %}
+  {%     set _ = value.update(
+            {
+             'wsgi_path':  cinder_bin ~ '/' ~ value.wsgi_name,
+             'wsgi_venv': ((cinder_install_method == 'source') | ternary(cinder_bin | dirname, None)),
+             'uwsgi_uid': cinder_system_user_name,
+             'uwsgi_guid': cinder_system_group_name,
+             'uwsgi_processes': cinder_wsgi_processes,
+             'uwsgi_threads': cinder_wsgi_threads
+           }
+         ) %}
+  {%     set _ = services.update({key: value}) %}
+  {%   endif %}
+  {% endfor %}
+  {{ services }}
+
+cinder_core_files:
+  - tmp_f: "/tmp/api-paste.ini"
+    target_f: "/etc/cinder/api-paste.ini"
+    config_overrides: "{{ cinder_api_paste_ini_overrides }}"
+    config_type: "ini"
+  - tmp_f: "/tmp/rootwrap.conf"
+    target_f: "/etc/cinder/rootwrap.conf"
+    config_overrides: "{{ _cinder_rootwrap_conf_overrides | combine(cinder_rootwrap_conf_overrides, recursive=True) }}"
+    config_type: "ini"
+    owner: "root"
+    group: "{{ cinder_system_group_name }}"
+    mode: "0640"
+  - tmp_f: "/tmp/resource_filters.json"
+    target_f: "/etc/cinder/resource_filters.json"
+    config_overrides: "{{ cinder_resource_filters_overrides }}"
+    config_type: "json"
+    owner: "root"
+    group: "{{ cinder_system_group_name }}"
+    mode: "0640"
+
+cinder_service_endpoints:
+  - service: "{{ cinder_service_v2_name }}"
+    interface: "public"
+    url: "{{ cinder_service_v2_publicurl }}"
+    state: "absent"
+  - service: "{{ cinder_service_v2_name }}"
+    interface: "internal"
+    url: "{{ cinder_service_v2_internalurl }}"
+    state: "absent"
+  - service: "{{ cinder_service_v2_name }}"
+    interface: "admin"
+    url: "{{ cinder_service_v2_adminurl }}"
+    state: "absent"
+  - service: "{{ cinder_service_v3_name }}"
+    interface: "public"
+    url: "{{ cinder_service_v3_publicurl }}"
+    state: present
+  - service: "{{ cinder_service_v3_name }}"
+    interface: "internal"
+    url: "{{ cinder_service_v3_internalurl }}"
+    state: present
+  - service: "{{ cinder_service_v3_name }}"
+    interface: "admin"
+    url: "{{ cinder_service_v3_adminurl }}"
+    state: present
+
+cinder_service_catalog:
+  - name: "{{ cinder_service_name }}"
+    type: "{{ cinder_service_type }}"
+    description: "{{ cinder_service_description }}"
+    state: absent
+  - name: "{{ cinder_service_v2_name }}"
+    type: "{{ cinder_service_v2_type }}"
+    description: "{{ cinder_service_v2_description }}"
+    state: "absent"
+  - name: "{{ cinder_service_v3_name }}"
+    type: "{{ cinder_service_v3_type }}"
+    description: "{{ cinder_service_v3_description }}"
+    state: present
+
+_cinder_oslomsg_heartbeat_in_pthread: "{{ (cinder_services['cinder-volume']['group'] in group_names) | ternary(False, True) }}"

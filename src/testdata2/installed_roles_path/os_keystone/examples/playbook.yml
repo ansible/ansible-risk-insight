@@ -1,0 +1,35 @@
+---
+- name: Installation and setup of Keystone
+  hosts: keystone_all
+  user: root
+  roles:
+    - { role: "os_keystone", tags: [ "os-keystone" ] }
+  vars:
+    external_lb_vip_address: 10.100.100.102
+    internal_lb_vip_address: 10.100.100.102
+    keystone_galera_address: 10.100.100.101
+    keystone_galera_database: keystone
+    keystone_venv_tag: "testing"
+    keystone_developer_mode: true
+    keystone_git_install_branch: master
+    keystone_auth_admin_password: "SuperSecretePassword"
+    keystone_oslomsg_rpc_password: "secrete"
+    keystone_oslomsg_notify_password: "secrete"
+    keystone_container_mysql_password: "SuperSecrete"
+    keystone_oslomsg_rpc_transport: rabbit
+    keystone_oslomsg_rpc_servers: 10.100.100.101
+    keystone_oslomsg_rpc_port: 5671
+    keystone_oslomsg_rpc_use_ssl: true
+    keystone_oslomsg_rpc_userid: keystone
+    keystone_oslomsg_rpc_vhost: /keystone
+    keystone_oslomsg_notify_transport: rabbit
+    keystone_oslomsg_notify_servers: 10.100.100.101
+    keystone_oslomsg_notify_port: 5671
+    keystone_oslomsg_notify_use_ssl: true
+    keystone_oslomsg_notify_userid: keystone
+    keystone_oslomsg_notify_vhost: /keystone
+    galera_client_drop_config_file: false
+    galera_root_user: root
+  vars_prompt:
+    - name: "galera_root_password"
+      prompt: "What is galera_root_password?"

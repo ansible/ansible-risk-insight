@@ -1,0 +1,6 @@
+{
+    "debug": {{ debug_docker }},
+    "insecure-registries": ["{{ docker_registry }}"],
+    "selinux-enabled": {{ enforce_os_security_enable }},
+    "storage-driver": "{{ docker_storage_driver }}"
+}

@@ -1,0 +1,26 @@
+- name: Create a systemd mount file for Mount1 and 2
+  hosts: localhost
+  become: true
+  roles:
+    - role: "systemd_mount"
+      vars:
+        systemd_mounts:
+          machines:
+            what: '/var/lib/machines.raw'
+            where: '/var/lib/machines'
+            type: 'btrfs'
+            options: 'loop'
+            unit:
+              ConditionPathExists:
+                - '/var/lib/machines.raw'
+            state: 'started'
+            enabled: true
+          glance_images:
+            config_overrides: {}
+            What: "10.1.10.1:/srv/nfs"
+            Where: "/var/lib/glance/images"
+            type: "nfs"
+            options: "_netdev,auto"
+            unit:
+              After:
+                - network.target

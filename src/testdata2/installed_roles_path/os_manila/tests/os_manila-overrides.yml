@@ -1,0 +1,137 @@
+---
+# Copyright 2019, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+tempest_run: yes
+tempest_test_whitelist:
+  - smoke
+  - manila_tempest_tests.tests.scenario.test_share_basic_ops
+
+tempest_test_blacklist:
+  - test: tempest.api.identity
+    reason: Reducing run time and required resources
+  - test: tempest.api.image
+    reason: Reducing run time and required resources
+  - test: tempest.api.compute
+    reason: Reducing run time and required resources
+  - test: tempest.api.network
+    reason: Reducing run time and required resources
+  - test: tempest.api.volume
+    reason: Reducing run time and required resources
+  - test: tempest.scenario.test_server_basic_ops
+    reason: Reducing run time and required resources
+  - test: tempest.scenario.test_network_basic_ops
+    reason: Reducing run time and required resources
+
+tempest_plugins: "{{ _tempest_plugins['keystone'] + _tempest_plugins['manila'] }}"
+
+tempest_tempest_conf_overrides:
+  share:
+     image_with_share_tools: manila-service-image
+     image_password: manila
+     enable_protocols: nfs
+     enable_ip_rules_for_protocols: nfs
+     enable_ro_access_level_for_protocols: nfs
+     suppress_errors_in_cleanup: true
+     share_creation_retry_number: 3
+     run_ipv6_tests: False
+
+tempest_images:
+  - url: "http://download.cirros-cloud.net/0.3.5/cirros-0.3.5-x86_64-disk.img"
+    checksum: "sha256:e137062a4dfbb4c225971b67781bc52183d14517170e16a3841d16f962ae7470"
+    format: "qcow2"
+    name: "cirros"
+  - url: "http://tarballs.openstack.org/manila-image-elements/images/manila-service-image-master.qcow2"
+    format: "qcow2"
+    name: "manila-service-image"
+
+tempest_flavors:
+  - name: tempest1
+    id: 201
+    ram: 256
+    disk: 1
+    vcpus: 1
+  - name: tempest2
+    id: 202
+    ram: 512
+    disk: 1
+    vcpus: 1
+  - name: manila-service-flavor
+    id: 100
+    ram: 256
+    disk: 2
+    vcpus: 1
+
+neutron_provider_networks:
+  network_types: "vxlan,flat"
+  network_mappings: "flat:eth12"
+  network_vxlan_ranges: "1:1000"
+
+manila_default_share_type: nfs-share1
+manila_protocols:
+  - NFS
+  - CIFS
+  - CEPHFS
+
+manila_backends:
+  nfs-share1:
+    share_backend_name: NFS_SHARE1
+    share_driver: manila.share.drivers.lvm.LVMShareDriver
+    driver_handles_share_servers: False
+    lvm_share_volume_group: manila-shares
+    lvm_share_export_ips: "10.1.1.1"
+    filter_function: "share.size >= 0"
+    goodness_function: "share.size >= 0"
+  generic:
+    share_backend_name: GENERIC
+    share_driver: manila.share.drivers.generic.GenericShareDriver
+    driver_handles_share_servers: True
+    service_instance_flavor_id: 100
+    service_image_name: manila-service-image
+    service_instance_user: manila
+    service_instance_password: manila
+    interface_driver: manila.network.linux.interface.BridgeInterfaceDriver
+    filter_function: "share.size >= 0"
+    goodness_function: "share.size >= 0"
+
+test_manila_api_group: "{{ ((groups['manila_api'] is defined) and (groups['manila_api'] | length > 0)) | ternary('manila_api', 'all_containers') }}"
+test_manila_share_group: "{{ ((groups['manila_share'] is defined) and (groups['manila_share'] | length > 0)) | ternary('manila_share', 'all_containers') }}"
+test_manila_api_host: "{{ hostvars[groups[test_manila_api_group][0]]['ansible_host'] }}"
+test_manila_share_host: "{{ hostvars[groups[test_manila_share_group][0]]['ansible_host'] }}"
+manila_container_mysql_password: "SuperSecrete"
+manila_git_install_branch: "{{ test_branch }}"
+manila_profiler_hmac_key: "secrete"
+manila_oslomsg_rpc_password: "secrete"
+manila_oslomsg_notify_password: "{{ oslomsg_notify_password }}"
+manila_service_password: "secrete"
+manila_venv_tag: "testing"
+manila_service_port: 8786
+manila_service_proto: http
+manila_service_publicuri: "{{ manila_service_proto }}://{{ test_manila_api_host }}:{{ manila_service_port }}"
+manila_service_publicurl: "{{ manila_service_publicuri }}/v1/%(tenant_id)s"
+manila_service_adminuri: "{{ manila_service_proto }}://{{ test_manila_api_host }}:{{ manila_service_port }}"
+manila_service_adminurl: "{{ manila_service_adminuri }}/v1/%(tenant_id)s"
+manila_service_internaluri: "{{ manila_service_proto }}://{{ test_manila_api_host }}:{{ manila_service_port }}"
+manila_service_internalurl: "{{ manila_service_internaluri }}/v1/%(tenant_id)s"
+manila_service_v2_port: 8786
+manila_service_v2_proto: http
+manila_service_v2_publicuri: "{{ manila_service_v2_proto }}://{{ tst_manila_api_host }}:{{ manila_service_v2_port }}"
+manila_service_v2_publicurl: "{{ manila_service_publicuri }}/v2/%(tenant_id)s"
+manila_service_v2_adminuri: "{{ manila_service_v2_proto }}://{{ test_manila_api_host }}:{{ manila_service_v2_port }}"
+manila_service_v2_adminurl: "{{ manila_service_adminuri }}/v2/%(tenant_id)s"
+manila_service_v2_internaluri: "{{ manila_service_v2_proto }}://{{ test_manila_api_host }}:{{ manila_service_v2_port }}"
+manila_service_v2_internalurl: "{{ manila_service_internaluri }}/v2/%(tenant_id)s"
+tempest_service_available_manila: "{{ ((groups['manila_all'] is defined) and (groups['manila_all'] | length > 0)) }}"
+manila_osapi_share_workers: 2
+manila_wsgi_processes: 2

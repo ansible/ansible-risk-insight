@@ -1,0 +1,26 @@
+---
+- name: include_tasks systemd.yml
+  include_tasks: systemd.yml
+
+- name: enable ceph-mds.target
+  service:
+    name: ceph-mds.target
+    enabled: yes
+    daemon_reload: yes
+  when: containerized_deployment | bool
+
+- name: systemd start mds container
+  systemd:
+    name: ceph-mds@{{ ansible_facts['hostname'] }}
+    state: started
+    enabled: yes
+    masked: no
+    daemon_reload: yes
+
+- name: wait for mds socket to exist
+  command: "{{ container_binary }} exec ceph-mds-{{ ansible_facts['hostname'] }} sh -c 'stat /var/run/ceph/{{ cluster }}-mds.{{ ansible_facts['hostname'] }}.asok || stat /var/run/ceph/{{ cluster }}-mds.{{ ansible_facts['fqdn'] }}.asok'"
+  changed_when: false
+  register: multi_mds_socket
+  retries: 5
+  delay: 15
+  until: multi_mds_socket.rc == 0

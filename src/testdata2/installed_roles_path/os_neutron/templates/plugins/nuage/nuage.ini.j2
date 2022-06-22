@@ -1,0 +1,19 @@
+#Config file for Nuage Neutron Plugin
+
+[RESTPROXY]
+# Desired Name of VSD Organization/Enterprise to use when net-partition
+# is not specified
+default_net_partition_name = {{ nuage_net_partition_name }}
+# Hostname or IP address and port for connection to VSD server
+server = {{ nuage_vsd_ip }}
+# VSD Username and password for OpenStack plugin connection
+# User must belong to CSP Root group and CSP CMS group
+serverauth = {{ nuage_vsd_username }}:{{ nuage_vsd_password }}
+
+### Do not change the below options for standard installs
+organization ={{ nuage_vsd_organization }}
+auth_resource = /me
+serverssl = True
+base_uri = /nuage/api/{{ nuage_base_uri_version }}
+cms_id = {{ nuage_cms_id }}
+nuage_pat = default_disabled

@@ -1,0 +1,184 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+# The openstack_openrc role gets executed on a designated service
+# host which will handle all service/user/domain/project/role
+# management for the roles. It is executed here as this is the
+# first role which will use it and the implementation of the
+# clouds.yaml file is useless until keystone is in place.
+- name: Implement openrc/clouds.yaml on the designated service host
+  hosts: "{{ openstack_service_setup_host | default('localhost') }}"
+  gather_facts: "{{ osa_gather_facts | default(True) }}"
+  become: yes
+  tags:
+    - openrc
+  roles:
+    - role: "openstack_openrc"
+
+- name: Gather keystone facts
+  hosts: keystone_all
+  gather_facts: "{{ osa_gather_facts | default(True) }}"
+  tasks:
+    - name: Gather additional facts
+      include_tasks: "common-tasks/gather-hardware-facts.yml"
+      when: osa_gather_facts | default(True)
+  tags:
+    - always
+
+- name: Pre-service deployment
+  hosts: keystone_all
+  gather_facts: false
+  tasks:
+    - name: "Pre-service deployment tasks from os_keystone role"
+      include_role:
+        name: os_keystone
+        tasks_from: main_pre.yml
+  tags:
+    - keystone
+
+- name: Installation and setup of Keystone
+  hosts: keystone_all
+  serial: "{{ keystone_serial | default(['1', '100%']) }}"
+  gather_facts: false
+  user: root
+  environment: "{{ deployment_environment_variables | default({}) }}"
+  vars_files:
+    - "defaults/repo_packages/openstack_services.yml"
+    - "defaults/{{ install_method }}_install.yml"
+  tags:
+    - keystone
+  pre_tasks:
+    # In order to ensure that any container, software or
+    # config file changes which causes a container/service
+    # restart do not cause an unexpected outage, we drain
+    # the load balancer back end for this container.
+    - include_tasks: common-tasks/haproxy-endpoint-manage.yml
+      vars:
+        haproxy_backend: "keystone_service-back"
+        haproxy_state: disabled
+      when: "groups['keystone_all'] | length > 1"
+
+    - name: Configure container
+      include_tasks: "common-tasks/os-{{ container_tech | default('lxc') }}-container-setup.yml"
+      vars:
+        extra_container_config_no_restart:
+          - "lxc.start.order=19"
+      when: not is_metal
+
+    - include_tasks: common-tasks/unbound-clients.yml
+      when:
+        - hostvars['localhost']['resolvconf_enabled'] | bool
+
+  roles:
+    - role: "os_keystone"
+    - role: "openstack.osa.system_crontab_coordination"
+      tags:
+        - crontab
+
+  post_tasks:
+    # Now that container changes are done, we can set
+    # the load balancer back end for this container
+    # to available again.
+    - include_tasks: common-tasks/haproxy-endpoint-manage.yml
+      vars:
+        haproxy_backend: "keystone_service-back"
+        haproxy_state: enabled
+      when: "groups['keystone_all'] | length > 1"
+
+# These facts are set against the deployment host to ensure that
+# they are fast to access. This is done in preference to setting
+# them against each target as the hostvars extraction will take
+# a long time if executed against a large inventory.
+- name: Finalise data migrations if required
+  hosts: keystone_all
+  gather_facts: no
+  user: root
+  environment: "{{ deployment_environment_variables | default({}) }}"
+  vars_files:
+    - "defaults/{{ install_method }}_install.yml"
+  tags:
+    - keystone
+  tasks:
+    - name: refresh local facts
+      setup:
+        filter: ansible_local
+        gather_subset: "!all"
+
+    # This variable contains the values of the local fact set for the keystone
+    # venv tag for all hosts in the 'keystone_all' host group.
+    - name: Gather software version list
+      set_fact:
+        keystone_all_software_versions: "{{ (groups['keystone_all'] |
+                                             map('extract', hostvars, ['ansible_local', 'openstack_ansible', 'keystone', 'venv_tag'])) |
+                                             list }}"
+      delegate_to: localhost
+      run_once: yes
+
+    # This variable outputs a boolean value which is True when
+    # keystone_all_software_versions contains a list of defined
+    # values. If they are not defined, it means that not all
+    # hosts have their software deployed yet.
+    - name: Set software deployed fact
+      set_fact:
+        keystone_all_software_deployed: "{{ (keystone_all_software_versions | select('defined')) | list == keystone_all_software_versions }}"
+      delegate_to: localhost
+      run_once: yes
+
+    # This variable outputs a boolean when all the values in
+    # keystone_all_software_versions are the same and the software
+    # has been deployed to all hosts in the group.
+    - name: Set software updated fact
+      set_fact:
+        keystone_all_software_updated: "{{ ((keystone_all_software_versions | unique) | length == 1) and (keystone_all_software_deployed | bool) }}"
+      delegate_to: localhost
+      run_once: yes
+
+    - name: Perform a Keystone DB sync contract
+      command: "{{ keystone_bin }}/keystone-manage db_sync --contract"
+      become: yes
+      become_user: "{{ keystone_system_user_name | default('keystone') }}"
+      when:
+        - "keystone_all_software_updated | bool"
+        - "ansible_local['openstack_ansible']['keystone']['need_db_contract'] | bool"
+      register: dbsync_contract
+      run_once: yes
+
+    - name: Disable the need for any further db sync
+      ini_file:
+        dest: "/etc/ansible/facts.d/openstack_ansible.fact"
+        section: keystone
+        option: "need_db_contract"
+        value: "False"
+      when:
+        - "dbsync_contract is succeeded"
+
+# note(jrosser) this can only be done once the DB contract has completed so we must put it as
+# the last part of the keystone setup
+- name: SP/IDP setup
+  hosts: keystone_all
+  gather_facts: no
+  user: root
+  environment: "{{ deployment_environment_variables | default({}) }}"
+  vars_files:
+    - "defaults/{{ install_method }}_install.yml"
+  tags:
+    - keystone
+  tasks:
+    - name: "Post configure SP/IDP"
+      include_role:
+        name: os_keystone
+        tasks_from: main_keystone_federation_sp_idp_setup.yml
+

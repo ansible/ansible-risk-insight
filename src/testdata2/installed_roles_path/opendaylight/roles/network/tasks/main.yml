@@ -1,0 +1,26 @@
+---
+# - name: Set_facts for linking containers to bridges
+#   set_fact:
+#     HOST_ID: "{{ rackpos }}"
+#     container_name: "compute-{{ HOST_ID }}-{{ COMP_ID }}"
+#     container_netns_name: "netns-{{ container_name }}"
+#     # third octet of ip address for containers & host bridge
+#     SUBNET_SEGMENT: "{{ rackpos }}"
+#     # H_IXd == integer host index (within rack/datacenter)
+#     H_IXd: "{{ rackpos }}"
+#     # H_IXx == H_IXd as a hex number for mac addresses
+#     # C_IX == Container index within host (e.g. 11)
+#     C_IX: "{{ COMP_ID }}"
+
+- name: "Link container to management bridge"
+  vars:
+    bridge_name: "{{ management_bridge }}"
+  include: link_to_bridge.yml
+
+- name: "Link container to data bridge"
+  vars:
+    bridge_name: "{{ data_bridge }}"
+  include: link_to_bridge.yml
+
+# vim: set et ts=2 sw=2 ai ft=yaml :
+

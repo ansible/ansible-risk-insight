@@ -1,0 +1,143 @@
+---
+# Copyright 2016, Rackspace US, Inc.
+#
+# (C) 2016 Michael Rice <michael.rice@rackspace.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Gather variables for each operating system
+  include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_distribution | lower }}-{{ ansible_distribution_version | lower }}.yml"
+    - "{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version | lower }}.yml"
+    - "{{ ansible_os_family | lower }}-{{ ansible_distribution_major_version | lower }}.yml"
+    - "{{ ansible_distribution | lower }}.yml"
+    - "{{ ansible_os_family | lower }}-{{ ansible_distribution_version.split('.')[0] }}.yml"
+    - "{{ ansible_os_family | lower }}.yml"
+  tags:
+    - always
+
+- include_role:
+    name: openstack.osa.db_setup
+    apply:
+      tags:
+        - common-db
+        - adjutant-config
+  when: _adjutant_is_first_play_host
+  vars:
+    _oslodb_setup_host: "{{ adjutant_galera_setup_host }}"
+    _oslodb_ansible_python_interpreter: "{{ adjutant_galera_setup_python_interpreter }}"
+    _oslodb_setup_endpoint: "{{ adjutant_galera_address }}"
+    _oslodb_setup_port: "{{ adjutant_galera_port }}"
+    _oslodb_databases:
+      - name: "{{ adjutant_galera_database }}"
+        users:
+          - username: "{{ adjutant_galera_user }}"
+            password: "{{ adjutant_galera_password }}"
+  tags:
+    - always
+
+- import_tasks: adjutant_pre_install.yml
+  tags:
+    - adjutant-install
+
+- import_tasks: adjutant_install.yml
+  tags:
+    - adjutant-install
+
+- import_tasks: adjutant_post_install.yml
+  tags:
+    - adjutant-config
+
+- import_tasks: adjutant_db_sync.yml
+  when: _adjutant_is_first_play_host
+  tags:
+    - adjutant-config
+
+- include_role:
+    name: openstack.osa.service_setup
+    apply:
+      tags:
+        - common-service
+        - adjutant-config
+  vars:
+    _service_adminuri_insecure: "{{ keystone_service_adminuri_insecure }}"
+    _service_in_ldap: "{{ adjutant_service_in_ldap }}"
+    _service_setup_host: "{{ adjutant_service_setup_host }}"
+    _service_setup_host_python_interpreter: "{{ adjutant_service_setup_host_python_interpreter }}"
+    _service_project_name: "{{ adjutant_service_project_name }}"
+    _service_region: "{{ adjutant_service_region }}"
+    _service_users:
+      - name: "{{ adjutant_service_user_name }}"
+        password: "{{ adjutant_service_password }}"
+        role: "{{ adjutant_role_name }}"
+      - role: "project_mod"
+      - role: "project_admin"
+    _service_catalog:
+      - name: "{{ adjutant_service_name }}"
+        type: "{{ adjutant_service_type }}"
+        description: "{{ adjutant_service_description }}"
+    _service_endpoints:
+      - interface: "public"
+        url: "{{ adjutant_service_publicurl }}"
+        service: "{{ adjutant_service_name }}"
+      - interface: "internal"
+        url: "{{ adjutant_service_internalurl }}"
+        service: "{{ adjutant_service_name }}"
+      - interface: "admin"
+        url: "{{ adjutant_service_adminurl }}"
+        service: "{{ adjutant_service_name }}"
+  when: _adjutant_is_first_play_host
+  tags:
+    - always
+
+- name: Run the systemd service role
+  include_role:
+    name: systemd_service
+  vars:
+    systemd_user_name: "{{ adjutant_system_user_name }}"
+    systemd_group_name: "{{ adjutant_system_group_name }}"
+    systemd_tempd_prefix: openstack
+    systemd_slice_name: adjutant
+    systemd_lock_path: /var/lock/adjutant
+    systemd_CPUAccounting: true
+    systemd_BlockIOAccounting: true
+    systemd_MemoryAccounting: true
+    systemd_TasksAccounting: true
+    systemd_services:
+      - service_name: "{{ service_var.service_name }}"
+        enabled: yes
+        state: started
+        execstarts: "{{ service_var.execstarts }}"
+        execreloads: "{{ service_var.execreloads | default([]) }}"
+        config_overrides: "{{ service_var.init_config_overrides }}"
+  with_items: "{{ filtered_adjutant_services }}"
+  loop_control:
+    loop_var: service_var
+  tags:
+    - adjutant-config
+    - systemd-service
+
+- name: Import uwsgi role
+  import_role:
+    name: uwsgi
+  vars:
+    uwsgi_services: "{{ uwsgi_adjutant_services }}"
+    uwsgi_install_method: "source"
+  tags:
+    - adjutant-install
+    - adjutant-config
+    - uwsgi
+
+- name: Flush handlers
+  meta: flush_handlers

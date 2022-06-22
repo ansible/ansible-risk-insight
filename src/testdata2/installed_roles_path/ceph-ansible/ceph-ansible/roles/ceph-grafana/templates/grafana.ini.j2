@@ -1,0 +1,35 @@
+# [server]
+# root_url = %(protocol)s://%(domain)s:%(http_port)s/api/grafana/proxy
+
+[users]
+default_theme = light
+
+#################################### Anonymous Auth ##########################
+[auth.anonymous]
+# enable anonymous access
+enabled = true
+
+# specify organization name that should be used for unauthenticated users
+org_name = Main Org.
+
+# specify role for unauthenticated users
+org_role = Viewer
+
+[server]
+cert_file = /etc/grafana/ceph-dashboard.crt
+cert_key = /etc/grafana/ceph-dashboard.key
+domain = {{ ansible_facts['fqdn'] }}
+protocol = {{ dashboard_protocol }}
+http_port = {{ grafana_port }}
+http_addr = {{ grafana_server_addr }}
+
+[security]
+admin_user = {{ grafana_admin_user }}
+admin_password = {{ grafana_admin_password }}
+allow_embedding = {{ grafana_allow_embedding }}
+{% if dashboard_protocol == 'https' %}
+cookie_secure = true
+
+[session]
+cookie_secure = true
+{% endif %}

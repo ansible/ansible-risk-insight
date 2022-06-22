@@ -1,0 +1,48 @@
+---
+# Copyright 2015, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+packages_install:
+  - apt-transport-https
+  - bridge-utils
+  - btrfs-progs
+  - build-essential
+  - chrony
+  - curl
+  - dbus
+  - ethtool
+  - git-core
+  - iptables
+  - iputils-tracepath
+  - ipython3
+  - lvm2
+  - parted
+  - python3
+  - python3-dev
+  - sshpass
+  - vim
+  - vlan
+  - xfsprogs
+
+packages_install_zfs:
+  - zfsutils-linux
+
+packages_remove:
+  - libmysqlclient18
+  - mysql-common
+
+rc_local: /etc/rc.local
+rc_local_insert_before: "^exit 0$"
+
+nfs_package: nfs-kernel-server

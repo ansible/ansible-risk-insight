@@ -1,0 +1,10 @@
+---
+- name: Install Galera server
+  hosts: galera_all
+  user: root
+  roles:
+    - galera_server
+  vars:
+    galera_install_server: true
+    galera_install_client: true
+    galera_root_password: secrete

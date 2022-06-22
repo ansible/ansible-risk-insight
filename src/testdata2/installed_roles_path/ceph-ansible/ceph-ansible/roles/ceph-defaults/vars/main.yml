@@ -1,0 +1,3 @@
+---
+ceph_osd_pool_default_crush_rule: -1
+ceph_osd_pool_default_crush_rule_name: "replicated_rule"

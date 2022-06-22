@@ -1,0 +1,143 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Record the installation method
+  ini_file:
+    dest: "/etc/ansible/facts.d/openstack_ansible.fact"
+    section: "nova"
+    option: "install_method"
+    value: "{{ nova_install_method }}"
+
+- name: Refresh local facts to ensure the nova section is present
+  setup:
+    filter: ansible_local
+    gather_subset: "!all"
+
+- name: Install distro packages
+  package:
+    name: "{{ nova_package_list }}"
+    state: "{{ nova_package_state }}"
+    update_cache: "{{ (ansible_facts['pkg_mgr'] == 'apt') | ternary('yes', omit) }}"
+    cache_valid_time: "{{ (ansible_facts['pkg_mgr'] == 'apt') | ternary(cache_timeout, omit) }}"
+  register: install_packages
+  until: install_packages is success
+  retries: 5
+  delay: 2
+  tags:
+    - nova-pip-packages
+
+- name: Install the python venv
+  import_role:
+    name: "python_venv_build"
+  vars:
+    venv_python_executable: "{{ nova_venv_python_executable }}"
+    venv_build_constraints: "{{ nova_git_constraints }}"
+    venv_build_distro_package_list: "{{ nova_devel_distro_packages }}"
+    venv_install_destination_path: "{{ nova_bin | dirname }}"
+    venv_pip_install_args: "{{ nova_pip_install_args }}"
+    venv_packages_to_symlink: "{{ (nova_services['nova-compute']['group'] in group_names and nova_virt_type != 'ironic') | ternary(nova_compute_kvm_packages_to_symlink, []) }}"
+    venv_pip_packages: "{{ nova_venv_packages }}"
+    venv_facts_when_changed:
+      - section: "nova"
+        option: "need_service_restart"
+        value: "True"
+      - section: "nova"
+        option: "need_online_data_migrations"
+        value: "True"
+      - section: "nova"
+        option: "venv_tag"
+        value: "{{ nova_venv_tag }}"
+  when: nova_install_method == 'source'
+
+- include_tasks: "consoles/nova_console_{{ nova_console_type }}_install.yml"
+  when:
+    - "nova_services['nova-novncproxy']['group'] in group_names or
+        nova_services['nova-spicehtml5proxy']['group'] in group_names or
+        nova_services['nova-serialconsole-proxy']['group'] in group_names"
+    - "nova_console_type not in ['serialconsole', 'disabled']"
+  args:
+    apply:
+      tags:
+        - nova-install
+        - nova-novnc-console
+        - nova-spice-console
+  tags:
+    - always
+
+# NOTE(jrosser) We do not use the service_facts: module here as it will add
+# a very large quantity of facts for the host. To keep the facts
+# size minimised a more direct approach to check the service status is used
+- name: Check nova-novncproxy service status
+  shell: systemctl is-active nova-novncproxy.service || systemctl is-enabled nova-novncproxy.service
+  failed_when: false
+  changed_when: false
+  become: true
+  register: novnc_proxy_enabled
+  tags:
+    - skip_ansible_lint
+
+- name: Check nova-spicehtml5proxy service status
+  shell: systemctl is-active nova-spicehtml5proxy.service || systemctl is-enabled nova-spicehtml5proxy.service
+  failed_when: false
+  changed_when: false
+  become: true
+  register: spicehtml5_proxy_enabled
+  tags:
+    - skip_ansible_lint
+
+- name: Check nova-serialproxy service status
+  shell: systemctl is-active nova-serialproxy.service || systemctl is-enabled nova-serialproxy.service
+  failed_when: false
+  changed_when: false
+  become: true
+  register: serial_proxy_enabled
+  tags:
+    - skip_ansible_lint
+
+- name: Disable existing services for any unused console types
+  systemd:
+    name: "{{ item.service }}"
+    enabled: no
+    state: stopped
+  when: (item.condition | bool) and item.type != nova_console_type
+  loop:
+    - service: "nova-novncproxy.service"
+      condition: "{{ novnc_proxy_enabled.rc is defined and novnc_proxy_enabled.rc == 0 }}"
+      type: "novnc"
+    - service: "nova-spicehtml5proxy.service"
+      condition: "{{ spicehtml5_proxy_enabled.rc is defined and spicehtml5_proxy_enabled.rc == 0 }}"
+      type: "spice"
+    - service: "nova-serialproxy.service"
+      condition: "{{ serial_proxy_enabled.rc is defined and serial_proxy_enabled.rc == 0 }}"
+      type: "serialconsole"
+
+- name: Initialise the upgrade facts
+  ini_file:
+    dest: "/etc/ansible/facts.d/openstack_ansible.fact"
+    section: nova
+    option: "{{ item.name }}"
+    value: "{{ item.state }}"
+  with_items:
+    - name: "need_service_restart"
+      state: "True"
+    - name: "need_online_data_migrations"
+      state: "True"
+  when:
+    - (install_packages is changed) or
+      (ansible_local is not defined) or
+      ('openstack_ansible' not in ansible_local) or
+      ('nova' not in ansible_local['openstack_ansible']) or
+      ('need_online_data_migrations' not in ansible_local['openstack_ansible']['nova']) or
+      ('need_service_restart' not in ansible_local['openstack_ansible']['nova'])

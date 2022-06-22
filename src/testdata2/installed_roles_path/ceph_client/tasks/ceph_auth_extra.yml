@@ -1,0 +1,68 @@
+---
+# Copyright 2016, Walmart Stores, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+- name: Create keyring files for openstack clients from extra cluster(s)
+  shell: ceph auth get client.{{ item.client_name }} >/dev/null && ceph auth get-or-create client.{{ item.client_name }} > /etc/ceph/ceph.client.{{ item.client_name }}.keyring.tmp
+  with_items: "{{ ceph_extra_confs }}"
+  delegate_to: "{{ item.mon_host }}"
+  when:
+    - item.client_name is defined
+    - item.mon_host is defined
+
+- name: Get extra keyring files
+  command: "scp {{ item.mon_host }}:/etc/ceph/ceph.client.{{ item.client_name }}.keyring.tmp {{ item.keyring_src }}"
+  changed_when: false
+  delegate_to: localhost
+  with_items: "{{ ceph_extra_confs }}"
+  when:
+    - item.mon_host is defined
+    - item.keyring_src is defined
+    - item.client_name is defined
+
+- name: Secure extra keyring file permissions
+  file:
+    path: "{{ item.keyring_src }}"
+    state: file
+    mode: 0600
+  delegate_to: localhost
+  with_items: "{{ ceph_extra_confs }}"
+  when:
+    - item.keyring_src is defined
+
+- name: Remove temp extra keyring files
+  file:
+    path: "/etc/ceph/ceph.client.{{ item.client_name }}.keyring.tmp"
+    state: absent
+  delegate_to: "{{ item.mon_host }}"
+  with_items: "{{ ceph_extra_confs }}"
+  when:
+    - item.mon_host is defined
+    - item.keyring_src is defined
+    - item.client_name is defined
+
+- name: Create extra keyring files
+  copy:
+    src: "{{ item.keyring_src }}"
+    dest: "{{ item.keyring_dest }}"
+    owner:  root
+    group:  "{{ cephkeys_access_group }}"
+    mode:   0640
+  notify:
+    - Restart os services
+  with_items: "{{ ceph_extra_confs }}"
+  when:
+    - item.keyring_src is defined
+    - item.keyring_dest is defined

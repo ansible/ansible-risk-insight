@@ -1,0 +1,38 @@
+---
+# Copyright 2017, BBC R&D
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Configure ext4 sparse file
+  hosts: localhost
+  user: root
+  become: true
+  connection: local
+  tasks:
+    - name: Create base directories
+      file:
+        path: "/var/lib"
+        state: "directory"
+
+    - name: Create sparse file
+      command: "truncate -s 1024G /var/lib/sparse-file.img"
+      args:
+        creates: /var/lib/sparse-file.img
+      register: sparse_file
+
+    - name: Format the sparse file
+      filesystem:
+        fstype: ext4
+        dev: /var/lib/sparse-file.img
+      when:
+        - sparse_file  is changed

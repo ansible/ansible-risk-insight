@@ -1,0 +1,85 @@
+---
+# Copyright 2018, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: create the system group
+  group:
+    name: "{{ zun_system_group_name }}"
+    gid: "{{ zun_system_group_gid | default(omit) }}"
+    state: "present"
+    system: "yes"
+  tags:
+    - zun-group
+
+- name: Remove old key file(s) if found
+  file:
+    path: "{{ item }}"
+    state: "absent"
+  with_items:
+    - "{{ zun_system_home_folder }}/.ssh/authorized_keys"
+    - "{{ zun_system_home_folder }}/.ssh/id_rsa"
+    - "{{ zun_system_home_folder }}/.ssh/id_rsa.pub"
+  when:
+    - zun_recreate_keys | bool
+  tags:
+    - zun-key
+    - zun-key-create
+
+- name: Create the zun system user
+  user:
+    name: "{{ zun_system_user_name }}"
+    uid: "{{ zun_system_user_uid | default(omit) }}"
+    group: "{{ zun_system_group_name }}"
+    comment: "{{ zun_system_comment }}"
+    shell: "{{ zun_system_shell }}"
+    system: "yes"
+    createhome: "yes"
+    home: "{{ zun_system_home_folder }}"
+    generate_ssh_key: "yes"
+  tags:
+    - zun-user
+    - zun-key
+    - zun-key-create
+
+- name: Create zun dir
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner | default(zun_system_user_name) }}"
+    group: "{{ item.group | default(zun_system_group_name) }}"
+    mode: "{{ item.mode | default('0755') }}"
+  with_items:
+    - { path: "/openstack", owner: "root", group: "root" }
+    - { path: "/etc/zun", mode: "0750" }
+    - { path: "/etc/zun/rootwrap.d", owner: "root", group: "root" }
+    - { path: "/etc/sudoers.d", mode: "0750", owner: "root", group: "root" }
+    - { path: "{{ zun_system_home_folder }}" }
+    - { path: "{{ zun_system_home_folder }}/.ssh", mode: "0700" }
+    - { path: "{{ zun_system_home_folder }}/cache/api" }
+    - { path: "{{ zun_system_home_folder }}/instances" }
+    - { path: "{{ zun_system_home_folder }}/volumes" }
+    - { path: "{{ zun_system_home_folder }}/images" }
+  tags:
+    - zun-dirs
+
+- name: Drop sudoers file
+  template:
+    src: "sudoers.j2"
+    dest: "/etc/sudoers.d/{{ zun_system_user_name }}_sudoers"
+    mode: "0440"
+    owner: "root"
+    group: "root"
+  tags:
+    - sudoers
+    - zun-sudoers

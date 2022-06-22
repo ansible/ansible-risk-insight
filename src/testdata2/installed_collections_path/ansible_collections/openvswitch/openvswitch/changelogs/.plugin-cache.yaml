@@ -1,0 +1,35 @@
+plugins:
+  become: {}
+  cache: {}
+  callback: {}
+  cliconf: {}
+  connection: {}
+  httpapi: {}
+  inventory: {}
+  lookup: {}
+  module:
+    openvswitch_bond:
+      description: Manage Open vSwitch bonds
+      name: openvswitch_bond
+      namespace: ''
+      version_added: 1.0.0
+    openvswitch_bridge:
+      description: Manage Open vSwitch bridges
+      name: openvswitch_bridge
+      namespace: ''
+      version_added: 1.0.0
+    openvswitch_db:
+      description: Configure open vswitch database.
+      name: openvswitch_db
+      namespace: ''
+      version_added: 1.0.0
+    openvswitch_port:
+      description: Manage Open vSwitch ports
+      name: openvswitch_port
+      namespace: ''
+      version_added: 1.0.0
+  netconf: {}
+  shell: {}
+  strategy: {}
+  vars: {}
+version: 2.1.0

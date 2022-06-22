@@ -1,0 +1,24 @@
+---
+galaxy_info:
+  author: Daniel Farrell
+  description: Ansible role for the OpenDaylight SDN Controller
+  company: Red Hat
+  license: BSD
+  min_ansible_version: 1.2
+  platforms:
+  - name: EL
+    versions:
+    - 7
+  - name: Fedora
+    versions:
+    - 25
+    - 26
+  - name: OpenSUSE
+    versions:
+    - 42
+  categories:
+  - cloud
+  - clustering
+  - development
+  - networking
+dependencies: []

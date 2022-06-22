@@ -1,0 +1,190 @@
+#!/bin/bash
+# this will
+# 1) create a pair of veth interfaces
+# 2) add one to a physical bridge (assumed to exist)
+# 3) add the peer to a docker container netns
+# 4) set its IP address
+
+set -e
+
+function fn_get_host_index {
+    local PHYS_HOST_NAME=${1}
+    [ -z "$1" ] && echo "ERROR: a host ID number must be supplied" && exit
+    local __hix=${PHYS_HOST_NAME##"an11-"} # trim leading rack ID from hostname (e.g. an11-31-odl -> 31-odl-perf)
+    local H_IXd=${__hix%%-*} # trim trailing characters after rack position (e.g. 31-odl-perf -> 31)
+    H_IXd=${H_IXd##"0"} # trim leading zeroes
+    echo "$H_IXd"
+}
+
+function fn_link_container_netns {
+    # echo "INFO: linking net namespace of container $CONTAINER_NAME"
+    mkdir -p $HOST_NETNS_ROOT
+    # derived variables
+    SANDBOX_KEY=$(docker inspect -f '{{.NetworkSettings.SandboxKey}}' $CONTAINER_NAME)
+    NETNS_NAME="netns-$CONTAINER_NAME"
+    NETNS_LINK="${HOST_NETNS_ROOT}/${NETNS_NAME}"
+    # unlink the netns if a link already exists
+    if [ -L "$NETNS_LINK" ] ; then
+        unlink $NETNS_LINK
+    fi
+    ln -s $SANDBOX_KEY $NETNS_LINK
+    # ls -al $HOST_NETNS_ROOT
+}
+
+function fn_attach_veth_to_container {
+    ## Attach veth to container
+    # input:
+    # A_IX: adapter index, becomes suffix of veth name in host or ethphys{A_IX} in container
+    # ethphys01 == ethmgmt
+    # ethphys02 == ethdata
+    # NETNS_NAME: netns_link from link_container_netns.yml
+    #
+    # set in main: CONTAINER_VETH_NAME="ethphys${A_IX}"
+
+    ip link set $VETH_CONT netns $NETNS_NAME
+    ip netns exec $NETNS_NAME ip link set dev $VETH_CONT name $CONTAINER_VETH_NAME
+    # set the device mac address
+    ip netns exec $NETNS_NAME ip link set dev $CONTAINER_VETH_NAME address $CONTAINER_MAC
+    # set the adapter IP address
+    ip netns exec $NETNS_NAME ip address add $CONTAINER_IP dev $CONTAINER_VETH_NAME
+    #echo "Container net-namespace contents:"
+    ip netns exec $NETNS_NAME ip link set dev $CONTAINER_VETH_NAME up
+    #ip netns exec $NETNS_NAME ip a s
+    #echo
+}
+
+function fn_create_and_link_veth {
+    ## Create veth pair (peers)
+    VETH_BASE="ve${H_IXx}${C_IXx}${A_IX}"
+    VETH_HOST=${VETH_BASE}h
+    VETH_CONT=${VETH_BASE}c
+    ## remove link from host netns if it already exists
+    if [ -n "$(ip link show $VETH_HOST)" ]; then
+        ip link set dev $VETH_HOST down
+        ip link delete $VETH_HOST
+    fi
+    ## create veth pair
+    ip link add $VETH_HOST type veth peer name $VETH_CONT
+    ip link set dev $VETH_HOST up
+    ## attach veth in host netns to PHYS_BRIDGE
+    brctl addif $PHYS_BRIDGE_NAME $VETH_HOST
+
+    fn_attach_veth_to_container
+}
+
+
+function fn_display_link_status {
+    # if all goes well, we've linked the container to the bridge, update the counter
+    if [ $? -eq 0 ] ; then
+        # display status info
+        echo "Successfully linked container $CONTAINER_NAME to bridge $PHYS_BRIDGE_NAME"
+        echo -e "H_IX:  \t${H_IXd} (0x${H_IXx})"
+        echo -e "C_IX:  \t${C_IXd} (0x${C_IXx})"
+        echo -e "C_MAC: \t${CONTAINER_MAC}"
+        echo -e "C_IP4: \t${CONTAINER_IP}"
+        echo -e "C_veth:\t${CONTAINER_VETH_NAME} (${VETH_CONT})"
+        echo -e "H_veth:\t${VETH_HOST}"
+        echo
+    fi
+}
+
+# main:
+# lab constants
+# common/vars/main.yml
+MAC_PREFIX="{{ veth_mac_address_prefix }}"
+HOST_NETNS_ROOT="{{ host_netns_root }}"
+NETMASK_LEN="{{ management_subnet_netmask }}"
+
+# parse input arguments
+PHYS_HOST_NAME="${1}"
+CONTAINER_ID_NUMBER="${2}"
+# container name can be constructed from ID num: compute-<hostID>-<CONTAINER_ID_NUMBER>
+CONTAINER_TYPE=${3}
+
+# determine subnet from bridge
+
+# this is deterministic where each container gets an index which is used
+# + to create the IP address, MAC address, VETH numbering, etc
+H_IXd=$(fn_get_host_index $PHYS_HOST_NAME  )
+# host index (rack position), convert to 2 hex digits
+# H_IXx (hex representation of host id) can be passed as an input argument or used from the environment
+H_IXx=${H_IXx:-$(printf "%.2x" $H_IXd)}
+SUBNET_SEGMENT="${H_IXd}"
+
+
+# For last octet of IP address:
+# host=1, service=2, network=3, compute=11-200, floatingIP=201-254
+case "$CONTAINER_TYPE" in
+    service)
+        # echo "CONTAINER_TYPE = service"
+        CONTAINER_NAME=service-node
+        CONTAINER_ID_NUMBER=2
+        ;;
+    network)
+        # echo "CONTAINER_TYPE = network"
+        CONTAINER_NAME=network-node
+        CONTAINER_ID_NUMBER=3
+        ;;
+    measure)
+        # echo "CONTAINER_TYPE = measure"
+        CONTAINER_NAME=measure-node
+        CONTAINER_ID_NUMBER=4
+        ;;
+    compute)  # echo "CONTAINER_TYPE = compute"
+        CONTAINER_NAME="compute-${H_IXd}-${CONTAINER_ID_NUMBER}"
+        # echo "Compute node # = $CONTAINER_ID_NUMBER"
+        ;;
+    *)  echo "ERROR: Invalid CONTAINER_TYPE \"$CONTAINER_TYPE\" specified"
+        exit 1
+esac
+
+# description:
+# input: container type (string), "ID"  (int, 11-200) supplied on the command line
+#   this script will:
+# 1) link the container to both {{ management_bridge }} and {{ data_bridge }}
+# 2) modify their MAC addresses accordingly
+# 3) supply IP addresse
+
+fn_link_container_netns
+
+C_IXd=$CONTAINER_ID_NUMBER
+C_IXx=$(printf "%.2x" $C_IXd)
+
+# connect the adapter
+for ADAPTER_IX in {1..2}; do
+    A_IX="$(printf "%.2x" $ADAPTER_IX)"
+    case "$ADAPTER_IX" in
+        1)
+            # create links to the management bridge
+            NETMASK_LEN="{{ management_subnet_netmask }}"
+            PHYS_BRIDGE_NAME="{{ management_bridge }}"
+            SUBNET_BASE="{{ management_subnet_prefix }}"
+            CONTAINER_VETH_NAME="ethmgmt"
+            ;;
+        2)
+            # create links to the tenant/data bridge
+            NETMASK_LEN="{{ data_subnet_netmask }}"
+            PHYS_BRIDGE_NAME="{{ data_bridge }}"
+            SUBNET_BASE="{{ data_subnet_prefix }}"
+            CONTAINER_VETH_NAME="ethdata"
+            ;;
+        *)  echo "ERROR: Invalid ADAPTER_IX \"$ADAPTER_IX\" specified"
+            exit
+    esac
+    SUBNET_PREFIX="${SUBNET_BASE}.${SUBNET_SEGMENT}"
+    # container index (container id per host), convert to 2 hex digits
+    CONTAINER_IP="${SUBNET_PREFIX}.${C_IXd}/${NETMASK_LEN}"
+    CONTAINER_MAC="${MAC_PREFIX}:${H_IXx}:${C_IXx}:${A_IX}"
+
+    # make links
+    fn_create_and_link_veth
+    fn_display_link_status
+done
+
+# echo "You can remove the links created just now by simply removing the veth peer from the root netns with:"
+# echo "    ip link delete $VETH_HOST"
+
+unlink $HOST_NETNS_ROOT/$NETNS_NAME
+
+# vim: set ft=sh sw=4 ts=4 et ai :
+

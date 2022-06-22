@@ -1,0 +1,43 @@
+---
+# Copyright 2016, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+galera_client_drop_config_file: true
+
+# Ensure that the package state matches the global setting
+galera_server_package_state: "{{ package_state }}"
+
+# Galera default list of bind mounts
+galera_container_bind_mounts:
+  - bind_dir_path: "/var/lib/mysql"
+    mount_path: "/openstack/{{ inventory_hostname }}"
+
+# Disable PrivateDevices for MariaDB on CentOS
+# See https://bugs.launchpad.net/openstack-ansible/+bug/1697531 for details.
+galera_disable_privatedevices: "{{ not is_metal }}"
+
+# By default galera_monitoring xinetd app is open to 0.0.0.0/0
+# This makes sure the monitoring is only restricted to the necessary nodes:
+# the load balancers, and the galera nodes.
+galera_monitoring_allowed_source: >-
+  {{
+    groups['galera_all'] | union(groups['haproxy'])
+      | map('extract', hostvars, 'ansible_host')
+      | list
+      | join(' ') ~ ' 127.0.0.1'
+  }}
+
+# Galera sessions are long lived, so if we do endpoint maintenance we will
+# force kill the sessions to force a failover to the active endpoint.
+haproxy_shutdown_sessions: yes

@@ -1,0 +1,87 @@
+---
+# Copyright 2016 Internet Solutions (Pty) Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# (c) 2016 Donovan Francesco <donovan.francesco@is.co.za>
+# (c) 2016 Paul Stevens <paul.stevens@is.co.za>
+
+- name: Gathering network facts for {{ trove_provider_net_name }} interface
+  setup:
+    gather_subset: "!all,network"
+    filter: "{{ trove_address_gather_filter | default('ansible_' ~ trove_provider_net_iface | replace('-','_')) }}"
+  delegate_to: "{{ item }}"
+  delegate_facts: true
+  with_items: "{{ (groups[trove_guest_rpc_host_group] + groups[trove_guest_notify_host_group]) | unique }}"
+  run_once: true
+
+- name: Drop trove api Config(s)
+  openstack.config_template.config_template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "{{ trove_system_user_name }}"
+    group: "{{ trove_system_group_name }}"
+    mode: "0644"
+    config_overrides: "{{ item.config_overrides }}"
+    config_type: "{{ item.config_type }}"
+  with_items:
+    - src: "api-paste.ini.j2"
+      dest: "/etc/trove/api-paste.ini"
+      config_overrides: "{{ trove_api_paste_ini_overrides }}"
+      config_type: "ini"
+    - src: "trove.conf.j2"
+      dest: "/etc/trove/trove.conf"
+      config_overrides: "{{ trove_config_overrides }}"
+      config_type: "ini"
+    - src: "trove-guestagent.conf.j2"
+      dest: "/etc/trove/trove-guestagent.conf"
+      config_overrides: "{{ trove_guestagent_config_overrides }}"
+      config_type: "ini"
+  notify:
+    - Restart trove services
+    - Restart uwsgi services
+
+- name: Implement policy.yaml if there are overrides configured
+  openstack.config_template.config_template:
+    content: "{{ trove_policy_overrides }}"
+    dest: "/etc/trove/policy.yaml"
+    owner: "{{ trove_system_user_name }}"
+    group: "{{ trove_system_group_name }}"
+    mode: "0644"
+    config_type: yaml
+  when:
+    - trove_policy_overrides | length > 0
+  tags:
+    - trove-policy-override
+
+- name: Remove legacy policy.yaml file
+  file:
+    path: "/etc/trove/policy.yaml"
+    state: absent
+  when:
+    - trove_policy_overrides | length == 0
+  tags:
+    - trove-policy-override
+
+- name: Drop trove wsgi binary
+  template:
+    src: wsgi.py.j2
+    dest: "{{ trove_bin }}/trove-api-wsgi"
+    owner: "{{ trove_system_user_name }}"
+    group: "{{ trove_system_group_name }}"
+    mode: "0755"
+  when:
+    - trove_use_uwsgi | bool
+    - inventory_hostname in groups['trove_api']
+  notify:
+    - Restart uwsgi services

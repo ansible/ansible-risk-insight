@@ -1,0 +1,167 @@
+---
+# Copyright 2017, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Cleanup all known network interfaces. When this option is enabled the role
+# will search for and remove all network interface files that match the prefix.
+systemd_interface_cleanup: false
+
+# Prefix for all networkd files created by this role. This prefix allows
+# deployers to set specific file names reducing the chance of a collision
+# and simplifies the network interface file cleanup operation should it ever
+# be needed. By default, the prefix is "general" however this can be changed
+# to meet the needs of the deployer.
+systemd_networkd_prefix: "general"
+
+# Enable systemd-networkd and (re)start the service
+systemd_run_networkd: false
+
+# Default filename formatting
+systemd_networkd_filename: "{{ item.0 }}-{{ systemd_networkd_prefix }}-{{ item.1.NetDev.Name }}"
+systemd_networkd_filename_alt: "{{ item.0 }}-{{ systemd_networkd_prefix }}-{{ item.1.interface }}"
+
+# The `systemd_link_config_overrides` option can be used on the default link.
+#  See the following link for all available options:
+#   https://www.freedesktop.org/software/systemd/man/systemd.link.html
+# systemd_default_unit:
+#   Match:
+#     Driver=things other thing
+systemd_link_config_overrides: {}
+
+# All items listed in the `systemd_netdevs` array are craeted using the exact
+# networkd syntax found here:
+#   https://www.freedesktop.org/software/systemd/man/systemd.netdev.html
+# At an absolute minimum, the items must have "NetDev" and "Name" defined.
+# Items generated will have an integer assigned to them so that they're loaded
+# in the order specified.
+
+# systemd_netdevs:
+#   - NetDev:
+#       Name: dummy0
+#       Kind: dummy
+#   - NetDev:
+#       Name: dummy1
+#       Kind: dummy
+#     filename: "{{ item.1.NetDev.Name }}.netdev"
+#   - NetDev:
+#       Name: bond0
+#       Kind: bond
+#     Bond:
+#       Mode: 802.3ad
+#       TransmitHashPolicy: layer3+4
+#       MIIMonitorSec: 1s
+#       LACPTransmitRate: fast
+#   - NetDev:
+#       Name: br-dummy
+#       Kind: bridge
+
+systemd_netdevs: []
+
+# The systemd networkd dictionary is a set of networks that will be created.
+# items generated will have an integer assigned to them so that they're loaded
+# in the order specified. The dictionary can contain the following options:
+#  `config_overrides` -- (optional) used to inject extra configuration options
+#                                   into the network file. A full list of all
+#                                   options can be found here:
+#                                   https://www.freedesktop.org/software/systemd/man/systemd.network.html
+#  `link_config_overrides` -- (Optional) Used to inject extra configuration
+#                                        options into link file. A full list
+#                                        of all options can be found here:
+#                                        https://www.freedesktop.org/software/systemd/man/systemd.link.html
+#  `interface` -- (required) Name of interface to match
+#  `address` -- (option) IP address the interface should be given. To make this
+#                        interface use DHCP set this string to "dhcp"
+#  `netmask` -- (optional) Netmask to use for the interface
+#  `gateway` -- (optional) Gateway to use for the interface
+#  `bridge` -- (optional) Bridge name for a mapped interface
+#  `bond` -- (optional) Bond name for a mapped interface
+#  `vlan` -- (optional) VLAN name for a mapped interface
+#  `macvlan` -- (optional) MACVLAN name for a mapped interface
+#  `vxlan` -- (optional) VXLAN name for a mapped interface
+#  `mtu` -- (optional) MTU to use for the interface
+#  `usedns` -- (optional) When set to true the interface will accept DNS when
+#                         running in dhcp mode
+#  `static_routes` -- (optional) list of routes to use for the network. This
+#                                option requires a gateway and cidr to be set
+#                                within the list item.
+#  `ipforward` -- (optional) When set to true forwarding will be enabled for
+#                            interface.  This setting will enable
+#                            net.ipv4.ip_forward, net.ipv4.conf.all.forwarding
+#                            and net.ipv4.conf.interface.forwarding
+
+# systemd_networks:
+#   - interface: "dummy0"
+#     bridge: "bond0"
+#     mtu: 9000
+#   - interface: "dummy1"
+#     filename: "{{ item.1.interface }}.network"
+#     bridge: "bond0"
+#     mtu: 9000
+#   - interface: "bond0"
+#     bridge: "br-dummy"
+#     mtu: 9000
+#   - interface: "br-dummy"
+#     bridge: "br-dummy"
+#     address: "10.0.0.100"
+#     netmask: "255.255.255.0"
+#     gateway: "10.0.0.1"
+#     mtu: 9000
+#     usedns: true
+#     config_overrides:
+#       Network:
+#         ConfigureWithoutCarrier: true
+
+systemd_networks: []
+
+# The systemd resolved service can be setup using th following configuration.
+# The generator is a Key=Value pair hash and will set whatever directives it's
+# instructed to. For more information on all of the possible configuration see
+# https://www.freedesktop.org/software/systemd/man/resolved.conf.html
+
+# systemd_resolved:
+#   DNS: "10.127.83.1"
+#   FallbackDNS: "208.67.222.222 8.8.8.8"
+#   Cache: yes
+
+systemd_resolved: {}
+
+# Enable or Disable the availability of systemd-resolved. This option is a
+# Boolean variable.
+
+systemd_resolved_available: "{{ _systemd_resolved_available | default(true) }}"
+
+# Specify the command used to update the initramfs. By default this will run
+# "/bin/true" which is done because the command required to run should never
+# be assumed. Distro specific config is available in vars otherwise deployers
+# can set this as needed.
+
+systemd_networkd_update_initramfs: "{{ _systemd_networkd_update_initramfs | default('true') }}"
+
+# Provide a list of packages that are to be installed before this role is
+# executed.
+
+# _systemd_networkd_distro_packages:
+#  - systemd-networkd
+#  - systemd-resolved
+
+systemd_networkd_distro_packages: "{{ _systemd_networkd_distro_packages | default([]) }}"
+
+systemd_networkd_epel_mirror: "{{ centos_epel_mirror | default('http://download.fedoraproject.org/pub/epel') }}"
+
+# The systemd networkd service can be used to set specific link configuration options.
+# For more information on all of the possible configuration see
+# https://www.freedesktop.org/software/systemd/man/systemd.link.html
+
+systemd_networkd_link:
+  MACAddressPolicy: "persistent"

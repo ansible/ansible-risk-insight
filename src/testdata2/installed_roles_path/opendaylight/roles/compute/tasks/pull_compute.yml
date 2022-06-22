@@ -1,0 +1,13 @@
+---
+- name: Pull compute-node docker image from the registry
+  tags:
+    - pull
+    - docker
+    - containers
+  vars:
+    node_type: compute
+    container_tag: "{{ compute_version }}"
+  include: ../../common/tasks/pull_image.yml
+
+# vim: set et ts=2 sw=2 ai ft=yaml :
+

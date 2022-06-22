@@ -1,0 +1,4 @@
+Created a {{ lxc_cache_map.distro }} container (release={{ lxc_cache_map.release }}, arch={{ lxc_cache_map.arch }}, variant={{ lxc_cache_default_variant }})
+
+Use lxc-attach or chroot directly into the rootfs to set a root password
+or create user accounts.

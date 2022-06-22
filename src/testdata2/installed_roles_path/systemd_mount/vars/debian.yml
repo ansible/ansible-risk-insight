@@ -1,0 +1,11 @@
+systemd_nfs_packages:
+  - nfs-common
+
+systemd_ceph_packages:
+  - ceph-fuse
+
+systemd_s3_packages:
+  - s3fs
+
+systemd_glusterfs_packages:
+  - glusterfs-client

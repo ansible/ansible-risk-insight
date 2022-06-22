@@ -1,0 +1,62 @@
+# {{ ansible_managed }}
+
+{%- set odl_cluster_list = [] %}
+{% set vars = {'host_ip': None,'member_index': None} %}
+
+{% for host in groups["neutron_server_container"]  %}
+   {% if inventory_hostname == host %}
+      {% set _ = vars.update({'host_ip': hostvars[host]['container_address']|string}) %}
+      {% set _ = vars.update({'member_index': '"' + "member-" + loop.index|string + '"'}) %}
+   {% endif %}
+   {% set ip_address =  hostvars[host]['container_address']|string %}
+   {% set _ = odl_cluster_list.append('"' + "akka.tcp://opendaylight-cluster-data@" + ip_address + ":" + akka_remoting_port|string + '"')  %}
+{%- endfor %}
+
+odl-cluster-data {
+  akka {
+    remote {
+      artery {
+        enabled = off
+        canonical.hostname = "{{vars.host_ip}}"
+        canonical.port = {{ akka_remoting_port }}
+      }
+      netty.tcp {
+        hostname = "{{vars.host_ip}}"
+        port = {{ akka_remoting_port }}
+      }
+      # when under load we might trip a false positive on the failure detector
+      # transport-failure-detector {
+        # heartbeat-interval = 4 s
+        # acceptable-heartbeat-pause = 16s
+      # }
+    }
+
+    cluster {
+      # Remove ".tcp" when using artery.
+      seed-nodes = [{{ odl_cluster_list | join(',') }}]
+      roles = [
+        {{vars.member_index}}
+      ]
+
+    }
+
+    persistence {
+      # By default the snapshots/journal directories live in KARAF_HOME. You can choose to put it somewhere else by
+      # modifying the following two properties. The directory location specified may be a relative or absolute path.
+      # The relative path is always relative to KARAF_HOME.
+
+      # snapshot-store.local.dir = "target/snapshots"
+      # journal.leveldb.dir = "target/journal"
+
+      journal {
+        leveldb {
+          # Set native = off to use a Java-only implementation of leveldb.
+          # Note that the Java-only version is not currently considered by Akka to be production quality.
+
+          # native = off
+        }
+      }
+    }
+  }
+}
+

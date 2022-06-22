@@ -1,0 +1,150 @@
+---
+# task to create a veth-link pair between a bridge and a container
+# See https://github.com/intel-odl/socets/blob/master/ansible/connect_container_to_networks.sh
+
+- name: Set host and container index info
+  tags:
+    - container
+    - network
+  set_fact:
+    host_ix_hex: "{{ '%02x'|format(HOST_ID|int) }}"
+    comp_ix_hex: "{{ '%02x'|format(COMP_ID|int) }}"
+
+- name: Set veth pair base name
+  tags:
+    - container
+    - network
+  set_fact:
+    veth_base: "ve{{ host_ix_hex }}{{ comp_ix_hex }}"
+    adapter_ix: "{% if bridge_name=='br_mgmt' %}01{% else %}02{% endif %}"
+
+- name: Set host and container veth names
+  tags:
+    - container
+    - network
+  set_fact:
+    veth_host: "{{ veth_base }}{{ adapter_ix }}h"
+    veth_cont: "{{ veth_base }}{{ adapter_ix }}c"
+    adapter_ix_hex: "{{ '%02x'|format(adapter_ix|int) }}"
+
+- name: Delete existing veth links
+  tags:
+    - container
+    - network
+    - cleanup
+  shell: "ip link delete {{ veth_host }} || exit 0"
+
+- name: Get veth link status info for host
+  tags:
+    - container
+    - network
+  command: ip -o link show type veth
+  register: ip_link_status
+
+- name: Create veth pair for {{ bridge_name }} bridge
+  tags:
+    - container
+    - network
+  command: "ip link add {{ veth_host }} type veth peer name {{ veth_cont }}"
+  when: veth_host not in ip_link_status.stdout
+
+# if the veth_cont link already exists, it should be in the container
+- name: Set veth_host up
+  tags:
+    - container
+    - network
+  command: "ip link set dev {{ veth_host }} up"
+  when: veth_host not in ip_link_status.stdout
+
+# assume that the bridge already exists, setup by infra role
+- name: Get bridge status for {{ bridge_name }}
+  tags:
+    - container
+    - network
+  command: "brctl show {{ bridge_name }}"
+  register: bridge_status
+
+- name: Bind veth link to {{ bridge_name }} bridge
+  tags:
+    - container
+    - network
+  command: "brctl addif {{ bridge_name }} {{ veth_host }}"
+  when: veth_host not in bridge_status.stdout
+
+- name: Get name of veth adapter IN-side container
+  tags:
+    - container
+    - network
+  set_fact:
+    container_veth_name: "{% if bridge_name=='br_mgmt' %}{{ mgmt_veth_name }}{% else %}{{ data_veth_name }}{% endif %}"
+    subnet_prefix: "{% if bridge_name=='br_mgmt' %}{{ management_subnet_prefix }}{% else %}{{ data_subnet_prefix }}{% endif %}"
+    netmask: "{% if bridge_name=='br_mgmt' %}{{ management_subnet_netmask }}{% else %}{{ data_subnet_netmask }}{% endif %}"
+
+- name: Determine container interface IP for {{ bridge_name }}
+  tags:
+    - container
+    - network
+  set_fact:
+    container_ip: "{{ subnet_prefix }}.{{ HOST_ID }}.{{ COMP_ID }}/{{ netmask }}"
+    container_mac: "{{ veth_mac_address_prefix }}:{{ host_ix_hex }}:{{ comp_ix_hex }}:{{ adapter_ix_hex }}"
+
+- name: Check for veth adapter presence in container (docker exec)
+  tags:
+    - container
+    - network
+  command: docker exec {{ container_name }} ip link show
+  register: container_link_status
+
+- name: Show container adapter info
+  tags:
+    - container
+    - network
+    - debug
+  debug:
+    msg: "Container name: {{ container_name }},
+      veth_host: {{ veth_host }},
+      veth_cont: {{ veth_cont }},
+      container_ip: {{ container_ip }},
+      container_mac: {{ container_mac }},
+      container_veth_name: {{ container_veth_name }},
+      container_netns_link: {{ netns_link }}
+      container_netns_name: {{ netns_name }}"
+    verbosity: 3
+
+- name: Attach veth adapter to container
+  tags:
+    - container
+    - network
+  command: ip link set {{ veth_cont }} netns {{ netns_name }}
+  when: container_veth_name not in container_link_status.stdout
+
+- name: Set container veth adapter name
+  tags:
+    - container
+    - network
+  command: ip netns exec {{ netns_name }} ip link set dev {{ veth_cont }} name {{ container_veth_name }}
+  when: container_veth_name not in container_link_status.stdout
+
+- name: Set container veth adapter L2 HW address
+  tags:
+    - container
+    - network
+  command: ip netns exec {{ netns_name }} ip link set dev {{ container_veth_name }} address {{ container_mac }}
+  when: container_veth_name not in container_link_status.stdout
+
+- name: Set container veth adapter L3 IP address
+  tags:
+    - container
+    - network
+  command: ip netns exec {{ netns_name }} ip address add {{ container_ip }} dev {{ container_veth_name }}
+  when: container_veth_name not in container_link_status.stdout
+
+- name: Set container veth adapter 'up'
+  tags:
+    - container
+    - network
+  command: ip netns exec {{ netns_name }} ip link set dev {{ container_veth_name }} up
+  when: container_veth_name not in container_link_status.stdout
+
+# vim: set et ai ts=2 sw=2 sts=2 :
+

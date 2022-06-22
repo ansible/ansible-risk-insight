@@ -1,0 +1,187 @@
+---
+# Copyright 2015, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Test whether the role produced expected results
+  hosts: localhost
+  user: root
+  become: true
+  tasks:
+    - name: List the running LXC containers present on the host
+      command: lxc-ls -1 --fancy --fancy-format name,ipv4 --running
+      register: lxc_container_list
+      tags:
+        - skip_ansible_lint
+
+    - name: Verify that the expected containers are present with the correct addresses
+      # Example stdout:
+      # NAME        IPV4
+      # ---------------------------------------
+      # container1  172.16.12.3, 10.100.100.2
+      # container2  10.100.100.3, 172.16.12.4
+      assert:
+        that:
+          - lxc_container_list.stdout is search("container1\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3},\s+)*10.100.100.2(,\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})*\s+")
+          - lxc_container_list.stdout is search("container2\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3},\s+)*10.100.100.3(,\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})*\s+")
+          - lxc_container_list.stdout is search("container3\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3},\s+)*10.100.100.4(,\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})*\s+")
+
+    - name: Check for the presence of the right app armor profile for container1
+      command: "grep \"^lxc.apparmor.profile = {{ (hostvars[physical_host | default('localhost')]['ansible_facts']['distribution'] == 'Debian') | ternary('unconfined', 'lxc-openstack') }}$\" {{ item }}"
+      register: container_profile
+      failed_when: container_profile.rc != 0
+      with_sequence: start=1 end=3 format=/var/lib/lxc/container%x/config
+      tags:
+        - skip_ansible_lint
+
+    - name: Check for the presence of the right bound mount for container1
+      command: grep "lxc.mount.entry = /openstack/log/container1" /var/lib/lxc/container1/config
+      tags:
+        - skip_ansible_lint
+
+    - name: Check for the presence of the right bound mount for container2
+      command: grep "lxc.mount.entry = {{ development_repo_directory }} {{ development_repo_directory | relpath('/') }} none bind,create=dir 0 0" /var/lib/lxc/container2/config
+      tags:
+        - skip_ansible_lint
+
+    - name: Check for the presence of the default bound mount for container3
+      command: grep "lxc.mount.entry = /openstack/backup/container3" /var/lib/lxc/container3/config
+      tags:
+        - skip_ansible_lint
+
+  vars_files:
+    - common/test-vars.yml
+
+- name: Check for the bind mount in container1
+  hosts: container1
+  remote_user: root
+  tasks:
+    - name: Check for the presence of /var/backup
+      stat:
+        path: /var/backup
+      register: container1_backup_dir
+      failed_when: container1_backup_dir.stat.isdir is not defined
+      tags:
+        - skip_ansible_lint
+
+- name: Test the containers themselves
+  hosts: all_containers
+  remote_user: root
+  tasks:
+    - name: Open /etc/environment file
+      slurp:
+        src: /etc/environment
+      register: environment_file
+
+    - name: Set /etc/environment contents fact
+      set_fact:
+        environment_content: "{{ environment_file.content | b64decode }}"
+
+    - name: Check /etc/enviroment matches expectations
+      assert:
+        that:
+          - "'foo=bar' in environment_content"
+
+    - name: Test connectivity to external address
+      command: ping -i 5 -c 6 opendev.org
+      register: ping_external_address
+      failed_when: false
+      tags:
+        - skip_ansible_lint
+
+    - name: Verify connectivity to external address
+      assert:
+        that:
+          - ping_external_address.rc == 0
+
+# TODO(evrardjp): Move this to testinfra
+- name: Apply a sysctl to test if it can be applied consistenty
+  hosts: container3
+  tasks:
+    - name: Allow consuming apps to bind on non local addresses
+      sysctl:
+        name: net.ipv4.ip_nonlocal_bind
+        value: 1
+        sysctl_set: yes
+        state: present
+
+- name: Bump the container state
+  hosts: localhost
+  user: root
+  become: true
+  tasks:
+    - name: Stop container
+      command: "lxc-stop -n container3"
+      register: container_stop
+      changed_when: container_stop.rc == 0
+      failed_when: not container_stop.rc in [0, 2]
+      until: container_stop.rc in [0, 2]
+      retries: 3
+      delay: 2
+
+    - name: Start container
+      command: "lxc-start -d -n container3"
+      register: container_start
+      changed_when: container_start.rc == 0
+      until: container_start is success
+      retries: 3
+      delay: 2
+
+- name: Check if the sysctl was well applied
+  hosts: container3
+  gather_facts: false
+  tasks:
+    - name: Wait for container tmpfiles-setup finish
+      raw: systemctl list-units systemd-tmpfiles-setup.service --no-legend | grep 'exited' >/dev/null
+      register: systemd_tmpfiles
+      until: systemd_tmpfiles.rc == 0
+      retries: 20
+      delay: 2
+      changed_when: false
+
+    - name: Check the sysctl is persistent
+      command: sysctl -n net.ipv4.ip_nonlocal_bind
+      register: nonlocalbind
+      changed_when: false
+
+    - debug:
+        var: nonlocalbind
+
+    - name: Verify the sysctl is set
+      assert:
+        that:
+          - "'1' in nonlocalbind.stdout"
+
+- name: Test journal linking
+  hosts: all_containers
+  user: root
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Get container machine-id
+      command: "cat /etc/machine-id"
+      changed_when: false
+      register: container_machine_id
+
+    - name: Stat linked journal on the host
+      stat:
+        path: "/var/log/journal/{{ container_machine_id.stdout.strip() }}/system.journal"
+      register: journal_stat
+      delegate_to: "{{ physical_host }}"
+
+    - name: Check for linked journal
+      fail:
+        msg: >-
+          Container journal [/var/log/journal/{{ container_machine_id.stdout.strip() }}] not found
+      when:
+        - not journal_stat.stat.exists

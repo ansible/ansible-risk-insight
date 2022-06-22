@@ -1,0 +1,60 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Gather haproxy facts
+  hosts: haproxy
+  gather_facts: "{{ osa_gather_facts | default(True) }}"
+  tasks:
+    - name: Gather additional facts
+      include_tasks: "common-tasks/gather-hardware-facts.yml"
+      when: osa_gather_facts | default(True)
+  tags:
+    - always
+
+- name: haproxy base config
+  hosts: haproxy
+  gather_facts: false
+  serial: "{{ haproxy_serial | default('50%') }}"
+  user: root
+  pre_tasks:
+    - include_tasks: "common-tasks/os-{{ container_tech | default('lxc') }}-container-setup.yml"
+      when: not is_metal
+    - include_tasks: common-tasks/unbound-clients.yml
+      when:
+        - hostvars['localhost']['resolvconf_enabled'] | bool
+    - name: Remove legacy haproxy configuration files
+      file:
+        dest: "/etc/haproxy/conf.d/{{ item.name }}"
+        state: "absent"
+      with_items:
+        - name: "keystone_internal"
+          when: "internal_lb_vip_address == external_lb_vip_address"
+        - name: "heat_api_cloudwatch"
+          when: "yes"
+      when:
+       - "item.when | bool"
+      tags:
+        - haproxy-config  # this tag is present because the task is ONLY a config task
+  roles:
+    - role: "keepalived"
+      when: haproxy_use_keepalived | bool
+      tags:
+        - keepalived
+    - role: "haproxy_server"
+      haproxy_service_configs: "{{ haproxy_default_services + haproxy_extra_services|default([]) }}"
+  environment: "{{ deployment_environment_variables | default({}) }}"
+  tags:
+    - haproxy-config
+    - haproxy

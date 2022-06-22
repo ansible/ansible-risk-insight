@@ -1,0 +1,73 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Remove existing directory if it is not a git repo or it is dirty
+  shell: |
+    EXIT_CODE=0
+    FOLDER_PATH="/usr/share/novnc"
+    if [[ -e ${FOLDER_PATH} ]]; then
+      if [[ ! -d "${FOLDER_PATH}/.git" ]]; then
+        echo "${FOLDER_PATH} is not a git repo, deleting..."
+        EXIT_CODE=2
+      elif test -n "$(cd ${FOLDER_PATH}; git status --porcelain)"; then
+        echo "${FOLDER_PATH} is a dirty git repo, deleting..."
+        EXIT_CODE=2
+      fi
+      if [[ "${EXIT_CODE}" == "2" ]]; then
+        rm -rf ${FOLDER_PATH}
+      fi
+    fi
+    exit ${EXIT_CODE}
+  args:
+    executable: /bin/bash
+  register: existing_dir_cleanup
+  changed_when: existing_dir_cleanup.rc == 2
+  failed_when: existing_dir_cleanup.rc not in [0,2]
+  when: nova_install_method == 'source'
+  tags:
+    - nova-novnc-git
+
+- name: Get package from git
+  git:
+    repo: "{{ nova_novncproxy_git_repo }}"
+    dest: "/usr/share/novnc"
+    clone: "yes"
+    update: "yes"
+    version: "{{ nova_novncproxy_git_install_branch }}"
+    force: yes
+    accept_hostkey: yes
+  register: git_clone
+  until: git_clone is success
+  retries: 5
+  delay: 2
+  when: nova_install_method == 'source'
+  notify:
+    - Restart nova services
+    - Restart uwsgi services
+  tags:
+    - nova-novnc-git
+
+- include_tasks: nova_console_novnc_ssl.yml
+  when:
+    - nova_console_user_ssl_cert is defined
+    - nova_console_user_ssl_key is defined
+  args:
+    apply:
+      tags:
+        - nova-novnc
+        - nova-novnc-ssl
+        - nova-config
+  tags:
+    - always

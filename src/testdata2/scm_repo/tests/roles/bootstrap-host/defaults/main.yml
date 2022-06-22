@@ -1,0 +1,201 @@
+---
+# Copyright 2015, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+## AIO user-space configuration options
+# Scenario used to bootstrap the host
+bootstrap_host_scenario: "{{ lookup('env','SCENARIO') | default('aio_lxc', true) }}"
+#
+# Action used (deploy, upgrade, ...)
+bootstrap_host_action: "{{ lookup('env', 'ACTION') | default('deploy', true) }}"
+#
+# Boolean option to implement OpenStack-Ansible configuration for an AIO
+# Switch to no for a multi-node configuration
+bootstrap_host_aio_config: yes
+#
+# Path to the location of the bootstrapping configuration files
+bootstrap_host_aio_config_path: "{{ playbook_dir }}/../etc/openstack_deploy"
+#
+# Path to the location of the scripts the bootstrap scripts use
+bootstrap_host_aio_script_path: "{{ playbook_dir }}/../scripts"
+#
+# The user space configuration file names to use
+bootstrap_host_user_variables_filename: "user_variables.yml"
+bootstrap_host_user_secrets_filename: "user_secrets.yml"
+#
+# Paths to configuration file targets that should be created by the bootstrap
+bootstrap_host_target_config_paths:
+  - /etc/openstack_deploy
+  - /etc/openstack_deploy/conf.d
+  - /etc/openstack_deploy/env.d
+
+# The user variables template to use
+bootstrap_user_variables_template: user_variables.aio.yml.j2
+
+## Loopback volumes
+# Sparse loopback disks are used for the containers if there is no secondary
+# disk available to partition for btrfs. They are also used for Ceph, Cinder,
+# Swift and Nova (instance storage).
+# The size of the loopback volumes can be customized here (in gigabytes).
+#
+# Boolean option to deploy the loopback disk for Swap
+bootstrap_host_loopback_swap: no
+# Size of the Swap loopback disk in gigabytes (GB).
+bootstrap_host_loopback_swap_size: 4096
+#
+# Boolean option to deploy the loopback disk for Cinder
+bootstrap_host_loopback_cinder: yes
+# Size of the Cinder loopback disk in gigabytes (GB).
+bootstrap_host_loopback_cinder_size: 1024
+#
+# Boolean option to deploy the loopback disk for Swift
+bootstrap_host_loopback_swift: yes
+# Size of the Swift loopback disk in gigabytes (GB).
+bootstrap_host_loopback_swift_size: 1024
+#
+# Boolean option to deploy the loopback disk for Nova
+bootstrap_host_loopback_nova: yes
+# Size of the Nova loopback disk in gigabytes (GB).
+bootstrap_host_loopback_nova_size: 1024
+#
+# Boolean option to deploy the loopback disk for Manila
+bootstrap_host_loopback_manila: yes
+# Size of the Manila loopback disk in gigabytes (GB).
+bootstrap_host_loopback_manila_size: 1024
+#
+# Boolean option to deploy the loopback disk for machines
+bootstrap_host_loopback_machines: yes
+# Size of the machines loopback disk in gigabytes (GB).
+bootstrap_host_loopback_machines_size: 128
+#
+# Boolean option to deploy the loopback disk for btrfs
+bootstrap_host_loopback_btrfs: yes
+# Size of the btrfs loopback disk in gigabytes (GB).
+bootstrap_host_loopback_btrfs_size: 1024
+#
+# Boolean option to deploy the loopback disk for zfs
+bootstrap_host_loopback_zfs: yes
+# Size of the zfs loopback disk in gigabytes (GB).
+bootstrap_host_loopback_zfs_size: 1024
+#
+# Boolean option to deploy the loopback disk for nfs
+bootstrap_host_nfs: "{{ 'nfs' in bootstrap_host_scenarios_expanded }}"
+# Size of the nfs loopback disk in gigabytes (GB).
+bootstrap_host_loopback_nfs_size: 1024
+#
+# Boolean option to deploy the OSD loopback disks and cluster UUID for Ceph
+bootstrap_host_ceph: "{{ 'ceph' in bootstrap_host_scenarios_expanded }}"
+# Size of the Ceph OSD loopbacks
+bootstrap_host_loopback_ceph_size: 1024
+# Ceph OSDs to create on the AIO host
+ceph_osd_images:
+  - 'ceph1'
+  - 'ceph2'
+  - 'ceph3'
+
+## Network configuration
+# Default network IP ranges
+mgmt_range: "172.29.236"
+vxlan_range: "172.29.240"
+storage_range: "172.29.244"
+vlan_range: "172.29.248"
+netmask: "255.255.252.0"
+#
+# NICs
+bootstrap_host_public_interface: "{{ ansible_facts['default_ipv4']['interface'] }}"
+#
+# Utility paths
+bootstrap_host_network_utils:
+  apt:
+    iptables: /sbin/iptables
+    ethtool: /sbin/ethtool
+    ip: /sbin/ip
+  dnf:
+    iptables: /usr/sbin/iptables
+    ethtool: /usr/sbin/ethtool
+    ip: /usr/sbin/ip
+#
+bootstrap_host_iptables_path: "{{ bootstrap_host_network_utils[ansible_facts['pkg_mgr']]['iptables'] }}"
+bootstrap_host_ethtool_path: "{{ bootstrap_host_network_utils[ansible_facts['pkg_mgr']]['ethtool'] }}"
+bootstrap_host_ip_path: "{{ bootstrap_host_network_utils[ansible_facts['pkg_mgr']]['ip'] }}"
+
+## Extra storage
+# An AIO may optionally be built using a second storage device. If a
+# secondary disk device to use is not specified, then the AIO will be
+# built on any existing disk partitions.
+#
+# WARNING: The data on a secondary storage device specified here will
+# be destroyed and repartitioned.
+#
+
+# Enable detection for the secondary data disk
+# This does not run by default, but gate-check-commit and the OSA gate jobs
+# enable this because it is needed for RAX nodepool instances
+bootstrap_host_data_disk_device_detect: "{{ lookup('env', 'BOOTSTRAP_HOST_DETECT_DATA_DISK') |
+                                            default(False, True) }}"
+
+# Specify the secondary disk device to use. When the data disk is in use, no NOT
+# set the full path to the device. IE: "/dev/xvde" should be "xvde".
+bootstrap_host_data_disk_device: null
+
+# Specify the default filesystem type
+bootstrap_host_data_disk_fs_type: ext4
+#
+# Boolean value to force the repartitioning of the secondary device.
+bootstrap_host_data_disk_device_force: no
+#
+# If the storage capacity on this device is greater than or equal to this
+# size (in GB), the bootstrap process will use it.
+# If metal, we don't need that much storage space.
+bootstrap_host_data_disk_min_size: "{{ (bootstrap_host_scenario is search('metal')) | ternary(10,50) }}"
+#
+# Set the data disk formats table. If the backing store is set to lvm the option
+# the partition will not actually be formatted however for parted, ext2 is used.
+bootstrap_host_data_disk2_formats:
+  zfs: zfs
+  btrfs: btrfs
+  xfs: xfs
+  dir: ext4
+  lvm: ext2
+  overlayfs: ext4
+
+bootstrap_host_format_options:
+  btrfs: '--metadata single --data single --mixed'
+  xfs: '-K -d agcount=64 -l size=128m'
+  ext4: '-O dir_index'
+
+#
+# Set the data disk mount options.
+bootstrap_host_data_mount_options:
+  zfs: "defaults"
+  btrfs: "noatime,nodiratime,compress=lzo,commit=120,space_cache=v2"
+  xfs: "noatime,nodiratime,logbufs=8,logbsize=256k"
+  ext4: "noatime,nobh,barrier=0,data=writeback"
+  dir: "defaults"
+  lvm: "defaults"
+  swap: "%%"
+
+bootstrap_host_data_disk2_fs: "{{ bootstrap_host_data_disk2_formats[_lxc_container_backing_store] }}"
+bootstrap_host_data_disk2_fs_mount_options: "{{ bootstrap_host_data_mount_options[bootstrap_host_data_disk2_fs] }}"
+bootstrap_host_data_disk2_path: '/var/lib/lxc'
+
+### Optional Settings ###
+
+# Specify the public IP address for the host.
+# By default the address will be set to the ipv4 address of the
+# host's network interface that has the default route on it.
+#bootstrap_host_public_address: 0.0.0.0
+
+# Set the install method for the deployment. Options are ['source', 'distro']
+bootstrap_host_install_method: "{{ lookup('env', 'INSTALL_METHOD') | default('source', true)  }}"

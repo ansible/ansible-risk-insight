@@ -1,0 +1,117 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Gather variables for each operating system
+  include_vars: "{{ lookup('first_found', params) }}"
+  vars:
+    params:
+      files:
+        - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_version'] | lower }}.yml"
+        - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_major_version'] | lower }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}-{{ ansible_facts['distribution_major_version'] | lower }}.yml"
+        - "{{ ansible_facts['distribution'] | lower }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}-{{ ansible_facts['distribution_version'].split('.')[0] }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}.yml"
+      paths:
+        - "{{ role_path }}/vars"
+  tags:
+    - always
+
+- name: Fail if service was deployed using a different installation method
+  fail:
+    msg: "Switching installation methods for OpenStack services is not supported"
+  when:
+    - ansible_local is defined
+    - ansible_local.openstack_ansible is defined
+    - ansible_local.openstack_ansible.horizon is defined
+    - ansible_local.openstack_ansible.horizon.install_method is defined
+    - ansible_local.openstack_ansible.horizon.install_method != horizon_install_method
+
+- name: Gather variables for installation method
+  include_vars: "{{ horizon_install_method }}_install.yml"
+  tags:
+    - always
+
+- import_tasks: horizon_pre_install.yml
+  tags:
+    - horizon-install
+
+- import_tasks: horizon_install.yml
+  tags:
+    - horizon-install
+
+- import_tasks: horizon_post_install.yml
+  tags:
+    - horizon-config
+
+- import_tasks: horizon_ssl_self_signed.yml
+  when:
+    - horizon_enable_ssl | bool
+    - not (horizon_external_ssl | bool)
+    - horizon_user_ssl_cert is not defined or horizon_user_ssl_key is not defined
+  tags:
+    - horizon-config
+
+- import_tasks: horizon_ssl_user_provided.yml
+  when:
+    - horizon_enable_ssl | bool
+    - not (horizon_external_ssl | bool)
+  tags:
+    - horizon-config
+
+- name: Update the ca certificates
+  command: "update-ca-certificates -f"
+  when:
+    - horizon_enable_ssl | bool
+    - not (horizon_external_ssl | bool)
+    - ansible_facts['pkg_mgr'] == 'apt'
+  tags:
+    - horizon-config
+    - horizon-ssl
+
+- import_tasks: horizon_service_setup.yml
+  when:
+    - ('horizon_all' in group_names)
+    - inventory_hostname == groups['horizon_all'][0]
+  tags:
+    - horizon-config
+
+# NOTE(mhayden): The async_status check here must be done as the horizon user
+# since the original task ran as that user. This task will fail if it is run
+# as root because the async status file is within the horizon user's home
+# directory, not root's home directory.
+- name: Ensure static files are compressed
+  async_status:
+    jid: "{{ async_compress_static_files.ansible_job_id }}"
+  become: yes
+  become_user: "{{ horizon_system_user_name }}"
+  register: async_compress_static_files_check
+  until: async_compress_static_files_check.finished
+  retries: 300
+  tags:
+    - horizon-config
+
+- import_tasks: horizon_apache.yml
+  tags:
+    - horizon-config
+
+- import_tasks: horizon_translations_update.yml
+  when: horizon_translations_update | bool
+  tags:
+    - horizon-config
+    - horizon-translations
+
+- name: Flush handlers
+  meta: flush_handlers

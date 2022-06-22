@@ -1,0 +1,11 @@
+---
+- name: Install uwsgi service
+  hosts: localhost
+  user: root
+  roles:
+    - role: "uwsgi"
+  vars:
+    uwsgi_services:
+      api:
+        wsgi_path: /openstack/venvs/api/bin/wsgi-api
+        wsgi_venv: /openstack/venvs/api

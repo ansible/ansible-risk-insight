@@ -1,0 +1,217 @@
+---
+# This playbook is intended to be used as part of the el7 to el8 OS upgrade.
+# It modifies the systemd unit files so containers are launched with podman
+# instead of docker after the OS reboot once it is upgraded.
+# It is *not* intended to restart services since we don't want multiple services
+# restarts.
+
+- hosts:
+  - mons
+  - osds
+  - mdss
+  - rgws
+  - nfss
+  - rbdmirrors
+  - clients
+  - iscsigws
+  - mgrs
+  - monitoring
+
+  gather_facts: false
+  become: True
+  any_errors_fatal: true
+
+  vars:
+    delegate_facts_host: True
+
+  pre_tasks:
+    - import_tasks: "{{ playbook_dir }}/../raw_install_python.yml"
+
+  tasks:
+    - import_role:
+        name: ceph-defaults
+
+    # pre-tasks for following import -
+    - name: gather facts
+      setup:
+        gather_subset:
+          - 'all'
+          - '!facter'
+          - '!ohai'
+      when: not delegate_facts_host | bool or inventory_hostname in groups.get(client_group_name, [])
+
+    - name: gather and delegate facts
+      setup:
+        gather_subset:
+          - 'all'
+          - '!facter'
+          - '!ohai'
+      delegate_to: "{{ item }}"
+      delegate_facts: True
+      with_items: "{{ groups['all'] | difference(groups.get(client_group_name | default('clients'), [])) }}"
+      run_once: true
+      when: delegate_facts_host | bool
+
+- hosts:
+    - "{{ mon_group_name | default('mons') }}"
+    - "{{ osd_group_name | default('osds') }}"
+    - "{{ mds_group_name | default('mdss') }}"
+    - "{{ rgw_group_name | default('rgws') }}"
+    - "{{ nfs_group_name | default('nfss') }}"
+    - "{{ mgr_group_name | default('mgrs') }}"
+    - "{{ iscsi_gw_group_name | default('iscsigws') }}"
+    - "{{ rbdmirror_group_name | default('rbdmirrors') }}"
+    - "{{ monitoring_group_name | default('monitoring') }}"
+  gather_facts: false
+  become: true
+  tasks:
+    - name: set_fact docker2podman and container_binary
+      set_fact:
+        docker2podman: True
+        container_binary: podman
+
+    - import_role:
+        name: ceph-defaults
+    - import_role:
+        name: ceph-facts
+    - import_role:
+        name: ceph-handler
+
+    - name: install podman
+      package:
+        name: podman
+        state: present
+      register: result
+      until: result is succeeded
+      tags: with_pkg
+      when: not is_atomic | bool
+
+    - name: check podman presence # noqa : 305
+      shell: command -v podman
+      register: podman_presence
+      changed_when: false
+      failed_when: false
+
+    - name: pulling images from docker daemon
+      when: podman_presence.rc == 0
+      block:
+        - name: "pulling {{ ceph_docker_registry }}/{{ ceph_docker_image }}:{{ ceph_docker_image_tag }} image from docker daemon"
+          command: "{{ timeout_command }} {{ container_binary }} pull docker-daemon:{{ ceph_docker_registry }}/{{ ceph_docker_image }}:{{ ceph_docker_image_tag }}"
+          changed_when: false
+          register: pull_image
+          until: pull_image.rc == 0
+          retries: "{{ docker_pull_retry }}"
+          delay: 10
+          when: inventory_hostname in groups.get(mon_group_name, []) or
+                inventory_hostname in groups.get(osd_group_name, []) or
+                inventory_hostname in groups.get(mds_group_name, []) or
+                inventory_hostname in groups.get(rgw_group_name, []) or
+                inventory_hostname in groups.get(mgr_group_name, []) or
+                inventory_hostname in groups.get(rbdmirror_group_name, []) or
+                inventory_hostname in groups.get(iscsi_gw_group_name, []) or
+                inventory_hostname in groups.get(nfs_group_name, [])
+
+        - name: "pulling alertmanager/grafana/prometheus images from docker daemon"
+          command: "{{ timeout_command }} {{ container_binary }} pull docker-daemon:{{ item }}"
+          changed_when: false
+          register: pull_image
+          until: pull_image.rc == 0
+          retries: "{{ docker_pull_retry }}"
+          delay: 10
+          loop:
+            - "{{ alertmanager_container_image }}"
+            - "{{ grafana_container_image }}"
+            - "{{ prometheus_container_image }}"
+          when:
+            - dashboard_enabled | bool
+            - inventory_hostname in groups.get(monitoring_group_name, [])
+
+        - name: "pulling {{ node_exporter_container_image }} image from docker daemon"
+          command: "{{ timeout_command }} {{ container_binary }} pull docker-daemon:{{ node_exporter_container_image }}"
+          changed_when: false
+          register: pull_image
+          until: pull_image.rc == 0
+          retries: "{{ docker_pull_retry }}"
+          delay: 10
+          when: dashboard_enabled | bool
+
+    - import_role:
+        name: ceph-mon
+        tasks_from: systemd.yml
+      when: inventory_hostname in groups.get(mon_group_name, [])
+
+    - import_role:
+        name: ceph-iscsi-gw
+        tasks_from: systemd.yml
+      when: inventory_hostname in groups.get(iscsi_gw_group_name, [])
+
+    - import_role:
+        name: ceph-mds
+        tasks_from: systemd.yml
+      when: inventory_hostname in groups.get(mds_group_name, [])
+
+    - import_role:
+        name: ceph-mgr
+        tasks_from: systemd.yml
+      when: inventory_hostname in groups.get(mgr_group_name, [])
+
+    - import_role:
+        name: ceph-nfs
+        tasks_from: systemd.yml
+      when: inventory_hostname in groups.get(nfs_group_name, [])
+
+    - import_role:
+        name: ceph-osd
+        tasks_from: container_options_facts.yml
+      when: inventory_hostname in groups.get(osd_group_name, [])
+
+    - import_role:
+        name: ceph-osd
+        tasks_from: systemd.yml
+      when: inventory_hostname in groups.get(osd_group_name, [])
+
+    - import_role:
+        name: ceph-rbd-mirror
+        tasks_from: systemd.yml
+      when: inventory_hostname in groups.get(rbdmirror_group_name, [])
+
+    - import_role:
+        name: ceph-rgw
+        tasks_from: systemd.yml
+      when: inventory_hostname in groups.get(rgw_group_name, [])
+
+    - import_role:
+        name: ceph-crash
+        tasks_from: systemd.yml
+      when: inventory_hostname in groups.get(mon_group_name, []) or
+            inventory_hostname in groups.get(osd_group_name, []) or
+            inventory_hostname in groups.get(mds_group_name, []) or
+            inventory_hostname in groups.get(rgw_group_name, []) or
+            inventory_hostname in groups.get(mgr_group_name, []) or
+            inventory_hostname in groups.get(rbdmirror_group_name, [])
+
+    - name: dashboard configuration
+      when: dashboard_enabled | bool
+      block:
+        - import_role:
+            name: ceph-node-exporter
+            tasks_from: systemd.yml
+
+        - import_role:
+            name: ceph-facts
+            tasks_from: grafana.yml
+          when: inventory_hostname in groups.get(monitoring_group_name, [])
+
+        - import_role:
+            name: ceph-grafana
+            tasks_from: systemd.yml
+          when: inventory_hostname in groups.get(monitoring_group_name, [])
+
+        - import_role:
+            name: ceph-prometheus
+            tasks_from: systemd.yml
+          when: inventory_hostname in groups.get(monitoring_group_name, [])
+
+    - name: reload systemd daemon
+      systemd:
+        daemon_reload: yes

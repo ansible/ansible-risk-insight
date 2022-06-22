@@ -1,0 +1,4 @@
+---
+
+pacemaker_corosync_group: corosync
+pacemaker_corosync_ring_interface: eth1

@@ -1,0 +1,78 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Start apparmor
+  systemd:
+    name: "apparmor"
+    enabled: yes
+    state: "started"
+
+- name: Reload apparmor
+  systemd:
+    name: "apparmor"
+    state: "restarted"
+
+- name: Init reload
+  command: "initctl reload-configuration"
+
+- name: Restart importd
+  systemd:
+    name: "systemd-importd.service"
+    state: "restarted"
+
+- name: Restart irqbalance
+  systemd:
+    name: "irqbalance"
+    state: "restarted"
+    enabled: "yes"
+    daemon_reload: yes
+
+- name: Restart bridge
+  shell: "ifdown {{ lxc_net_bridge }} || true"
+  notify:
+    - Bring bridge up
+    - Veth check
+
+- name: Bring bridge up
+  command: "ifup {{ lxc_net_bridge }}"
+
+- name: Veth check
+  command: "/usr/local/bin/lxc-veth-check"
+
+- name: Reload systemd units
+  systemd:
+    daemon_reload: yes
+
+- name: Restart sshd
+  service:
+    name: sshd
+    state: "restarted"
+    enabled: yes
+
+- name: Remove rootfs archive
+  file:
+    path: "/tmp/{{ cache_basename }}"
+    state: "absent"
+
+- name: Restart dnsmasq
+  systemd:
+    name: "lxc-dnsmasq"
+    state: "restarted"
+    enabled: "yes"
+    daemon_reload: yes
+  register: _lxc_dnsmasq_systemd
+  until: _lxc_dnsmasq_systemd is success
+  retries: 5
+  delay: 5

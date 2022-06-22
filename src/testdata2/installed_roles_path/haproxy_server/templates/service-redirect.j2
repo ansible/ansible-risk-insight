@@ -1,0 +1,93 @@
+{% set haproxy_http_front_port = haproxy_backend_port + 10000 %}
+{% set haproxy_https_front_port = haproxy_backend_port + 20000 %}
+
+# Redirect to direct request to HTTP or HTTPS frontend
+frontend {{ item.service.haproxy_service_name }}-tcp-redirect-front-{{ loop.index }}
+    mode tcp
+    bind {{ vip_bind }}:{{ item.service.haproxy_port }}
+    tcp-request inspect-delay 2s
+    tcp-request content accept if HTTP
+    tcp-request content accept if { req.ssl_hello_type 1 }
+    use_backend {{ value.backend_name | default(item.service.haproxy_service_name) }}-redirect-http-back-{{ loop.index }} if HTTP
+    default_backend {{ value.backend_name | default(item.service.haproxy_service_name) }}-redirect-https-back-{{ loop.index }}
+
+backend {{ value.backend_name | default(item.service.haproxy_service_name) }}-redirect-http-back-{{ loop.index }}
+    mode tcp
+    server  {{ value.backend_name | default(item.service.haproxy_service_name) }}-http {{ vip_bind }}:{{ haproxy_http_front_port }}
+
+backend {{ value.backend_name | default(item.service.haproxy_service_name) }}-redirect-https-back-{{ loop.index }}
+    mode tcp
+    server  {{ value.backend_name | default(item.service.haproxy_service_name) }}-https {{ vip_bind }}:{{ haproxy_https_front_port }}
+
+frontend {{ item.service.haproxy_service_name }}-http-front-{{ loop.index }}
+    bind {{ vip_bind }}:{{ haproxy_http_front_port }}
+{% if request_option == "http" %}
+    option httplog
+    option forwardfor except 127.0.0.0/8
+{% if item.service.haproxy_http_keepalive_mode is defined %}
+    option {{ item.service.haproxy_http_keepalive_mode }}
+{% endif %}
+{% elif request_option == "tcp" %}
+    option tcplog
+{% endif %}
+{% if item.service.haproxy_timeout_client is defined %}
+    timeout client {{ item.service.haproxy_timeout_client }}
+{% endif %}
+{% if item.service.haproxy_allowlist_networks is defined %}
+    acl allow_list src 127.0.0.1/8 {{ item.service.haproxy_allowlist_networks | join(' ') }}
+    tcp-request content accept if allow_list
+    tcp-request content reject
+{% endif %}
+{% if item.service.haproxy_acls is defined %}
+{%   for key, value in item.service.haproxy_acls.items() %}
+    acl {{ key }} {{ value.rule }}
+{%     if not item.service.haproxy_frontend_only | default(false) %}
+    use_backend {{ value.backend_name | default(item.service.haproxy_service_name) }}-back if {{ key }}
+{%     endif %}
+{%   endfor %}
+{% endif %}
+    mode {{ item.service.haproxy_balance_type }}
+{% if not item.service.haproxy_frontend_only | default(false) %}
+    default_backend {{ item.service.haproxy_service_name }}-back
+{% endif %}
+{% for entry in item.service.haproxy_frontend_raw|default([]) %}
+    {{ entry }}
+{% endfor %}
+
+frontend {{ item.service.haproxy_service_name }}-https-front-{{ loop.index }}
+    bind {{ vip_bind }}:{{ haproxy_https_front_port }} ssl crt {{ haproxy_ssl_cert_path }}/haproxy_{{ ansible_facts['hostname'] }}-{{ vip_bind }}.pem
+{% if request_option == "http" %}
+    option httplog
+    option forwardfor except 127.0.0.0/8
+{% if item.service.haproxy_http_keepalive_mode is defined %}
+    option {{ item.service.haproxy_http_keepalive_mode }}
+{% endif %}
+{% elif request_option == "tcp" %}
+    option tcplog
+{% endif %}
+{% if item.service.haproxy_timeout_client is defined %}
+    timeout client {{ item.service.haproxy_timeout_client }}
+{% endif %}
+{% if item.service.haproxy_allowlist_networks is defined %}
+    acl allow_list src 127.0.0.1/8 {{ item.service.haproxy_allowlist_networks | join(' ') }}
+    tcp-request content accept if allow_list
+    tcp-request content reject
+{% endif %}
+{% if item.service.haproxy_acls is defined %}
+{%   for key, value in item.service.haproxy_acls.items() %}
+    acl {{ key }} {{ value.rule }}
+{%     if not item.service.haproxy_frontend_only | default(false) %}
+    use_backend {{ value.backend_name | default(item.service.haproxy_service_name) }}-back if {{ key }}
+{%     endif %}
+{%   endfor %}
+{% endif %}
+{% if (item.service.haproxy_ssl | default(false) | bool) and request_option == 'http' and (loop.index == 1 or vip_bind in extra_lb_tls_vip_addresses or (item.service.haproxy_ssl_all_vips | default(false) | bool and vip_bind not in extra_lb_vip_addresses)) %}
+    http-request add-header X-Forwarded-Proto https
+{% endif %}
+    mode {{ item.service.haproxy_balance_type }}
+{% if not item.service.haproxy_frontend_only | default(false) %}
+    default_backend {{ item.service.haproxy_service_name }}-back
+{% endif %}
+{% for entry in item.service.haproxy_frontend_raw|default([]) %}
+    {{ entry }}
+{% endfor %}

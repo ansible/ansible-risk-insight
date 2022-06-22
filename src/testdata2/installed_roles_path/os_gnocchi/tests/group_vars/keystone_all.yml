@@ -1,0 +1,3 @@
+---
+external_lb_vip_address: 10.1.0.3
+internal_lb_vip_address: 10.1.0.3

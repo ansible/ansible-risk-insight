@@ -1,0 +1,338 @@
+# {{ ansible_managed }}
+
+[DEFAULT]
+# Logs / State
+debug = {{ debug }}
+use_journal = True
+state_path = {{ nova_system_home_folder }}
+service_down_time = 120
+
+# Scheduler
+cpu_allocation_ratio = {{ nova_cpu_allocation_ratio }}
+disk_allocation_ratio = {{ nova_disk_allocation_ratio }}
+ram_allocation_ratio = {{ nova_ram_allocation_ratio }}
+reserved_host_disk_mb = {{ nova_reserved_host_disk_mb }}
+reserved_host_memory_mb = {{ nova_reserved_host_memory_mb }}
+
+# Compute
+compute_driver = {{ nova_compute_driver }}
+instances_path = {{ nova_system_home_folder }}/instances
+allow_resize_to_same_host = True
+
+{% if nova_console_user_ssl_cert is defined and nova_console_user_ssl_key is defined and ( nova_services['nova-novncproxy']['group'] in group_names or nova_services['nova-spicehtml5proxy']['group'] in group_names or nova_services['nova-serialconsole-proxy']['group'] in group_names ) %}
+# Console SSL keys
+ssl_only = true
+cert = {{ nova_console_ssl_cert }}
+key = {{ nova_console_ssl_key }}
+{% endif %}
+
+# Api's
+enabled_apis = {{ nova_enabled_apis }}
+
+# Rpc all
+transport_url = {{ nova_oslomsg_rpc_transport }}://{% for host in nova_oslomsg_rpc_servers.split(',') %}{{ nova_oslomsg_rpc_userid }}:{{ nova_oslomsg_rpc_password }}@{{ host }}:{{ nova_oslomsg_rpc_port }}{% if not loop.last %},{% else %}/{{ nova_oslomsg_rpc_vhost }}{% if nova_oslomsg_rpc_use_ssl | bool %}?ssl=1&ssl_version={{ nova_oslomsg_rpc_ssl_version }}&ssl_ca_file={{ nova_oslomsg_rpc_ssl_ca_file }}{% else %}?ssl=0{% endif %}{% endif %}{% endfor %}
+
+# Network
+my_ip = {% if nova_management_address == 'localhost' %}127.0.0.1{% else %}{{ nova_management_address }}{% endif %}
+
+# Hypervisor
+default_ephemeral_format = ext4
+
+# Ceilometer notification configurations
+{% if nova_ceilometer_enabled %}
+instance_usage_audit = True
+instance_usage_audit_period = hour
+{% endif %}
+
+# Notifications
+[oslo_messaging_notifications]
+{% set notification_topics = [] %}
+{% if nova_ceilometer_enabled %}
+{%   set _ = notification_topics.append('notifications') %}
+{% endif %}
+{% if nova_designate_enabled %}
+{%   set _ = notification_topics.append(nova_notifications_designate) %}
+{% endif %}
+topics = {{ notification_topics | join(',') }}
+driver = {{ (notification_topics | length > 0) | ternary('messagingv2', 'noop') }}
+transport_url = {{ nova_oslomsg_notify_transport }}://{% for host in nova_oslomsg_notify_servers.split(',') %}{{ nova_oslomsg_notify_userid }}:{{ nova_oslomsg_notify_password }}@{{ host }}:{{ nova_oslomsg_notify_port }}{% if not loop.last %},{% else %}/{{ nova_oslomsg_notify_vhost }}{% if nova_oslomsg_notify_use_ssl | bool %}?ssl=1&ssl_version={{ nova_oslomsg_notify_ssl_version }}&ssl_ca_file={{ nova_oslomsg_notify_ssl_ca_file }}{% else %}?ssl=0{% endif %}{% endif %}{% endfor %}
+
+# Messaging
+[oslo_messaging_rabbit]
+heartbeat_in_pthread = {{ nova_oslomsg_heartbeat_in_pthread }}
+
+# Image cache
+[image_cache]
+manager_interval = {{ nova_image_cache_manager_interval }}
+
+# Cache
+[cache]
+enabled = true
+backend = oslo_cache.memcache_pool
+memcache_servers = {{ nova_memcached_servers }}
+
+
+# Cinder
+[cinder]
+catalog_info = volumev3:cinderv3:internalURL
+os_region_name = {{ nova_service_region }}
+
+{% if nova_console_type == 'spice' %}
+[spice]
+agent_enabled = {{ nova_spice_console_agent_enabled }}
+enabled = True
+# Console Url and binds
+html5proxy_base_url = {{ nova_spice_html5proxy_base_url }}
+html5proxy_host = {% if nova_management_address == 'localhost' %}127.0.0.1{% else %}{{ nova_management_address }}{% endif %}
+
+server_listen = {% if nova_management_address == 'localhost' %}127.0.0.1{% else %}{{ nova_management_address }}{% endif %}
+
+server_proxyclient_address = {% if nova_management_address == 'localhost' %}127.0.0.1{% else %}{{ nova_management_address }}{% endif %}
+
+
+[vnc]
+enabled = False
+
+{% elif nova_console_type == 'novnc' %}
+[vnc]
+enabled = True
+novncproxy_base_url = {{ nova_novncproxy_base_url }}
+novncproxy_host = {{ nova_novncproxy_host }}
+novncproxy_port = {{ nova_novncproxy_port }}
+server_listen = {{ nova_novncproxy_vncserver_listen }}
+server_proxyclient_address = {{ nova_novncproxy_vncserver_proxyclient_address }}
+
+{% if nova_qemu_vnc_tls == 1 %}
+auth_schemes={{ nova_vencrypt_auth_scheme }}
+vencrypt_client_key={{ nova_vencrypt_client_key }}
+vencrypt_client_cert={{ nova_vencrypt_client_cert }}
+vencrypt_ca_certs={{ nova_vencrypt_ca_certs }}
+{% endif %}
+
+{% elif nova_console_type == 'serialconsole' %}
+[serial_console]
+enabled = True
+# Console Url and binds
+base_url= {{ nova_serialconsoleproxy_base_url }}
+proxyclient_address = {% if nova_management_address == 'localhost' %}127.0.0.1{% else %}{{ nova_management_address }}{% endif %}
+port_range = {{ nova_serialconsoleproxy_port_range }}
+{% if nova_services['nova-serialconsole-proxy']['group'] %}
+serialproxy_host= {{ nova_serialconsoleproxy_serialconsole_proxyserver_proxyclient_address }}
+serialproxy_port= {{ nova_serialconsoleproxy_port }}
+{% endif %}
+
+[vnc]
+enabled = False
+
+{% elif nova_console_type == 'disabled' %}
+[vnc]
+enabled = False
+
+{% endif %}
+
+# Glance
+[glance]
+insecure = {{ keystone_service_internaluri_insecure | bool }}
+{% if nova_glance_rbd_inuse | bool %}
+rbd_user = {{ nova_ceph_client }}
+rbd_pool = {{ nova_glance_images_rbd_pool }}
+rbd_ceph_conf = /etc/ceph/ceph.conf
+{% endif %}
+
+# Neutron
+[neutron]
+region_name = {{ nova_service_region }}
+auth_type = password
+default_floating_pool = public
+username = {{ nova_service_user_name }}
+password = {{ nova_service_password }}
+project_name = {{ nova_service_project_name }}
+user_domain_id = {{ nova_service_user_domain_id }}
+project_domain_id = {{ nova_service_project_domain_id }}
+auth_url = {{ keystone_service_adminurl }}
+insecure = {{ keystone_service_adminuri_insecure | bool }}
+metadata_proxy_shared_secret = {{ nova_metadata_proxy_secret }}
+service_metadata_proxy = {{ nova_metadata_proxy_enabled }}
+{% if nova_network_services[nova_network_type]['ovs_bridge'] is defined %}
+ovs_bridge = {{ nova_network_services[nova_network_type]['ovs_bridge'] }}
+{% endif %}
+
+{% if nova_ceilometer_enabled %}
+[notifications]
+notify_on_state_change = vm_and_task_state
+notification_format = {% if nova_versioned_notification_enabled %}both{% else %}unversioned{% endif %}
+{% endif %}
+
+[placement]
+region_name = {{ nova_service_region }}
+auth_type = password
+username = {{ nova_service_user_name }}
+password = {{ nova_service_password }}
+project_name = {{ nova_service_project_name }}
+user_domain_id = {{ nova_service_user_domain_id }}
+project_domain_id = {{ nova_service_project_domain_id }}
+auth_url = {{ keystone_service_adminurl }}
+insecure = {{ keystone_service_adminuri_insecure | bool }}
+
+[conductor]
+workers = {{ nova_conductor_workers | default(nova_api_threads) }}
+
+
+[keystone_authtoken]
+insecure = {{ keystone_service_internaluri_insecure | bool }}
+auth_type = {{ nova_keystone_auth_plugin }}
+auth_url = {{ keystone_service_adminuri }}
+www_authenticate_uri = {{ keystone_service_internaluri }}
+project_domain_id = {{ nova_service_project_domain_id }}
+user_domain_id = {{ nova_service_user_domain_id }}
+project_name = {{ nova_service_project_name }}
+username = {{ nova_service_user_name }}
+password = {{ nova_service_password }}
+region_name = {{ keystone_service_region }}
+
+service_token_roles_required = {{ nova_service_token_roles_required | bool }}
+service_token_roles = {{ nova_service_token_roles | join(',') }}
+service_type = {{ nova_service_type }}
+
+memcached_servers = {{ memcached_servers }}
+
+token_cache_time = 300
+
+# if your memcached server is shared, use these settings to avoid cache poisoning
+memcache_security_strategy = ENCRYPT
+memcache_secret_key = {{ memcached_encryption_key }}
+
+{% if group_names | intersect(nova_services.keys() | difference('nova-compute') | map('extract', nova_services, 'group') | list) | count > 0 %}
+[database]
+connection = mysql+pymysql://{{ nova_galera_user }}:{{ nova_container_mysql_password }}@{{ nova_galera_address }}:{{ nova_galera_port }}/{{ nova_galera_database }}?charset=utf8{% if nova_galera_use_ssl | bool %}&ssl_verify_cert=true{% if nova_galera_ssl_ca_cert | length > 0 %}&ssl_ca={{ nova_galera_ssl_ca_cert }}{% endif %}{% endif %}
+
+max_overflow = {{ nova_db_max_overflow }}
+max_pool_size = {{ nova_db_max_pool_size }}
+pool_timeout = {{ nova_db_pool_timeout }}
+connection_recycle_time = {{ nova_db_connection_recycle_time }}
+
+
+[api_database]
+connection = mysql+pymysql://{{ nova_api_galera_user }}:{{ nova_api_container_mysql_password }}@{{ nova_api_galera_address }}:{{ nova_api_galera_port }}/{{ nova_api_galera_database }}?charset=utf8{% if nova_galera_use_ssl | bool %}&ssl_verify_cert=true{% if nova_galera_ssl_ca_cert | length > 0 %}&ssl_ca={{ nova_galera_ssl_ca_cert }}{% endif %}{% endif %}
+
+max_overflow = {{ nova_api_db_max_overflow }}
+max_pool_size = {{ nova_api_db_max_pool_size }}
+pool_timeout = {{ nova_api_db_pool_timeout }}
+connection_recycle_time = {{ nova_api_db_connection_recycle_time }}
+
+{% endif %}
+
+[oslo_concurrency]
+lock_path = {{ nova_lock_dir }}/{{ nova_system_slice_name }}
+
+
+{% if nova_virt_type == 'ironic' %}
+[ironic]
+auth_type = {{ nova_keystone_auth_plugin }}
+username = {{ nova_service_user_name }}
+password = {{ nova_service_password }}
+project_name = {{ nova_service_project_name }}
+user_domain_id = {{ nova_service_user_domain_id }}
+project_domain_id = {{ nova_service_project_domain_id }}
+auth_url = {{ keystone_service_adminurl }}
+insecure = {{ keystone_service_adminuri_insecure | bool }}
+
+{% endif %}
+
+{% if nova_virt_type in ['kvm', 'qemu', 'xen', 'lxc', 'uml', 'parallels'] %}
+[libvirt]
+inject_partition = {{ nova_libvirt_inject_partition }}
+inject_password = {{ nova_libvirt_inject_password }}
+inject_key = {{ nova_libvirt_inject_key }}
+virt_type = {{ nova_virt_type }}
+{% if nova_cpu_mode is defined %}
+cpu_mode = {{ nova_cpu_mode }}
+{% endif %}
+
+{% if nova_rbd_inuse %}
+# ceph rbd support
+rbd_user = {{ nova_ceph_client }}
+rbd_secret_uuid = {{ nova_ceph_client_uuid }}
+{% endif %}
+{% if nova_libvirt_images_rbd_pool | length > 0 %}
+images_type = rbd
+images_rbd_pool = {{ nova_libvirt_images_rbd_pool }}
+images_rbd_ceph_conf = /etc/ceph/ceph.conf
+{% endif %}
+{% if nova_virt_type in ['kvm', 'qemu'] %}
+{% if nova_libvirtd_listen_tls == 1 %}
+live_migration_with_native_tls = true
+live_migration_scheme = tls
+{% else %}
+live_migration_uri = "qemu+ssh://nova@%s/system?no_verify=1&keyfile={{ nova_system_home_folder }}/.ssh/id_rsa"
+live_migration_tunnelled = True
+{% endif %}
+live_migration_inbound_addr = {{ nova_libvirt_live_migration_inbound_addr }}
+{% endif %}
+hw_disk_discard = {{ nova_libvirt_hw_disk_discard }}
+disk_cachemodes = {{ nova_libvirt_disk_cachemodes }}
+{% endif %}
+
+{% if nova_barbican_enabled %}
+[barbican]
+auth_endpoint = {{ keystone_service_internaluri }}/v3
+
+[key_manager]
+backend = barbican
+auth_type = "password"
+username = {{ nova_service_user_name }}
+password = {{ nova_service_password }}
+project_name = {{ nova_service_project_name }}
+user_domain_id = {{ nova_service_user_domain_id }}
+project_domain_id = {{ nova_service_project_domain_id }}
+auth_url = {{ keystone_service_adminurl }}
+insecure = {{ keystone_service_adminuri_insecure | bool }}
+{% endif %}
+
+[wsgi]
+api_paste_config = /etc/nova/api-paste.ini
+
+
+[api]
+use_forwarded_for = {{ nova_network_services[nova_network_type]['use_forwarded_for'] | bool }}
+vendordata_jsonfile_path = /etc/nova/vendor_data.json
+dhcp_domain = {{ nova_dhcp_domain }}
+
+[scheduler]
+workers = {{ nova_scheduler_workers | default(nova_api_threads) }}
+max_attempts = {{ nova_scheduler_max_attempts }}
+discover_hosts_in_cells_interval = {{ nova_discover_hosts_in_cells_interval }}
+
+[filter_scheduler]
+max_io_ops_per_host = {{ nova_max_io_ops_per_host }}
+ram_weight_multiplier = {{ nova_ram_weight_multiplier }}
+enabled_filters = {{ _nova_scheduler_filters | join(',') }}
+host_subset_size = {{ nova_scheduler_host_subset_size }}
+tracks_instance_changes = {{ nova_scheduler_tracks_instance_changes }}
+
+[upgrade_levels]
+compute=auto
+
+{% if nova_enabled_mdev_types | length > 0 or discovered_mdev_types is defined %}
+[devices]
+enabled_mdev_types = {{ nova_enabled_mdev_types | map(attribute='type') | list | default(discovered_mdev_types, true) | unique | join(',') }}
+
+{% for record in nova_enabled_mdev_types | selectattr('address', 'defined') | list %}
+[mdev_{{ record.type }}]
+device_addresses = {{ (record.address is string) | ternary(record.address, record.address | join(',')) }}
+{% endfor %}
+{% endif %}
+
+{% if nova_pci_passthrough_whitelist or nova_pci_alias %}
+[pci]
+{% if nova_pci_passthrough_whitelist %}
+# White list of PCI devices available to VMs.
+passthrough_whitelist = {{ nova_pci_passthrough_whitelist }}
+{% endif %}
+{% if nova_pci_alias %}
+# PCI Alias
+{% for item in nova_pci_alias %}
+alias = {{item}}
+{% endfor %}
+{% endif %}
+{% endif %}

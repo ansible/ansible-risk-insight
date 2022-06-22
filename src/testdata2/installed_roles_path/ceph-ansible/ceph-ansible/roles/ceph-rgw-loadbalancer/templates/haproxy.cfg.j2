@@ -1,0 +1,63 @@
+# {{ ansible_managed  }}
+global
+    log         127.0.0.1 local2
+
+    chroot      /var/lib/haproxy
+    pidfile     /var/run/haproxy.pid
+    maxconn     8000
+    user        haproxy
+    group       haproxy
+    daemon
+    stats socket /var/lib/haproxy/stats
+{% if haproxy_frontend_ssl_certificate %}
+    tune.ssl.default-dh-param {{ haproxy_ssl_dh_param }}
+    ssl-default-bind-ciphers {{ haproxy_ssl_ciphers | join(':') }}
+    ssl-default-bind-options {{ haproxy_ssl_options | join(' ') }}
+{% endif %}
+defaults
+    mode                    http
+    log                     global
+    option                  httplog
+    option                  dontlognull
+    option http-server-close
+    option forwardfor       except 127.0.0.0/8
+    option                  redispatch
+    retries                 3
+    timeout http-request    10s
+    timeout queue           1m
+    timeout connect         10s
+    timeout client          1m
+    timeout server          1m
+    timeout http-keep-alive 10s
+    timeout check           10s
+    maxconn                 8000
+
+frontend rgw-frontend
+{% if haproxy_frontend_ssl_certificate %}
+    bind *:{{ haproxy_frontend_ssl_port }} ssl crt {{ haproxy_frontend_ssl_certificate }}
+{% else %}
+    bind *:{{ haproxy_frontend_port }}
+{% endif %}
+    default_backend rgw-backend
+
+# when running in an selinux environment, selinux restricts the ports that haproxy can
+# connect to to:
+#  * 80, 81, 443, 488, 8008, 8009, 8443, 9000 (http_port_t) and,
+#  * 8080, 8118, 8123, 10001-10010 (http_cache_port_t)
+#
+# Practically speaking, it would be preferable (and perhaps easier) to configure the
+# rgw daemons to listen on ports 10001-10010 and configure haproxy here to match.
+#
+# Alternatively you can add other unused ports to http_port_t or http_cache_port_t
+# with, e.g.: `semanage port -a -t http_cache_port_t -p tcp 8085`
+# (Note that ports 8081-8084 are already taken and can't be used for haproxy.)
+#
+backend rgw-backend
+    option forwardfor
+    balance static-rr
+    option httpchk HEAD /
+{% for host in groups[rgw_group_name] %}
+{% for instance in hostvars[host]['rgw_instances'] %}
+	server {{ 'server-' + hostvars[host]['ansible_facts']['hostname'] + '-' + instance['instance_name'] }} {{ instance['radosgw_address'] }}:{{ instance['radosgw_frontend_port'] }} weight 100 check
+{% endfor %}
+{% endfor %}

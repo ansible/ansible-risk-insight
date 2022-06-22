@@ -1,0 +1,90 @@
+---
+# Copyright 2017, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+_gnocchi_is_first_play_host: "{{ (gnocchi_services['gnocchi-api']['group'] in group_names and inventory_hostname == (groups[gnocchi_services['gnocchi-api']['group']] | intersect(ansible_play_hosts)) | first) | bool }}"
+
+# These vars find a file on the deployment node, if it exists - otherwise the result is empty.
+gnocchi_api_paste_user_content: "{{ lookup('pipe', 'cat ' ~ gnocchi_api_paste_default_file_path ~ ' 2>/dev/null || true') }}"
+gnocchi_policy_user_content: "{{ lookup('pipe', 'cat ' ~ gnocchi_policy_default_file_path ~ ' 2>/dev/null || true') }}"
+
+# These vars find the appropriate result content from the with_items loop
+gnocchi_api_paste_default_content: |
+  {{ _git_file_fetch.results | selectattr('item', 'equalto', gnocchi_git_config_lookup_location ~ '/' ~ gnocchi_api_paste_git_file_path) | map(attribute='content') | first }}
+gnocchi_policy_default_content: |
+  {{ _git_file_fetch.results | selectattr('item', 'equalto', gnocchi_git_config_lookup_location ~ '/' ~ gnocchi_policy_git_file_path) | map(attribute='content') | first }}
+
+# NOTE(noonedeadpunk): We prefer using ceph_alternative when storage driver is ceph.
+#                      However, if we define ceph_alternative here, gnocchi with setup.cfg
+#                      will attempt to install python-rados which is not available from pypi
+#                      anyway. We symlink required package with ceph_client role.
+gnocchi_storage_driver_pip_extra: |-
+  {% if gnocchi_storage_driver not in ['ceph', 'file'] %}
+  {%   set extra_package = gnocchi_storage_driver %}
+  {% endif %}
+  {{ extra_package | default('') }}
+
+gnocchi_incoming_driver_pip_extra: |-
+  {% if gnocchi_storage_driver != gnocchi_incoming_driver and gnocchi_incoming_driver not in ['ceph', 'file'] %}
+  {%   set extra_package = gnocchi_storage_driver %}
+  {% endif %}
+  {{ extra_package | default('') }}
+
+filtered_gnocchi_services: |-
+  {% set services = [] %}
+  {% for name, service in gnocchi_services.items() %}
+  {%   if (service['group'] in group_names) and
+          (('service_enabled' not in service) or
+           ('service_enabled' in service and service['service_enabled']))
+           and not ('wsgi_app' in service and service['wsgi_app']) %}
+  {%     set _ = service.update(
+           {
+             'service_key': name,
+             'enabled': 'yes',
+             'state': 'started',
+             'config_overrides': service.init_config_overrides
+           }
+         )
+  %}
+  {%     set _ = service.pop('init_config_overrides') -%}
+  {# Note (noonedeadpunk): The following if statement is added for backwards compatability #}
+  {# As up to stein release gnocchi role didn't have 'execstarts' in gnocchi_services keys #}
+  {%     if ('execstarts' not in service) %}
+  {%       set _ = service.update({'execstarts': gnocchi_bin ~ '/' ~ service.service_name}) %}
+  {%     endif %}
+  {%     set _ = services.append(service) %}
+  {%   endif %}
+  {% endfor %}
+  {{ services }}
+
+uwsgi_gnocchi_services: |-
+  {% set services = {} %}
+  {% for name, service in gnocchi_services.items() %}
+  {%   if (service['group'] in group_names) and
+         (('service_enabled' not in service) or
+         ('service_enabled' in service and service['service_enabled']))
+         and ('wsgi_app' in service and service['wsgi_app']) %}
+  {%     set _ = service.update(
+           {
+             'wsgi_venv': gnocchi_bin | dirname,
+             'uwsgi_uid': gnocchi_system_user_name,
+             'uwsgi_guid': gnocchi_system_group_name,
+             'uwsgi_processes': gnocchi_wsgi_processes,
+             'uwsgi_threads': gnocchi_wsgi_threads,
+           }
+         ) %}
+  {%     set _ = services.update({name: service}) %}
+  {%   endif %}
+  {% endfor %}
+  {{ services }}

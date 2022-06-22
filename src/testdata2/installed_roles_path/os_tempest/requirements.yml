@@ -1,0 +1,10 @@
+# python_venv_build ansible role
+- name: python_venv_build
+  scm: git
+  src: https://opendev.org/openstack/ansible-role-python_venv_build.git
+  version: master
+# ansible-config_template action plugin
+- name: config_template
+  scm: git
+  src: https://opendev.org/openstack/ansible-config_template.git
+  version: master

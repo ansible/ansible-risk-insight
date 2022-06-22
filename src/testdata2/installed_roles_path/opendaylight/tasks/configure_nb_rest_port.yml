@@ -1,0 +1,7 @@
+- name: Configure ODL NB REST port
+  lineinfile:
+    dest: /opt/opendaylight/etc/jetty.xml
+    regexp: name="jetty.port" default="8181"
+    line: '                    <Property name="jetty.port" default="{{ nb_rest_port }}" />'
+    owner: odl
+    group: odl

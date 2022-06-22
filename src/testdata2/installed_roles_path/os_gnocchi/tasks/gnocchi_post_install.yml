@@ -1,0 +1,50 @@
+---
+# Copyright 2015, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Retrieve default configuration files
+  uri:
+    url: "{{ item }}"
+    return_content: yes
+  with_items:
+    - "{{ gnocchi_git_config_lookup_location }}/{{ gnocchi_api_paste_git_file_path }}"
+    - "{{ gnocchi_git_config_lookup_location }}/{{ gnocchi_policy_git_file_path }}"
+  register: _git_file_fetch
+
+- name: Copy gnocchi configuration files
+  openstack.config_template.config_template:
+    content: "{{ item.content | default(omit) }}"
+    src: "{{ item.src  | default(omit) }}"
+    dest: "{{ item.dest }}"
+    owner: "{{ item.owner | default(gnocchi_system_user_name) }}"
+    group: "{{ item.group | default(gnocchi_system_group_name) }}"
+    mode: "{{ item.mode | default('0644') }}"
+    config_overrides: "{{ item.config_overrides }}"
+    config_type: "{{ item.config_type }}"
+  with_items:
+    - src: "gnocchi.conf.j2"
+      dest: "/etc/gnocchi/gnocchi.conf"
+      config_overrides: "{{ gnocchi_conf_overrides }}"
+      config_type: "ini"
+    - dest: "/etc/gnocchi/api-paste.ini"
+      config_overrides: "{{ gnocchi_api_paste_ini_overrides }}"
+      config_type: "ini"
+      content: "{{ gnocchi_api_paste_user_content | default(gnocchi_api_paste_default_content, true) }}"
+    - dest: "/etc/gnocchi/policy.json-{{ gnocchi_venv_tag }}"
+      config_overrides: "{{ gnocchi_policy_overrides }}"
+      config_type: "json"
+      content: "{{ gnocchi_policy_user_content | default(gnocchi_policy_default_content, true) }}"
+  notify:
+    - Restart gnocchi services
+    - Restart uwsgi services

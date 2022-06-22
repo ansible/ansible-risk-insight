@@ -1,0 +1,179 @@
+# {{ ansible_managed }}
+
+[DEFAULT]
+# Disable stderr logging
+use_stderr = False
+debug = {{ debug }}
+use_journal = true
+fatal_deprecations = {{ gnocchi_fatal_deprecations }}
+coordination_url = {{ gnocchi_coordination_url }}
+
+[api]
+auth_mode = {{ gnocchi_auth_mode }}
+api_paste = /etc/gnocchi/api-paste.ini
+
+{% if gnocchi_ssl_external | bool %}
+[oslo_middleware]
+secure_proxy_ssl_header = {{ gnocchi_secure_proxy_ssl_header }}
+{% endif %}
+
+[indexer]
+url = mysql+pymysql://{{ gnocchi_galera_user }}:{{ gnocchi_container_mysql_password }}@{{ gnocchi_galera_address }}/{{ gnocchi_galera_database }}?charset=utf8{% if gnocchi_galera_use_ssl | bool %}&ssl_verify_cert=true{% if gnocchi_galera_ssl_ca_cert | length > 0 %}&ssl_ca={{ gnocchi_galera_ssl_ca_cert }}{% endif %}{% endif %}
+
+{% if gnocchi_auth_mode == "keystone" %}
+[keystone_authtoken]
+insecure = {{ keystone_service_adminuri_insecure | bool }}
+auth_type = {{ gnocchi_keystone_auth_plugin }}
+auth_url = {{ keystone_service_adminuri }}
+www_authenticate_uri = {{ keystone_service_internaluri }}
+region_name = {{ gnocchi_service_region }}
+project_domain_id = {{ gnocchi_service_project_domain_id }}
+user_domain_id = {{ gnocchi_service_user_domain_id }}
+project_name = {{ gnocchi_service_project_name }}
+username = {{ gnocchi_service_user_name }}
+password = {{ gnocchi_service_password }}
+
+service_token_roles_required = {{ gnocchi_service_token_roles_required | bool }}
+service_token_roles = {{ gnocchi_service_token_roles | join(',') }}
+service_type = {{ gnocchi_service_type }}
+
+memcached_servers = {{ gnocchi_memcached_servers }}
+token_cache_time = 300
+
+# if your memcached server is shared, use these settings to avoid cache poisoning
+memcache_security_strategy = ENCRYPT
+memcache_secret_key = {{ memcached_encryption_key }}
+
+{% endif %}
+
+[storage]
+driver = {{ gnocchi_storage_driver }}
+{% if gnocchi_storage_driver == 'file' %}
+############
+## File Storage
+############
+file_basepath = {{ gnocchi_storage_file_basepath }}
+file_basepath_tmp = ${file_basepath}/tmp
+{% endif %}
+{% if gnocchi_storage_driver == 'swift' %}
+############
+## Swift Storage
+############
+swift_auth_version: 3
+swift_authurl: "{{ keystone_service_internalurl }}"
+swift_endpoint_type: internalURL
+swift_user: "{{ gnocchi_service_user_name }}"
+swift_key: "{{ gnocchi_service_password }}"
+swift_region_name: "{{ gnocchi_service_region }}"
+swift_project_domain_id: "{{ gnocchi_service_project_domain_id }}"
+swift_user_domain_id: "{{ gnocchi_service_user_domain_id }}"
+swift_project_name: "{{ gnocchi_service_project_name }}"
+swift_container_prefix: "{{ gnocchi_storage_swift_container_prefix }}"
+{% endif %}
+{% if gnocchi_storage_driver == 'ceph' %}
+############
+## Ceph Storage
+############
+# Ceph pool name to use. (string value)
+ceph_pool = {{ gnocchi_ceph_pool }}
+
+# Ceph username (ie: admin without "client." prefix).
+ceph_username = {{ gnocchi_ceph_username }}
+{% endif %}
+{% if gnocchi_storage_driver == 'redis' %}
+redis_url = {{ gnocchi_storage_redis_url }}
+{% endif %}
+
+{% if gnocchi_storage_driver != gnocchi_incoming_driver %}
+[incoming]
+driver = {{ gnocchi_incoming_driver }}
+{%   if gnocchi_incoming_driver == 'file' %}
+################
+## File Incoming
+################
+file_basepath = {{ gnocchi_incoming_file_basepath }}
+file_basepath_tmp = ${file_basepath}/tmp
+{%   endif %}
+{%   if gnocchi_incoming_driver == 'swift' %}
+#################
+## Swift Incoming
+#################
+swift_auth_version: 3
+swift_authurl: "{{ keystone_service_internalurl }}"
+swift_endpoint_type: internalURL
+swift_user: "{{ gnocchi_service_user_name }}"
+swift_key: "{{ gnocchi_service_password }}"
+swift_region_name: "{{ gnocchi_service_region }}"
+swift_project_domain_id: "{{ gnocchi_service_project_domain_id }}"
+swift_user_domain_id: "{{ gnocchi_service_user_domain_id }}"
+swift_project_name: "{{ gnocchi_service_project_name }}"
+swift_container_prefix: "{{ gnocchi_incoming_swift_container_prefix }}
+{%   endif %}
+{%   if gnocchi_incoming_driver == 'ceph' %}
+################
+## Ceph Incoming
+################
+# Ceph pool name to use. (string value)
+ceph_pool = {{ gnocchi_ceph_incoming_pool }}
+
+# Ceph username (ie: admin without "client." prefix).
+ceph_username = {{ gnocchi_ceph_incoming_username }}
+{%   endif %}
+{%    if gnocchi_incoming_driver == 'redis' %}
+redis_url = {{ gnocchi_incoming_redis_url }}
+{%    endif %}
+{% endif %}
+
+[metricd]
+# Number of workers for Gnocchi metric daemons. By default the available number
+# of CPU is used. (integer value)
+# Minimum value: 1
+workers = {{ gnocchi_metricd_workers }}
+
+[statsd]
+# The listen IP for statsd (string value)
+#host = 0.0.0.0
+
+# The port for statsd (port value)
+# Minimum value: 1
+# Maximum value: 65535
+#port = 8125
+
+# Resource UUID to use to identify statsd in Gnocchi (string value)
+#resource_id = <None>
+
+# User UUID to use to identify statsd in Gnocchi (string value)
+#user_id = <None>
+
+# Project UUID to use to identify statsd in Gnocchi (string value)
+#project_id = <None>
+
+# Archive policy name to use when creating metrics (string value)
+#archive_policy_name = <None>
+
+# Delay between flushes (floating point value)
+#flush_delay = <None>
+
+############
+## InfluxDB Storage
+############
+# InfluxDB host (string value)
+#influxdb_host = localhost
+
+# InfluxDB port (port value)
+# Minimum value: 1
+# Maximum value: 65535
+#influxdb_port = 8086
+
+# InfluxDB username (string value)
+#influxdb_username = root
+
+# InfluxDB password (string value)
+#influxdb_password = <None>
+
+# InfluxDB database (string value)
+#influxdb_database = gnocchi
+
+# InfluxDB ingests data in asynchroneous ways. Set to True to wait data are
+# ingested. (boolean value)
+#influxdb_block_until_data_ingested = false

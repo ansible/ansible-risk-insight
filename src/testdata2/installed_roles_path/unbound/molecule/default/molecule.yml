@@ -1,0 +1,26 @@
+---
+dependency:
+  name: galaxy
+driver:
+  name: docker
+lint: |
+  set -e
+  yamllint . -c molecule/default/yaml-lint.yml
+platforms:
+  - name: instance
+    image: "${docker_user:-quay.io/gotmax23}/${docker_image_tag:-ubuntu-systemd:focal}"
+    # NOTE(logan): Uncomment user arg once upstream PR is released
+    # https://github.com/metacloud/molecule/pull/1526
+    # user: root
+    command: ""
+    privileged: true
+    pre_build_image: true
+
+provisioner:
+  name: ansible
+  lint:
+    name: ansible-lint
+  playbooks:
+    converge: playbook.yml
+scenario:
+  name: default

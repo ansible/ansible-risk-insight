@@ -1,0 +1,242 @@
+---
+# Copyright 2015, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Create the required deployment directories
+  file:
+    path: "{{ item }}"
+    state: directory
+  with_items: "{{ bootstrap_host_target_config_paths }}"
+  tags:
+    - create-directories
+
+- name: Find user conf.d configurations to deploy
+  stat:
+    path: "{{ bootstrap_host_aio_config_path }}/conf.d/{{ item }}.yml.aio"
+  register: conf_d_stat
+  with_items: "{{ bootstrap_host_scenarios_expanded }}"
+
+- name: Deploy user conf.d configuration
+  openstack.config_template.config_template:
+    src: "{{ bootstrap_host_aio_config_path }}/conf.d/{{ item.item }}.yml.aio"
+    dest: "/etc/openstack_deploy/conf.d/{{ item.item }}.yml"
+    config_overrides: "{{ item.item.override | default({}) }}"
+    config_type: "yaml"
+  with_items: "{{ conf_d_stat.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when:
+    - item.stat.exists | bool
+  tags:
+    - deploy-confd
+
+- name: Deploy openstack_user_config
+  openstack.config_template.config_template:
+    src: "{{ bootstrap_host_aio_config_path }}/openstack_user_config.yml.aio.j2"
+    dest: "/etc/openstack_deploy/openstack_user_config.yml"
+    config_overrides: "{{ openstack_user_config_overrides | default({}) }}"
+    config_type: "yaml"
+    list_extend: false
+  tags:
+    - deploy-openstack-user-config
+
+- name: Deploy user_secrets file
+  openstack.config_template.config_template:
+    src: "{{ bootstrap_host_aio_config_path }}/user_secrets.yml"
+    dest: "/etc/openstack_deploy/{{ bootstrap_host_user_secrets_filename }}"
+    config_overrides: "{{ user_secrets_overrides | default({}) }}"
+    config_type: "yaml"
+  tags:
+    - deploy-user-secrets
+
+- name: Generate any missing values in user_secrets
+  command: >
+    /opt/ansible-runtime/bin/python
+    {{ bootstrap_host_aio_script_path }}/pw-token-gen.py
+    --file /etc/openstack_deploy/{{ bootstrap_host_user_secrets_filename }}
+  changed_when: false
+  tags:
+    - generate_secrets
+
+- name: Set facts when inside of OpenStack-Infra
+  when:
+    - nodepool_vars is defined
+  block:
+    - name: Configure the OpenStack-Infra mirrors
+      vars:
+        nodepool_overrides:
+          uca_apt_repo_url: "{{ nodepool_vars.NODEPOOL_UCA_MIRROR }}"
+          openstack_hosts_centos_mirror_url: "{{ nodepool_vars.NODEPOOL_CENTOS_MIRROR }}"
+          centos_epel_mirror: "{{ nodepool_vars.NODEPOOL_EPEL_MIRROR }}"
+          galera_repo_host: "{{ nodepool_vars.NODEPOOL_MIRROR_HOST }}:8080"
+          nova_virt_type: 'qemu'
+          # NOTE(jrosser)
+          # we only run ceph jobs on ubuntu in CI so this is sufficient
+          ceph_stable_repo: "http://{{ nodepool_vars.NODEPOOL_MIRROR_HOST }}/ceph-deb-octopus"
+          # we must set the ceph repo seperatley for the ceph_client role
+          ceph_apt_repos:
+            ceph:
+              state: "present"
+              repo: "deb http://{{ nodepool_vars.NODEPOOL_MIRROR_HOST }}/ceph-deb-octopus {{ ansible_facts['distribution_release'] }} main"
+      copy:
+        dest: /etc/openstack_deploy/user_openstackci.yml
+        content: "{{ nodepool_overrides | to_nice_yaml }}"
+
+    - name: Set the package cache timeout to 60 mins in OpenStack-CI
+      set_fact:
+        cache_timeout: 3600
+      when:
+        - cache_timeout is not defined
+
+# NOTE(mhayden): The OpenStack CI images for CentOS recently set SELinux to
+# Enforcing mode by default. While I am normally a supporter of this change,
+# the SELinux policy work for CentOS is not done yet.
+- name: Set SELinux to permissive mode in OpenStack-CI
+  selinux:
+    policy: targeted
+    state: permissive
+  when:
+    - ansible_facts['selinux']['status'] == "enabled"
+
+- name: Get systemd version
+  command: "rpm -q systemd" # noqa command-instead-of-module
+  changed_when: false
+  register: systemd_version
+  when: ansible_facts['os_family'] | lower == 'redhat'
+
+- name: Set the user_variables
+  openstack.config_template.config_template:
+    src: "{{ bootstrap_user_variables_template }}"
+    dest: "/etc/openstack_deploy/{{ bootstrap_host_user_variables_filename }}"
+    config_overrides: "{{ user_variables_overrides | default({}) }}"
+    config_type: yaml
+
+- name: Set http proxy user variables
+  copy:
+    src: "user_variables_proxy.yml"
+    dest: "/etc/openstack_deploy/user_variables_proxy.yml"
+  when:
+    - "lookup('env', 'http_proxy')|length > 0"
+
+- name: Drop the extra user_variables files for this scenario
+  openstack.config_template.config_template:
+    src: "{{ item.src }}"
+    dest: "/etc/openstack_deploy/{{ item.dest }}"
+    config_overrides: "{{ item.config_overrides | default({}) }}"
+    config_type: yaml
+  when:
+    - "item.condition | bool"
+  with_items:
+    - src: user_variables_ceph.yml.j2
+      dest: user_variables_ceph.yml
+      condition: "{{ 'ceph' in bootstrap_host_scenarios_expanded }}"
+    - src: user_variables_translations.yml.j2
+      dest: user_variables_translations.yml
+      condition: "{{ 'translations' in bootstrap_host_scenarios_expanded }}"
+    - src: user_variables_barbican.yml.j2
+      dest: user_variables_barbican.yml
+      condition: "{{ 'barbican' in bootstrap_host_scenarios_expanded }}"
+    - src: user_variables_magnum.yml.j2
+      dest: user_variables_magnum.yml
+      condition: "{{ 'magnum' in bootstrap_host_scenarios_expanded }}"
+    - src: user_variables_manila.yml.j2
+      dest: user_variables_manila.yml
+      condition: "{{ 'manila' in bootstrap_host_scenarios_expanded }}"
+    - src: user_variables_murano.yml.j2
+      dest: user_variables_murano.yml
+      condition: "{{ 'murano' in bootstrap_host_scenarios_expanded }}"
+    - src: user_variables_nfs.yml.j2
+      dest: user_variables_nfs.yml
+      condition: "{{ 'nfs' in bootstrap_host_scenarios_expanded }}"
+    - src: user_variables_calico.yml.j2
+      dest: user_variables_calico.yml
+      condition: "{{ 'calico' in bootstrap_host_scenarios_expanded }}"
+    - src: user_variables_zun.yml.j2
+      dest: user_variables_zun.yml
+      condition: "{{ 'zun' in bootstrap_host_scenarios_expanded }}"
+    - src: user_variables_octavia.yml.j2
+      dest: user_variables_octavia.yml
+      condition: "{{ 'octavia' in bootstrap_host_scenarios_expanded }}"
+    - src: user_variables_ironic.yml.j2
+      dest: user_variables_ironic.yml
+      condition: "{{ 'ironic' in bootstrap_host_scenarios_expanded }}"
+    - src: user_variables_neutron_ovn.yml.j2
+      dest: user_variables_neutron_ovn.yml
+      condition: "{{ 'ovn' in bootstrap_host_scenarios_expanded }}"
+    - src: user_variables_neutron_ovs.yml.j2
+      dest: user_variables_neutron_ovs.yml
+      condition: "{{ 'ovs' in bootstrap_host_scenarios_expanded }}"
+    - src: user_variables_horizon.yml.j2
+      dest: user_variables_horizon.yml
+      condition: "{{ 'horizon' in bootstrap_host_scenarios }}"
+    - src: user_variables_hardening.yml.j2
+      dest: user_variables_hardening.yml
+      condition: "{{ 'hardening' in bootstrap_host_scenarios_expanded }}"
+    - src: user_variables_sahara.yml.j2
+      dest: user_variables_sahara.yml
+      condition: "{{ 'sahara' in bootstrap_host_scenarios_expanded }}"
+
+- name: Copy modified cinder-volume env.d file for ceph scenario
+  copy:
+    src: "{{ playbook_dir }}/../etc/openstack_deploy/env.d/cinder-volume.yml.container.example"
+    dest: "/etc/openstack_deploy/env.d/cinder-volume.yml"
+  when:
+    - "'ceph' in bootstrap_host_scenarios_expanded"
+
+- name: Copy modified env.d file for calico scenario
+  copy:
+    src: "{{ playbook_dir }}/../etc/openstack_deploy/env.d/calico.yml.example"
+    dest: "/etc/openstack_deploy/env.d/calico.yml"
+  when:
+    - "'calico' in bootstrap_host_scenarios_expanded"
+
+- name: Copy modified neutron env.d for for ovn scenario
+  copy:
+    src: "{{ playbook_dir }}/../etc/openstack_deploy/env.d/neutron_ovn.yml.example"
+    dest: "/etc/openstack_deploy/env.d/neutron.yml"
+  when:
+    - "'ovn' in bootstrap_host_scenarios_expanded"
+
+- name: Copy modified nova env.d for ovn scenario
+  copy:
+    src: "{{ playbook_dir }}/../etc/openstack_deploy/env.d/nova_ovn.yml.example"
+    dest: "/etc/openstack_deploy/env.d/nova.yml"
+  when:
+    - "'ovn' in bootstrap_host_scenarios_expanded"
+
+- name: Create vars override folders if we need to test them
+  file:
+    path: "{{ item }}"
+    state: directory
+  with_items:
+    - /etc/openstack_deploy/group_vars
+    - /etc/openstack_deploy/host_vars
+  when: "(lookup('env','ACTION') | default(false,true)) == 'varstest'"
+
+- name: Create user-space overrides
+  lineinfile:
+    path: "{{ item.path }}"
+    state: present
+    line:  "{{ item.line }}"
+    create: yes
+  with_items:
+    - path: /etc/openstack_deploy/group_vars/hosts.yml
+      line: 'babar: "elephant"'
+    - path: /etc/openstack_deploy/group_vars/hosts.yml
+      line: 'lxc_hosts_package_state: "present"'
+    - path: /etc/openstack_deploy/host_vars/localhost.yml
+      line: 'security_package_state: "present"'
+    - path: /etc/openstack_deploy/host_vars/localhost.yml
+      line: 'tintin: "milou"'
+  when: "(lookup('env','ACTION') | default(false,true)) == 'varstest'"

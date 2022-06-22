@@ -1,0 +1,8 @@
+---
+- name: configure openSUSE ceph OBS repository
+  zypper_repository:
+    name: "OBS:filesystems:ceph:{{ ceph_release }}"
+    state: present
+    repo: "{{ ceph_obs_repo }}"
+    auto_import_keys: yes
+    autorefresh: yes

@@ -1,0 +1,75 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Gather variables for each operating system
+  include_vars: "{{ lookup('first_found', params) }}"
+  vars:
+    params:
+      files:
+        - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_version'] | lower }}.yml"
+        - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_major_version'] | lower }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}-{{ ansible_facts['distribution_major_version'] | lower }}.yml"
+        - "{{ ansible_facts['distribution'] | lower }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}-{{ ansible_facts['distribution_version'].split('.')[0] }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}.yml"
+      paths:
+        - "{{ role_path }}/vars"
+  tags:
+    - always
+
+- import_tasks: haproxy_pre_install.yml
+  tags:
+    - haproxy_server-install
+
+- import_tasks: haproxy_install.yml
+  tags:
+    - haproxy_server-install
+
+ #NOTE (jrosser) the self signed certificate is also needed for bootstrapping
+ #letsencrypt, as haproxy will not start with ssl config but a missing certificate
+- name: Create and install SSL certificates
+  include_role:
+     name: pki
+  vars:
+    pki_setup_host: "{{ haproxy_pki_setup_host }}"
+    pki_dir: "{{ haproxy_pki_dir }}"
+    pki_create_ca: "{{ haproxy_pki_create_ca }}"
+    pki_authorities: "{{ haproxy_pki_authorities }}"
+    pki_install_ca: "{{ haproxy_pki_install_ca }}"
+    pki_regen_ca: "{{ haproxy_pki_regen_ca }}"
+    pki_create_certificates: "{{ haproxy_user_ssl_cert is not defined and haproxy_user_ssl_key is not defined }}"
+    pki_regen_cert: "{{ haproxy_pki_regen_cert }}"
+    pki_certificates: "{{ haproxy_pki_certificates }}"
+    pki_install_certificates: "{{ haproxy_pki_install_certificates }}"
+  when:
+    - haproxy_ssl | bool
+
+- import_tasks: haproxy_post_install.yml
+  tags:
+    - haproxy_server-config
+
+  # NOTE(jrosser) we must reload the haproxy config before doing the first time certbot setup to ensure the letsencypt backend is configured
+- meta: flush_handlers
+
+- include_tasks: haproxy_ssl_letsencrypt.yml
+  when:
+    - haproxy_ssl | bool
+    - haproxy_ssl_letsencrypt_enable | bool
+    - haproxy_user_ssl_cert is not defined or haproxy_user_ssl_key is not defined
+  args:
+    apply:
+      tags:
+        - haproxy_server-config
+        - letsencrypt

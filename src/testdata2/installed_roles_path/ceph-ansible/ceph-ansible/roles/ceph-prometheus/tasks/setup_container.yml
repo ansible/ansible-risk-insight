@@ -1,0 +1,13 @@
+---
+- name: include_tasks systemd.yml
+  include_tasks: systemd.yml
+
+- name: start prometheus services
+  systemd:
+    name: "{{ item }}"
+    daemon_reload: true
+    enabled: true
+    state: started
+  with_items:
+    - prometheus
+    - alertmanager

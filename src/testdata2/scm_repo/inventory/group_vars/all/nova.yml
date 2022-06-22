@@ -1,0 +1,38 @@
+---
+# Copyright 2017, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Consumed by Neutron role and must remained scoped to 'all' group
+nova_metadata_port: 8775
+nova_metadata_protocol: "{{ openstack_service_internaluri_proto | default('http') }}"
+nova_metadata_insecure: "{{ keystone_service_internaluri_insecure | default(False) }}"
+
+# Consumed by haproxy endpoints
+nova_consoles:
+  spice:
+    port: "{{ nova_spice_html5proxy_base_port | default('6082') }}"
+    path: "/spice_auto.html"
+  novnc:
+    port: "{{ nova_novncproxy_port | default('6080') }}"
+    path: "/vnc.html"
+  serial:
+    port: "{{ nova_serialconsoleproxy_port | default('6083') }}"
+    path: "/"
+  disabled:
+    port: 0
+    path: ""
+
+nova_console_type: "{{ (ansible_architecture == 'aarch64') | ternary('serialconsole', 'novnc') }}"
+nova_console_port: "{{ nova_consoles[nova_console_type]['port'] }}"
+nova_console_path: "{{ nova_consoles[nova_console_type]['path'] }}"

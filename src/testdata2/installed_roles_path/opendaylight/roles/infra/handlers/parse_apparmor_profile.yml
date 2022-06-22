@@ -1,0 +1,9 @@
+- name: Parse apparmor profile
+  tags:
+    - files
+    - docker
+  shell: apparmor_parser -r -W "{{ profile_path }}"
+  listen: "Parse apparmor profile"
+
+# vim: set et ts=2 sw=2 ai ft=yaml :
+

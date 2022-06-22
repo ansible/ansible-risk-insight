@@ -1,0 +1,180 @@
+---
+# Copyright 2016, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+## Verbosity Options
+debug: False
+
+#python venv executable
+cloudkitty_venv_python_executable: "{{ openstack_venv_python_executable | default('python3') }}"
+
+# Set the host which will execute the shade modules
+# for the service setup. The host must already have
+# clouds.yaml properly configured.
+cloudkitty_service_setup_host: "{{ openstack_service_setup_host | default('localhost') }}"
+cloudkitty_service_setup_host_python_interpreter: "{{ openstack_service_setup_host_python_interpreter | default((cloudkitty_service_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable'])) }}"
+
+# Set the package install state for distribution and pip packages
+# Options are 'present' and 'latest'
+cloudkitty_package_state: "{{ package_state | default('latest') }}"
+cloudkitty_pip_package_state: "latest"
+
+## Oslo Messaging info
+
+# RPC
+cloudkitty_oslomsg_rpc_host_group: "{{ oslomsg_rpc_host_group | default('rabbitmq_all') }}"
+cloudkitty_oslomsg_rpc_setup_host: "{{ (cloudkitty_oslomsg_rpc_host_group in groups) | ternary(groups[cloudkitty_oslomsg_rpc_host_group][0], 'localhost') }}"
+cloudkitty_oslomsg_rpc_transport: "{{ oslomsg_rpc_transport | default('rabbit') }}"
+cloudkitty_oslomsg_rpc_servers: "{{ oslomsg_rpc_servers | default('127.0.0.1') }}"
+cloudkitty_oslomsg_rpc_port: "{{ oslomsg_rpc_port | default('5672') }}"
+cloudkitty_oslomsg_rpc_use_ssl: "{{ oslomsg_rpc_use_ssl | default(False) }}"
+cloudkitty_oslomsg_rpc_userid: cloudkitty
+cloudkitty_oslomsg_rpc_vhost: /cloudkitty
+cloudkitty_oslomsg_rpc_ssl_version: "{{ oslomsg_rpc_ssl_version | default('TLSv1_2') }}"
+cloudkitty_oslomsg_rpc_ssl_ca_file: "{{ oslomsg_rpc_ssl_ca_file | default('') }}"
+
+# Notify
+cloudkitty_oslomsg_notify_host_group: "{{ oslomsg_notify_host_group | default('rabbitmq_all') }}"
+cloudkitty_oslomsg_notify_setup_host: "{{ (cloudkitty_oslomsg_notify_host_group in groups) | ternary(groups[cloudkitty_oslomsg_notify_host_group][0], 'localhost') }}"
+cloudkitty_oslomsg_notify_transport: "{{ oslomsg_notify_transport | default('rabbit') }}"
+cloudkitty_oslomsg_notify_servers: "{{ oslomsg_notify_servers | default('127.0.0.1') }}"
+cloudkitty_oslomsg_notify_port: "{{ oslomsg_notify_port | default('5672') }}"
+cloudkitty_oslomsg_notify_use_ssl: "{{ oslomsg_notify_use_ssl | default(False) }}"
+cloudkitty_oslomsg_notify_userid: "{{ cloudkitty_oslomsg_rpc_userid }}"
+cloudkitty_oslomsg_notify_password: "{{ cloudkitty_oslomsg_rpc_password }}"
+cloudkitty_oslomsg_notify_vhost: "{{ cloudkitty_oslomsg_rpc_vhost }}"
+cloudkitty_oslomsg_notify_ssl_version: "{{ oslomsg_notify_ssl_version | default('TLSv1_2') }}"
+cloudkitty_oslomsg_notify_ssl_ca_file: "{{ oslomsg_notify_ssl_ca_file | default('') }}"
+
+cloudkitty_system_group_name: cloudkitty
+cloudkitty_system_user_name: cloudkitty
+cloudkitty_system_comment: meow
+cloudkitty_system_shell: /bin/false
+cloudkitty_system_home_folder: "/var/lib/{{ cloudkitty_system_user_name }}"
+
+cloudkitty_pip_install_args: "{{ pip_install_options | default('') }}"
+
+cloudkitty_venv_tag: "{{ venv_tag | default('untagged') }}"
+cloudkitty_bin: "/openstack/venvs/cloudkitty-{{ cloudkitty_venv_tag }}/bin"
+
+cloudkitty_git_repo: https://opendev.org/openstack/cloudkitty
+cloudkitty_git_install_branch: master
+
+cloudkitty_upper_constraints_url: "{{ requirements_git_url | default('https://releases.openstack.org/constraints/upper/' ~ requirements_git_install_branch | default('master')) }}"
+cloudkitty_git_constraints:
+  - "--constraint {{ cloudkitty_upper_constraints_url }}"
+
+cloudkitty_notification_topics: notifications
+cloudkitty_collector: gnocchi
+cloudkitty_service_user_name: cloudkitty
+cloudkitty_service_project_domain_id: default
+cloudkitty_service_project_name: "service"
+cloudkitty_service_user_domain_id: default
+cloudkitty_service_in_ldap: "{{ service_ldap_backend_enabled | default(False) }}"
+cloudkitty_service_role_names:
+  - admin
+  - rating
+  - service
+cloudkitty_service_token_roles_required: "{{ openstack_service_token_roles_required | default(True) }}"
+cloudkitty_keystone_auth_plugin: password
+cloudkitty_output_backend: cloudkitty.backend.file.FileBackend
+cloudkitty_output_pipeline: osrf
+cloudkitty_output_basepath: /var/cloudkitty/reports
+
+cloudkitty_db_setup_host: "{{ openstack_db_setup_host | default('localhost') }}"
+cloudkitty_db_setup_python_interpreter: "{{ openstack_db_setup_python_interpreter | default((cloudkitty_db_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable'])) }}"
+cloudkitty_galera_address: "{{ galera_address | default('127.0.0.1') }}"
+cloudkitty_galera_database: cloudkitty
+cloudkitty_galera_user: cloudkitty
+cloudkitty_galera_port: "{{ galera_port | default('3306') }}"
+cloudkitty_galera_use_ssl: "{{ galera_use_ssl | default(False) }}"
+cloudkitty_galera_ssl_ca_cert: "{{ galera_ssl_ca_cert | default('') }}"
+cloudkitty_database_connection: >-
+  mysql+pymysql://{{ cloudkitty_galera_user }}:{{ cloudkitty_container_mysql_password }}@{{ cloudkitty_galera_address }}:{{ cloudkitty_galera_port }}/{{ cloudkitty_galera_database }}?charset=utf8{% if cloudkitty_galera_use_ssl | bool %}&ssl_verify_cert=true{% if cloudkitty_galera_ssl_ca_cert | length > 0 %}&ssl_ca={{ cloudkitty_galera_ssl_ca_cert }}{% endif %}{% endif %}
+cloudkitty_db_max_overflow: "{{ openstack_db_max_overflow | default('50') }}"
+cloudkitty_db_max_pool_size: "{{ openstack_db_max_pool_size | default('5') }}"
+cloudkitty_db_pool_timeout: "{{ openstack_db_pool_timeout | default('30') }}"
+cloudkitty_db_connection_recycle_time: "{{ openstack_db_connection_recycle_time | default('600') }}"
+
+cloudkitty_wsgi_threads: 1
+cloudkitty_wsgi_processes_max: 16
+cloudkitty_wsgi_processes: "{{ [[(ansible_facts['processor_vcpus']//ansible_facts['processor_threads_per_core'])|default(1), 1] | max * 2, cloudkitty_wsgi_processes_max] | min }}"
+cloudkitty_uwsgi_bind_address: "{{ openstack_service_bind_address | default('0.0.0.0') }}"
+
+## Service Type and Data
+cloudkitty_service_region: "{{ service_region | default('RegionOne') }}"
+cloudkitty_service_name: cloudkitty
+cloudkitty_service_type: rating
+cloudkitty_service_description: "OpenStack Rating Service"
+cloudkitty_service_port: 8089
+cloudkitty_service_proto: http
+cloudkitty_service_publicuri_proto: "{{ openstack_service_publicuri_proto | default(cloudkitty_service_proto) }}"
+cloudkitty_service_adminuri_proto: "{{ openstack_service_adminuri_proto | default(cloudkitty_service_proto) }}"
+cloudkitty_service_internaluri_proto: "{{ openstack_service_internaluri_proto | default(cloudkitty_service_proto) }}"
+cloudkitty_service_publicuri: "{{ cloudkitty_service_publicuri_proto }}://{{ external_lb_vip_address }}:{{ cloudkitty_service_port }}"
+cloudkitty_service_publicurl: "{{ cloudkitty_service_publicuri }}/"
+cloudkitty_service_adminuri: "{{ cloudkitty_service_adminuri_proto }}://{{ internal_lb_vip_address }}:{{ cloudkitty_service_port }}"
+cloudkitty_service_adminurl: "{{ cloudkitty_service_adminuri }}/"
+cloudkitty_service_internaluri: "{{ cloudkitty_service_internaluri_proto }}://{{ internal_lb_vip_address }}:{{ cloudkitty_service_port }}"
+cloudkitty_service_internalurl: "{{ cloudkitty_service_internaluri }}/"
+
+cloudkitty_cloudkitty_conf_overrides: {}
+cloudkitty_policy_overrides: {}
+cloudkitty_api_paste_ini_overrides: {}
+cloudkitty_metrics_overrides: {}
+
+cloudkitty_api_init_overrides: {}
+cloudkitty_processor_init_overrides: {}
+cloudkitty_api_uwsgi_overrides: {}
+
+## Service Name-Group Mapping
+cloudkitty_services:
+  cloudkitty-api:
+    group: cloudkitty_all
+    service_name: cloudkitty-api
+    init_config_overrides: "{{ cloudkitty_api_init_overrides }}"
+    start_order: 1
+    wsgi_app: True
+    wsgi_path: "{{ cloudkitty_bin }}/cloudkitty-api"
+    uwsgi_overrides: "{{ cloudkitty_api_uwsgi_overrides }}"
+    uwsgi_port: "{{ cloudkitty_service_port }}"
+    uwsgi_bind_address: "{{ cloudkitty_uwsgi_bind_address }}"
+  cloudkitty-processor:
+    group: cloudkitty_all
+    service_name: cloudkitty-processor
+    init_config_overrides: "{{ cloudkitty_processor_init_overrides }}"
+    execstarts: "{{ cloudkitty_bin }}/cloudkitty-processor"
+    start_order: 2
+
+cloudkitty_pip_packages:
+  - "git+{{ cloudkitty_git_repo }}@{{ cloudkitty_git_install_branch }}#egg=cloudkitty"
+  - cryptography
+  - msgpack-python
+  - osprofiler
+  - PyMySQL
+  - pymemcache
+  - python-memcached
+  - SQLAlchemy>=1.0.10
+  - systemd-python
+  - tooz
+
+# Memcached override
+cloudkitty_memcached_servers: "{{ memcached_servers }}"
+
+## (Qdrouterd) integration
+# TODO(ansmith): Change structure when more backends will be supported
+cloudkitty_oslomsg_amqp1_enabled: "{{ cloudkitty_oslomsg_rpc_transport == 'amqp' }}"
+
+cloudkitty_optional_oslomsg_amqp1_pip_packages:
+  - oslo.messaging[amqp1]

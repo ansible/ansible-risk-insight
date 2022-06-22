@@ -1,0 +1,493 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+###
+### Verbosity Options
+###
+
+debug: False
+
+
+###
+### Service setup options
+###
+
+# Set the host which will execute the shade modules
+# for the service setup. The host must already have
+# clouds.yaml properly configured.
+neutron_service_setup_host: "{{ openstack_service_setup_host | default('localhost') }}"
+neutron_service_setup_host_python_interpreter: "{{ openstack_service_setup_host_python_interpreter | default((neutron_service_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable'])) }}"
+
+###
+### Packages Options
+###
+
+# Set the package install state for distribution
+# Options are 'present' and 'latest'
+neutron_package_state: "{{ package_state | default('latest') }}"
+
+# Set installation method.
+neutron_install_method: "{{ service_install_method | default('source') }}"
+neutron_venv_python_executable: "{{ openstack_venv_python_executable | default('python3') }}"
+
+###
+### Python code details
+###
+
+# Set the package install state for pip_package
+# Options are 'present' and 'latest'
+neutron_pip_package_state: "latest"
+
+# Source git repo/branch settings
+neutron_git_repo: https://opendev.org/openstack/neutron
+neutron_git_install_branch: master
+neutron_vpnaas_git_repo: https://opendev.org/openstack/neutron-vpnaas
+neutron_vpnaas_git_install_branch: master
+neutron_dynamic_routing_git_repo: https://opendev.org/openstack/neutron-dynamic-routing
+neutron_dynamic_routing_git_install_branch: master
+networking_calico_git_repo: https://github.com/projectcalico/networking-calico
+networking_calico_git_install_branch: master
+networking_odl_git_repo: https://opendev.org/openstack/networking-odl
+networking_odl_git_install_branch: master
+networking_sfc_git_repo: https://opendev.org/openstack/networking-sfc
+networking_sfc_git_install_branch: master
+networking_bgpvpn_git_repo: https://opendev.org/openstack/networking-bgpvpn
+networking_bgpvpn_git_install_branch: master
+ceilometer_git_repo: https://opendev.org/openstack/ceilometer
+ceilometer_git_install_branch: master
+networking_baremetal_git_repo: https://opendev.org/openstack/networking-baremetal
+networking_baremetal_git_install_branch: master
+networking_generic_switch_git_repo: https://opendev.org/openstack/networking-generic-switch
+networking_generic_switch_git_install_branch: master
+networking_nsx_git_repo: https://opendev.org/x/vmware-nsx
+networking_nsx_git_install_branch: master
+networking_nsxlib_git_repo: https://opendev.org/x/vmware-nsxlib
+networking_nsxlib_git_install_branch: master
+
+neutron_upper_constraints_url: "{{ requirements_git_url | default('https://releases.openstack.org/constraints/upper/' ~ requirements_git_install_branch | default('master')) }}"
+neutron_git_constraints:
+  - "--constraint {{ neutron_upper_constraints_url }}"
+
+neutron_pip_install_args: "{{ pip_install_options | default('') }}"
+
+# Name of the virtual env to deploy into
+neutron_venv_tag: "{{ venv_tag | default('untagged') }}"
+
+###
+### Generic Neutron Config
+###
+
+# Fatal Deprecations
+neutron_fatal_deprecations: False
+
+# If ``neutron_api_workers`` is unset the system will use half the number of available VCPUs to
+# compute the number of api workers to use with a default capping value of 16.
+# neutron_api_workers: 16
+
+## Cap the maximun number of threads / workers when a user value is unspecified.
+neutron_api_threads_max: 16
+neutron_api_threads: "{{ [[ansible_facts['processor_vcpus']|default(2) // 2, 1] | max, neutron_api_threads_max] | min }}"
+
+neutron_agent_down_time: 120
+neutron_agent_polling_interval: 5
+neutron_report_interval: "{{ neutron_agent_down_time | int / 2 | int }}"
+
+neutron_dns_domain: "{{ dhcp_domain | default('openstacklocal.') }}"
+
+# If ``neutron_num_sync_threads`` is unset, the system will use the value of
+# neutron_api_threads in templates/dhcp_agent.ini.j2 for num_sync_threads.
+# neutron_num_sync_threads: 4
+
+###
+### DNSMasq configuration
+###
+# Dnsmasq doesn't work with config_template override, a deployer
+# should instead configure its own neutron_dhcp_config key/values like this:
+#neutron_dhcp_config:
+#  dhcp-option-force: "26,1500"
+neutron_dhcp_config: {}
+
+# Disable dnsmasq to resolve DNS via local resolv.conf.
+# When dnsmasq_dns_servers are not set,
+# and neutron_dnsmasq_noresolv is set to True, dnsmasq will reply with
+# empty respose on DNS requests.
+neutron_dnsmasq_noresolv: False
+
+###
+### Tunable Overrides (Sorted alphabetically)
+###
+
+# These variables facilitate adding config file entries
+# for anything supported by the service. See the section
+# 'Overriding OpenStack configuration defaults' in the
+# 'Advanced configuration' appendix of the Deploy Guide.
+neutron_api_paste_ini_overrides: {}
+neutron_bgp_dragent_ini_overrides: {}
+neutron_bgp_dragent_init_overrides: {}
+neutron_calico_dhcp_agent_ini_overrides: {}
+neutron_calico_dhcp_agent_init_overrides: {}
+neutron_calico_felix_ini_overrides: {}
+neutron_calico_felix_init_overrides: {}
+neutron_dhcp_agent_ini_overrides: {}
+neutron_dhcp_agent_init_overrides: {}
+neutron_ironic_neutron_agent_ini_overrides: {}
+neutron_ironic_neutron_agent_init_overrides: {}
+neutron_l3_agent_ini_overrides: {}
+neutron_l3_agent_init_overrides: {}
+neutron_linuxbridge_agent_ini_overrides: {}
+neutron_linuxbridge_agent_init_overrides: {}
+neutron_metadata_agent_ini_overrides: {}
+neutron_metadata_agent_init_overrides: {}
+neutron_metering_agent_ini_overrides: {}
+neutron_metering_agent_init_overrides: {}
+neutron_ml2_conf_ini_overrides: {}
+neutron_ml2_conf_genericswitch_ini_overrides: {}
+neutron_neutron_conf_overrides: {}
+neutron_nuage_conf_ini_overrides: {}
+neutron_opendaylight_conf_ini_overrides: {}
+neutron_openvswitch_agent_ini_overrides: {}
+neutron_openvswitch_agent_init_overrides: {}
+neutron_nsx_conf_ini_overrides: {}
+# Provide a list of access controls to update the default policy.json with.
+# These changes will be merged
+# with the access controls in the default policy.json. E.g.
+#neutron_policy_overrides:
+#  "create_subnet": "rule:admin_or_network_owner"
+#  "get_subnet": "rule:admin_or_owner or rule:shared"
+neutron_policy_overrides: {}
+_neutron_rootwrap_conf_overrides:
+  DEFAULT:
+    filters_path: "{{ neutron_conf_dir }}/rootwrap.d,/usr/share/neutron/rootwrap"
+    exec_dirs: "{{ neutron_bin }},/sbin,/usr/sbin,/bin,/usr/bin,/usr/local/bin,/usr/local/sbin,/etc/neutron/kill_scripts"
+neutron_rootwrap_conf_overrides: {}
+
+neutron_api_uwsgi_ini_overrides: {}
+neutron_server_init_overrides: {}
+neutron_rpc_server_init_overrides: {}
+neutron_sriov_nic_agent_ini_overrides: {}
+neutron_sriov_nic_agent_init_overrides: {}
+neutron_vpn_agent_init_overrides: {}
+neutron_vpnaas_agent_ini_overrides: {}
+neutron_ovn_metadata_agent_ini_overrides: {}
+neutron_ovn_metadata_agent_init_overrides: {}
+
+###
+### UWSGI
+###
+# NOTE(noonedeadpunk): uWSGI is still not fully supported. See: https://bugs.launchpad.net/neutron/+bug/1912359
+neutron_use_uwsgi: "{{ (neutron_plugin_type not in ['ml2.ovn', 'ml2.calico']) }}"
+neutron_wsgi_processes_max: 16
+neutron_wsgi_processes: "{{ [[ansible_processor_vcpus|default(1), 1] | max * 2, neutron_wsgi_processes_max] | min }}"
+neutron_wsgi_threads: 1
+
+###
+### Quotas
+###
+
+neutron_default_quota: -1
+neutron_quota_floatingip: 50
+neutron_quota_health_monitor: -1
+neutron_quota_member: -1
+neutron_quota_network: 100
+neutron_quota_network_gateway: 5
+neutron_quota_packet_filter: 100
+neutron_quota_pool: 10
+neutron_quota_port: 500
+neutron_quota_router: 10
+neutron_quota_security_group: 10
+neutron_quota_security_group_rule: 100
+neutron_quota_subnet: 100
+neutron_quota_vip: 10
+neutron_quota_firewall: 10
+neutron_quota_firewall_policy: 10
+neutron_quota_firewall_rule: 100
+
+###
+### DB (Galera) integration
+###
+
+neutron_db_setup_host: "{{ openstack_db_setup_host | default('localhost') }}"
+neutron_db_setup_python_interpreter: "{{ openstack_db_setup_python_interpreter | default((neutron_db_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable'])) }}"
+neutron_galera_address: "{{ galera_address | default('127.0.0.1') }}"
+neutron_galera_user: neutron
+neutron_galera_database: neutron
+neutron_db_max_overflow: "{{ openstack_db_max_overflow | default('50') }}"
+neutron_db_max_pool_size: "{{ openstack_db_max_pool_size | default('5') }}"
+neutron_db_pool_timeout: "{{ openstack_db_pool_timeout | default('30') }}"
+neutron_db_connection_recycle_time: "{{ openstack_db_connection_recycle_time | default('600') }}"
+neutron_galera_use_ssl: "{{ galera_use_ssl | default(False) }}"
+neutron_galera_ssl_ca_cert: "{{ galera_ssl_ca_cert | default('') }}"
+neutron_galera_port: "{{ galera_port | default('3306') }}"
+
+###
+### Oslo Messaging
+###
+
+# RabbitMQ
+
+neutron_oslomsg_heartbeat_in_pthread: "{{ oslomsg_heartbeat_in_pthread | default(False) }}"
+
+# RPC
+
+neutron_oslomsg_rpc_host_group: "{{ oslomsg_rpc_host_group | default('rabbitmq_all') }}"
+neutron_oslomsg_rpc_setup_host: "{{ (neutron_oslomsg_rpc_host_group in groups) | ternary(groups[neutron_oslomsg_rpc_host_group][0], 'localhost') }}"
+neutron_oslomsg_rpc_transport: "{{ oslomsg_rpc_transport | default('rabbit') }}"
+neutron_oslomsg_rpc_servers: "{{ oslomsg_rpc_servers | default('127.0.0.1') }}"
+neutron_oslomsg_rpc_port: "{{ oslomsg_rpc_port | default('5672') }}"
+neutron_oslomsg_rpc_use_ssl: "{{ oslomsg_rpc_use_ssl | default(False) }}"
+neutron_oslomsg_rpc_userid: neutron
+neutron_oslomsg_rpc_vhost: /neutron
+neutron_oslomsg_rpc_ssl_version: "{{ oslomsg_rpc_ssl_version | default('TLSv1_2') }}"
+neutron_oslomsg_rpc_ssl_ca_file: "{{ oslomsg_rpc_ssl_ca_file | default('') }}"
+
+# Notify
+
+neutron_oslomsg_notify_host_group: "{{ oslomsg_notify_host_group | default('rabbitmq_all') }}"
+neutron_oslomsg_notify_setup_host: "{{ (neutron_oslomsg_notify_host_group in groups) | ternary(groups[neutron_oslomsg_notify_host_group][0], 'localhost') }}"
+neutron_oslomsg_notify_transport: "{{ oslomsg_notify_transport | default('rabbit') }}"
+neutron_oslomsg_notify_servers: "{{ oslomsg_notify_servers | default('127.0.0.1') }}"
+neutron_oslomsg_notify_port: "{{ oslomsg_notify_port | default('5672') }}"
+neutron_oslomsg_notify_use_ssl: "{{ oslomsg_notify_use_ssl | default(False) }}"
+neutron_oslomsg_notify_userid: "{{ neutron_oslomsg_rpc_userid }}"
+neutron_oslomsg_notify_password: "{{ neutron_oslomsg_rpc_password }}"
+neutron_oslomsg_notify_vhost: "{{ neutron_oslomsg_rpc_vhost }}"
+neutron_oslomsg_notify_ssl_version: "{{ oslomsg_notify_ssl_version | default('TLSv1_2') }}"
+neutron_oslomsg_notify_ssl_ca_file: "{{ oslomsg_notify_ssl_ca_file | default('') }}"
+
+###
+### (Qdrouterd) integration
+###
+# TODO(evrardjp): Change structure when more backends will be supported
+neutron_oslomsg_amqp1_enabled: "{{ neutron_oslomsg_rpc_transport == 'amqp' }}"
+
+###
+### (RabbitMQ) integration
+###
+
+neutron_rpc_thread_pool_size: 64
+neutron_rpc_conn_pool_size: 30
+neutron_rpc_response_timeout: 60
+neutron_rpc_workers_max: 16
+neutron_rpc_workers: "{{ [[(ansible_facts['processor_vcpus']//ansible_facts['processor_threads_per_core'])|default(1), 1] | max * 2, neutron_rpc_workers_max] | min }}"
+
+###
+### Identity (Keystone) integration
+###
+
+neutron_service_project_name: service
+neutron_service_project_domain_id: default
+neutron_service_user_domain_id: default
+neutron_service_role_names:
+  - admin
+  - service
+neutron_service_token_roles:
+  - service
+neutron_service_token_roles_required: "{{ openstack_service_token_roles_required | default(True) }}"
+neutron_service_user_name: neutron
+neutron_service_name: neutron
+neutron_service_type: network
+neutron_service_description: "OpenStack Networking"
+neutron_api_bind_address: "{{ openstack_service_bind_address | default('0.0.0.0') }}"
+neutron_service_port: 9696
+neutron_service_proto: http
+neutron_service_publicuri_proto: "{{ openstack_service_publicuri_proto | default(neutron_service_proto) }}"
+neutron_service_adminuri_proto: "{{ openstack_service_adminuri_proto | default(neutron_service_proto) }}"
+neutron_service_internaluri_proto: "{{ openstack_service_internaluri_proto | default(neutron_service_proto) }}"
+neutron_service_publicuri: "{{ neutron_service_publicuri_proto }}://{{ external_lb_vip_address }}:{{ neutron_service_port }}"
+neutron_service_publicurl: "{{ neutron_service_publicuri }}"
+neutron_service_adminuri: "{{ neutron_service_adminuri_proto }}://{{ internal_lb_vip_address }}:{{ neutron_service_port }}"
+neutron_service_adminurl: "{{ neutron_service_adminuri }}"
+neutron_service_internaluri: "{{ neutron_service_internaluri_proto }}://{{ internal_lb_vip_address }}:{{ neutron_service_port }}"
+neutron_service_internalurl: "{{ neutron_service_internaluri }}"
+neutron_service_region: "{{ service_region | default('RegionOne') }}"
+neutron_keystone_auth_plugin: "{{ neutron_keystone_auth_type }}"
+neutron_keystone_auth_type: password
+neutron_service_in_ldap: "{{ service_ldap_backend_enabled | default(False) }}"
+
+###
+### Telemetry integration
+###
+
+neutron_ceilometer_enabled: "{{ (groups['ceilometer_all'] is defined) and (groups['ceilometer_all'] | length > 0) }}"
+
+###
+### Designate integration
+###
+
+neutron_designate_enabled: "{{ (groups['designate_all'] is defined) and (groups['designate_all'] | length > 0) }}"
+neutron_allow_reverse_dns_lookup: True
+neutron_ipv4_ptr_zone_prefix_size: 24
+neutron_ipv6_ptr_zone_prefix_size: 116
+
+###
+### Plugins Loading
+###
+
+# Other plugins can be added to the system by simply extending the list `neutron_plugin_base`.
+# neutron_plugin_base:
+#   - router
+#   - firewall/firewall_v2 either one or the other, not both
+#   - neutron_dynamic_routing.services.bgp.bgp_plugin.BgpPlugin
+#   - vpnaas
+#   - metering
+#   - qos
+#   - dns/dns_domain_ports/subnet_dns_publish_fixed_ip either one or the other, not both
+#   - port_forwarding
+neutron_plugin_base:
+  - router
+  - metering
+
+###
+### Memcache override
+###
+neutron_memcached_servers: "{{ memcached_servers }}"
+
+###
+### ML2 Plugin Configuration
+###
+
+# The neutron core plugin (ML2) is defined with neutron_plugin_type,
+# you can not load multiple ML2 plugins as core.
+neutron_plugin_type: 'ml2.lxb'
+
+# Additional ML2 plugins can be loaded with neutron_plugin_types (as list)
+neutron_plugin_types: []
+
+# ml2 network type drivers to load
+neutron_ml2_drivers_type: "flat,vlan,vxlan,local"
+
+# Enable or disable L2 Population.
+# When using ovs dvr it must be enabled
+neutron_l2_population: "{{ neutron_plugin_type == 'ml2.ovs.dvr' }}"
+
+neutron_vxlan_enabled: true
+
+## The neutron multicast group address. This should be set as a host variable if used.
+neutron_vxlan_group: "239.1.1.1"
+
+# The neutron multicast time-to-live. Number of L3 hops before routers will drop the traffic
+neutron_vxlan_ttl: 32
+
+neutron_sriov_excluded_devices: ""
+
+# neutron_local_ip is used for the VXLAN local tunnel endpoint
+neutron_local_ip: "{{ tunnel_address | default('127.0.0.1') }}"
+
+## Set this variable to configure the provider networks that will be available
+## When setting up networking in things like the ml2_conf.ini file. Normally
+## this will be defined as a host variable used within neutron as network configuration
+## are likely to differ in between hosts.
+# neutron_provider_networks:
+#   network_flat_networks: "flat"
+#   network_mappings: "flat:eth12,vlan:eth11"
+#   network_types: "vxlan,flat,vlan"
+#   network_vlan_ranges: "vlan:1:1,vlan:1024:1025"
+#   network_vxlan_ranges: "1:1000"
+#   network_geneve_ranges: "1:1000"
+#   network_sriov_mappings: "vlan:p4p1"
+
+###
+### L3 Agent Plugin Configuration
+###
+
+# L3HA configuration options
+neutron_ha_vrrp_auth_type: PASS
+neutron_l3_ha_net_cidr: 169.254.192.0/18
+
+neutron_l3_cleanup_on_shutdown: False
+
+# Specify the maximum number of L3 agents per tenant network. Defaults to the total number of agents deployed
+# neutron_l3_agents_max: 2
+
+###
+### DHCP Agent Plugin Configuration
+###
+
+# Comma-separated list of DNS servers which will be used by dnsmasq as forwarders.
+neutron_dnsmasq_dns_servers: ""
+
+# Limit number of leases to prevent a denial-of-service.
+neutron_dnsmasq_lease_max: 16777216
+
+# Specify if dnsmasq should send a route to metadata server through DHCP 121 message to VM
+neutron_dnsmasq_force_metadata: False
+
+# Specify the maximum number of DHCP agents per tenant network. Defaults to the total number of agents deployed
+# neutron_dhcp_agents_max: 2
+
+###
+### Metadata Agent Plugin Configuration
+###
+
+# If ``neutron_metadata_workers`` is unset the system will use half the number of available VCPUs to
+# compute the number of api workers to use with a default capping value of 16.
+# neutron_metadata_workers: 16
+neutron_metadata_backlog: 4096
+
+# The port used by neutron to access the nova metadata service.
+neutron_nova_metadata_port: "{{ nova_metadata_port | default(8775) }}"
+
+# The protocol used by neutron to access the nova metadata service.
+neutron_nova_metadata_protocol: "{{ nova_metadata_protocol | default('http') }}"
+
+# If the nova_metadata_protocol is using a self-signed cert, then
+# this flag should be set to a boolean True.
+neutron_nova_metadata_insecure: "{{ nova_metadata_insecure | default(False) }}"
+
+###
+### VPNaaS Configuration
+###
+
+# See VPNaaS documentation for driver/service provider selection
+# in case you want to override it.
+neutron_driver_vpnaas: "{{ _neutron_driver_vpnaas }}"
+neutron_vpnaas_service_provider: "{{ _neutron_vpnaas_service_provider }}"
+
+#Set this variable to use custom config file for strongswan/openswan
+# neutron_vpnaas_custom_config:
+#   - src: "/etc/openstack_deploy/strongswan/strongswan.conf.template"
+#     dest: "{{ neutron_conf_dir }}/strongswan.conf.template"
+#     condition: "{{ ansible_facts['os_family'] | lower == 'debian' }}"
+
+neutron_vpnaas_custom_config: []
+
+# Calico Felix agent upstream settings
+calico_felix_url: "https://github.com/projectcalico/felix/releases/download/{{ calico_felix_version }}/calico-felix-amd64"
+calico_felix_version: v3.21.2
+calico_felix_sha256: 076936b985379fb8221db9b9a798714f6f97429a630da9c46da89bfcb0f84d81
+calico_felix_validate_certs: yes
+
+# OVN Defaults
+neutron_ovn_primary_cluster_node: "{{ groups[neutron_services['neutron-ovn-northd']['group']] | first }}"
+neutron_ovn_northd_service_name: ovn-northd
+neutron_ovn_controller_service_name: ovn-controller
+neutron_ovn_l3_scheduler: leastloaded
+neutron_ovn_nb_connection: "tcp:{{ groups['neutron_ovn_northd'] | map('extract', hostvars, ['ansible_host']) | join(':6641,tcp:') }}:6641"
+neutron_ovn_sb_connection: "tcp:{{ groups['neutron_ovn_northd'] | map('extract', hostvars, ['ansible_host']) | join(':6642,tcp:') }}:6642"
+neutron_ovsdb_manager: ptcp:6640:127.0.0.1
+
+###
+### DPDK Configuration
+###
+
+ovs_datapath: "netdev"
+ovs_dpdk_pci_addresses: []
+ovs_dpdk_driver: vfio-pci
+ovs_dpdk_support: False
+ovs_dpdk_lcore_mask: 1
+ovs_dpdk_pmd_cpu_mask: 2
+ovs_dpdk_socket_mem: "1024"
+ovs_dpdk_nr_1g_pages: 0
+ovs_dpdk_nr_2m_pages: 0

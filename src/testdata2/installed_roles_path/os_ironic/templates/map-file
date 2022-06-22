@@ -1,0 +1,9 @@
+{% if not ironic_ipxe_enabled | bool %}
+re ^({{ ironic_tftpd_root }}/) {{ ironic_tftpd_root }}/\2
+re ^{{ ironic_tftpd_root }}/ {{ ironic_tftpd_root }}/
+re ^(^/) {{ ironic_tftpd_root }}/\1
+re ^([^/]) {{ ironic_tftpd_root }}/\1
+{% else %}
+r ^([^/]) {{ ironic_tftpd_root }}/\1
+r ^({{ ironic_tftpd_root }}/) {{ ironic_tftpd_root }}/\2
+{% endif %}

@@ -1,0 +1,10 @@
+#!ipxe
+
+:retry_dhcp
+dhcp || goto retry_dhcp
+
+:retry_boot
+imgfree
+kernel --timeout 30000 {{ ironic_http_url }}/{{ ironic_inspector_ipa_kernel_name }} ipa-inspection-callback-url={{ ironic_inspector_service_internaluri_proto }}://{{ internal_lb_vip_address }}:{{ ironic_inspector_service_port }}/v1/continue systemd.journald.forward_to_console=yes BOOTIF=${mac} initrd={{ ironic_inspector_ipa_initrd_name }} || goto retry_boot
+initrd --timeout 30000 {{ ironic_http_url }}/{{ ironic_inspector_ipa_initrd_name }} || goto retry_boot
+boot

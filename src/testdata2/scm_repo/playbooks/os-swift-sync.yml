@@ -1,0 +1,31 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Playbook will sync the swift ring and ssh keys
+# The services need to be installed first though.
+- name: Synchronisation of swift ring and ssh keys
+  hosts: swift_all:swift_remote_all
+  gather_facts: "{{ osa_gather_facts | default(True) }}"
+  user: root
+  vars_files:
+    - "defaults/repo_packages/openstack_services.yml"
+    - "defaults/{{ install_method }}_install.yml"
+  roles:
+    - role: "os_swift"
+      swift_do_setup: False
+      swift_do_sync: True
+  environment: "{{ deployment_environment_variables | default({}) }}"
+  tags:
+    - swift

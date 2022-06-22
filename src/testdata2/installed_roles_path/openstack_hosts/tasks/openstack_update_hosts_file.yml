@@ -1,0 +1,57 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Generate hosts file records
+  run_once: true
+  set_fact:
+    _etc_hosts_content: |-
+      {% set records = [] %}
+      {% for item in groups['all'] %}
+      {%   set record = [] %}
+      {%   set _target_rfc_name = item|replace('_', '-') %}
+      {%   set _ans_hostname = hostvars[item]['ansible_facts']['hostname'] | default(_target_rfc_name) %}
+      {%   set _ = record.append(hostvars[item]['ansible_host'] | default('127.0.0.1')) %}
+      {%   set _ = record.append(_ans_hostname ~ '.' ~ openstack_domain) %}
+      {%   set _ = record.append(_target_rfc_name) %}
+      {%   if (_ans_hostname != _target_rfc_name) and (_target_rfc_name != item) %}
+      {%     set _ = record.append(item) %}
+      {%     set _ = record.append(_ans_hostname) %}
+      {%   elif (_ans_hostname != _target_rfc_name) and (_target_rfc_name == item) %}
+      {%     set _ = record.append(_ans_hostname) %}
+      {%   elif (_ans_hostname == _target_rfc_name) and (_target_rfc_name != item) %}
+      {%     set _ = record.append(item) %}
+      {%   endif %}
+      {%   set _ = records.append(record | join(' ')) %}
+      {% endfor %}
+      {{ records }}
+
+- name: Update hosts file
+  blockinfile:
+    dest: /etc/hosts
+    block: "{{ _etc_hosts_content | join('\n') }}"
+    marker: "### {mark} OPENSTACK-ANSIBLE MANAGED BLOCK ###"
+  when:
+    - openstack_host_manage_hosts_file | bool
+
+- name: Update hosts file on deploy host
+  blockinfile:
+    dest: /etc/hosts
+    block: "{{ _etc_hosts_content | join('\n') }}"
+    marker: "### {mark} OPENSTACK-ANSIBLE {{ lookup('env', 'OSA_CONFIG_DIR') }} MANAGED BLOCK ###"
+  run_once: True
+  delegate_to: localhost
+  become: True
+  when:
+    - openstack_host_manage_deploy_hosts_file | bool

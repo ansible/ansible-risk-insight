@@ -1,0 +1,17 @@
+# {{ ansible_managed }}
+
+server {
+  listen 0.0.0.0:{{ ironic_ipxe_port }};
+  server_name ironic-ipxe;
+
+  # Logging
+  access_log /var/log/nginx/ironic-ipxe.access.log combined gzip buffer=32k;
+  error_log /var/log/nginx/ironix-ipxe.error.log notice;
+
+  # directory to store ipxe
+  location / {
+    root /httpboot;
+    autoindex off;
+    expires 1h;
+  }
+}

@@ -1,0 +1,6 @@
+---
+features:
+  - |
+    This adds the configuration for the ironic inspector. The ironic
+    inspector provides useful information for baremetal nodes such as
+    hardware specs.

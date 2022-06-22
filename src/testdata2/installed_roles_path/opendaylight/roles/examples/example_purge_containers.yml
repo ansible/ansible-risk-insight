@@ -1,0 +1,10 @@
+---
+- hosts: cluster0
+  become: yes
+  vars:
+    # name_filter may be supplied as a variable or
+    # on the command line with:
+    # --extra-vars "name_filter=compute*"
+    name_filter: 'compute*'
+  tasks:
+    - include: ../infra/tasks/purge_containers.yml

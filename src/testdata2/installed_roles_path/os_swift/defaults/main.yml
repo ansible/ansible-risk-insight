@@ -1,0 +1,522 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Enable/Disable Telemetry projects
+swift_ceilometer_enabled: "{{ (groups['ceilometer_all'] is defined) and (groups['ceilometer_all'] | length > 0) }}"
+
+## Verbosity Options
+debug: False
+
+# Set the host which will execute the shade modules
+# for the service setup. The host must already have
+# clouds.yaml properly configured.
+swift_service_setup_host: "{{ openstack_service_setup_host | default('localhost') }}"
+swift_service_setup_host_python_interpreter: "{{ openstack_service_setup_host_python_interpreter | default((swift_service_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable'])) }}"
+
+# Set the package install state for distribution packages
+# Options are 'present' and 'latest'
+swift_package_state: "{{ package_state | default('latest') }}"
+
+# Set installation method.
+swift_install_method: "{{ service_install_method | default('source') }}"
+swift_venv_python_executable: "{{ openstack_venv_python_executable | default('python3') }}"
+
+# Git repo details for swift
+swift_git_repo: https://opendev.org/openstack/swift
+swift_git_install_branch: master
+
+swift_upper_constraints_url: "{{ requirements_git_url | default('https://releases.openstack.org/constraints/upper/' ~ requirements_git_install_branch | default('master')) }}"
+swift_git_constraints:
+  - "--constraint {{ swift_upper_constraints_url }}"
+
+swift_pip_install_args: "{{ pip_install_options | default('') }}"
+
+# Name of the virtual env to deploy into
+swift_venv_tag: "{{ venv_tag | default('untagged') }}"
+swift_bin: "{{ _swift_bin }}"
+
+# Set the full path to the swift recon cron
+recon_cron_path: "{{ swift_bin }}/swift-recon-cron"
+
+
+## Swift User / Group
+swift_system_user_name: swift
+swift_system_group_name: swift
+swift_system_shell: /bin/bash
+swift_system_comment: swift system user
+swift_system_home_folder: "/var/lib/{{ swift_system_user_name }}"
+swift_system_slice_name: swift
+swift_lock_dir: "{{ openstack_lock_dir | default('/run/lock') }}"
+swift_cache_path: /var/cache/swift
+## Auth token
+swift_delay_auth_decision: true
+
+## Swift middleware
+# NB: The order is important!
+swift_middleware_list:
+  - catch_errors
+  - gatekeeper
+  - healthcheck
+  - proxy-logging
+  - "{% if swift_ceilometer_enabled | bool %}ceilometer{% endif %}"
+  - cache
+  - container_sync
+  - bulk
+  - tempurl
+  - ratelimit
+  - authtoken
+  - keystoneauth
+  - staticweb
+  - copy
+  - container-quotas
+  - account-quotas
+  - slo
+  - dlo
+  - versioned_writes
+  - proxy-logging
+  - proxy-server
+
+# Setup tempauth users list (user_<account>_<username> = <password> <roles>)
+swift_tempauth_users:
+  - "user_admin_admin = admin .admin .reseller_admin"
+
+## Swift default ports
+swift_proxy_bind_address: "{{ openstack_service_bind_address | default('0.0.0.0') }}"
+swift_proxy_port: "8080"
+# You can change the object, container, account ports.
+# This will update the ring, on the next playbook run,
+# without requiring a rebalance.
+# NB: There is service downtime, during the run, between
+# the service restart and the ring updating.
+swift_object_port: "6000"
+swift_container_port: "6001"
+swift_account_port: "6002"
+
+# Default swift ring settings:
+swift_default_replication_number: 3
+swift_default_min_part_hours: 1
+swift_default_host_zone: 0
+swift_default_host_region: 1
+swift_default_drive_weight: 100
+
+## Swift service defaults
+swift_service_name: swift
+swift_service_user_name: swift
+swift_service_project_name: service
+swift_service_project_domain_id: "default"
+swift_service_project_domain_name: "Default"
+swift_service_user_domain_id: "default"
+swift_service_role_names:
+  - admin
+  - service
+swift_service_token_roles:
+  - service
+swift_service_token_roles_required: "{{ openstack_service_token_roles_required | default(True) }}"
+swift_service_type: object-store
+swift_service_proto: http
+swift_service_publicuri_proto: "{{ openstack_service_publicuri_proto | default(swift_service_proto) }}"
+swift_service_adminuri_proto: "{{ openstack_service_adminuri_proto | default(swift_service_proto) }}"
+swift_service_internaluri_proto: "{{ openstack_service_internaluri_proto | default(swift_service_proto) }}"
+swift_service_description: "Object Storage Service"
+swift_service_publicuri: "{{ swift_service_publicuri_proto }}://{{ external_lb_vip_address }}:{{ swift_proxy_port }}"
+swift_service_publicurl: "{{ swift_service_publicuri }}/v1/AUTH_%(tenant_id)s"
+swift_service_adminuri: "{{ swift_service_adminuri_proto }}://{{ internal_lb_vip_address }}:{{ swift_proxy_port }}"
+swift_service_adminurl: "{{ swift_service_adminuri }}/v1/AUTH_%(tenant_id)s"
+swift_service_internaluri: "{{ swift_service_internaluri_proto }}://{{ internal_lb_vip_address }}:{{ swift_proxy_port }}"
+swift_service_internalurl: "{{ swift_service_internaluri }}/v1/AUTH_%(tenant_id)s"
+swift_service_region: "{{ service_region | default('RegionOne') }}"
+statsd_host:
+statsd_port: 8125
+statsd_default_sample_rate: 1.0
+statsd_sample_rate_factor: 1.0
+statsd_metric_prefix:
+
+# Set the file limits
+swift_hard_open_file_limits: 10240
+swift_soft_open_file_limits: 4096
+swift_max_file_limits: "{{ swift_hard_open_file_limits * 24 }}"
+
+## Keystone authentication middleware
+swift_keystone_auth_plugin: "{{ swift_keystone_auth_type }}"
+swift_keystone_auth_type: "password"
+
+swift_dispersion_user: dispersion
+swift_dispersion_user_domain_name: "Default"
+
+swift_operator_role: swiftoperator
+swift_allow_versions: True
+# This will allow all users to create containers and upload to swift if set to True
+swift_allow_all_users: False
+# If you want to regenerate the swift keys, on a run, for rsync purposes set this var to True otherwise keys will be generated on the first run and not regenerated each run.
+swift_recreate_keys: False
+swift_sorting_method: shuffle
+# Set the fallocate_reserve value which will reserve space and fail on PUTs above this value in bytes (Default 10GB)
+swift_fallocate_reserve: "1%"
+swift_account_fallocate_reserve: "{{ swift_fallocate_reserve }}"
+swift_container_fallocate_reserve: "{{ swift_fallocate_reserve }}"
+swift_object_fallocate_reserve: "{{ swift_fallocate_reserve }}"
+# Set this to true to disable fallocate
+swift_disable_fallocate: false
+swift_account_disable_fallocate: "{{ swift_disable_fallocate }}"
+swift_container_disable_fallocate: "{{ swift_disable_fallocate }}"
+swift_object_disable_fallocate: "{{ swift_disable_fallocate }}"
+
+# This variable will protect against changing swift_hash_path_* variables unintentionally.
+# If you wish to change them intentionally set the swift_force_change_hashes variable to True.
+swift_force_change_hashes: False
+
+## Swift ceilometer variables
+swift_reselleradmin_role: ResellerAdmin
+
+## Oslo Messaging
+
+# Notify
+swift_oslomsg_notify_host_group: "{{ oslomsg_notify_host_group | default('rabbitmq_all') }}"
+swift_oslomsg_notify_setup_host: "{{ (swift_oslomsg_notify_host_group in groups) | ternary(groups[swift_oslomsg_notify_host_group][0], 'localhost') }}"
+swift_oslomsg_notify_transport: "{{ oslomsg_notify_transport | default('rabbit') }}"
+swift_oslomsg_notify_servers: "{{ oslomsg_notify_servers | default('127.0.0.1') }}"
+swift_oslomsg_notify_port: "{{ oslomsg_notify_port | default('5672') }}"
+swift_oslomsg_notify_use_ssl: "{{ oslomsg_notify_use_ssl | default(False) }}"
+swift_oslomsg_notify_userid: swift
+swift_oslomsg_notify_vhost: /swift
+swift_oslomsg_notify_ssl_version: "{{ oslomsg_notify_ssl_version | default('TLSv1_2') }}"
+swift_oslomsg_notify_ssl_ca_file: "{{ oslomsg_notify_ssl_ca_file | default('') }}"
+
+## General Swift configuration
+# We are not capping the default value for these swift variables which define
+# the number of worker threads for each of the swift services (except the swift
+# proxy workers when proxy is in a container) because of the performace impact
+# that may be seen due to capping worker threads for swift services.
+# We would like to calculate the default value using vCPUs for good performance
+# of swift services.
+
+# If ``swift_account_server_replicator_workers`` is unset the system will use half the number
+# of available VCPUS to compute the number of api workers to use.
+# swift_account_server_replicator_workers: 16
+
+# If ``swift_server_replicator_workers`` is unset the system will use half the number
+# of available VCPUS to compute the number of api workers to use.
+# swift_server_replicator_workers: 16
+
+# If ``swift_object_replicator_workers`` is unset the system will use half the number
+# of available VCPUS to compute the number of api workers to use.
+# swift_object_replicator_workers: 16
+
+# If ``swift_account_server_workers`` is unset the system will use half the number
+# of available VCPUS to compute the number of api workers to use.
+# swift_account_server_workers: 16
+
+# If ``swift_container_server_workers`` is unset the system will use half the number
+# of available VCPUS to compute the number of api workers to use.
+# swift_container_server_workers: 16
+
+# If ``swift_object_server_workers`` is unset the system will use half the number
+# of available VCPUS to compute the number of api workers to use.
+# swift_object_server_workers: 16
+
+# If ``swift_proxy_server_workers`` is unset the system will use half the number
+# of available VCPUS to compute the number of api workers to use. Capping this
+# value at 16 if the swift proxy is in a container and user did not define
+# this variable.
+swift_proxy_server_workers_max: 16
+swift_proxy_server_workers_not_capped: "{{ [(ansible_facts['processor_vcpus']//ansible_facts['processor_threads_per_core'])|default(1), 1] | max * 2 }}"
+swift_proxy_server_workers_capped: "{{ [swift_proxy_server_workers_max, swift_proxy_server_workers_not_capped|int] | min }}"
+swift_proxy_server_workers: "{{ (inventory_hostname == physical_host) | ternary(swift_proxy_server_workers_not_capped, swift_proxy_server_workers_capped) }}"
+
+# These are the storage addresses used to define the networks for swift storage and replication
+# These are calculated by the tasks based on the "storage_network" and "replication_network" values
+# set in the swift variables, if you set these per host the value won't be calculated.
+# Setting swift_vars.storage_ip or swift_vars.repl_ip will take precedence.
+# If none are set it will default to the "ansible_host" value.
+# swift_storage_address: 127.0.0.1
+# swift_replication_address: 127.0.0.1
+
+# This var is calculated by the play itself, and should not need to be set
+# It is defaulted for the benefit of the swift_proxy host which needs it
+# for the swift-init-systemd.j2 template file.
+swift_dedicated_replication: False
+
+swift_service_in_ldap: "{{ service_ldap_backend_enabled | default(False) }}"
+
+# Basic swift configuration for the cluster
+swift: {}
+swift_vars: {}
+swift_proxy_vars: {}
+
+# Example basic swift configuration for the cluster
+# swift:
+#   part_power: 8
+#   storage_network: 'br-storage'
+#   replication_network: 'br-storage'
+#   drives:
+#     - name: swift1.img
+#     - name: swift2.img
+#     - name: swift3.img
+#   mount_point: /srv
+#   storage_policies:
+#     - policy:
+#         name: default
+#         index: 0
+#         default: True
+
+# Set rsync max_connections vars
+swift_max_rsync_connections: 4
+swift_account_max_rsync_connections: "{{ swift_max_rsync_connections }}"
+swift_container_max_rsync_connections: "{{ swift_max_rsync_connections }}"
+swift_object_max_rsync_connections: "{{ swift_max_rsync_connections }}"
+
+# Set Swift to use rsync module per object server drive
+swift_rsync_module_per_drive: False
+
+# Set Swift to use reverse lookup - requires name resolution or hosts entries
+swift_rsync_reverse_lookup: False
+
+# Set the managed regions as a list of swift regions to manage
+# Use for global clusters, default when not set is all regions.
+# swift_managed_regions:
+#  - 1
+#  - 2
+
+# swift_do_setup and swift_do_sync control which parts of the swift
+# role get run. You should never need to adjust these, they are set
+# within the swift-setup and swift-sync roles to ensure only the
+# appropriate tasks within the os-swift role are run.
+swift_do_setup: True
+swift_do_sync: True
+
+# Example swift_container_sync_realms to specify container_sync realms
+# This can exist for multiple realms (in a list)
+# swift_container_sync_realms:
+#   - name: realm1
+#     # You may want to put swift_realm_keyx in user_secrets.yml or ansible-vault
+#     # Otherwise specify it manually below.
+#     key1: {{ swift_realm_key1 }}
+#     # key2 is optional and used for rotating/deprecated keys
+#     key2: {{ swift_realm_key2 }}
+#     clustername1: https://<cluster1-ip>/v1
+#     clustername2: https://<cluster2-ip>/v1
+
+swift_pip_packages:
+  - ceilometermiddleware
+  - cryptography
+  - dnspython
+  - ecdsa
+  - keystonemiddleware
+  - osprofiler
+  - pyeclib
+  - python-keystoneclient
+  - pymemcache
+  - python-memcached
+  - python-swiftclient
+  - "git+{{ swift_git_repo }}@{{ swift_git_install_branch }}#egg=swift"
+  - systemd-python
+
+# Memcached override
+swift_memcached_servers: "{{ memcached_servers }}"
+
+swift_account_replicator_init_overrides: {}
+swift_account_replicator_server_init_overrides: {}
+swift_account_server_init_overrides: {}
+swift_account_auditor_init_overrides: {}
+swift_account_reaper_init_overrides: {}
+swift_container_replicator_init_overrides: {}
+swift_container_replicator_server_init_overrides: {}
+swift_container_server_init_overrides: {}
+swift_container_auditor_init_overrides: {}
+swift_container_sync_init_overrides: {}
+swift_container_updater_init_overrides: {}
+swift_container_reconciler_init_overrides: {}
+swift_object_replicator_init_overrides: {}
+swift_object_replicator_server_init_overrides: {}
+swift_object_server_init_overrides: {}
+swift_object_auditor_init_overrides: {}
+swift_object_updater_init_overrides: {}
+swift_object_expirer_init_overrides: {}
+swift_object_reconstructor_init_overrides: {}
+swift_proxy_server_init_overrides: {}
+
+# Default options applied to all swift service units
+swift_service_defaults:
+  Service:
+    LimitNOFILE: "{{ swift_soft_open_file_limits }}:{{ swift_hard_open_file_limits }}"
+    Environment:
+      ? "PYPY_GC_MIN={{ swift_pypy_gc_min }}"
+      ? "PYPY_GC_MAX={{ swift_pypy_gc_max }}"
+
+swift_services:
+  swift-proxy-server:
+    group: swift_proxy
+    service_name: "swift-proxy-server"
+    execstarts: "{{ swift_bin }}/swift-proxy-server /etc/swift/proxy-server/proxy-server.conf"
+    init_config_overrides: "{{ swift_proxy_server_init_overrides }}"
+    start_order: 1
+  swift-account-server:
+    group: swift_acc
+    service_name: "swift-account-server"
+    execstarts: "{{ swift_bin }}/swift-account-server /etc/swift/account-server/account-server.conf"
+    init_config_overrides: "{{ swift_account_server_init_overrides }}"
+    start_order: 2
+  swift-account-replicator-server:
+    group: swift_acc
+    service_name: "swift-account-replicator-server"
+    execstarts: "{{ swift_bin }}/swift-account-server /etc/swift/account-server/account-server-replicator.conf"
+    service_en: "{{ swift_dedicated_replication | bool }}"
+    init_config_overrides: "{{ swift_account_replicator_server_init_overrides }}"
+    start_order: 3
+  swift-container-server:
+    group: swift_cont
+    service_name: swift-container-server
+    execstarts: "{{ swift_bin }}/swift-container-server /etc/swift/container-server/container-server.conf"
+    init_config_overrides: "{{ swift_container_server_init_overrides }}"
+    start_order: 4
+  swift-container-replicator-server:
+    group: swift_cont
+    service_name: "swift-container-replicator-server"
+    execstarts: "{{ swift_bin }}/swift-container-server /etc/swift/container-server/container-server-replicator.conf"
+    service_en: "{{ swift_dedicated_replication | bool }}"
+    init_config_overrides: "{{ swift_container_replicator_server_init_overrides }}"
+    start_order: 5
+  swift-object-server:
+    group: swift_obj
+    service_name: swift-object-server
+    execstarts: "{{ swift_bin }}/swift-object-server /etc/swift/object-server/object-server.conf"
+    init_config_overrides: "{{ swift_object_server_init_overrides }}"
+    start_order: 6
+  swift-object-replicator-server:
+    group: swift_obj
+    service_name: "swift-object-replicator-server"
+    execstarts: "{{ swift_bin }}/swift-object-server /etc/swift/object-server/object-server-replicator.conf"
+    service_en: "{{ swift_dedicated_replication | bool }}"
+    init_config_overrides: "{{ swift_object_replicator_server_init_overrides }}"
+    start_order: 7
+
+  swift-account-auditor:
+    group: swift_acc
+    service_name: swift-account-auditor
+    execstarts: "{{ swift_bin }}/swift-account-auditor {{ swift_dedicated_replication | ternary('/etc/swift/account-server/account-server-replicator.conf', '/etc/swift/account-server/account-server.conf') }}"
+    init_config_overrides: "{{ swift_account_auditor_init_overrides }}"
+    start_order: 8
+  swift-account-reaper:
+    group: swift_acc
+    service_name: swift-account-reaper
+    execstarts: "{{ swift_bin }}/swift-account-reaper /etc/swift/account-server/account-server.conf"
+    init_config_overrides: "{{ swift_account_reaper_init_overrides }}"
+    start_order: 9
+  swift-account-replicator:
+    group: swift_acc
+    service_name: swift-account-replicator
+    execstarts: "{{ swift_bin }}/swift-account-replicator {{ swift_dedicated_replication | ternary('/etc/swift/account-server/account-server-replicator.conf', '/etc/swift/account-server/account-server.conf') }}"
+    init_config_overrides: "{{ swift_account_replicator_init_overrides }}"
+    start_order: 10
+
+  swift-container-auditor:
+    group: swift_cont
+    service_name: "swift-container-auditor"
+    execstarts: "{{ swift_bin }}/swift-container-auditor {{ swift_dedicated_replication | ternary('/etc/swift/container-server/container-server-replicator.conf', '/etc/swift/container-server/container-server.conf') }}"
+    init_config_overrides: "{{ swift_container_auditor_init_overrides }}"
+    start_order: 11
+  swift-container-reconciler:
+    group: swift_cont
+    service_name: "swift-container-reconciler"
+    execstarts: "{{ swift_bin }}/swift-container-reconciler /etc/swift/container-server/container-reconciler.conf"
+    init_config_overrides: "{{ swift_container_reconciler_init_overrides }}"
+    start_order: 12
+  swift-container-replicator:
+    group: swift_cont
+    service_name: "swift-container-replicator"
+    execstarts: "{{ swift_bin }}/swift-container-replicator {{ swift_dedicated_replication | ternary('/etc/swift/container-server/container-server-replicator.conf', '/etc/swift/container-server/container-server.conf') }}"
+    init_config_overrides: "{{ swift_container_replicator_init_overrides }}"
+    start_order: 13
+  swift-container-sync:
+    group: swift_cont
+    service_name: "swift-container-sync"
+    execstarts: "{{ swift_bin }}/swift-container-sync /etc/swift/container-server/container-server.conf"
+    init_config_overrides: "{{ swift_container_sync_init_overrides }}"
+    start_order: 14
+  swift-container-updater:
+    group: swift_cont
+    service_name: "swift-container-updater"
+    execstarts: "{{ swift_bin }}/swift-container-updater /etc/swift/container-server/container-server.conf"
+    init_config_overrides: "{{ swift_container_updater_init_overrides }}"
+    start_order: 15
+
+  swift-object-auditor:
+    group: swift_obj
+    service_name: "swift-object-auditor"
+    execstarts: "{{ swift_bin }}/swift-object-auditor {{ swift_dedicated_replication | ternary('/etc/swift/object-server/object-server-replicator.conf', '/etc/swift/object-server/object-server.conf') }}"
+    init_config_overrides: "{{ swift_object_auditor_init_overrides }}"
+    start_order: 16
+  swift-object-expirer:
+    group: swift_obj
+    service_name: "swift-object-expirer"
+    execstarts: "{{ swift_bin }}/swift-object-expirer /etc/swift/object-server/object-expirer.conf"
+    init_config_overrides: "{{ swift_object_expirer_init_overrides }}"
+    start_order: 17
+  swift-object-reconstructor:
+    group: swift_obj
+    service_name: "swift-object-reconstructor"
+    execstarts: "{{ swift_bin }}/swift-object-reconstructor {{ swift_dedicated_replication | ternary('/etc/swift/object-server/object-server-replicator.conf', '/etc/swift/object-server/object-server.conf') }}"
+    init_config_overrides: "{{ swift_object_reconstructor_init_overrides }}"
+    start_order: 18
+  swift-object-replicator:
+    group: swift_obj
+    service_name: "swift-object-replicator"
+    execstarts: "{{ swift_bin }}/swift-object-replicator {{ swift_dedicated_replication | ternary('/etc/swift/object-server/object-server-replicator.conf', '/etc/swift/object-server/object-server.conf') }}"
+    init_config_overrides: "{{ swift_object_replicator_init_overrides }}"
+    start_order: 19
+  swift-object-updater:
+    group: swift_obj
+    service_name: "swift-object-updater"
+    execstarts: "{{ swift_bin }}/swift-object-updater /etc/swift/object-server/object-server.conf"
+    init_config_overrides: "{{ swift_object_updater_init_overrides }}"
+    start_order: 20
+
+# Set to True to reset the clock on the last time a rebalance happened,
+# circumventing the min_part_hours check.
+# USE WITH EXTREME CAUTION
+# If you run the swift playbook with this option enabled, before a swift
+# replication pass completes, you may introduce unavailability in your
+# cluster. This has an end-user impact.
+swift_pretend_min_part_hours_passed: False
+
+# Set this option to enable or disable the pypy interpreter for swift
+swift_pypy_enabled: false
+swift_pypy_archive:
+  url: "https://bitbucket.org/pypy/pypy/downloads/pypy2-v5.9.0-linux64.tar.bz2"
+  sha256: "790febd4f09e22d6e2f81154efc7dc4b2feec72712aaf4f82aa91b550abb4b48"
+swift_pypy_version: "{{ swift_pypy_archive['url'] | basename | replace('.tar.bz2', '') }}"
+swift_pypy_env: "/opt/pypy-runtime/{{ swift_pypy_version }}/bin/pypy"
+# Set the Garbage Collection (GC) options for pypy if you would like to tune these
+# More info on pypy garbage collection can be found here:
+# http://doc.pypy.org/en/latest/gc_info.html
+swift_pypy_gc_min: "15M"
+swift_pypy_gc_max: "1GB"
+
+## Tunable overrides
+swift_swift_conf_overrides: {}
+swift_swift_dispersion_conf_overrides: {}
+swift_proxy_server_conf_overrides: {}
+swift_account_server_conf_overrides: {}
+swift_account_server_replicator_conf_overrides: {}
+swift_container_server_conf_overrides: {}
+swift_container_reconciler_conf_overrides: {}
+swift_container_server_replicator_conf_overrides: {}
+swift_container_sync_realms_conf_overrides: {}
+swift_drive_audit_conf_overrides: {}
+swift_internal_client_conf_overrides: {}
+swift_object_server_conf_overrides: {}
+swift_object_expirer_conf_overrides: {}
+swift_object_server_replicator_conf_overrides: {}
+swift_memcache_conf_overrides: {}

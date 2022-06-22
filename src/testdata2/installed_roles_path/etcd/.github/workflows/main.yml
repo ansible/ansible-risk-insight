@@ -1,0 +1,52 @@
+name: Molecule
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  molecule:
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 4
+      fail-fast: false
+      matrix:
+        scenario:
+          - centos-systemd:stream8
+          - centos-systemd:stream9
+          - debian-systemd:11
+          - ubuntu-systemd:20.04
+          - ubuntu-systemd:22.04
+        python-version:
+          - 3.8
+        ansible-version:
+          - 2.12.6
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          path: "${{ github.repository }}"
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -r ${{ github.repository }}/test-requirements.txt
+      - name: Install ansible
+        run: |
+          python3 -m pip install ansible-core==${{ matrix.ansible-version }}
+      - name: Install ansible collections
+        run: |
+          ansible-galaxy install -r ${{ github.repository }}/test-requirements.yml
+      - name: Test with molecule
+        run: |
+          cd ${{ github.repository }}
+          export docker_image_tag="${{ matrix.scenario }}"
+          python3 -m molecule test

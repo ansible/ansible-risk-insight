@@ -1,0 +1,16 @@
+- name: apt_package_pinning
+  src: https://opendev.org/openstack/openstack-ansible-apt_package_pinning
+  scm: git
+  version: master
+- name: openstack_hosts
+  src: https://opendev.org/openstack/openstack-ansible-openstack_hosts
+  scm: git
+  version: master
+- name: lxc_hosts
+  src: https://opendev.org/openstack/openstack-ansible-lxc_hosts
+  scm: git
+  version: master
+- name: lxc_container_create
+  src: https://opendev.org/openstack/openstack-ansible-lxc_container_create
+  scm: git
+  version: master

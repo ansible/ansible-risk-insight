@@ -1,0 +1,5 @@
+- name: Start ODL systemd service
+  service:
+    name=opendaylight
+    enabled=yes
+    state=started

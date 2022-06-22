@@ -1,0 +1,14 @@
+- name: Copy docker-unconfined apparmor profile to host
+  tags:
+    - files
+    - security
+    - docker
+  copy:
+    src: files/docker-unconfined
+    dest: "{{ profile_path }}"
+    mode: 0755
+  notify:
+    - Parse apparmor profile
+
+# vim: set et ts=2 sw=2 ai ft=yaml :
+

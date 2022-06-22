@@ -1,0 +1,105 @@
+---
+# Copyright 2020, VEXXHOST, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Create magnum resources
+  delegate_to: "{{ magnum_service_setup_host }}"
+  vars:
+    ansible_python_interpreter: "{{ magnum_service_setup_host_python_interpreter }}"
+  block:
+    - name: Create image download directory
+      file:
+        path: "{{ magnum_image_path }}"
+        state: directory
+        mode: "0750"
+        owner: "{{ magnum_image_path_owner }}"
+      when: magnum_glance_images
+
+    - name: Download images
+      get_url:
+        url: "{{ item.file }}"
+        dest: "{{ magnum_image_path }}/{{ item.file | basename }}"
+        checksum: "{{ item.checksum | default(omit) }}"
+      register: download_image
+      until: download_image is success
+      retries: 5
+      delay: 10
+      with_items: "{{ magnum_glance_images }}"
+
+    - name: Upload images to Glance
+      openstack.cloud.image:
+        cloud: "{{ item.cloud | default('default') }}"
+        state: "{{ item.state | default('present') }}"
+        interface: "{{ item.interface | default('admin') }}"
+        validate_certs: "{{ not keystone_service_adminuri_insecure }}"
+        name: "{{ item.name }}"
+        disk_format: "{{ item.disk_format }}"
+        container_format: "{{ item.image_format }}"
+        is_public: "{{ item.public }}"
+        filename: "{{ magnum_image_path }}/{{ item.file | basename }}"
+        properties:
+          os_distro: "{{ item.distro }}"
+      register: upload_image
+      until: upload_image is success
+      retries: 5
+      delay: 10
+      with_items: "{{ magnum_glance_images }}"
+
+    - name: Create flavors for Magnum
+      openstack.cloud.compute_flavor:
+        cloud: "{{ item.cloud | default('default') }}"
+        state: "{{ item.state | default('present') }}"
+        is_public: "{{ item.is_public | default(omit) }}"
+        interface: "{{ item.interface | default('admin') }}"
+        validate_certs: "{{ not keystone_service_adminuri_insecure }}"
+        region_name: "{{ item.region_name | default(magnum_service_region) }}"
+        name: "{{ item.name }}"
+        ram: "{{ item.ram }}"
+        vcpus: "{{ item.vcpus }}"
+        disk: "{{ item.disk | default(0) }}"
+        swap: "{{ item.swap | default(0) }}"
+        ephemeral: "{{ item.ephemeral | default(omit) }}"
+        extra_specs: "{{ item.extra_specs | default(omit) }}"
+        flavorid: "{{ item.flavorid | default(omit) }}"
+        rxtx_factor: "{{ item.rxtx_factor | default(omit) }}"
+      with_items: "{{ magnum_flavors }}"
+
+    - name: Create Magnum cluster templates
+      openstack.cloud.coe_cluster_template:
+        cloud: "{{ item.cloud | default('default') }}"
+        state: "{{ item.state | default('present') }}"
+        interface: "{{ item.interface | default('admin') }}"
+        validate_certs: "{{ not keystone_service_adminuri_insecure }}"
+        region_name: "{{ item.region_name | default(magnum_service_region) }}"
+        coe: "{{ item.coe }}"
+        dns_nameserver: "{{ item.dns_nameserver | default(omit) }}"
+        docker_storage_driver: "{{ item.docker_storage_driver | default(omit) }}"
+        docker_volume_size: "{{ item.docker_volume_size | default(omit) }}"
+        external_network_id: "{{ item.external_network_id | default(omit) }}"
+        fixed_network: "{{ item.fixed_network | default(omit) }}"
+        fixed_subnet: "{{ item.fixed_subnet | default(omit) }}"
+        flavor_id: "{{ item.flavor_id }}"
+        floating_ip_enabled: "{{ item.floating_ip_enabled | default(omit) }}"
+        image_id: "{{ item.image_id }}"
+        keypair_id: "{{ item.keypair_id | default(omit) }}"
+        labels: "{{ item.labels | default(omit) }}"
+        master_flavor_id: "{{ item.master_flavor_id }}"
+        master_lb_enabled: "{{ item.master_lb_enabled | default(omit) }}"
+        name: "{{ item.name }}"
+        network_driver: "{{ item.network_driver }}"
+        public: "{{ item.public | default(omit) }}"
+        registry_enabled: "{{ item.registry_enabled | default(omit) }}"
+        server_type: "{{ item.server_type | default(omit) }}"
+        volume_driver: "{{ item.volume_driver | default(omit) }}"
+      with_items: "{{ magnum_cluster_templates }}"

@@ -1,0 +1,6 @@
+- name: Create container(s)
+  hosts: all_containers
+  gather_facts: false
+  user: root
+  roles:
+    - { role: "lxc_container_create" }

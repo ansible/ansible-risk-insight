@@ -1,0 +1,58 @@
+---
+# Copyright 2015, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Add LDAP domains
+  openstack.cloud.identity_domain:
+    cloud: default
+    state: present
+    name: "{{ item.key }}"
+    endpoint_type: admin
+    verify: "{{ not keystone_service_adminuri_insecure }}"
+  register: add_ldap_domain
+  until: add_ldap_domain is success
+  retries: 5
+  delay: 10
+  with_dict: "{{ keystone_ldap }}"
+  delegate_to: "{{ keystone_service_setup_host }}"
+  no_log: true
+  when:
+    - "_keystone_is_last_play_host"
+  vars:
+    ansible_python_interpreter: "{{ keystone_service_setup_host_python_interpreter }}"
+
+- name: Create Keystone LDAP domain configs
+  template:
+    src: keystone.domain.conf.j2
+    dest: "{{ keystone_ldap_domain_config_dir }}/keystone.{{ item.key }}.conf"
+    owner: "root"
+    group: "{{ keystone_system_group_name }}"
+    mode: "0640"
+  with_dict: "{{ keystone_ldap }}"
+  no_log: true
+  notify:
+    - Restart uWSGI
+    - Restart web server
+
+# Bug 1547542 - Older versions of the keystone role would deploy a blank
+# keystone.Default.conf and this will cause errors when adding LDAP-backed
+# domains.
+- name: Remove Keystone Default domain configuration file if not needed
+  file:
+    path: "{{ keystone_ldap_domain_config_dir }}/keystone.Default.conf"
+    state: absent
+  when: keystone_ldap.Default is not defined
+  notify:
+    - Restart uWSGI
+    - Restart web server

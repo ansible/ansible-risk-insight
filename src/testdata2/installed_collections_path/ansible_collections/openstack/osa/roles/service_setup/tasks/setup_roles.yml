@@ -1,0 +1,91 @@
+---
+# Copyright 2022, City Network International AB
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Setup role when it is a string
+  block:
+    - name: Add a keystone role
+      openstack.cloud.identity_role:
+        cloud: default
+        state: present
+        name: "{{ user.role }}"
+        endpoint_type: admin
+        validate_certs: "{{ not (_service_adminuri_insecure | default(True) | bool) }}"
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+      no_log: True
+
+    - name: Add service users to the role
+      openstack.cloud.role_assignment:
+        cloud: default
+        state: present
+        user: "{{ user.name }}"
+        role: "{{ user.role }}"
+        project: "{{ user.project | default(_service_project_name) }}"
+        domain: "{{ user.domain | default(omit) }}"
+        endpoint_type: admin
+        validate_certs: "{{ not (_service_adminuri_insecure | default(True) | bool) }}"
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+      no_log: True
+      when:
+        - "'name' in user"
+  when:
+    - user.role is string
+
+- name: Setup roles when they are a list
+  block:
+    - name: Add keystone roles
+      openstack.cloud.identity_role:
+        cloud: default
+        state: present
+        name: "{{ role }}"
+        endpoint_type: admin
+        validate_certs: "{{ not (_service_adminuri_insecure | default(True) | bool) }}"
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+      no_log: True
+      loop: "{{ user.role }}"
+      loop_control:
+        loop_var: role
+
+    - name: Add service users to multiple roles
+      openstack.cloud.role_assignment:
+        cloud: default
+        state: present
+        user: "{{ user.name }}"
+        role: "{{ role }}"
+        project: "{{ user.project | default(_service_project_name) }}"
+        domain: "{{ user.domain | default(omit) }}"
+        endpoint_type: admin
+        validate_certs: "{{ not (_service_adminuri_insecure | default(True) | bool) }}"
+      register: add_service
+      until: add_service is success
+      retries: 5
+      delay: 10
+      no_log: True
+      loop: "{{ user.role }}"
+      loop_control:
+        loop_var: role
+      when:
+        - "'name' in user"
+  when:
+    - user.role is iterable
+    - user.role is not string

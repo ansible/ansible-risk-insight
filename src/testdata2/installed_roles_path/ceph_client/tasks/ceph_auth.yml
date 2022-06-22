@@ -1,0 +1,133 @@
+---
+# Copyright 2015, Serge van Ginderachter <serge@vanginderachter.be>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Create cephkeys_access_group group
+  group:
+    name: "{{ cephkeys_access_group }}"
+
+- include_tasks: ceph_get_keyrings_from_mons.yml
+  when: ceph_keyrings_dir is not defined
+
+- include_tasks: ceph_get_keyrings_from_files.yml
+  when: ceph_keyrings_dir is defined
+
+- name: Add OpenStack service to cephkeys_access_group group
+  user:
+    name: "{{ openstack_service_system_user }}"
+    groups: "{{ cephkeys_access_group }}"
+    append: yes
+  notify:
+    - Restart os services
+
+- name: Make sure libvirt is started
+  service:
+    name: "{{ libvirt_service_name }}"
+    state: "started"
+  when: inventory_hostname in groups.nova_compute
+
+- name: Check if nova secret is defined in libvirt
+  shell: virsh secret-list|grep {{ nova_ceph_client_uuid }}
+  when:
+    - inventory_hostname in groups.nova_compute
+  changed_when: false
+  failed_when:  false
+  register: libvirt_nova_defined
+  tags:
+    - always
+
+- name: Provide xml file to create the secret
+  template:
+    src: secret.xml.j2
+    dest: /tmp/nova-secret.xml
+    mode: "0600"
+  with_items:
+    - secret_uuid: "{{ nova_ceph_client_uuid }}"
+      client_name: "{{ nova_ceph_client }}"
+  when:
+    - inventory_hostname in groups.nova_compute
+    - libvirt_nova_defined.rc is defined
+    - libvirt_nova_defined.rc != 0
+  tags:
+    - always
+
+- name: Define libvirt nova secret
+  command: virsh secret-define --file /tmp/nova-secret.xml
+  when:
+    - inventory_hostname in groups.nova_compute
+    - libvirt_nova_defined.rc is defined
+    - libvirt_nova_defined.rc != 0
+  notify:
+    - Restart os services
+  tags:
+    - always
+
+- name: Check if nova secret value is set in libvirt
+  command: virsh secret-get-value {{ nova_ceph_client_uuid }}
+  when:
+    - inventory_hostname in groups.nova_compute
+  changed_when: false
+  failed_when:  false
+  register: libvirt_nova_set
+  tags:
+    - always
+
+- name: Set nova secret value in libvirt
+  command: virsh secret-set-value --secret {{ nova_ceph_client_uuid }} --base64 {{ ceph_nova_secret.stdout }}
+  changed_when: false
+  when:
+    - inventory_hostname in groups.nova_compute
+    - libvirt_nova_set.rc is defined
+    - libvirt_nova_set.rc != 0 or
+      (libvirt_nova_set.rc == 0 and
+       libvirt_nova_set.stdout != ceph_nova_secret.stdout)
+  notify:
+    - Restart os services
+  tags:
+    - ceph-config
+
+- name: Remove libvirt nova secret file
+  file:
+    path: "/tmp/nova-secret.xml"
+    state: "absent"
+  when:
+    - inventory_hostname in groups.nova_compute and libvirt_nova_set
+  tags:
+    - always
+
+- name: Detect correct group for extra auth
+  set_fact:
+    ceph_in_extra_auth_group: True
+  with_items: "{{ ceph_extra_auth_groups }}"
+  when:
+    - ceph_extra_confs is defined
+    - inventory_hostname in groups[item]
+
+- include_tasks: ceph_auth_extra.yml
+  when:
+    - ceph_in_extra_auth_group is defined
+    - ceph_in_extra_auth_group | bool
+
+- name: Detect extra nova uuid secret
+  set_fact:
+    ceph_extra_nova_uuid: True
+  with_items: "{{ ceph_extra_confs | default([]) }}"
+  when:
+    - inventory_hostname in groups[ceph_extra_compute_group]
+    - item.secret_uuid is defined
+
+- include_tasks: ceph_auth_extra_compute.yml
+  when:
+    - ceph_extra_nova_uuid is defined
+    - ceph_extra_nova_uuid | bool

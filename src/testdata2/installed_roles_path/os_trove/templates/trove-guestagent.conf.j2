@@ -1,0 +1,45 @@
+# {{ ansible_managed }}
+[DEFAULT]
+control_exchange = {{ trove_control_exchange }}
+transport_url = {{ trove_oslomsg_rpc_transport }}://{% for host in trove_guest_oslomsg_rpc_servers.split(',') %}{{ trove_oslomsg_rpc_userid }}:{{ trove_oslomsg_rpc_password }}@{{ host }}:{{ trove_oslomsg_rpc_port }}{% if not loop.last %},{% else %}/{{ trove_oslomsg_rpc_vhost }}{% endif %}{% endfor %}
+
+{% if trove_swift_enabled is defined %}
+swift_url = {{ trove_guest_swift_url }}
+# Service type to use when searching catalog.
+swift_service_type = object-store
+
+# For storage to Swift, use the following as defaults:
+storage_strategy = swift
+
+# Default config options for storing backups to swift
+backup_swift_container = database_backups
+{% endif %}
+
+# Show debugging output in logs (sets DEBUG log level output)
+debug = {{ debug }}
+
+[service_credentials]
+auth_url = {{ trove_guest_auth_url }}
+username = {{ trove_service_user_name }}
+password = {{ trove_service_password }}
+project_name = {{ trove_service_project_name }}
+region_name = {{ trove_service_region }}
+project_domain_name = {{ trove_service_project_domain_name }}
+user_domain_name = {{ trove_service_user_domain_name }}
+
+[oslo_messaging_rabbit]
+# Connect over SSL for RabbitMQ. (boolean value)
+# Deprecated group/name - [DEFAULT]/rabbit_use_ssl
+ssl = {{ trove_guest_oslomsg_rpc_use_ssl }}
+
+[oslo_messaging_notifications]
+{% set notification_topics = [] %}
+{% if trove_ceilometer_enabled %}
+{%   set _ = notification_topics.append('notifications') %}
+{% endif %}
+{% if trove_designate_enabled %}
+{%   set _ = notification_topics.append(trove_notifications_designate) %}
+{% endif %}
+topics = {{ notification_topics | join(',') }}
+driver = {{ (notification_topics | length > 0) | ternary('messagingv2', 'noop') }}
+transport_url = {{ trove_oslomsg_notify_transport }}://{% for host in trove_guest_oslomsg_notify_servers.split(',') %}{{ trove_oslomsg_notify_userid }}:{{ trove_oslomsg_notify_password }}@{{ host }}:{{ trove_oslomsg_notify_port }}{% if not loop.last %},{% else %}/{{ trove_oslomsg_notify_vhost }}{% endif %}{% endfor %}

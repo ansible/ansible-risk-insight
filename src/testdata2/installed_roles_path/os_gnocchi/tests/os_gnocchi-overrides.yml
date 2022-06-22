@@ -1,0 +1,9 @@
+gnocchi_developer_mode: true
+gnocchi_container_mysql_password: "secrete"
+gnocchi_keystone_auth: yes
+gnocchi_service_password: "secrete"
+gnocchi_galera_address: "{{ hostvars[groups['galera_all'][0]]['ansible_host'] }}"
+gnocchi_ssl_external: false
+gnocchi_service_port: 8041
+gnocchi_venv_tag: untagged
+gnocchi_bin: "/openstack/venvs/gnocchi-{{ gnocchi_venv_tag }}/bin"

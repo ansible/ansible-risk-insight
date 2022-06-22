@@ -1,0 +1,13 @@
+---
+# rackpos is a parameter of the physical hosts == position
+# COMP_ID must be passed as an 'extra-var'
+# like 'ansible-playbook ... --extra-vars "COMP_ID=11" '
+node_type: compute
+container_name: "compute-{{ rackpos }}-{{ COMP_ID }}"
+compute_container_image: "{{ docker_registry }}/{{ compute_image }}:{{ compute_version }}"
+web_port_map: "600{{ COMP_ID }}:80"
+cpuset_cpu1: "{{ COMP_ID }}"
+cpu2_offset: "{{ (ansible_processor_cores * ansible_processor_threads_per_core)|int }}"
+cpuset_cpu2: "{{ (COMP_ID)|int + (cpu2_offset)|int }}"
+cpuset: "{{ cpuset_cpu1 }},{{ cpuset_cpu2 }}"
+

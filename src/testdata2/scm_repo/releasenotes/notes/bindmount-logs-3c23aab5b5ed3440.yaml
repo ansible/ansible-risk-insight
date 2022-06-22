@@ -1,0 +1,19 @@
+---
+features:
+  - In a greenfield deployment containers will now bind mount
+    all logs to the physical host machine in the
+    ``/openstack/log/{{ inventory_hostname }}`` location. This
+    change will ensure containers using a block backed file
+    system (lvm, zfs, bfrfs) do not run into issues with full
+    file disks due to logging. If this feature is not needed
+    or desired it can be disabled by setting the option
+    ``default_bind_mount_logs`` to *false*.
+upgrade:
+  - During an upgrade the option ``default_bind_mount_logs`` will
+    be set to *false*. This will ensure that an existing
+    deployment is not adversely impacted by container restarts.
+    If a deployer wishes to enable the default bind mount for
+    ``/var/log`` they can at a later date.
+fixes:
+  - Logging within the container has been bind mounted to the hosts
+    this reslves issue `1588051 <https://bugs.launchpad.net/openstack-ansible/+bug/1588051>_`

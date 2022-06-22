@@ -1,0 +1,111 @@
+# {{ ansible_managed }}
+
+[Unit]
+Description={{ item.service_name }} service
+{% set after_targets = item.after_targets | default(systemd_after_targets) %}
+{% for target in after_targets | sort %}
+After={{ target }}
+{% endfor %}
+{% for item in systemd_unit_docs %}
+Documentation={{ item }}
+{% endfor %}
+
+{% if (systemd_partof is defined) or (item.partof is defined) %}
+PartOf={{ item.partof | default(systemd_partof) }}
+{% endif %}
+
+[Service]
+{% set service_type = item.service_type | default(systemd_default_service_type) %}
+Type={{ service_type }}
+User={{ item.systemd_user_name | default(systemd_user_name) }}
+Group={{ item.systemd_group_name | default(systemd_group_name) }}
+
+{% if systemd_version|int >= 235 and item.dynamic_user is defined %}
+DynamicUser={{ item.dynamic_user|bool }}
+{% endif %}
+
+{% for key, value in (item.environment | default(systemd_environment)).items() %}
+Environment="{{ key }}={{ value }}"
+{% endfor %}
+
+{% if (item.environment_file is defined) or (systemd_environment_file is defined) %}
+EnvironmentFile={{ item.environment_file | default(systemd_environment_file) }}
+{% endif %}
+
+{% set _execstarts = item.execstarts %}
+{% if _execstarts is string %}
+{%   set _execstarts = [_execstarts] %}
+{% endif %}
+{% for execstart in _execstarts %}
+ExecStart={{ execstart }}
+{% endfor %}
+
+{% set _execreloads = item.execreloads | default((service_type == 'simple') | ternary(['/bin/kill -HUP $MAINPID'], [])) %}
+{% if _execreloads is string %}
+{%   set _execreloads = [_execreloads] %}
+{% endif %}
+{% for execreload in _execreloads %}
+ExecReload={{ execreload }}
+{% endfor %}
+
+{% set _execstops = item.execstops | default([]) %}
+{% if _execstops is string %}
+{%   set _execstops = [_execstops] %}
+{% endif %}
+{% for execstop in _execstops %}
+ExecStop={{ execstop }}
+{% endfor %}
+
+# Give a reasonable amount of time for the server to start up/shut down
+TimeoutSec={{ systemd_TimeoutSec }}
+{% if service_type != 'oneshot' %}
+Restart={{ systemd_Restart }}
+RestartSec={{ systemd_RestartSec }}
+{% endif %}
+
+{% if item.standard_output is defined %}
+StandardOutput={{ item.standard_output }}
+{% endif %}
+
+# This creates a specific slice which all services will operate from
+#  The accounting options give us the ability to see resource usage through
+#  the `systemd-cgtop` command.
+Slice={{ systemd_slice_name }}.slice
+
+# Set Accounting
+{% if item.program_accounting is defined %}
+{%   for key, value in item.program_accounting.items() %}
+{{ key }}={{ value }}
+{%   endfor %}
+{% else %}
+CPUAccounting={{ systemd_CPUAccounting }}
+BlockIOAccounting={{ systemd_BlockIOAccounting }}
+MemoryAccounting={{ systemd_MemoryAccounting }}
+TasksAccounting={{ systemd_TasksAccounting }}
+{% endif %}
+
+{% if service_type != 'oneshot' %}
+# Set Sandboxing
+{%   if item.program_sandboxing is defined %}
+{%     for key, value in item.program_sandboxing.items() %}
+{{ key }}={{ value }}
+{%     endfor %}
+{%   else %}
+PrivateTmp={{ systemd_PrivateTmp }}
+PrivateDevices={{ systemd_PrivateDevices }}
+PrivateNetwork={{ systemd_PrivateNetwork }}
+{# NOTE(cloudnull): Limit the use of PrivateUsers
+   The systemd directive "PrivateUsers" was implemented in systemd version 232.
+   To correct a lot of spam messages in the journal the default directive is
+   limited when to systemd version greater than or equal to 232 #}
+{%     if (systemd_version | int) >= 232 %}
+PrivateUsers={{ systemd_PrivateUsers }}
+{%     endif %}
+{%   endif %}
+{%   if systemd_version|int >= 235 and item.state_directory is defined %}
+StateDirectory={{ item.state_directory }}
+{%   endif %}
+{% endif %}
+
+[Install]
+WantedBy=multi-user.target

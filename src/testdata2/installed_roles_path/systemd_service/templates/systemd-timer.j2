@@ -1,0 +1,31 @@
+# {{ ansible_managed }}
+
+[Unit]
+Description={{ item.service_name }} timer
+
+[Timer]
+{% if item.timer.options is defined %}
+{%   for key, values in item.timer.options.items() %}
+{%     if values is iterable and values is not string %}
+{%       for value in values %}
+{{ key }}={{ value }}
+{%       endfor %}
+{%     else %}
+{{ key }}={{ values }}
+{%     endif %}
+{%   endfor %}
+{% else %}
+{%   set OnCalendar = [] %}
+{%   set _ = OnCalendar.extend([item.timer.cron_minute | default('*')]) %}
+{%   set _ = OnCalendar.extend([item.timer.cron_hour | default('*')]) %}
+{%   set _ = OnCalendar.extend([item.timer.cron_day | default('*')]) %}
+{%   set _ = OnCalendar.extend([item.timer.cron_weekday | default('*')]) %}
+{%   set _ = OnCalendar.extend([item.timer.cron_month | default('*')]) %}
+OnBootSec=30min
+Unit={{ item.service_name }}.service
+Persistent=true
+OnCalendar={{ OnCalendar | join(' ') }}
+{% endif %}
+
+[Install]
+WantedBy=multi-user.target

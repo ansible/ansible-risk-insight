@@ -1,0 +1,62 @@
+---
+# Copyright 2016, Logan Vig <logan2211@gmail.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Drop unbound main configuration
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  notify:
+    - Restart unbound
+  with_items:
+    - { src: "unbound.conf.j2", dest: "/etc/unbound/unbound.conf" }
+  tags:
+    - unbound-config
+
+- name: Drop unbound local configurations
+  template:
+    src: "{{ item.template }}.j2"
+    # yamllint disable-line rule:line-length
+    dest: "{{ unbound_conf_dir }}/{{ (item.priority|default('50')|string).rjust(3, '0') }}-{{ item.template | basename }}"
+    owner: root
+    group: root
+    mode: '0644'
+    validate: "{{ unbound_validate_cmd | default(omit) }}"
+  notify:
+    - Restart unbound
+  with_items: "{{ unbound_configuration_templates }}"
+  tags:
+    - unbound-config
+
+- name: Drop unbound extra records
+  template:
+    src: "extra_records.conf.j2"
+    dest: "{{ unbound_conf_dir }}/{{ (item.priority|default('50')|string).rjust(3, '0') }}-{{ item.name }}.conf"
+    owner: root
+    group: root
+    mode: '0644'
+    validate: "{{ unbound_validate_cmd | default(omit) }}"
+  notify:
+    - Restart unbound
+  with_items: "{{ unbound_records }}"
+  tags:
+    - unbound-config
+
+- name: Start unbound and add to boot services
+  service:
+    name: "unbound"
+    enabled: "yes"

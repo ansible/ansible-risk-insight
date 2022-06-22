@@ -1,0 +1,239 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Validate Certificates when downloading hatop. May be set to "no" when proxy server
+# is intercepting the certificates.
+haproxy_hatop_download_validate_certs: yes
+
+# Set the package install state for distribution packages
+# Options are 'present' and 'latest'
+haproxy_package_state: "latest"
+
+## Haproxy Configuration
+haproxy_rise: 3
+haproxy_fall: 3
+haproxy_interval: 12000
+
+## Haproxy Stats
+haproxy_stats_enabled: False
+haproxy_stats_bind_address: 127.0.0.1
+haproxy_stats_port: 1936
+haproxy_username: admin
+haproxy_stats_password: secrete
+haproxy_stats_refresh_interval: 60
+# Prometheus stats are supported from HAProxy v2
+# Stats must be enabled above before this can be used
+haproxy_stats_prometheus_enabled: False
+# Pin stats gathering to one or more processes when using 'nbproc' tuning
+# For permitted options see https://cbonte.github.io/haproxy-dconv/1.8/configuration.html#3.1-stats%20bind-process
+# haproxy_stats_process: all
+
+# Default haproxy backup nodes to empty list so this doesn't have to be
+# defined for each service.
+haproxy_backup_nodes: []
+
+haproxy_service_configs: []
+# Example:
+# haproxy_service_configs:
+#   - service:
+#       haproxy_service_name: haproxy_all
+#       haproxy_backend_nodes: "{{ groups['haproxy_all'][0] }}"
+#       # haproxy_backup_nodes: "{{ groups['haproxy_all'][1:] }}"
+#       haproxy_port: 80
+#       haproxy_balance_type: http
+#       haproxy_backend_options:
+#         - "forwardfor"
+#         - "httpchk"
+#         - "httplog"
+#       haproxy_backend_server_options:
+#         - "inter 3000"                # a contrived example, there are many server config options possible
+#       haproxy_acls:
+#         allow_list:
+#           rule: "src 127.0.0.1/8 192.168.0.0/16 172.16.0.0/12 10.0.0.0/8"
+#           backend_name: "mybackend"
+#       haproxy_frontend_acls:
+#         letsencrypt-acl:
+#           rule: "path_beg /.well-known/acme-challenge/"
+#           backend_name: letsencrypt
+#   - service:
+#       # https://www.haproxy.com/blog/haproxy-exposes-a-prometheus-metrics-endpoint/
+#       haproxy_service_name: prometheus-metrics
+#       haproxy_port: 8404
+#       haproxy_bind:
+#         - '127.0.0.1'
+#       haproxy_allowlist_networks: "{{ haproxy_allowlist_networks }}"
+#       haproxy_frontend_only: True
+#       haproxy_balance_type: "http"
+#       haproxy_frontend_raw:
+#         - 'http-request use-service prometheus-exporter if { path /metrics }'
+#       haproxy_service_enabled: True
+
+galera_monitoring_user: monitoring
+haproxy_bind_on_non_local: False
+
+## haproxy SSL
+haproxy_ssl: true
+haproxy_ssl_all_vips: false
+haproxy_ssl_dh_param: 2048
+haproxy_ssl_cert_path: /etc/haproxy/ssl
+haproxy_ssl_bind_options: "ssl-min-ver TLSv1.2 prefer-client-ciphers"
+haproxy_ssl_server_options: "ssl-min-ver TLSv1.2"
+# TLS v1.2 and below
+haproxy_ssl_cipher_suite_tls12: "{{ haproxy_ssl_cipher_suite | default(ssl_cipher_suite_tls12 | default('ECDH+AESGCM:DH+AESGCM:ECDH+AES256:DH+AES256:ECDH+AES128:DH+AES:RSA+AESGCM:RSA+AES:!aNULL:!MD5:!DSS')) }}"
+# TLS v1.3
+haproxy_ssl_cipher_suite_tls13: "{{ ssl_cipher_suite_tls13 | default('TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256') }}"
+
+# haproxy self signed certificate
+
+# Storage location for SSL certificate authority
+haproxy_pki_dir: "{{ openstack_pki_dir | default('/etc/pki/haproxy-ca') }}"
+
+# Delegated host for operating the certificate authority
+haproxy_pki_setup_host: "{{ openstack_pki_setup_host | default('localhost') }}"
+
+# Create a certificate authority if one does not already exist
+haproxy_pki_create_ca: "{{ openstack_pki_authorities is not defined | bool }}"
+haproxy_pki_regen_ca: ''
+haproxy_pki_authorities:
+  - name: "HAProxyRoot"
+    country: "GB"
+    state_or_province_name: "England"
+    organization_name: "Example Corporation"
+    organizational_unit_name: "IT Security"
+    cn: "HAProxy Root CA"
+    provider: selfsigned
+    basic_constraints: "CA:TRUE"
+    key_usage:
+      - digitalSignature
+      - cRLSign
+      - keyCertSign
+    not_after: "+3650d"
+  - name: "HAProxyIntermediate"
+    country: "GB"
+    state_or_province_name: "England"
+    organization_name: "Example Corporation"
+    organizational_unit_name: "IT Security"
+    cn: "HAProxy Intermediate CA"
+    provider: ownca
+    basic_constraints: "CA:TRUE,pathlen:0"
+    key_usage:
+      - digitalSignature
+      - cRLSign
+      - keyCertSign
+    not_after: "+3650d"
+    signed_by: "HAProxyRoot"
+
+# Installation details for certificate authorities
+haproxy_pki_install_ca:
+  - name: "HAProxyRoot"
+    condition: "{{ haproxy_pki_create_ca }}"
+
+# HAProxy server certificate
+haproxy_pki_keys_path: "{{ haproxy_pki_dir ~ '/certs/private/' }}"
+haproxy_pki_certs_path: "{{ haproxy_pki_dir ~ '/certs/certs/' }}"
+haproxy_pki_intermediate_cert_name: "{{ openstack_pki_service_intermediate_cert_name | default('HAProxyIntermediate') }}"
+haproxy_pki_intermediate_cert_path: "{{ haproxy_pki_dir ~ '/roots/' ~ haproxy_pki_intermediate_cert_name ~ '/certs/' ~ haproxy_pki_intermediate_cert_name ~ '.crt' }}"
+haproxy_pki_regen_cert: ''
+haproxy_pki_certificates: "{{ _haproxy_pki_certificates }}"
+
+# Installation details for SSL certificates
+haproxy_pki_install_certificates: "{{ _haproxy_pki_install_certificates }}"
+
+# activate letsencrypt option
+haproxy_ssl_letsencrypt_enable: false
+# choose the certbot install method, 'distro' for a package manager repo, or downloaded with the certbot-auto script 'certbot-auto'
+haproxy_ssl_letsencrypt_install_method: "certbot-auto"
+haproxy_ssl_letsencrypt_certbot_auto_binary: "{{ haproxy_ssl_letsencrypt_install_path }}/{{ haproxy_ssl_letsencrypt_download_url | basename }}"
+haproxy_ssl_letsencrypt_certbot_binary: "{{ (haproxy_ssl_letsencrypt_install_method == 'certbot-auto') | ternary(haproxy_ssl_letsencrypt_certbot_auto_binary, 'certbot') }}"
+haproxy_ssl_letsencrypt_certbot_backend_port: 8888
+haproxy_ssl_letsencrypt_pre_hook_timeout: 5
+haproxy_ssl_letsencrypt_certbot_bind_address: "{{ ansible_host }}"
+haproxy_ssl_letsencrypt_certbot_challenge: "http-01"
+haproxy_ssl_letsencrypt_email: "example@example.com"
+haproxy_ssl_letsencrypt_download_url: "https://dl.eff.org/certbot-auto"
+haproxy_ssl_letsencrypt_venv: "/opt/eff.org/certbot/venv"
+haproxy_ssl_letsencrypt_config_path: "/etc/letsencrypt/live"
+haproxy_ssl_letsencrypt_install_path: "/opt/letsencrypt"
+haproxy_ssl_letsencrypt_setup_extra_params: ""
+haproxy_ssl_letsencrypt_cron_minute: "0"
+haproxy_ssl_letsencrypt_cron_hour: "0"
+haproxy_ssl_letsencrypt_cron_weekday: "0"
+haproxy_ssl_letsencrypt_acl:
+  letsencrypt-acl:
+    rule: "path_beg /.well-known/acme-challenge/"
+    backend_name: letsencrypt
+# Use alternative CA that supports ACME, can be a public or private CA
+# haproxy_ssl_letsencrypt_certbot_server: "https://acme-staging-v02.api.letsencrypt.org/directory"
+
+# hatop extra package URL and checksum
+haproxy_hatop_download_url: "https://github.com/jhunt/hatop/archive/v0.8.0.tar.gz"
+haproxy_hatop_download_checksum: "sha256:bcdab1664358ec83027957df11bbeb322df1a96d414a3ccc4e211532b82c4ad2"
+
+# Install hatop
+haproxy_hatop_install: true
+
+# The location where the extra packages are downloaded to
+haproxy_hatop_download_path: "/opt/cache/files"
+
+## haproxy default
+# Set the number of retries to perform on a server after a connection failure
+haproxy_retries: "3"
+# Set the maximum inactivity time on the client side
+haproxy_client_timeout: "50s"
+# Set the maximum time to wait for a connection attempt to a server to succeed
+haproxy_connect_timeout: "10s"
+# Set the maximum allowed time to wait for a complete HTTP request
+haproxy_http_request_timeout: "5s"
+# Set the maximum inactivity time on the server side
+haproxy_server_timeout: "50s"
+# Set the HTTP keepalive mode to use
+# Disable persistent connections by default because they can cause issues when the server side closes the connection
+# at the same time a request is sent.
+haproxy_keepalive_mode: 'forceclose'
+
+
+## haproxy tuning params
+haproxy_maxconn: 4096
+
+# Parameters below should only be specified if necessary, defaults are programmed in the template
+#haproxy_tuning_params:
+#  nbproc: 1
+#  tune.bufsize: 384000
+#  tune.chksize: 16384
+#  tune.comp_maxlevel: 1
+#  tune.http_maxhdr: 101
+#  tune.maxaccept: 64
+#  tune.ssl_cachesize: 20000
+#  tune.ssl_lifetime: 300
+haproxy_tuning_params: {}
+
+# Add extra VIPs to all services
+extra_lb_vip_addresses: []
+
+# Add extra TLS VIPs to all services
+extra_lb_tls_vip_addresses: []
+
+# Option to override which address haproxy binds to for external vip.
+haproxy_bind_external_lb_vip_address: "{{ external_lb_vip_address }}"
+
+# Option to override which address haproxy binds to for internal vip.
+haproxy_bind_internal_lb_vip_address: "{{ internal_lb_vip_address }}"
+
+# Make the log socket available to the chrooted filesystem
+haproxy_log_socket: "/dev/log"
+haproxy_log_mount_point: "/var/lib/haproxy/dev/log"
+
+# Ansible group name which should be used for distrtibuting self signed SSL Certificates
+haproxy_ansible_group_name: haproxy_all

@@ -1,0 +1,11 @@
+---
+- name: Install masakari
+  hosts: masakari_all
+  user: root
+  roles:
+    - { role: "os_masakari", tags: [ "os-masakari" ] }
+  vars:
+    external_lb_vip_address: 10.232.48.205
+    internal_lb_vip_address: 172.29.236.100
+    masakari_galera_address: "{{ internal_lb_vip_address }}"
+

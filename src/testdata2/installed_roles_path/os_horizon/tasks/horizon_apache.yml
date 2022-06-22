@@ -1,0 +1,82 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# NOTE(hwoarang): Module enable/disable process is only functional on Debian
+- name: Enable apache2 modules
+  apache2_module:
+    name: "{{ item.name }}"
+    state: "{{ item.state }}"
+    ignore_configcheck: yes
+  with_items:
+    - "{{ horizon_apache_modules }}"
+  when:
+    - ansible_facts['pkg_mgr'] == 'apt'
+  notify: Restart apache2
+
+- name: Drop apache2 configs
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "{{ item.owner | default(horizon_system_user_name) }}"
+    group: "{{ item.group | default(horizon_system_group_name) }}"
+  with_items: "{{ horizon_apache_configs }}"
+  notify: Restart apache2
+
+- name: Disable default apache site
+  file:
+    path: "{{ item }}"
+    state: "absent"
+  with_items: "{{ horizon_apache_default_sites }}"
+  notify: Restart apache2
+
+- name: Enable Horizon Site
+  file:
+    src: "{{ horizon_apache_site_available }}"
+    dest: "{{ horizon_apache_site_enabled }}"
+    state: "link"
+  when:
+    - horizon_apache_site_available is defined
+    - horizon_apache_site_enabled is defined
+  notify: Restart apache2
+
+- name: Ensure Apache ServerName
+  lineinfile:
+    dest: "{{ horizon_apache_conf }}"
+    line: "ServerName {{ horizon_server_name }}"
+  notify: Restart apache2
+
+- name: Ensure Apache ServerTokens
+  lineinfile:
+    dest: "{{ horizon_apache_security_conf }}"
+    regexp: '^ServerTokens'
+    line: "ServerTokens {{ horizon_apache_servertokens }}"
+  notify: Restart apache2
+
+- name: Ensure Apache ServerSignature
+  lineinfile:
+    dest: "{{ horizon_apache_security_conf }}"
+    regexp: '^ServerSignature'
+    line: "ServerSignature {{ horizon_apache_serversignature }}"
+  notify: Restart apache2
+
+# Removing the Listen (or listen.conf inclusion) from apache config to prevent
+# conflicts with ports.conf on CentOS and openSUSE
+- name: Remove Listen from Apache config
+  lineinfile:
+    dest: "{{ horizon_apache_security_conf }}"
+    regexp: '^(Listen.*)'
+    backrefs: yes
+    line: '#\1'
+  notify: Restart apache2

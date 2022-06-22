@@ -1,0 +1,13 @@
+[all]
+localhost
+test1 ansible_host=127.111.111.101 ansible_become=True
+test2 ansible_host=127.111.111.102 ansible_become=True
+test3 ansible_host=127.111.111.103 ansible_become=True
+
+[all_containers]
+test1
+test2
+test3
+
+[hosts]
+localhost

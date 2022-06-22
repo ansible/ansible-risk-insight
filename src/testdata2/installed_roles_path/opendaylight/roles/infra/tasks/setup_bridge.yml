@@ -1,0 +1,15 @@
+---
+- name: "Setup Linux Bridge '{{ bridge }}' and bind it to interface '{{ interface }}'"
+  remote_user: root
+  become: yes
+  become_method: sudo
+  shell: |
+    ip addr flush "{{ interface }}"
+    ip addr flush "{{ bridge }}"
+    ip link set   "{{ interface }}" up
+    ip link set   "{{ interface }}" promisc on
+    brctl addbr   "{{ bridge }}"
+    brctl addif   "{{ bridge }}" "{{ interface }}"
+    ip addr add   "{{ ip_addr_1 }}" dev "{{ bridge }}"
+    ip addr add   "{{ ip_addr_2 }}" dev "{{ bridge }}"
+    ip link set   "{{ bridge }}" up

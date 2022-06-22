@@ -1,0 +1,48 @@
+---
+# Copyright 2016, Logan Vig <logan2211@gmail.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+unbound_package_state: latest
+
+unbound_upstream_resolvers:
+  - 4.2.2.1
+  - 4.2.2.2
+  - 8.8.8.8
+  - 8.8.4.4
+unbound_localzone_mode: static
+unbound_root_zone: openstack
+unbound_regional_zone: "{{ service_region }}.{{ unbound_root_zone }}"
+unbound_listen_interface: 0.0.0.0
+unbound_access_control:
+  - cidr: 0.0.0.0/0
+    action: allow
+
+# bind ipv6 socket
+unbound_ipv6: true
+
+# deploys to server like priority-template.conf
+# so for example, 000-server.conf in unbound_conf_dir which is in the include path by default
+unbound_configuration_templates:
+  - template: "server.conf"
+    priority: 0
+  - template: "openstack.conf"
+
+# additional records example:
+# unbound_records:
+#   - name: 'extra'
+#     priority: 50 (optional)
+#     records:
+#       - { host: hostname1.openstack, val: 10.10.10.1, type: A }
+#       - { host: hostname2.openstack, val: 10.10.10.2, type: A }
+unbound_records: []

@@ -1,0 +1,26 @@
+- name: Create the config directory
+  file:
+    path: /opt/opendaylight/etc/opendaylight/datastore/initial/config/
+    state: directory
+    mode: "0755"
+    owner: "odl"
+    group: "odl"
+
+- name: Configure Genius to use flow based tunnels
+  template:
+    src: "netvirt-elanmanager-config.xml.j2"
+    dest: "/opt/opendaylight/etc/opendaylight/datastore/initial/config/netvirt-elanmanager-config.xml"
+    mode: "0644"
+    owner: "odl"
+    group: "odl"
+  when:
+    - odl_version is defined
+    - odl_version == 'nitrogen'
+
+- name: Configure Genius to create vxlan-gpe tunnels
+  template:
+    src: "genius-itm-config.xml.j2"
+    dest: "/opt/opendaylight/etc/opendaylight/datastore/initial/config/genius-itm-config.xml"
+    mode: "0644"
+    owner: "odl"
+    group: "odl"

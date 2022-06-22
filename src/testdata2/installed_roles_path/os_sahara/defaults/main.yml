@@ -1,0 +1,243 @@
+---
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+## Verbosity Options
+debug: False
+
+#python venv executable
+sahara_venv_python_executable: "{{ openstack_venv_python_executable | default('python3') }}"
+
+# Set the host which will execute the shade modules
+# for the service setup. The host must already have
+# clouds.yaml properly configured.
+sahara_service_setup_host: "{{ openstack_service_setup_host | default('localhost') }}"
+sahara_service_setup_host_python_interpreter: "{{ openstack_service_setup_host_python_interpreter | default((sahara_service_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable'])) }}"
+
+# Set the package install state for distribution packages
+# Options are 'present' and 'latest'
+sahara_package_state: "{{ package_state | default('latest') }}"
+
+sahara_git_repo: https://opendev.org/openstack/sahara
+sahara_git_install_branch: master
+sahara_upper_constraints_url: "{{ requirements_git_url | default('https://releases.openstack.org/constraints/upper/' ~ requirements_git_install_branch | default('master')) }}"
+sahara_git_constraints:
+  - "--constraint {{ sahara_upper_constraints_url }}"
+
+sahara_pip_install_args: "{{ pip_install_options | default('') }}"
+
+# Name of the virtual env to deploy into
+sahara_venv_tag: "{{ venv_tag | default('untagged') }}"
+sahara_bin: "/openstack/venvs/sahara-{{ sahara_venv_tag }}/bin"
+
+sahara_etc_dir: "{{ sahara_bin | dirname }}/etc/sahara"
+
+sahara_db_config: /etc/sahara/sahara.conf
+
+# Enable/Disable Ceilometer
+sahara_ceilometer_enabled: "{{ (groups['ceilometer_all'] is defined) and (groups['ceilometer_all'] | length > 0) }}"
+
+sahara_profiler_enabled: False
+sahara_fatal_deprecations: False
+
+## System info
+sahara_system_user_name: sahara
+sahara_system_group_name: sahara
+sahara_system_shell: /bin/false
+sahara_system_comment: sahara system user
+sahara_system_user_home: "/var/lib/{{ sahara_system_user_name }}"
+
+sahara_engine_host: "{{ internal_lb_vip_address }}"
+
+## Oslo Messaging Info
+# RPC
+sahara_oslomsg_rpc_host_group: "{{ oslomsg_rpc_host_group | default('rabbitmq_all') }}"
+sahara_oslomsg_rpc_setup_host: "{{ (sahara_oslomsg_rpc_host_group in groups) | ternary(groups[sahara_oslomsg_rpc_host_group][0], 'localhost') }}"
+sahara_oslomsg_rpc_transport: "{{ oslomsg_rpc_transport | default('rabbit') }}"
+sahara_oslomsg_rpc_servers: "{{ oslomsg_rpc_servers | default('127.0.0.1') }}"
+sahara_oslomsg_rpc_port: "{{ oslomsg_rpc_port | default('5672') }}"
+sahara_oslomsg_rpc_use_ssl: "{{ oslomsg_rpc_use_ssl | default(False) }}"
+sahara_oslomsg_rpc_userid: sahara
+sahara_oslomsg_rpc_vhost: /sahara
+sahara_oslomsg_rpc_ssl_version: "{{ oslomsg_rpc_ssl_version | default('TLSv1_2') }}"
+sahara_oslomsg_rpc_ssl_ca_file: "{{ oslomsg_rpc_ssl_ca_file | default('') }}"
+
+# Notify
+sahara_oslomsg_notify_host_group: "{{ oslomsg_notify_host_group | default('rabbitmq_all') }}"
+sahara_oslomsg_notify_setup_host: "{{ (sahara_oslomsg_notify_host_group in groups) | ternary(groups[sahara_oslomsg_notify_host_group][0], 'localhost') }}"
+sahara_oslomsg_notify_transport: "{{ oslomsg_notify_transport | default('rabbit') }}"
+sahara_oslomsg_notify_servers: "{{ oslomsg_notify_servers | default('127.0.0.1') }}"
+sahara_oslomsg_notify_port: "{{ oslomsg_notify_port | default('5672') }}"
+sahara_oslomsg_notify_use_ssl: "{{ oslomsg_notify_use_ssl | default(False) }}"
+sahara_oslomsg_notify_userid: "{{ sahara_oslomsg_rpc_userid }}"
+sahara_oslomsg_notify_password: "{{ sahara_oslomsg_rpc_password }}"
+sahara_oslomsg_notify_vhost: "{{ sahara_oslomsg_rpc_vhost }}"
+sahara_oslomsg_notify_ssl_version: "{{ oslomsg_notify_ssl_version | default('TLSv1_2') }}"
+sahara_oslomsg_notify_ssl_ca_file: "{{ oslomsg_notify_ssl_ca_file | default('') }}"
+
+## (Qdrouterd) info
+# TODO(ansmith): Change structure when more backends will be supported
+sahara_oslomsg_amqp1_enabled: "{{ sahara_oslomsg_rpc_transport == 'amqp' }}"
+
+## Database info
+sahara_db_setup_host: "{{ openstack_db_setup_host | default('localhost') }}"
+sahara_db_setup_python_interpreter: "{{ openstack_db_setup_python_interpreter | default((sahara_db_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable'])) }}"
+sahara_galera_address: "{{ galera_address | default('127.0.0.1') }}"
+sahara_galera_database: sahara
+sahara_galera_user: sahara
+sahara_galera_use_ssl: "{{ galera_use_ssl | default(False) }}"
+sahara_galera_ssl_ca_cert: "{{ galera_ssl_ca_cert | default('') }}"
+sahara_galera_port: "{{ galera_port | default('3306') }}"
+sahara_db_max_overflow: "{{ openstack_db_max_overflow | default('50') }}"
+sahara_db_max_pool_size: "{{ openstack_db_max_pool_size | default('5') }}"
+sahara_db_pool_timeout: "{{ openstack_db_pool_timeout | default('30') }}"
+sahara_db_connection_recycle_time: "{{ openstack_db_connection_recycle_time | default('600') }}"
+
+sahara_api_bind_address: "{{ openstack_service_bind_address | default('0.0.0.0') }}"
+sahara_api_service_port: 8386
+
+## Service Type and Data
+sahara_service_region: "{{ service_region | default('RegionOne') }}"
+sahara_service_name: sahara
+sahara_service_port: 8386
+sahara_service_proto: http
+sahara_service_engine_proto: "{{ sahara_service_proto }}"
+sahara_service_publicuri_proto: "{{ openstack_service_publicuri_proto | default(sahara_service_proto) }}"
+sahara_service_adminuri_proto: "{{ openstack_service_adminuri_proto | default(sahara_service_proto) }}"
+sahara_service_internaluri_proto: "{{ openstack_service_internaluri_proto | default(sahara_service_proto) }}"
+sahara_service_type: data-processing
+sahara_service_description: "Sahara Data Processing Service"
+sahara_service_user_name: sahara
+sahara_service_project_name: service
+sahara_service_project_domain_id: default
+sahara_service_user_domain_id: default
+sahara_service_project_domain_name: Default
+sahara_service_user_domain_name: Default
+sahara_service_role_names:
+  - admin
+  - service
+sahara_service_token_roles:
+  - service
+sahara_service_token_roles_required: "{{ openstack_service_token_roles_required | default(True) }}"
+sahara_service_publicuri: "{{ sahara_service_publicuri_proto }}://{{ external_lb_vip_address }}:{{ sahara_service_port }}"
+sahara_service_internaluri: "{{ sahara_service_internaluri_proto }}://{{ internal_lb_vip_address }}:{{ sahara_service_port }}"
+sahara_service_adminuri: "{{ sahara_service_adminuri_proto }}://{{ internal_lb_vip_address }}:{{ sahara_service_port }}"
+
+## Keystone authentication middleware
+sahara_keystone_auth_plugin: password
+
+## Sahara config
+sahara_use_floating_ips: False
+sahara_use_namespaces: False
+sahara_global_remote_threshold: 100
+sahara_cluster_remote_threshold: 70
+sahara_os_region_name: "{{ sahara_service_region }}"
+sahara_default_ntp_server: "pool.ntp.org"
+
+sahara_use_domain_for_proxy_users: True
+sahara_proxy_user_domain_name: sahara_proxy
+sahara_proxy_user_role_names: _member_
+
+# Other plugins can be added to the system by simply extending the list `sahara_plugin_base`.
+sahara_plugin_base:
+  - ambari
+  - cdh
+  - mapr
+  - spark
+  - storm
+  - vanilla
+
+sahara_plugin_loaded_base: "{% for plugin in sahara_plugin_base %}{{ plugin }}{% if not loop.last %},{% endif %}{% endfor %}"
+sahara_plugin_pip_packages:
+  - sahara-plugin-ambari
+  - sahara-plugin-cdh
+  - sahara-plugin-mapr
+  - sahara-plugin-spark
+  - sahara-plugin-storm
+  - sahara-plugin-vanilla
+
+## Cap the maximum number of threads / workers when a user value is unspecified.
+sahara_api_workers_max: 16
+sahara_api_workers: "{{ [[(ansible_facts['processor_vcpus']//ansible_facts['processor_threads_per_core'])|default(1), 1] | max * 2, sahara_api_workers_max] | min }}"
+
+sahara_task_executor: taskflow
+sahara_digest_algorithm: sha256
+sahara_http_keepalive: True
+
+## Sahara policy
+sahara_policy_file: policy.json
+sahara_policy_default_rule: default
+sahara_policy_dirs: policy.d
+
+## Policy vars
+# Provide a list of access controls to update the default policy.json with. These changes will be merged
+# with the access controls in the default policy.json. E.g.
+#sahara_policy_overrides:
+#  "clusters:get_all": ""
+#  "clusters:create": ""
+
+sahara_service_in_ldap: "{{ service_ldap_backend_enabled | default(False) }}"
+
+# Common pip packages
+sahara_pip_packages:
+  - cryptography
+  - keystonemiddleware
+  - osprofiler
+  - PyMySQL
+  - pymemcache
+  - python-memcached
+  - python-saharaclient
+  - python-keystoneclient
+  - "git+{{ sahara_git_repo }}@{{ sahara_git_install_branch }}#egg=sahara"
+  - systemd-python
+  - warlock
+
+# Memcached override
+sahara_memcached_servers: "{{ memcached_servers }}"
+
+sahara_optional_oslomsg_amqp1_pip_packages:
+  - oslo.messaging[amqp1]
+
+# Specific pip packages provided by the user
+sahara_user_pip_packages: []
+
+sahara_engine_init_overrides: {}
+sahara_api_init_overrides: {}
+
+## Service Names
+sahara_services:
+  sahara-api:
+    group: sahara_api
+    service_name: sahara-api
+    init_config_overrides: "{{ sahara_api_init_overrides }}"
+    wsgi_app: True
+    wsgi_name: sahara-wsgi-api
+    uwsgi_overrides: "{{ sahara_api_uwsgi_ini_overrides }}"
+    uwsgi_port: "{{ sahara_api_service_port }}"
+    uwsgi_bind_address: "{{ sahara_api_bind_address }}"
+  sahara-engine:
+    group: sahara_engine
+    service_name: sahara-engine
+    init_config_overrides: "{{ sahara_engine_init_overrides }}"
+    execstarts: "{{ sahara_bin }}/sahara-engine"
+
+## Sahara uWSGI settings
+sahara_wsgi_processes_max: 16
+sahara_wsgi_processes: "{{ [[ansible_facts['processor_vcpus']|default(1), 1] | max * 2, sahara_wsgi_processes_max] | min }}"
+sahara_wsgi_threads: 1
+
+## Tunable overrides
+sahara_api_paste_ini_overrides: {}
+sahara_conf_overrides: {}
+sahara_rootwrap_conf_overrides: {}
+sahara_policy_overrides: {}
+sahara_api_uwsgi_ini_overrides: {}

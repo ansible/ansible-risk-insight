@@ -1,0 +1,126 @@
+# {{ ansible_managed }}
+
+[DEFAULT]
+use_journal = True
+# Disable stderr logging
+use_stderr = False
+debug = {{ debug }}
+fatal_deprecations = {{ manila_fatal_deprecations }}
+my_ip = {{ manila_management_address }}
+
+default_share_type = {{ manila_default_share_type }}
+share_name_template = {{ manila_share_name_template }}
+
+osapi_share_workers = {{ manila_osapi_share_workers }}
+
+rootwrap_config = /etc/manila/rootwrap.conf
+api_paste_config = /etc/manila/api-paste.ini
+
+## RabbitMQ RPC
+executor_thread_pool_size = {{ manila_rpc_executor_thread_pool_size }}
+rpc_response_timeout = {{ manila_rpc_response_timeout }}
+
+transport_url = {{ manila_oslomsg_rpc_transport }}://{% for host in manila_oslomsg_rpc_servers.split(',') %}{{ manila_oslomsg_rpc_userid }}:{{ manila_oslomsg_rpc_password }}@{{ host }}:{{ manila_oslomsg_rpc_port }}{% if not loop.last %},{% else %}/{{ manila_oslomsg_rpc_vhost }}{% if manila_oslomsg_rpc_use_ssl | bool %}?ssl=1&ssl_version={{ manila_oslomsg_rpc_ssl_version }}&ssl_ca_file={{ manila_oslomsg_rpc_ssl_ca_file }}{% else %}?ssl=0{% endif %}{% endif %}{% endfor %}
+
+## Quota
+quota_shares = {{ manila_quota_shares }}
+quota_snapshots = {{ manila_quota_snapshots }}
+quota_gigabytes = {{ manila_quota_gigabytes }}
+quota_snapshot_gigabytes = {{ manila_quota_snapshot_gigabytes }}
+quota_share_networks = {{ manila_quota_share_networks }}
+
+storage_availability_zone = {{ manila_storage_availability_zone }}
+
+{% if manila_enabled_share_protocols is defined %}
+enabled_share_protocols={{ manila_enabled_share_protocols | join(',') }}
+{% endif %}
+
+enabled_share_backends={% for backend in manila_backends | dictsort %}{{ backend.0 }}{% if not loop.last %},{% endif %}{% endfor %}
+
+# All given backend(s)
+{% for backend_section in manila_backends | dictsort %}
+[{{ backend_section.0 }}]
+{%   for key, value in (backend_section.1 | dictsort) if key not in ['extra_share_types', 'shares'] %}
+{{ key }}={{ value }}
+{%   endfor %}
+
+{% endfor %}
+
+[database]
+connection = mysql+pymysql://{{ manila_galera_user }}:{{ manila_container_mysql_password }}@{{ manila_galera_address }}/{{ manila_galera_database }}?charset=utf8{% if manila_galera_use_ssl | bool %}&ssl_verify_cert=true{% if manila_galera_ssl_ca_cert | length > 0 %}&ssl_ca={{ manila_galera_ssl_ca_cert }}{% endif %}{% endif +%}
+max_overflow = {{ manila_db_max_overflow }}
+max_pool_size = {{ manila_db_max_pool_size }}
+pool_timeout = {{ manila_db_pool_timeout }}
+connection_recycle_time = {{ manila_db_connection_recycle_time }}
+
+[oslo_messaging_rabbit]
+ssl = {{ manila_oslomsg_rpc_use_ssl }}
+
+[oslo_messaging_notifications]
+driver = {{ (manila_ceilometer_enabled | bool) | ternary('messagingv2', 'noop') }}
+transport_url = {{ manila_oslomsg_notify_transport }}://{% for host in manila_oslomsg_notify_servers.split(',') %}{{ manila_oslomsg_notify_userid }}:{{ manila_oslomsg_notify_password }}@{{ host }}:{{ manila_oslomsg_notify_port }}{% if not loop.last %},{% else %}/{{ manila_oslomsg_notify_vhost }}{% if manila_oslomsg_notify_use_ssl | bool %}?ssl=1&ssl_version={{ manila_oslomsg_notify_ssl_version }}&ssl_ca_file={{ manila_oslomsg_notify_ssl_ca_file }}{% else %}?ssl=0{% endif %}{% endif %}{% endfor %}
+
+[oslo_concurrency]
+lock_path = {{ manila_lock_dir }}/{{ manila_system_slice_name }}
+
+[profiler]
+enabled = {{ manila_profiler_enabled }}
+trace_sqlalchemy = {{ manila_profiler_trace_sqlalchemy }}
+hmac_keys = {{ manila_profiler_hmac_key }}
+
+[keystone_authtoken]
+insecure = {{ keystone_service_internaluri_insecure | bool }}
+auth_type = {{ manila_keystone_auth_plugin }}
+auth_url = {{ keystone_service_adminurl }}
+www_authenticate_uri = {{ keystone_service_internaluri }}
+project_domain_id = {{ manila_service_project_domain_id }}
+user_domain_id = {{ manila_service_user_domain_id }}
+project_name = {{ manila_service_project_name }}
+username = {{ manila_service_user_name }}
+password = {{ manila_service_password }}
+region_name = {{ keystone_service_region }}
+
+service_token_roles_required = {{ manila_service_token_roles_required | bool }}
+service_token_roles = {{ manila_service_token_roles | join(',') }}
+service_type = {{ manila_service_v2_type }}
+
+memcached_servers = {{ manila_memcached_servers }}
+
+token_cache_time = 300
+
+# if your memcached server is shared, use these settings to avoid cache poisoning
+memcache_security_strategy = ENCRYPT
+memcache_secret_key = {{ memcached_encryption_key }}
+
+{% if (manila_backends | to_json).find('manila.share.drivers.generic') != -1 %}
+[neutron]
+url = http://{{ internal_lb_vip_address }}:9696
+auth_url = {{ keystone_service_adminurl }}
+auth_type = {{ manila_keystone_auth_plugin }}
+project_domain_name = {{ neutron_service_domain_name | default("Default") }}
+user_domain_name = {{ neutron_service_domain_name | default("Default") }}
+region_name = {{ neutron_service_region | default(manila_service_region) }}
+project_name = {{ neutron_service_project_name | default("service") }}
+username = {{ neutron_service_user_name | default("neutron") }}
+password = {{ neutron_service_password }}
+
+[nova]
+auth_url = {{ keystone_service_adminurl }}
+auth_type = {{ manila_keystone_auth_plugin }}
+project_domain_name = {{ nova_service_domain_name | default("Default") }}
+user_domain_name = {{ nova_service_domain_name | default("Default") }}
+region_name = {{ nova_service_region | default(manila_service_region) }}
+project_name = {{ nova_service_project_name | default("service") }}
+username = {{ nova_service_user_name | default("nova") }}
+password = {{ nova_service_password }}
+
+[cinder]
+auth_url = {{ keystone_service_adminurl }}
+auth_type = {{ manila_keystone_auth_plugin }}
+project_domain_name = {{ cinder_service_domain_name | default("Default") }}
+user_domain_name = {{ cinder_service_domain_name | default("Default") }}
+region_name = {{ cinder_service_region | default(manila_service_region) }}
+project_name = {{ cinder_service_project_name | default("service") }}
+username = {{ cinder_service_user_name | default("cinder") }}
+password = {{ cinder_service_password }}
+{% endif %}

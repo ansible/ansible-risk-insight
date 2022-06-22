@@ -1,0 +1,10 @@
+---
+copy_admin_key: True
+user_config: True
+test:
+  name: "test"
+test2:
+  name: "test2"
+pools:
+  - "{{ test }}"
+  - "{{ test2 }}"

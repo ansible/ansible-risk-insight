@@ -1,0 +1,15 @@
+# {{ ansible_managed }}
+
+-d
+{% if debug | bool %}
+-vv
+{% else %}
+-v
+{% endif %}
+-U 0
+-m {{ memcached_memory }}
+-p {{ memcached_port }}
+-u {{ memcached_user }}
+-l {{ memcached_listen }}
+-c {{ memcached_connections }}
+-t {{ memcached_threads }}

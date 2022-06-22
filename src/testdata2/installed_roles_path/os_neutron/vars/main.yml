@@ -1,0 +1,600 @@
+---
+# Copyright 2017, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+_neutron_is_first_play_host: "{{ (neutron_services['neutron-server']['group'] in group_names and inventory_hostname == (groups[neutron_services['neutron-server']['group']] | intersect(ansible_play_hosts)) | first) | bool }}"
+
+###
+### Open vSwitch
+###
+neutron_needs_openvswitch: >-
+  {{ (neutron_services['neutron-openvswitch-agent']['group'] in group_names and neutron_services['neutron-openvswitch-agent'].service_en | bool)
+  or (neutron_services['neutron-ovn-northd']['group'] in group_names and (neutron_plugin_type == 'ml2.ovn') | bool)
+  or (neutron_services['neutron-ovn-controller']['group'] in group_names and (neutron_plugin_type == 'ml2.ovn') | bool)
+  or ((neutron_services['neutron-server']['group'] not in group_names) and neutron_plugin_type == 'ml2.opendaylight') }}
+
+# Set the Calico Felix agent executable destination path
+calico_felix_bin: /usr/local/bin/calico-felix
+
+###
+### Python code details
+###
+
+neutron_pip_packages:
+  - "git+{{ neutron_git_repo }}@{{ neutron_git_install_branch }}#egg=neutron"
+  - osprofiler
+  - PyMySQL
+  - pymemcache
+  - python-memcached
+  - systemd-python
+
+# Specific pip packages provided by the user
+neutron_user_pip_packages: []
+
+neutron_optional_oslomsg_amqp1_pip_packages:
+  - oslo.messaging[amqp1]
+
+neutron_optional_bgp_pip_packages:
+  - "git+{{ neutron_dynamic_routing_git_repo }}@{{ neutron_dynamic_routing_git_install_branch }}#egg=neutron-dynamic-routing"
+
+neutron_optional_calico_pip_packages:
+  - "git+{{ networking_calico_git_repo }}@{{ networking_calico_git_install_branch }}#egg=networking-calico"
+  - python-etcd
+  - etcd3gw
+
+neutron_optional_vpnaas_pip_packages:
+  - "git+{{ neutron_vpnaas_git_repo }}@{{ neutron_vpnaas_git_install_branch }}#egg=neutron-vpnaas"
+
+neutron_optional_opendaylight_pip_packages:
+  - "git+{{ networking_odl_git_repo }}@{{ networking_odl_git_install_branch }}#egg=networking-odl"
+  - "git+{{ ceilometer_git_repo }}@{{ ceilometer_git_install_branch }}#egg=ceilometer"
+  - "git+{{ networking_bgpvpn_git_repo }}@{{ networking_bgpvpn_git_install_branch }}#egg=networking-bgpvpn"
+
+neutron_optional_sfc_pip_packages:
+  - "git+{{ networking_sfc_git_repo }}@{{ networking_sfc_git_install_branch }}#egg=networking-sfc"
+
+neutron_proprietary_nuage_pip_packages:
+  - nuage-openstack-neutron
+  - nuage-openstack-neutronclient
+  - nuagenetlib
+
+neutron_optional_baremetal_pip_packages:
+  - "git+{{ networking_baremetal_git_repo }}@{{ networking_baremetal_git_install_branch }}#egg=networking-baremetal"
+
+neutron_optional_ngs_pip_packages:
+  - "git+{{ networking_generic_switch_git_repo }}@{{ networking_generic_switch_git_install_branch }}#egg=networking-generic-switch"
+
+neutron_optional_nsx_pip_packages:
+  - "git+{{ networking_nsx_git_repo }}@{{ networking_nsx_git_install_branch }}#egg=vmware-nsx"
+  - "git+{{ networking_nsxlib_git_repo }}@{{ networking_nsxlib_git_install_branch }}#egg=vmware-nsxlib"
+
+neutron_venv_packages: >-
+  {%- set pkg_list = neutron_pip_packages | union(neutron_user_pip_packages) %}
+  {%- if neutron_bgp | bool %}
+  {%-   set _ = pkg_list.extend(neutron_optional_bgp_pip_packages) %}
+  {%- endif %}
+  {%- if neutron_vpnaas | bool %}
+  {%-   set _ = pkg_list.extend(neutron_optional_vpnaas_pip_packages) %}
+  {%- endif %}
+  {%- if neutron_sfc | bool %}
+  {%-   set _ = pkg_list.extend(neutron_optional_sfc_pip_packages) %}
+  {%- endif %}
+  {%- if neutron_oslomsg_amqp1_enabled | bool %}
+  {%-   set _ = pkg_list.extend(neutron_optional_oslomsg_amqp1_pip_packages) %}
+  {%- endif %}
+  {%- if (neutron_plugin_type.split('.')[-1] == 'calico') and
+         ((neutron_services['neutron-server']['group'] in group_names) or
+          (neutron_services['calico-felix']['group'] in group_names) or
+          (neutron_services['calico-dhcp-agent']['group'] in group_names)) %}
+  {%-     set _ = pkg_list.extend(neutron_optional_calico_pip_packages) %}
+  {%- endif %}
+  {%- if (neutron_plugin_type.split('.')[-1] == 'nuage') and
+         (neutron_services['neutron-server']['group'] in group_names) %}
+  {%-     set _ = pkg_list.extend(neutron_optional_nuage_pip_packages) %}
+  {%- endif %}
+  {%- if neutron_plugin_type.split('.')[-1] == 'opendaylight' %}
+  {%-   set _ = pkg_list.extend(neutron_optional_opendaylight_pip_packages) %}
+  {%-   if 'sfc' in neutron_plugin_base %}
+  {%-     set _ = pkg_list.extend(neutron_optional_sfc_pip_packages) %}
+  {%-   endif %}
+  {%- endif %}
+  {%- if ('ml2.genericswitch' in neutron_plugin_types) and
+         (neutron_services['neutron-server']['group'] in group_names) %}
+  {%-     set _ = pkg_list.extend(neutron_optional_ngs_pip_packages) %}
+  {%- endif %}
+  {%- if ('ml2.baremetal' in neutron_plugin_types) and
+         ((neutron_services['neutron-server']['group'] in group_names) or
+          (neutron_services['ironic-neutron-agent']['group'] in group_names)) %}
+  {%-     set _ = pkg_list.extend(neutron_optional_baremetal_pip_packages) %}
+  {%- endif %}
+  {%- if (neutron_plugin_type.split('.')[-1] == "nsx") and
+         (neutron_services['neutron-server']['group'] in group_names) %}
+  {%-     set _ = pkg_list.extend(neutron_optional_nsx_pip_packages) %}
+  {%- endif %}
+  {{- pkg_list | unique }}
+
+
+###
+### Generic Neutron Config
+###
+
+neutron_conf_dir: /etc/neutron
+neutron_conf_version_dir: "{{ (neutron_install_method == 'distro') | ternary(neutron_conf_dir, (neutron_bin | dirname) + '/etc/neutron') }}"
+neutron_lock_dir: "{{ openstack_lock_dir | default('/run/lock') }}"
+neutron_system_user_name: neutron
+neutron_system_group_name: neutron
+neutron_system_comment: neutron system user
+neutron_system_shell: /bin/false
+neutron_system_home_folder: "/var/lib/{{ neutron_system_user_name }}"
+neutron_system_slice_name: neutron
+
+###
+### DB (Galera) integration
+###
+
+neutron_db_config: "{{ neutron_conf_dir }}/neutron.conf"
+neutron_db_plugin: "{{ neutron_conf_dir }}/{{ neutron_plugins[neutron_plugin_type].plugin_ini }}"
+
+###
+### Telemetry integration
+###
+
+# Add 'metering' to the neutron_plugin_base list when enabled
+neutron_metering: "{% if 'metering' in neutron_plugin_base %}True{% else %}False{% endif %}"
+
+###
+### Neutron Plugins
+###
+
+neutron_plugin_core: "{{ neutron_plugins[neutron_plugin_type].plugin_core }}"
+
+neutron_plugins:
+  ml2.lxb:
+    driver_firewall: iptables
+    driver_interface: linuxbridge
+    drivers_type: "{{ neutron_ml2_drivers_type }}"
+    l2_population: "{{ neutron_l2_population }}"
+    mechanisms: "linuxbridge"
+    l3_agent_mode: "legacy"
+    plugin_conf_ini_overrides: "{{ neutron_ml2_conf_ini_overrides }}"
+    plugin_core: ml2
+    plugin_ini: plugins/ml2/ml2_conf.ini
+  ml2.ovs:
+    driver_firewall: "{{ neutron_firewall_driver | default('iptables_hybrid') }}"
+    driver_interface: openvswitch
+    drivers_type: "{{ neutron_ml2_drivers_type }}"
+    l2_population: "{{ neutron_l2_population }}"
+    mechanisms: "openvswitch"
+    l3_agent_mode: "legacy"
+    plugin_conf_ini_overrides: "{{ neutron_ml2_conf_ini_overrides }}"
+    plugin_core: ml2
+    plugin_ini: plugins/ml2/ml2_conf.ini
+  ml2.ovs.dvr:
+    driver_firewall: "{{ neutron_firewall_driver | default('iptables_hybrid') }}"
+    driver_interface: openvswitch
+    drivers_type: "{{ neutron_ml2_drivers_type }}"
+    l2_population: "{{ neutron_l2_population }}"
+    mechanisms: "openvswitch"
+    l3_agent_mode: "{% if 'network_hosts' in group_names %}dvr_snat{% else %}dvr{% endif %}"
+    router_distributed: True
+    plugin_conf_ini_overrides: "{{ neutron_ml2_conf_ini_overrides }}"
+    plugin_core: ml2
+    plugin_ini: plugins/ml2/ml2_conf.ini
+  ml2.calico:
+    drivers_type: "flat, local"
+    mechanisms: "calico"
+    plugin_conf_ini_overrides: "{{ neutron_ml2_conf_ini_overrides }}"
+    plugin_core: ml2
+    plugin_ini: plugins/ml2/ml2_conf.ini
+  nuage:
+    plugin_core: nuage_neutron.plugins.nuage.plugin.NuagePlugin
+    plugin_ini: plugins/nuage/nuage.ini
+    plugin_conf_ini_overrides: "{{ neutron_nuage_conf_ini_overrides }}"
+  ml2.sriov:
+    driver_types: "{{ neutron_ml2_drivers_type }}"
+    mechanisms: "sriovnicswitch"
+    plugin_ini: plugins/ml2/sriov_nic_agent.ini
+    plugin_conf_ini_overrides: "{{ neutron_sriov_nic_agent_ini_overrides }}"
+  ml2.opendaylight:
+    drivers_type: "local,flat,vlan,gre,vxlan"
+    mechanisms: "opendaylight_v2"
+    plugin_conf_ini_overrides: "{{ neutron_opendaylight_conf_ini_overrides }}"
+    plugin_core: neutron.plugins.ml2.plugin.Ml2Plugin
+    plugin_ini: plugins/ml2/ml2_conf.ini
+    driver_interface: "openvswitch"
+    l3_agent_mode: "legacy"
+  ml2.ovn:
+    drivers_type: "{{ neutron_ml2_drivers_type }}"
+    driver_interface: openvswitch
+    mechanisms: "ovn"
+    plugin_conf_ini_overrides: "{{ neutron_ml2_conf_ini_overrides }}"
+    plugin_core: ml2
+    plugin_ini: plugins/ml2/ml2_conf.ini
+  ml2.genericswitch:
+    drivers_type: "vlan"
+    mechanisms: "genericswitch"
+    plugin_conf_bare: True
+    plugin_conf_ini_overrides: "{{ neutron_ml2_conf_genericswitch_ini_overrides }}"
+    plugin_core: ml2
+    plugin_ini: plugins/ml2/ml2_conf_genericswitch.ini
+  ml2.baremetal:
+    drivers_type: "vlan"
+    mechanisms: "baremetal"
+    plugin_conf_ini_overrides: "{{ neutron_ironic_neutron_agent_ini_overrides }}"
+    plugin_core: ml2
+    plugin_ini: plugins/ml2/ironic_neutron_agent.ini
+  vmware.nsx:
+    plugin_core: vmware_nsx.plugin.NsxPolicyPlugin
+    plugin_ini: plugins/vmware/nsx.ini
+    plugin_conf_ini_overrides: "{{ neutron_nsx_conf_ini_overrides }}"
+
+###
+### ML2 Plugin Configuration
+###
+
+neutron_ml2_mechanism_drivers: >-
+  {%- set _var = [] -%}
+  {%- for plugin in [neutron_plugin_type]|union(neutron_plugin_types) -%}
+    {%- if _var.append(neutron_plugins[plugin].mechanisms) -%}{%- endif -%}
+  {%- endfor -%}
+  {%- if neutron_l2_population | bool -%}
+    {%- if _var.append('l2population') -%}{%- endif -%}
+  {%- endif -%}
+  {{ _var | join(',') }}
+
+# OVS
+_neutron_non_tunnel_types:
+  - flat
+  - vlan
+  - local
+
+# Tunnel network types used by the OVS agent
+neutron_tunnel_types: "{{ neutron_ml2_drivers_type.split(',') | difference(_neutron_non_tunnel_types) | join(',') }}"
+
+# OpenDaylight
+opendaylight_extra_features: |-
+  {%- set features = ['odl-netvirt-openstack'] -%}
+  {%- if 'sfc' in neutron_plugin_base -%}
+    {%- set features = ['odl-netvirt-sfc'] -%}
+  {%- endif -%}
+  {{ features }}
+
+opendaylight_install_method: "{{ (ansible_facts['os_family']=='Debian') | ternary('deb_repo', 'rpm_repo') }}"
+
+ovs_manager_list: |-
+  {% set ovs_managers_odls = [] %}
+  {% for odl_ip_address in groups[neutron_services['neutron-server']['group']] | map('extract', hostvars, 'ansible_host') | list -%}
+    {% set _ = ovs_managers_odls.append('tcp:' ~ odl_ip_address ~ ':6640') %}
+  {%- endfor %}
+  {{ ovs_managers_odls | join(' ') }}
+###
+### L3 Agent Plugin Configuration
+###
+
+## Please add 'router' to the neutron_plugin_base list
+#TODO(odyssey4me): Remove the class path from this conditional in the Newton cycle
+# Should the neutron-l3-agent service should be enabled on the host
+neutron_l3: "{% if 'router' in neutron_plugin_base or 'neutron.services.l3_router.l3_router_plugin.L3RouterPlugin' in neutron_plugin_base or 'df-l3' in neutron_plugin_base %}True{% else %}False{% endif %}"
+
+###
+### DHCP Agent Plugin Configuration
+###
+
+neutron_dhcp: "{% if neutron_plugin_type.split('.')[0] == 'ml2' %}True{% else %}False{% endif %}"
+
+###
+### Metadata Agent Plugin Configuration
+###
+
+neutron_metadata: "{% if neutron_plugin_type.split('.')[0] == 'ml2' %}True{% else %}False{% endif %}"
+
+###
+### FWaaS Plugin Configuration
+###
+
+###
+### VPNaaS Plugin Configuration
+###
+
+# Please add the 'vpnaas' to the neutron_plugin_base list
+neutron_vpnaas: "{% if 'vpnaas' in neutron_plugin_base %}True{% else %}False{% endif %}"
+
+## Neutron Dynamic Routing Agent's BGP Plugin Configuration
+# To enable the BGP plugin, add the following item to the neutron_plugin_base list:
+#   neutron_dynamic_routing.services.bgp.bgp_plugin.BgpPlugin
+#
+# NOTE(matias): BgpPlugin doesn't have entry points and the full classpath
+#               is required.
+
+neutron_bgp: "{% if 'neutron_dynamic_routing.services.bgp.bgp_plugin.BgpPlugin' in neutron_plugin_base %}True{% else %}False{% endif %}"
+
+neutron_bgp_speaker_driver: neutron_dynamic_routing.services.bgp.agent.driver.os_ken.driver.OsKenBgpDriver
+
+neutron_bgp_router_id: "{{ neutron_local_ip }}"
+
+###
+### port_forwarding
+###
+
+neutron_port_forwarding: "{{ ('port_forwarding' in neutron_plugin_base) | ternary('True', 'False') }}"
+
+###
+### Service Function Chaining
+###
+
+neutron_sfc: "{{ ('sfc' in neutron_plugin_base) | ternary('True', 'False') }}"
+
+###
+### Services info
+###
+
+#
+# Compile a list of the services on a host based on whether
+# the host is in the host group and the service is enabled.
+# The service list is provided in the defined start order.
+#
+filtered_neutron_services: |-
+  {% set services = [] %}
+  {% for key, value in neutron_services.items() %}
+  {%   if (value['group'] in group_names) and
+          (('service_en' not in value) or
+           ('service_en' in value and value['service_en'])) and
+           not ('wsgi_app' in value and value['wsgi_app']) %}
+  {%     set _ = value.update({'service_key': key}) %}
+  {%     set _ = services.append(value) %}
+  {%   endif %}
+  {% endfor %}
+  {{ services | sort(attribute='start_order') }}
+
+uwsgi_neutron_services: |-
+  {% set services = {} %}
+  {% for name, service in neutron_services.items() %}
+  {%   if (service['group'] in group_names) and
+         (('condition' not in service) or ('condition' in service and service['condition']))
+         and ('wsgi_app' in service and service['wsgi_app']) %}
+  {%     set _ = service.update(
+            {
+             'wsgi_path': neutron_bin ~ '/' ~ service.wsgi_name,
+             'wsgi_venv': ((neutron_install_method == 'source') | ternary(neutron_bin | dirname, None)),
+             'uwsgi_uid': neutron_system_user_name,
+             'uwsgi_guid': neutron_system_group_name,
+             'uwsgi_processes': neutron_wsgi_processes,
+             'uwsgi_threads': neutron_wsgi_threads
+           }
+         ) %}
+  {%     set _ = services.update({name: service}) %}
+  {%   endif %}
+  {% endfor %}
+  {{ services }}
+
+###
+### Internals: neutron_services mappings
+###
+
+neutron_services:
+  neutron-dhcp-agent:
+    group: neutron_dhcp_agent
+    service_name: neutron-dhcp-agent
+    service_en: "{{ neutron_dhcp | bool }}"
+    service_conf_path: "{{ neutron_conf_version_dir }}"
+    service_conf: dhcp_agent.ini
+    service_rootwrap: rootwrap.d/dhcp.filters
+    execstarts: "{{ neutron_bin }}/neutron-dhcp-agent --config-file {{ neutron_conf_dir }}/neutron.conf --config-file {{ neutron_conf_dir }}/dhcp_agent.ini"
+    config_overrides: "{{ neutron_dhcp_agent_ini_overrides }}"
+    config_type: "ini"
+    init_config_overrides: "{{ neutron_dhcp_agent_init_overrides }}"
+    start_order: 3
+  neutron-openvswitch-agent:
+    group: neutron_openvswitch_agent
+    service_name: neutron-openvswitch-agent
+    service_en: "{{ neutron_plugin_type in ['ml2.ovs', 'ml2.ovs.dvr'] }}"
+    service_conf_path: "{{ neutron_conf_version_dir }}"
+    service_conf: plugins/ml2/openvswitch_agent.ini
+    service_rootwrap: rootwrap.d/openvswitch-plugin.filters
+    execstarts: "{{ neutron_bin }}/neutron-openvswitch-agent --config-file {{ neutron_conf_dir }}/neutron.conf --config-file {{ neutron_conf_dir }}/plugins/ml2/ml2_conf.ini --config-file {{ neutron_conf_dir }}/plugins/ml2/openvswitch_agent.ini"
+    config_overrides: "{{ neutron_openvswitch_agent_ini_overrides }}"
+    config_type: "ini"
+    init_config_overrides: "{{ neutron_openvswitch_agent_init_overrides }}"
+    start_order: 2
+  neutron-linuxbridge-agent:
+    group: neutron_linuxbridge_agent
+    service_name: neutron-linuxbridge-agent
+    service_en: "{{ neutron_plugin_type == 'ml2.lxb' }}"
+    service_conf_path: "{{ neutron_conf_version_dir }}"
+    service_conf: plugins/ml2/linuxbridge_agent.ini
+    service_rootwrap: rootwrap.d/linuxbridge-plugin.filters
+    execstarts: "{{ neutron_bin }}/neutron-linuxbridge-agent --config-file {{ neutron_conf_dir }}/neutron.conf --config-file {{ neutron_conf_dir }}/plugins/ml2/ml2_conf.ini --config-file {{ neutron_conf_dir }}/plugins/ml2/linuxbridge_agent.ini"
+    config_overrides: "{{ neutron_linuxbridge_agent_ini_overrides }}"
+    config_type: "ini"
+    init_config_overrides: "{{ neutron_linuxbridge_agent_init_overrides }}"
+    start_order: 2
+  neutron-metadata-agent:
+    group: neutron_metadata_agent
+    service_name: neutron-metadata-agent
+    service_en: "{{ neutron_metadata | bool }}"
+    service_conf_path: "{{ neutron_conf_version_dir }}"
+    service_conf: metadata_agent.ini
+    execstarts: "{{ neutron_bin }}/neutron-metadata-agent --config-file {{ neutron_conf_dir }}/neutron.conf --config-file {{ neutron_conf_dir }}/metadata_agent.ini"
+    config_overrides: "{{ neutron_metadata_agent_ini_overrides }}"
+    config_type: "ini"
+    init_config_overrides: "{{ neutron_metadata_agent_init_overrides }}"
+    start_order: 3
+  neutron-metering-agent:
+    group: neutron_metering_agent
+    service_name: neutron-metering-agent
+    service_en: "{{ neutron_metering | bool }}"
+    service_conf_path: "{{ neutron_conf_version_dir }}"
+    service_conf: metering_agent.ini
+    execstarts: "{{ neutron_bin }}/neutron-metering-agent --config-file {{ neutron_conf_dir }}/neutron.conf --config-file {{ neutron_conf_dir }}/metering_agent.ini"
+    config_overrides: "{{ neutron_metering_agent_ini_overrides }}"
+    config_type: "ini"
+    init_config_overrides: "{{ neutron_metering_agent_init_overrides }}"
+    start_order: 3
+  neutron-l3-agent:
+    group: neutron_l3_agent
+    service_name: neutron-l3-agent
+    service_en: "{{ neutron_l3 | bool }}"
+    service_conf_path: "{{ neutron_conf_version_dir }}"
+    service_conf: l3_agent.ini
+    service_rootwrap: rootwrap.d/l3.filters
+    environment:
+      PATH: "{{ neutron_bin }}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    execstarts: "{{ neutron_bin }}/neutron-l3-agent --config-file {{ neutron_conf_dir }}/neutron.conf --config-file {{ neutron_conf_dir }}/l3_agent.ini"
+    config_overrides: "{{ neutron_l3_agent_ini_overrides }}"
+    config_type: "ini"
+    init_config_overrides: "{{ _neutron_l3_agent_init_defaults | combine(neutron_l3_agent_init_overrides, recursive=True) }}"
+    start_order: 3
+  neutron-bgp-dragent:
+    group: neutron_bgp_dragent
+    service_name: neutron-bgp-dragent
+    service_en: "{{ neutron_bgp | bool }}"
+    service_conf_path: "{{ neutron_conf_version_dir }}"
+    service_conf: bgp_dragent.ini
+    execstarts: "{{ neutron_bin }}/neutron-bgp-dragent --config-file {{ neutron_conf_dir }}/neutron.conf --config-file {{ neutron_conf_dir }}/bgp_dragent.ini"
+    config_overrides: "{{ neutron_bgp_dragent_ini_overrides }}"
+    config_type: "ini"
+    init_config_overrides: "{{ neutron_bgp_dragent_init_overrides }}"
+    start_order: 3
+  neutron-server:
+    group: neutron_server
+    service_name: neutron-server
+    service_en: True
+    start_order: 1
+    wsgi_app: "{{ neutron_use_uwsgi }}"
+    uwsgi_overrides: "{{ neutron_api_uwsgi_ini_overrides }}"
+    uwsgi_bind_address: "{{ neutron_api_bind_address }}"
+    uwsgi_port: "{{ neutron_service_port }}"
+    wsgi_name: "neutron-api"
+    execstarts: "{{ neutron_bin }}/neutron-server --config-file {{ neutron_conf_dir }}/neutron.conf --config-file {{ neutron_conf_dir }}/{{ neutron_plugins[neutron_plugin_type].plugin_ini }}{%- if ('ml2.genericswitch' in neutron_plugin_types) %} --config-file {{ neutron_conf_dir }}/{{ neutron_plugins['ml2.genericswitch'].plugin_ini }}{%- endif %}"
+    init_config_overrides: "{{ neutron_server_init_overrides }}"
+  neutron-rpc-server:
+    group: neutron_server
+    service_name: neutron-rpc-server
+    service_en: "{{ neutron_use_uwsgi }}"
+    init_config_overrides: "{{ neutron_rpc_server_init_overrides | combine(neutron_server_init_overrides) }}"
+    start_order: 2
+    execstarts: "{{ neutron_bin }}/neutron-rpc-server --config-file {{ neutron_conf_dir }}/neutron.conf --config-file {{ neutron_conf_dir }}/{{ neutron_plugins[neutron_plugin_type].plugin_ini }}{%- if ('ml2.genericswitch' in neutron_plugin_types) %} --config-file {{ neutron_conf_dir }}/{{ neutron_plugins['ml2.genericswitch'].plugin_ini }}{%- endif %}"
+  calico-felix:
+    group: neutron_calico_dhcp_agent
+    systemd_user_name: root
+    systemd_group_name: root
+    service_name: calico-felix
+    service_en: "{{ neutron_plugin_type == 'ml2.calico' }}"
+    service_conf_path: /etc/calico
+    service_conf: felix.cfg
+    execstarts: "{{ calico_felix_bin }} --config-file /etc/calico/felix.cfg"
+    config_overrides: "{{ neutron_calico_felix_ini_overrides }}"
+    config_type: "ini"
+    init_config_overrides: "{{ neutron_calico_felix_init_overrides }}"
+    start_order: 3
+  calico-dhcp-agent:
+    group: neutron_calico_dhcp_agent
+    systemd_user_name: root
+    systemd_group_name: root
+    service_name: calico-dhcp-agent
+    service_en: "{{ neutron_plugin_type == 'ml2.calico' }}"
+    service_rootwrap: rootwrap.d/dhcp.filters
+    execstarts: "{{ neutron_bin }}/calico-dhcp-agent --config-file {{ neutron_conf_dir }}/neutron.conf"
+    config_overrides: "{{ neutron_calico_dhcp_agent_ini_overrides }}"
+    config_type: "ini"
+    init_config_overrides: "{{ neutron_calico_dhcp_agent_init_overrides }}"
+    start_order: 3
+  neutron-sriov-nic-agent:
+    group: neutron_sriov_nic_agent
+    service_name: neutron-sriov-nic-agent
+    service_en: "{{ 'ml2.sriov' in neutron_plugin_types }}"
+    service_conf_path: "{{ neutron_conf_version_dir }}"
+    service_conf: plugins/ml2/sriov_nic_agent.ini
+    execstarts: "{{ neutron_bin }}/neutron-sriov-nic-agent --config-file {{ neutron_conf_dir }}/neutron.conf --config-file {{ neutron_conf_dir }}/plugins/ml2/ml2_conf.ini --config-file {{ neutron_conf_dir }}/plugins/ml2/sriov_nic_agent.ini"
+    config_overrides: "{{ neutron_sriov_nic_agent_ini_overrides }}"
+    config_type: "ini"
+    init_config_overrides: "{{ neutron_sriov_nic_agent_init_overrides }}"
+    start_order: 3
+  neutron-ovn-northd:
+    group: neutron_ovn_northd
+    service_en: False
+  neutron-ovn-controller:
+    group: neutron_ovn_controller
+    service_en: False
+  neutron-ovn-metadata-agent:
+    group: neutron_ovn_controller
+    systemd_user_name: root
+    systemd_group_name: root
+    service_name: neutron-ovn-metadata-agent
+    service_en: "{{ neutron_plugin_type == 'ml2.ovn' }}"
+    service_conf_path: "{{ neutron_conf_version_dir }}"
+    service_conf: neutron_ovn_metadata_agent.ini
+    service_rootwrap: rootwrap.d/ovn-plugin.filters
+    execstarts: "{{ neutron_bin }}/neutron-ovn-metadata-agent --config-file {{ neutron_conf_dir }}/neutron.conf --config-file {{ neutron_conf_dir }}/plugins/ml2/ml2_conf.ini --config-file {{ neutron_conf_dir }}/neutron_ovn_metadata_agent.ini"
+    config_overrides: "{{ neutron_ovn_metadata_agent_ini_overrides }}"
+    config_type: "ini"
+    init_config_overrides: "{{ neutron_ovn_metadata_agent_init_overrides }}"
+    start_order: 3
+  ironic-neutron-agent:
+    group: ironic_neutron_agent
+    service_name: ironic-neutron-agent
+    service_en: "{{ 'ml2.baremetal' in neutron_plugin_types }}"
+    service_conf_path: "{{ neutron_conf_version_dir }}"
+    service_conf: plugins/ml2/ironic_neutron_agent.ini
+    execstarts: "{{ neutron_bin }}/ironic-neutron-agent --config-file {{ neutron_conf_dir }}/neutron.conf --config-file {{ neutron_conf_dir }}/plugins/ml2/ml2_conf.ini --config-file {{ neutron_conf_dir }}/plugins/ml2/ironic_neutron_agent.ini"
+    config_overrides: "{{ neutron_ironic_neutron_agent_ini_overrides }}"
+    config_type: "ini"
+    init_config_overrides: "{{ neutron_ironic_neutron_agent_init_overrides }}"
+    start_order: 3
+
+###
+### Overrides for services where required
+###
+
+# Ensure that keepalived processes are not stopped on exit
+_neutron_l3_agent_init_defaults:
+  Service:
+    KillMode: process
+
+###
+### Internals: Drivers mappings
+###
+
+neutron_driver_network_scheduler: neutron.scheduler.dhcp_agent_scheduler.WeightScheduler
+neutron_driver_router_scheduler: neutron.scheduler.l3_agent_scheduler.LeastRoutersScheduler
+neutron_driver_metering: neutron.services.metering.drivers.iptables.iptables_driver.IptablesMeteringDriver
+neutron_driver_dhcp: neutron.agent.linux.dhcp.Dnsmasq
+neutron_driver_quota: neutron.db.quota.driver.DbQuotaDriver
+
+###
+### Internals: py_pkgs
+###
+
+# This variable is used by the repo_build process to determine
+# which host group to check for members of before building the
+# pip packages required by this role. The value is picked up
+# by the py_pkgs lookup.
+neutron_role_project_group: neutron_all
+
+###
+### Internals: files central to neutron we can override
+###
+
+neutron_core_files:
+  - tmp_f: "/tmp/api-paste.ini.original"
+    target_f: "{{ neutron_conf_version_dir }}/api-paste.ini"
+    config_overrides: "{{ neutron_api_paste_ini_overrides }}"
+    config_type: "ini"
+  - tmp_f: "/tmp/rootwrap.conf.original"
+    target_f: "{{ neutron_conf_version_dir }}/rootwrap.conf"
+    config_overrides: "{{ _neutron_rootwrap_conf_overrides | combine(neutron_rootwrap_conf_overrides, recursive=True) }}"
+    config_type: "ini"
+    owner: "root"
+    group: "{{ neutron_system_group_name }}"
+    mode: "0640"

@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+set -e -x
+
+{{ lxc_cache_prep_pre_commands }}
+
+{% include 'templates/prep-scripts/_container_sys_setup.sh.j2' %}
+
+# remove configs that break containers (listchanges is missing)
+rm -f /etc/apt/apt.conf.d/20listchanges
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get remove -y --purge snap* lxc* lxd* resolvconf* || true
+
+# Update base distribution
+apt-get update
+
+apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" --force-yes eatmydata
+export LD_PRELOAD=/usr/lib/{{ ansible_facts['architecture'] }}-linux-gnu/libeatmydata.so
+
+#Chroots are built with phased updates disabled, so we must disable them at runtime to avoid package version errors
+echo "APT::Get::Always-Include-Phased-Updates \"true\";" | tee /etc/apt/apt.conf.d/95phased-updates
+
+apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" --force-yes gnupg
+apt-get upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" --force-yes
+apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" --force-yes {{ lxc_cache_distro_packages | join(' ') }}
+apt-get upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" --force-yes
+rm /etc/machine-id || true
+rm /var/lib/dbus/machine-id || true
+touch /etc/machine-id
+rm /etc/sysctl.d/* || true
+echo '' > /etc/sysctl.conf
+mkdir -p /root/.ssh
+chmod 700 /root/.ssh
+userdel --force --remove ubuntu || true
+apt-get clean
+mkdir -p /var/backup
+mkdir -p /etc/network/interfaces.d
+chage -I -1 -d -1 -m 0 -M 99999 -E -1 root
+for action in disable mask; do
+  systemctl ${action} resolvconf.service || true
+  systemctl ${action} systemd-networkd-resolvconf-update.path || true
+  systemctl ${action} systemd-networkd-resolvconf-update.service || true
+done
+
+{% for locale in lxc_cache_locales %}
+sed -i 's/^# *\({{ locale }}\)/\1/' /etc/locale.gen && locale-gen
+{% if loop.first | bool %}
+update-locale LANG={{ locale }}
+{% endif %}
+{% endfor %}
+
+# Set the IP of the lxcbr0 interface as the DNS server
+echo "nameserver {{ lxc_net_address }}" > /etc/resolv.conf
+systemctl enable systemd-networkd
+{{ lxc_cache_prep_post_commands }}

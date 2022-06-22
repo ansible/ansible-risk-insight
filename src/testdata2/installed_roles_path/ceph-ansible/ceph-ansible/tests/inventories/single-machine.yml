@@ -1,0 +1,11 @@
+[mons]
+localhost
+
+[osds]
+localhost
+
+[rgws]
+localhost
+
+[mdss]
+localhost

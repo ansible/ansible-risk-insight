@@ -1,0 +1,108 @@
+---
+# Copyright 2018, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Setup RPC MQ Service (RabbitMQ)
+  delegate_to: "{{ _oslomsg_rpc_setup_host }}"
+  when:
+    - "(_oslomsg_configure_rpc | default(_oslomsg_rpc_transport is defined))"
+    - "(_oslomsg_rpc_transport is defined) and (_oslomsg_rpc_transport == 'rabbit')"
+  tags:
+    - common-rabbitmq
+  block:
+    - name: Add RPC RabbitMQ vhost
+      community.rabbitmq.rabbitmq_vhost:
+        name: "{{ _oslomsg_rpc_vhost }}"
+        state: "present"
+
+    - name: Apply RPC RabbitMQ vhost policies
+      community.rabbitmq.rabbitmq_policy:
+        name: "{{ item.name }}"
+        pattern: "{{ item.pattern }}"
+        priority: "{{ item.priority | default(0) }}"
+        tags: "{{ item.tags }}"
+        state: "{{ item.state | default(omit) }}"
+        vhost: "{{ _oslomsg_rpc_vhost }}"
+      loop: "{{ _oslomsg_rpc_policies | default([]) + oslomsg_rpc_policies }}"
+
+    - name: Add RPC RabbitMQ user
+      community.rabbitmq.rabbitmq_user:
+        user: "{{ _oslomsg_rpc_userid }}"
+        password: "{{ _oslomsg_rpc_password }}"
+        update_password: always
+        vhost: "{{ _oslomsg_rpc_vhost }}"
+        configure_priv: ".*"
+        read_priv: ".*"
+        write_priv: ".*"
+        state: "present"
+      no_log: true
+
+- name: Setup Notify MQ Service (RabbitMQ)
+  delegate_to: "{{ _oslomsg_notify_setup_host }}"
+  when:
+    - "(_oslomsg_configure_notify | default(_oslomsg_notify_transport is defined))"
+    - "(_oslomsg_notify_transport is defined) and (_oslomsg_notify_transport == 'rabbit')"
+  tags:
+    - common-rabbitmq
+  block:
+    - name: Add Notify RabbitMQ vhost
+      community.rabbitmq.rabbitmq_vhost:
+        name: "{{ _oslomsg_notify_vhost }}"
+        state: "present"
+      when:
+        - (_oslomsg_rpc_vhost is undefined) or
+          (_oslomsg_notify_vhost != _oslomsg_rpc_vhost) or
+          (_oslomsg_notify_setup_host != _oslomsg_rpc_setup_host)
+
+    - name: Apply Notify RabbitMQ vhost policies
+      community.rabbitmq.rabbitmq_policy:
+        name: "{{ item.name }}"
+        pattern: "{{ item.pattern }}"
+        priority: "{{ item.priority | default(0) }}"
+        tags: "{{ item.tags }}"
+        state: "{{ item.state | default(omit) }}"
+        vhost: "{{ _oslomsg_notify_vhost }}"
+      loop: "{{ _oslomsg_notify_policies | default([]) + oslomsg_notify_policies }}"
+      when:
+        - (_oslomsg_rpc_vhost is undefined) or
+          (_oslomsg_notify_vhost != _oslomsg_rpc_vhost) or
+          (_oslomsg_notify_setup_host != _oslomsg_rpc_setup_host)
+
+    - name: Add Notify RabbitMQ user
+      community.rabbitmq.rabbitmq_user:
+        user: "{{ _oslomsg_notify_userid }}"
+        password: "{{ _oslomsg_notify_password }}"
+        update_password: always
+        vhost: "{{ _oslomsg_notify_vhost }}"
+        configure_priv: ".*"
+        read_priv: ".*"
+        write_priv: ".*"
+        state: "present"
+      no_log: true
+      when:
+        - (_oslomsg_rpc_userid is undefined) or
+          (_oslomsg_notify_userid != _oslomsg_rpc_userid) or
+          (_oslomsg_notify_setup_host != _oslomsg_rpc_setup_host)
+
+- name: Setup RPC MQ Service (Qdrouterd)
+  delegate_to: "{{ _oslomsg_rpc_setup_host }}"
+  when:
+    - "(_oslomsg_configure_rpc | default(_oslomsg_rpc_transport is defined))"
+    - "(_oslomsg_rpc_transport is defined) and (_oslomsg_rpc_transport == 'amqp')"
+  tags:
+    - common-qdrouterd
+  block:
+    - name: Add RPC Qdrouterd user
+      shell: "echo {{ _oslomsg_rpc_password }} | saslpasswd2 -c -p -f /var/lib/qdrouterd/qdrouterd.sasldb -u AMQP {{ _oslomsg_rpc_userid }}"
+      no_log: true

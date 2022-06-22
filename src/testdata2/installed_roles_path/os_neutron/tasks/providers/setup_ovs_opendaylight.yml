@@ -1,0 +1,52 @@
+---
+# Copyright 2017, Intracom-Telecom
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Retrieve current OvS manager
+  command: ovs-vsctl get-manager
+  register: ovs_manager
+  changed_when: False
+  until: ovs_manager.rc == 0
+  retries: 3
+  delay: 5
+
+- name: Set ODL as OvS manager
+  command: ovs-vsctl set-manager {{ ovs_manager_list }}
+  when: ovs_manager.stdout | length == 0
+
+- name: Configure hosts for networking-odl, force kernel datapath
+  command: "{{ neutron_bin }}/neutron-odl-ovs-hostconfig --noovs_dpdk {% if neutron_provider_networks.network_mappings is defined and 'odl-router_v2' in neutron_plugin_base or 'odl-router' in neutron_plugin_base %}--datapath_type=system --bridge_mappings={{ neutron_provider_networks.network_mappings }} {% endif %}"
+  when: ovs_manager.stdout | length == 0
+
+- name: Retrieve current OvS local ip
+  command: ovs-vsctl get Open_vSwitch . other_config:local_ip
+  ignore_errors: yes
+  register: ovs_local_ip
+  changed_when: False
+
+- name: Set local ip for OpenvSwitch
+  command: "ovs-vsctl set Open_vSwitch . other_config:local_ip={{ neutron_local_ip }}"
+  when: ovs_local_ip.rc != 0
+
+- name: Set the bridge mappings
+  command: "ovs-vsctl set Open_vSwitch . other_config:provider_mappings={{ neutron_provider_networks.network_mappings }}"
+  when:
+    - neutron_provider_networks.network_mappings is defined
+    - (neutron_plugin_base == 'odl-router' or neutron_plugin_base == 'odl-router_v2')
+
+- name: Set the of-tunnel to true
+  command: "ovs-vsctl set Open_vSwitch . external_ids:of-tunnel=true"
+  when:
+    - neutron_plugin_base == 'sfc'
+

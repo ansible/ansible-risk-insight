@@ -1,0 +1,22 @@
+---
+- name: create /etc/grafana and /var/lib/grafana
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ grafana_uid }}"
+    group: "{{ grafana_uid }}"
+    recurse: true
+  with_items:
+    - /etc/grafana
+    - /var/lib/grafana
+
+- name: include_tasks systemd.yml
+  include_tasks: systemd.yml
+
+- name: start the grafana-server service
+  systemd:
+    name: grafana-server
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  failed_when: false

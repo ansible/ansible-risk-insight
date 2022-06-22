@@ -1,0 +1,6 @@
+---
+- name: Basic host setup
+  hosts: "hosts"
+  user: root
+  roles:
+    - { role: "openstack_hosts" }

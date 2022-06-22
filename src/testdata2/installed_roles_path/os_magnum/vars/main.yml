@@ -1,0 +1,64 @@
+---
+# Copyright 2017, Rackspace US, Inc.
+# Copyright 2018, VEXXHOST, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+_magnum_is_first_play_host: "{{ (magnum_services['magnum-api']['group'] in group_names and inventory_hostname == (groups[magnum_services['magnum-api']['group']] | intersect(ansible_play_hosts)) | first) | bool }}"
+
+#
+# Compile a list of the services on a host based on whether
+# the host is in the host group and the service is enabled.
+# The service list is provided in the defined start order.
+#
+filtered_magnum_services: |-
+  {% set services = [] %}
+  {% for key, value in magnum_services.items() %}
+  {%   if (value['group'] in group_names) and
+          (('condition' not in value) or
+           ('condition' in value and value['condition'])) and
+           not ('wsgi_app' in value and value['wsgi_app']) %}
+  {%     set _ = value.update(
+           {
+             'service_key': key,
+             'enabled': 'yes',
+             'state': 'started',
+             'config_overrides': value.init_config_overrides
+           }
+         )
+  %}
+  {%     set _ = value.pop('init_config_overrides') -%}
+  {%     set _ = services.append(value) %}
+  {%   endif %}
+  {% endfor %}
+  {{ services | sort(attribute='start_order') }}
+
+uwsgi_magnum_services: |-
+  {% set services = {} %}
+  {% for key, value in magnum_services.items() %}
+  {%   if (value['group'] in group_names) and
+         (('condition' not in value) or ('condition' in value and value['condition']))
+         and ('wsgi_app' in value and value['wsgi_app']) %}
+  {%     set _ = value.update(
+            {
+             'wsgi_venv': magnum_bin | dirname,
+             'uwsgi_uid': magnum_system_user_name,
+             'uwsgi_guid': magnum_system_group_name,
+             'uwsgi_processes': magnum_wsgi_processes,
+             'uwsgi_threads': magnum_wsgi_threads
+           }
+         ) %}
+  {%     set _ = services.update({key: value}) %}
+  {%   endif %}
+  {% endfor %}
+  {{ services }}

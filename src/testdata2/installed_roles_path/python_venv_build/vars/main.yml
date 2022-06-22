@@ -1,0 +1,63 @@
+---
+# Copyright 2018, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Set the available build targets for all nodes within an environment.
+# build targets are grouped based on operating system and CPU
+# architecture.
+#
+# This is the data structure used to determine the build host.
+# venv_build_targets:
+#   {
+#     ansible_facts['distribution_version']: {
+#       ansible_facts['architecture']: inventory_hostname
+#     }
+#   }
+#
+# Auto generation process:
+# * The automatic build targets will iterate over the group name
+#   "repo_all" and if any target is found it will catagorize it
+#   using the distro and cpu architecture criteria.
+# * If no group named "repo_all" is found the current inventory
+#   hostname will be used as the only available build target.
+# * If no build target is found for matching the distro and cpu
+#   criteria of the active inventory item, the generator will fall
+#   back to using the active inventory host as the build target.
+#
+# NOTE: (cloudnull): While there may be multiple inventory items
+#                    that match a single distro and CPU architecture
+#                    type, only one build target will ever be used.
+#                    To make more than one build target effective,
+#                    deployers should be using a shared file system
+#                    for the repo servers.
+venv_build_targets: |-
+  {% set targets = {
+      (ansible_facts['distribution_version'] | string): {
+          (ansible_facts['architecture'] | string): (inventory_hostname | string)
+      }
+    }
+  %}
+  {% for item in ((groups['repo_all'] | default([inventory_hostname])) | reverse) %}
+  {%   set distro = hostvars[item]['ansible_facts']['distribution_version'] %}
+  {%   set arch = hostvars[item]['ansible_facts']['architecture'] %}
+  {%   set target_item = {(arch | string): (item | string)} %}
+  {%   set _ = targets.__setitem__(distro, target_item) %}
+  {% endfor %}
+  {{ targets }}
+
+_venv_pip_packages: "{{ (venv_default_pip_packages | union(venv_pip_packages)) | sort | select | list }}"
+
+_venv_build_dist_arch: "{{ (ansible_facts['distribution'] | lower) | replace(' ', '_') }}-{{ ansible_facts['distribution_version'].split('.')[:2] | join('.') }}-{{ ansible_facts['architecture'] | lower }}"
+
+_venv_build_requirements_prefix: "{{ venv_build_host_requirements_path }}/{{ venv_install_destination_path | basename }}"

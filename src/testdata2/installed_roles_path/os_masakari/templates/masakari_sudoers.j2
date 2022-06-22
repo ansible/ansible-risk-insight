@@ -1,0 +1,6 @@
+# Ansible managed
+
+Defaults:masakari !requiretty
+Defaults:masakari secure_path="{{ masakari_bin }}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+masakari ALL = (root) NOPASSWD: {{ masakari_bin }}/privsep-helper

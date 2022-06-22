@@ -1,0 +1,6 @@
+# {{ ansible_managed }}
+
+Defaults:{{ zun_system_user_name }} !requiretty
+Defaults:{{ zun_system_user_name }} secure_path="{{ zun_bin }}:{{ zun_bin | dirname }}/libexec/kuryr:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+{{ zun_system_user_name }} ALL = (root) NOPASSWD: {{ zun_bin }}/{{ zun_service_name }}-rootwrap

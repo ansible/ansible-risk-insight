@@ -1,0 +1,45 @@
+# {{ ansible_managed }}
+
+{%- set members_list = [] %}
+
+{% for host in groups["neutron_server_container"]  %}
+   {% set indexing = loop.index|string %}
+   {% set _ = members_list.append('"' + "member-" + indexing + '"')  %}
+{% endfor %}
+
+module-shards = [
+    {
+        name = "default"
+        shards = [
+            {
+                name="default"
+                replicas = [
+                  {{ members_list | join(',') }}
+                ]
+            }
+        ]
+    },
+    {
+        name = "topology"
+        shards = [
+            {
+                name="topology"
+                replicas = [
+                  {{ members_list | join(',') }}
+                ]
+            }
+        ]
+    },
+    {
+        name = "inventory"
+        shards = [
+            {
+                name="inventory"
+                replicas = [
+                  {{ members_list | join(',') }}
+                ]
+            }
+        ]
+    }
+]
+

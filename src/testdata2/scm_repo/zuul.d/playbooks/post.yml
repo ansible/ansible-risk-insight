@@ -1,0 +1,52 @@
+---
+# Copyright 2017, Logan Vig <logan2211@gmail.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- hosts: all
+  tasks:
+    - name: Run log collection script
+      command: scripts/log-collect.sh
+      become: yes
+      become_user: root
+      args:
+        chdir: "src/opendev.org/openstack/openstack-ansible"
+      environment:
+        # ZUUL_PROJECT is used by the log collection functions to enable
+        # log collection configuration specific to OpenStack CI
+        ZUUL_PROJECT: "{{ zuul.project.short_name }}"
+        TEST_EXIT_CODE: "{{ zuul_success | lower }}"
+        RUN_ARA: "true"
+        # Some Zuul environments (such as OpenStack CI) use html based ara reports
+        ARA_REPORT_TYPE: "{{ ara_report_type | default('database') }}"
+        WORKING_DIR: "{{ ansible_user_dir }}/src/opendev.org/openstack/openstack-ansible"
+
+    - name: Check whether a logs folder exists
+      stat:
+        path: "{{ ansible_user_dir }}/src/opendev.org/openstack/openstack-ansible/logs"
+        get_attributes: no
+        get_checksum: no
+        get_md5: no
+        get_mime: no
+      register: logs_folder
+
+    - name: Copy logs back to the executor
+      synchronize:
+        src: "{{ ansible_user_dir }}/src/opendev.org/openstack/openstack-ansible/logs"
+        dest: "{{ zuul.executor.log_root }}/"
+        mode: pull
+        rsync_opts:
+          - "--quiet"
+      when:
+        - logs_folder.stat is defined
+        - logs_folder.stat.exists | bool

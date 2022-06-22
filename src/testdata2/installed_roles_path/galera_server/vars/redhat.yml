@@ -1,0 +1,77 @@
+---
+# Copyright 2016, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Galera GPG Keys
+_galera_gpg_keys:
+  # MariaDB Package Signing Key <package-signing-key@mariadb.org>
+  - key: /etc/pki/rpm-gpg/RPM-GPG-KEY-MariaDB
+
+# Default private device setting
+# This provides some additional security, but it causes problems with creating
+# mount namespaces on CentOS 7 with systemd 219. Setting the following variable
+# to 'yes' will disable the PrivateDevices
+_galera_disable_privatedevices: yes
+
+galera_server_required_distro_packages:
+  - gnupg2
+  - libaio
+  - libstdc++
+  - libgcc
+  - libgcrypt
+  - MariaDB-client
+  - MariaDB-devel
+  - python3-PyMySQL
+
+galera_etc_conf_file: "/etc/mysql/my.cnf"
+galera_etc_include_dir: "/etc/mysql/conf.d"
+galera_var_run_socket: "{{ galera_data_dir }}/mysql.sock"
+
+_galera_mariadb_server_package: "MariaDB-server"
+
+galera_server_mariadb_distro_packages:
+  - which
+  - "{{ galera_mariadb_server_package }}"
+  - MariaDB-backup
+  - MariaDB-shared
+  - rsync
+  - socat
+
+# Conflicting packages with those from the MariaDB repository
+galera_mariadb_distro_packages_remove:
+  - mariadb-common
+  - mariadb-config
+  - mariadb-server
+
+# The packages to uninstall during an upgrade from a previous version
+galera_server_upgrade_packages_remove:
+  - galera-*
+  - MariaDB-Galera-server
+  - MariaDB-server
+
+_galera_repo_url: "http://{{ galera_repo_host }}/MariaDB/mariadb-{{ galera_major_version }}.{{ galera_minor_version }}/yum/rhel/$releasever/$basearch"
+_galera_repo:
+  name: MariaDB
+  description: "MariaDB Repo"
+  baseurl: "{{ galera_repo_url }}"
+
+galera_wsrep_provider: "/usr/lib64/galera-4/libgalera_smm.so"
+
+galera_client_distro_packages:
+  - MariaDB-client
+
+galera_devel_distro_packages:
+  - MariaDB-devel
+
+galera_unix_socket: "{{ galera_data_dir }}/mysql.sock"

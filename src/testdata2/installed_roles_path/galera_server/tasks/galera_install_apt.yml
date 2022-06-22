@@ -1,0 +1,101 @@
+---
+# Copyright 2016, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Remove conflicting distro packages
+  package:
+    name: "{{ galera_mariadb_distro_packages_remove | default([]) }}"
+    state: absent
+
+- name: If a keyfile is provided, copy the gpg keyfile to the key location
+  copy:
+    src: "gpg/{{ item.id }}"
+    dest: "{{ item.file }}"
+    mode: '0644'
+  with_items: "{{ galera_gpg_keys | selectattr('file','defined') | list }}"
+
+- name: Install gpg keys
+  apt_key: "{{ key }}"
+  with_items: "{{ galera_gpg_keys }}"
+  loop_control:
+    loop_var: key
+  register: _add_apt_keys
+  until: _add_apt_keys is success
+  retries: 5
+  delay: 2
+
+- name: Remove old repos
+  lineinfile:
+    dest: "/etc/apt/sources.list.d/{{ item.name }}.list"
+    regexp: "^((?!{{ item.repo }}).*)$"
+    state: absent
+  with_items:
+    - { name: "MariaDB", repo: "{{ galera_repo.repo }}" }
+  when: galera_repo.repo is defined
+
+- name: Add galera repo
+  apt_repository:
+    repo: "{{ galera_repo.repo }}"
+    filename: "{{ galera_repo.filename | default(omit) }}"
+    state: "{{ galera_repo.state }}"
+    update_cache: no
+  register: add_galera_repo
+  when: galera_repo.repo is defined
+
+- name: Preseed galera password(s)
+  debconf:
+    name: "{{ item.name }}"
+    question: "{{ item.question }}"
+    value: "{{ item.value }}"
+    vtype: "{{ item.vtype }}"
+  with_items: "{{ galera_debconf_items }}"
+  no_log: yes
+
+- name: Prevent galera from starting on install
+  copy:
+    src: "policy-rc.d"
+    dest: "/usr/sbin/policy-rc.d"
+    mode: "0755"
+    backup: yes
+  changed_when: false
+
+- name: Update Apt cache
+  apt:
+    update_cache: yes
+  when:
+    - add_galera_repo is changed
+  register: update_apt_cache
+  until: update_apt_cache is success
+  retries: 5
+  delay: 2
+
+- name: Install galera role remote packages (apt)
+  apt:
+    name: "{{ galera_packages_list }}"
+    state: "{{ galera_package_state }}"
+    update_cache: yes
+    cache_valid_time: "{{ cache_timeout }}"
+  register: install_remote_apt_packages
+  until: install_remote_apt_packages is success
+  retries: 5
+  delay: 2
+  notify:
+    - Restart all mysql
+
+
+- name: Remove policy-rc now that the package install is complete
+  file:
+    path: "/usr/sbin/policy-rc.d"
+    state: absent
+  changed_when: false

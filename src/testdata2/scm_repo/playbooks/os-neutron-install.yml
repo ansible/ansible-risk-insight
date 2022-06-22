@@ -1,0 +1,50 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Configure Neutron dynamic host groupings
+  hosts: localhost
+  gather_facts: no
+  tags:
+    - neutron
+  tasks:
+    - import_tasks: common-tasks/dynamic-grouping.yml
+      vars:
+        src_group: "nova_compute"
+        dest_group: "neutron_l3_agent, neutron_metadata_agent"
+        group_when: "{{ neutron_plugin_type == 'ml2.ovs.dvr' }}"
+
+
+
+- name: Install neutron server
+  import_playbook: common-playbooks/neutron.yml
+  vars:
+    neutron_hosts: "neutron_server"
+    neutron_serial: "{{ neutron_server_serial | default(['1', '100%']) }}"
+
+
+
+- name: Install neutron L2 agents
+  import_playbook: common-playbooks/neutron.yml
+  vars:
+    neutron_hosts: "neutron_linuxbridge_agent:neutron_openvswitch_agent:!neutron_server"
+    neutron_serial: "{{ neutron_agent_serial | default('50%') }}"
+
+
+
+- name: Install all other neutron agents
+  import_playbook: common-playbooks/neutron.yml
+  vars:
+    neutron_hosts: "neutron_all:!neutron_linuxbridge_agent:!neutron_openvswitch_agent:!neutron_server"
+    neutron_serial: "{{ neutron_other_serial | default('1') }}"

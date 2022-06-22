@@ -1,0 +1,76 @@
+---
+# Copyright 2016, Logan Vig <logan2211@gmail.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Ensure etcd configuration directory exists
+  file:
+    path: "{{ etcd_conf_dir }}"
+    state: directory
+    owner: "{{ etcd_system_user_name }}"
+    group: "{{ etcd_system_group_name }}"
+  tags:
+    - etcd-config
+
+- include_tasks: etcd_post_install_ssl.yml
+  when:
+    - "{{ etcd_user_ssl_cert is defined }}"
+    - "{{ etcd_user_ssl_key is defined }}"
+
+- name: Drop the etcd configuration
+  template:
+    src: etcd.default.j2
+    dest: /etc/default/etcd
+    owner: root
+    group: root
+  notify:
+    - Restart etcd
+
+- name: Add the etcd system service
+  include_role:
+    name: systemd_service
+  vars:
+    systemd_Restart: on-abnormal
+    systemd_RestartSec: 10
+    systemd_user_name: "{{ etcd_system_user_name }}"
+    systemd_group_name: "{{ etcd_system_group_name }}"
+    systemd_slice_name: "{{ etcd_system_slice_name }}"
+    systemd_services:
+      - service_name: etcd
+        service_type: notify
+        enabled: true
+        state: started
+        execstarts: /usr/local/bin/etcd
+        config_overrides:
+          Unit:
+            Description: 'etcd - highly-available key value store'
+            Documentation: https://github.com/coreos/etcd
+            Wants:
+              ? network-online.target
+          Service:
+            EnvironmentFile: '-/etc/default/%p'
+            LimitNOFILE: 65536
+
+- name: Verify etcd cluster health
+  uri:
+    url: "{{ etcd_url_scheme }}://127.0.0.1:{{ etcd_client_port }}/health"
+    return_content: true
+  register: etcd_health
+  failed_when: "'true' not in etcd_health.content"
+  changed_when: false
+  until: etcd_health is success
+  retries: 5
+  delay: 2
+  tags:
+    - etcd-config
+    - etcd-verify

@@ -1,0 +1,15 @@
+---
+# Ansible task to pull a docker image from the repository
+- name: "Pull docker image for {{ node_type }}-node: {{ docker_registry }}/{{ node_type }}:{{ container_tag }}"
+  tags:
+    - pull
+    - docker
+    - container
+  docker_image:
+    name: "{{ docker_registry }}/s3p/{{ node_type }}"
+    tag: "{{ container_tag }}"
+    pull: True
+    state: present
+
+# vim: set et ts=2 sw=2 ai ft=yaml :
+

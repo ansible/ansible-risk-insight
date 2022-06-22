@@ -1,0 +1,6 @@
+---
+  - include: set_bash_proxy.yml
+  - include: set_apt_proxy.yml
+  - include: set_docker_proxy.yml
+
+# vim: set et sw=2 ts=2 ai ft=yaml :

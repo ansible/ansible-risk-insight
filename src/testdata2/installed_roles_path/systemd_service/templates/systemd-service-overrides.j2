@@ -1,0 +1,13 @@
+{% for section, params in item.systemd_overrides.items() %}
+[{{ section }}]
+{%   for key, value in params.items() %}
+{%     if value is iterable and (value is not string and value is not mapping) %}
+{%       for i in value %}
+{{ key }} = {{ i }}
+{%       endfor %}
+{%     else %}
+{{ key }} = {{ value }}
+{%     endif %}
+{%   endfor %}
+
+{% endfor %}

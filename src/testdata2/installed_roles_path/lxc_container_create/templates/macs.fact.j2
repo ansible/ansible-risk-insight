@@ -1,0 +1,4 @@
+[{{ inventory_hostname }}]
+{% for mac in macs.results %}
+{{ mac.item.value.interface }} = {{ mac.stdout }}
+{% endfor %}

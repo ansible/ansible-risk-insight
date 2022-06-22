@@ -1,0 +1,6 @@
+# {{ ansible_managed }}
+
+Defaults:{{ sahara_system_user_name }} !requiretty
+Defaults:{{ sahara_system_user_name }} secure_path="{{ sahara_bin }}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+{{ sahara_system_user_name }} ALL = (root) NOPASSWD: {{ sahara_bin }}/{{ sahara_service_name }}-rootwrap

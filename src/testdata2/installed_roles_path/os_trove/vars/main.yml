@@ -1,0 +1,51 @@
+---
+# Copyright 2021 City Network International AB
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+_trove_is_first_play_host: "{{ (trove_services['trove-api']['group'] in group_names and inventory_hostname == (groups[trove_services['trove-api']['group']] | intersect(ansible_play_hosts)) | first) | bool }}"
+_trove_conductor_is_first_play_host: "{{ (trove_services['trove-conductor']['group'] in group_names and inventory_hostname == (groups[trove_services['trove-conductor']['group']] | intersect(ansible_play_hosts)) | first) | bool }}"
+
+filtered_trove_services: |-
+  {% set services = [] %}
+  {% for key, value in trove_services.items() %}
+  {%   if (value['group'] in group_names) and
+          (('condition' not in value) or
+           ('condition' in value and value['condition'])) and
+            not ('wsgi_app' in value and value['wsgi_app']) %}
+  {%     set _ = value.update({'service_key': key}) %}
+  {%     set _ = services.append(value) %}
+  {%   endif %}
+  {% endfor %}
+  {{ services | sort(attribute='start_order') }}
+
+uwsgi_trove_services: |-
+  {% set services = {} %}
+  {% for key, value in trove_services.items() %}
+  {%   if (value['group'] in group_names) and
+         (('condition' not in value) or ('condition' in value and value['condition']))
+         and ('wsgi_app' in value and value['wsgi_app']) %}
+  {%     set _ = value.update(
+           {
+             'wsgi_path':  trove_bin ~ '/' ~ value.wsgi_name,
+             'wsgi_venv': trove_bin | dirname,
+             'uwsgi_uid': trove_system_user_name,
+             'uwsgi_guid': trove_system_group_name,
+             'uwsgi_processes': trove_api_workers,
+             'uwsgi_threads': trove_wsgi_threads,
+           }
+         ) %}
+  {%     set _ = services.update({key: value}) %}
+  {%   endif %}
+  {% endfor %}
+  {{ services }}

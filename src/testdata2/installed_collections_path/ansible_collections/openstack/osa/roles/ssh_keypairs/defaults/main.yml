@@ -1,0 +1,113 @@
+---
+# Copyright 2022, BBC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# host where the generated keypairs are kept
+ssh_keypairs_setup_host: localhost
+
+# Python interpreter that will be used during keypair generation
+ssh_keypairs_setup_host_python_interpreter: "{{ (ssh_keypairs_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable']) }}"
+
+# base directory on the ssh keypair setup host for storing keypairs
+ssh_keypairs_dir: "/etc/ssh_keypairs"
+
+# method used to create keypairs
+ssh_keypairs_method: "standalone"
+
+# --------
+# KEYPAIRS
+# --------
+
+# boolean to enable/disable creation of keys
+ssh_keypairs_create_keys: True
+
+# ssh keypairs to create
+#
+# ssh_keypairs:
+#   # A keypair which whose private key will be used to create signed SSH keys
+#   - name: "Example-CA-Key"
+#   # A keypair which is signed by the CA private key, and given the 'webservers' principal
+#   - name: "My-Signed-Key"
+#     cert:
+#      signed_by: "Example-CA-Key"
+#      principals:
+#        - 'webservers'
+#      valid_from: "always"
+#      valid_to: "forever"
+#   # A regular SSH keypair which is not signed
+#   - name: "Regular-SSH-Key"
+#
+ssh_keypairs: []
+
+# ssh keypairs to install
+#
+# ssh_keypairs_install_keys:
+#   #optional setting for owner and group of all installed files
+#   owner: 'foo'
+#   group: 'foo'
+#   keys:
+#     # Install the public, private and signed parts of the key named 'cert'
+#     # to a specified location, with .pub and -cert.pub suffixes automatically added
+#     - cert: "My-Signed-Key"
+#       dest: "/home/foo/.ssh/id_rsa"
+#     # Install the public and private parts of the key named 'keypair'
+#     # to a specified location, with the .pub suffix automatically added
+#     - keypair: "Regular-SSH-Key"
+#       dest: "/home/bar/.ssh/id_rsa"
+#     # Install any part of a keypair by referencing the path on ssh_keypairs_setup_host directly
+#     - src: "{{ ssh_keypairs_dir }}/Regular-SSH-Key.pub"
+#       dest: "/home/bar/.ssh/id_rsa.pub"
+#       owner: 'bar'  # override ownership for this specific key
+#       group: 'bar'
+#       mode: '0644'  # override permissions for this specific file
+ssh_keypairs_install_keys: []
+
+# boolean to enable/disable installation of ssh keys
+ssh_keypairs_install_keypairs: True
+
+# ----------
+# TRUSTED CA
+# ----------
+
+# location for the combined sshd trusted CA list
+ssh_keypairs_trusted_ca_file: "/etc/ssh/trusted_ca"
+
+# keypair names to take the public key and install as a trusted CA
+#
+# ssh_keypairs_install_ca:
+#   # Install this public key into SSHD as a trusted user CA
+#   - name: "Example-CA-Key"
+#
+ssh_keypairs_install_ca: []
+
+# filename in /etc/ssh/sshd_config.d to hold the CA and principals enablement config
+ssh_keypairs_trusted_ca_config_file: "00-openstack-ansible-trusted-ca.conf"
+
+# location for the files defining authorised principals for ssh users
+ssh_keypairs_authorized_principals_file: "/etc/ssh/auth_principals/%u_principals"
+
+# Install user principals configuration
+#
+# ssh_keypairs_principals:
+#  # To login to the root user a signed SSH key must have either the
+#  # 'root-everywhere' or 'webservers' principal.
+#  - user: root
+#     principals:
+#       - 'root-everywhere'
+#       - 'webservers'
+#
+ssh_keypairs_principals: []
+
+# boolean to enable/disable installation of sshd certificate authorities
+ssh_keypairs_install_authorities: True

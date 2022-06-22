@@ -1,0 +1,4 @@
+TFTP_USERNAME="tftp"
+TFTP_DIRECTORY="{{ ironic_tftpd_root }}"
+TFTP_ADDRESS="{{ ironic_tftp_server_address }}:69"
+TFTP_OPTIONS="-vvvv --map-file {{ ironic_tftpd_root }}/map-file"

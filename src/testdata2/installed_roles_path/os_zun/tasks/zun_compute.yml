@@ -1,0 +1,293 @@
+---
+# Copyright 2018, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Run apt install block
+  block:
+    - name: Run the apt package pinning role
+      include_role:
+        name: apt_package_pinning
+      vars:
+        apt_package_pinning_file_name: "docker.pref"
+        apt_package_pinning_priority: 999
+        apt_pinned_packages:
+          - package: "docker-ce"
+            version: "{{ zun_docker_package_version }}"
+            priority: 1000
+          - package: "docker-ce-cli"
+            version: "{{ zun_docker_package_version }}"
+            priority: 1000
+          - package: "containerd.io"
+            version: "{{ zun_containerd_package_version }}"
+            priority: 1000
+          - package: "kata-runtime"
+            version: "{{ zun_kata_package_version }}"
+            priority: 1000
+          - package: "kata-proxy"
+            version: "{{ zun_kata_package_version }}"
+            priority: 1000
+          - package: "kata-shim"
+            version: "{{ zun_kata_package_version }}"
+            priority: 1000
+
+    - name: Get apt gpg key
+      get_url:
+        url: "{{ item.gpg_uri }}"
+        dest: "/tmp/{{ item.name }}"
+        mode: 0440
+      with_items: "{{ zun_docker_repo }}"
+
+    - name: Add Apt signing key on remote server to keyring
+      apt_key:
+        file: "/tmp/{{ item.name }}"
+        state: present
+      with_items: "{{ zun_docker_repo }}"
+
+    - name: Add apt repository
+      apt_repository:
+        repo: "{{ item.repo }}"
+        state: present
+        filename: "{{ item.name }}"
+        update_cache: no
+      with_items: "{{ zun_docker_repo }}"
+      register: add_nv_repos
+
+    - name: Update Apt cache
+      apt:
+        update_cache: yes
+      when: add_nv_repos is changed
+      register: update_apt_cache
+      until: update_apt_cache is success
+      retries: 5
+      delay: 2
+
+  when:
+    - "ansible_facts['pkg_mgr'] == 'apt'"
+
+- name: Add docker repo
+  yum_repository:
+    name: "{{ item.name }}"
+    description: "{{ item.description }}"
+    baseurl: "{{ item.repo }}"
+    gpgkey: "{{ item.gpgkey | default(omit) }}"
+    gpgcheck: yes
+    enabled: yes
+    priority: 25
+  register: add_docker_repos
+  until: add_docker_repos is success
+  retries: 5
+  delay: 2
+  with_items: "{{ zun_docker_repo }}"
+  when:
+    - ansible_facts['pkg_mgr'] == 'dnf'
+
+- name: Enable module_hotfixes
+  lineinfile:
+    dest: "/etc/yum.repos.d/{{ item.name }}.repo"
+    line: "module_hotfixes=1"
+    regexp: "^module_hotfixes"
+    insertafter: "^enabled"
+  with_items: "{{ zun_docker_repo }}"
+  when:
+    - ansible_facts['os_family'] | lower == 'redhat'
+
+- name: Install compute distro packages
+  package:
+    name: "{{ zun_distro_compute_packages }}"
+    state: "{{ zun_package_state }}"
+    update_cache: "{{ (ansible_facts['pkg_mgr'] == 'apt') | ternary('yes', omit) }}"
+    cache_valid_time: "{{ (ansible_facts['pkg_mgr'] == 'apt') | ternary(cache_timeout, omit) }}"
+    enablerepo: "{{ (ansible_facts['pkg_mgr'] == 'dnf') | ternary('extras', omit) }}"
+
+- name: Ensure the containerd config directory exists
+  file:
+    path: "/etc/containerd"
+    state: "directory"
+    owner: "root"
+    group: "root"
+    mode: "0755"
+
+- name: Configure containerd
+  template:
+    src: "config.toml.j2"
+    dest: "/etc/containerd/config.toml"
+    mode: "0644"
+    owner: "root"
+    group: "root"
+  notify:
+    - Restart containerd
+
+- name: Ensure the Docker config directory exists
+  file:
+    path: "/etc/docker"
+    state: "directory"
+    owner: "root"
+    group: "root"
+    mode: "0755"
+
+- name: Generate kuryr config
+  openstack.config_template.config_template:
+    content: |
+      {
+        "live-restore": true,
+        "default-ipc-mode": "shareable"
+      }
+    dest: "/etc/docker/daemon.json"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+    config_overrides: "{{ zun_docker_config_overrides }}"
+    config_type: "json"
+  notify:
+    - Restart docker
+
+- name: Create the kuryr system group
+  group:
+    name: "{{ zun_kuryr_system_group_name }}"
+    gid: "{{ zun_kuryr_system_group_gid | default(omit) }}"
+    state: "present"
+    system: "yes"
+  tags:
+    - zun-kuryr-group
+
+- name: Remove old kuryr key file(s) if found
+  file:
+    path: "{{ item }}"
+    state: "absent"
+  with_items:
+    - "{{ zun_kuryr_system_home_folder }}/.ssh/authorized_keys"
+    - "{{ zun_kuryr_system_home_folder }}/.ssh/id_rsa"
+    - "{{ zun_kuryr_system_home_folder }}/.ssh/id_rsa.pub"
+  when:
+    - zun_recreate_keys | bool
+  tags:
+    - zun-kuryr-key
+    - zun-kuryr-key-create
+
+- name: Create the kuryr system user
+  user:
+    name: "{{ zun_kuryr_system_user_name }}"
+    uid: "{{ zun_kuryr_system_user_uid | default(omit) }}"
+    group: "{{ zun_kuryr_system_group_name }}"
+    comment: "{{ zun_kuryr_system_comment }}"
+    shell: "{{ zun_kuryr_system_shell }}"
+    system: "yes"
+    createhome: "yes"
+    home: "{{ zun_kuryr_system_home_folder }}"
+    generate_ssh_key: "yes"
+  when: zun_kuryr_system_user_name != 'root'
+  tags:
+    - zun-kuryr-user
+    - zun-kuryr-key
+    - zun-kuryr-key-create
+
+- name: Create kuryr dir
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner | default('root') }}"
+    group: "{{ item.group | default('root') }}"
+    mode: "{{ item.mode | default('0755') }}"
+  with_items:
+    - path: "/etc/kuryr"
+      mode: "0750"
+      owner: "{{ zun_kuryr_system_user_name }}"
+      group: "{{ zun_kuryr_system_group_name }}"
+    - path: "/etc/docker/plugins"
+  tags:
+    - zun-kuryr-dirs
+
+- name: Generate kuryr config
+  openstack.config_template.config_template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "{{ zun_kuryr_system_user_name }}"
+    group: "{{ zun_system_group_name }}"
+    mode: "0640"
+    config_overrides: "{{ item.config_overrides }}"
+    config_type: "{{ item.config_type }}"
+  with_items:
+    - src: "kuryr-libnetwork.conf.j2"
+      dest: "/etc/kuryr/kuryr.conf"
+      config_overrides: "{{ zun_kuryr_conf_overrides }}"
+      config_type: "ini"
+  notify:
+    - Restart docker
+  tags:
+    - zun-config
+    - zun-post-install
+
+- name: Generate kuryr docker plugin config
+  openstack.config_template.config_template:
+    content: |
+      {
+        "Name": "kuryr",
+        "Addr": "http://127.0.0.1:23750"
+      }
+    dest: "/etc/docker/plugins/kuryr.json"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+    config_overrides: "{{ zun_kuryr_config_overrides }}"
+    config_type: "json"
+  notify:
+    - Restart docker
+
+- name: Ensure docker users are added to the docker group
+  user:
+    name: "{{ item }}"
+    groups: "{{ zun_docker_groupname }}"
+    append: yes
+  with_items: "{{ zun_docker_users }}"
+
+- name: Drop sudoers file
+  template:
+    src: "sudoers.j2"
+    dest: "/etc/sudoers.d/{{ zun_system_user_name }}_sudoers"
+    mode: "0440"
+    owner: "root"
+    group: "root"
+  tags:
+    - sudoers
+    - zun-sudoers
+
+- name: Configure multipathd (RedHat only)
+  command:
+    cmd: "/sbin/mpathconf --enable"
+    creates: "/etc/multipath.conf"
+  when: ansible_facts['os_family'] == "RedHat"
+
+- name: Enable multipathd service
+  systemd:
+    name: multipathd
+    state: started
+    enabled: yes
+
+- name: Create script to clean up old Docker data
+  template:
+    src: "zun-docker-cleanup.j2"
+    dest: "{{ zun_bin }}/zun-docker-cleanup"
+    owner: "root"
+    group: "root"
+    mode: "0755"
+
+- name: Set state for timed data cleanup
+  file:
+    path: "/var/tmp/zun-docker-cleanup.disabled"
+    state: "{{ zun_docker_prune_images | ternary('absent', 'touch') }}"
+
+- name: Remove legacy systemd docker override
+  file:
+    path: "/etc/systemd/system/docker.service.d/zun-docker.conf"
+    state: absent

@@ -1,0 +1,12 @@
+{
+    "KeystoneBasic.create_delete_user": [
+        {
+            "args": {},
+            "runner": {
+                "type": "constant",
+                "times": 10,
+                "concurrency": 3
+            }
+        }
+    ]
+}

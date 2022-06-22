@@ -1,0 +1,275 @@
+---
+# Copyright 2020, Satish Patel <satish.lx@gmail.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# The variables file used by the playbooks in the Senlin-api group.
+# These don't have to be explicitly imported by vars_files: they are autopopulated.
+
+# Enable/Disable Ceilometer
+senlin_ceilometer_enabled: "{{ (groups['ceilometer_all'] is defined) and (groups['ceilometer_all'] | length > 0) }}"
+
+## Verbosity Options
+debug: False
+
+# Set the host which will execute the shade modules
+# for the service setup. The host must already have
+# clouds.yaml properly configured.
+senlin_service_setup_host: "{{ openstack_service_setup_host | default('localhost') }}"
+senlin_service_setup_host_python_interpreter: "{{ openstack_service_setup_host_python_interpreter | default((senlin_service_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable'])) }}"
+
+# Set the package install state for distribution packages
+# Options are 'present' and 'latest'
+senlin_package_state: "{{ package_state | default('latest') }}"
+
+# Set installation method.
+senlin_install_method: "{{ service_install_method | default('source') }}"
+senlin_venv_python_executable: "{{ openstack_venv_python_executable | default('python3') }}"
+
+senlin_git_repo: https://opendev.org/openstack/senlin
+senlin_git_install_branch: master
+senlin_upper_constraints_url: "{{ requirements_git_url | default('https://releases.openstack.org/constraints/upper/' ~ requirements_git_install_branch | default('master')) }}"
+senlin_git_constraints:
+  - "--constraint {{ senlin_upper_constraints_url }}"
+
+senlin_pip_install_args: "{{ pip_install_options | default('') }}"
+
+# Name of the virtual env to deploy into
+senlin_venv_tag: "{{ venv_tag | default('untagged') }}"
+senlin_bin: "{{ _senlin_bin }}"
+
+senlin_fatal_deprecations: False
+
+## Database info
+senlin_db_setup_host: "{{ openstack_db_setup_host | default('localhost') }}"
+senlin_db_setup_python_interpreter: "{{ openstack_db_setup_python_interpreter | default((senlin_db_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable'])) }}"
+senlin_galera_address: "{{ galera_address | default('127.0.0.1') }}"
+senlin_galera_user: senlin
+senlin_galera_database: senlin
+senlin_galera_use_ssl: "{{ galera_use_ssl | default(False) }}"
+senlin_galera_ssl_ca_cert: "{{ galera_ssl_ca_cert | default('') }}"
+senlin_galera_port: "{{ galera_port | default('3306') }}"
+senlin_db_max_overflow: "{{ openstack_db_max_overflow | default('50') }}"
+senlin_db_max_pool_size: "{{ openstack_db_max_pool_size | default('5') }}"
+senlin_db_pool_timeout: "{{ openstack_db_pool_timeout | default('30') }}"
+senlin_db_connection_recycle_time: "{{ openstack_db_connection_recycle_time | default('600') }}"
+
+## Oslo Messaging Info
+# RPC
+senlin_oslomsg_rpc_host_group: "{{ oslomsg_rpc_host_group | default('rabbitmq_all') }}"
+senlin_oslomsg_rpc_setup_host: "{{ (senlin_oslomsg_rpc_host_group in groups) | ternary(groups[senlin_oslomsg_rpc_host_group][0], 'localhost') }}"
+senlin_oslomsg_rpc_transport: "{{ oslomsg_rpc_transport | default('rabbit') }}"
+senlin_oslomsg_rpc_servers: "{{ oslomsg_rpc_servers | default('127.0.0.1') }}"
+senlin_oslomsg_rpc_port: "{{ oslomsg_rpc_port | default('5672') }}"
+senlin_oslomsg_rpc_use_ssl: "{{ oslomsg_rpc_use_ssl | default(False) }}"
+senlin_oslomsg_rpc_userid: senlin
+senlin_oslomsg_rpc_vhost: /senlin
+senlin_oslomsg_rpc_ssl_version: "{{ oslomsg_rpc_ssl_version | default('TLSv1_2') }}"
+senlin_oslomsg_rpc_ssl_ca_file: "{{ oslomsg_rpc_ssl_ca_file | default('') }}"
+
+# Notify
+senlin_oslomsg_notify_host_group: "{{ oslomsg_notify_host_group | default('rabbitmq_all') }}"
+senlin_oslomsg_notify_setup_host: "{{ (senlin_oslomsg_notify_host_group in groups) | ternary(groups[senlin_oslomsg_notify_host_group][0], 'localhost') }}"
+senlin_oslomsg_notify_transport: "{{ oslomsg_notify_transport | default('rabbit') }}"
+senlin_oslomsg_notify_servers: "{{ oslomsg_notify_servers | default('127.0.0.1') }}"
+senlin_oslomsg_notify_port: "{{ oslomsg_notify_port | default('5672') }}"
+senlin_oslomsg_notify_use_ssl: "{{ oslomsg_notify_use_ssl | default(False) }}"
+senlin_oslomsg_notify_userid: "{{ senlin_oslomsg_rpc_userid }}"
+senlin_oslomsg_notify_password: "{{ senlin_oslomsg_rpc_password }}"
+senlin_oslomsg_notify_vhost: "{{ senlin_oslomsg_rpc_vhost }}"
+senlin_oslomsg_notify_ssl_version: "{{ oslomsg_notify_ssl_version | default('TLSv1_2') }}"
+senlin_oslomsg_notify_ssl_ca_file: "{{ oslomsg_notify_ssl_ca_file | default('') }}"
+
+## (Qdrouterd) integration
+# TODO(ansmith): Change structure when more backends will be supported
+senlin_oslomsg_amqp1_enabled: "{{ senlin_oslomsg_rpc_transport == 'amqp' }}"
+
+## Senlin User / Group
+senlin_system_user_name: senlin
+senlin_system_group_name: senlin
+senlin_system_shell: /bin/false
+senlin_system_comment: senlin system user
+senlin_system_home_folder: "/var/lib/{{ senlin_system_user_name }}"
+
+## Default domain
+senlin_project_domain_name: Default
+senlin_project_name: admin
+senlin_user_domain_name: Default
+
+# osprofiler
+senlin_profiler_enabled: false
+senlin_profiler_trace_sqlalchemy: false
+
+## Auth
+senlin_service_region: "{{ service_region | default('RegionOne') }}"
+senlin_service_project_name: "service"
+senlin_service_user_name: "senlin"
+senlin_service_role_names:
+  - admin
+  - service
+senlin_service_token_roles:
+  - service
+senlin_service_token_roles_required: "{{ openstack_service_token_roles_required | default(True) }}"
+senlin_service_project_domain_id: default
+senlin_service_user_domain_id: default
+senlin_keystone_auth_plugin: password
+
+## Trustee Auth
+senlin_service_trustee_project_name: "service"
+senlin_service_trustee_user_name: "senlin"
+senlin_service_trustee_password: "{{ senlin_service_password }}"
+senlin_service_trustee_project_domain_id: "default"
+senlin_service_trustee_user_domain_id: "default"
+senlin_keystone_trustee_auth_plugin: "{{ senlin_keystone_trustee_auth_type }}"
+senlin_keystone_trustee_auth_type: password
+
+## Senlin api service type and data
+senlin_service_name: senlin
+senlin_service_description: "Senlin Clustering Service"
+senlin_service_port: 8778
+senlin_service_proto: http
+senlin_service_publicuri_proto: "{{ openstack_service_publicuri_proto | default(senlin_service_proto) }}"
+senlin_service_adminuri_proto: "{{ openstack_service_adminuri_proto | default(senlin_service_proto) }}"
+senlin_service_internaluri_proto: "{{ openstack_service_internaluri_proto | default(senlin_service_proto) }}"
+senlin_service_type: clustering
+senlin_service_publicuri: "{{ senlin_service_publicuri_proto }}://{{ external_lb_vip_address }}:{{ senlin_service_port }}"
+senlin_service_publicurl: "{{ senlin_service_publicuri }}"
+senlin_service_adminuri: "{{ senlin_service_adminuri_proto }}://{{ internal_lb_vip_address }}:{{ senlin_service_port }}"
+senlin_service_adminurl: "{{ senlin_service_adminuri }}"
+senlin_service_internaluri: "{{ senlin_service_internaluri_proto }}://{{ internal_lb_vip_address }}:{{ senlin_service_port }}"
+senlin_service_internalurl: "{{ senlin_service_internaluri }}"
+
+## Senlin tunable options
+senlin_max_clusters_per_project: 100
+senlin_max_nodes_per_cluster: 1000
+senlin_periodic_interval: 60
+senlin_periodic_interval_max: 120
+senlin_periodic_fuzzy_delay: 10
+senlin_health_check_interval_min: 60
+senlin_check_interval_max: 3600
+senlin_max_response_size: 524288
+senlin_default_action_timeout: 3600
+senlin_default_nova_timeout: 600
+senlin_max_actions_per_batch: 0
+senlin_batch_interval: 3
+senlin_lock_retry_times: 3
+senlin_lock_retry_interval: 10
+senlin_database_retry_limit: 10
+senlin_database_max_retry_interval: 2
+senlin_engine_life_check_timeout: 2
+senlin_service_down_time: 60
+
+## If the following variables are unset in user_variables, the value set will be half the number of available VCPUs
+# senlin_engine_workers: 4
+# senlin_api_workers: 4
+# senlin_conductor_workers: 4
+# senlin_health_manager_workers: 4
+
+## Cap the maximum number of threads / workers when a user value is unspecified.
+senlin_api_threads_max: 16
+senlin_api_threads: "{{ [[(ansible_facts['processor_vcpus']//ansible_facts['processor_threads_per_core'])|default(1), 1] | max * 2, senlin_api_threads_max] | min }}"
+
+senlin_service_in_ldap: "{{ service_ldap_backend_enabled | default(False) }}"
+
+## Policy vars
+# Provide a list of access controls to update the default policy.json with. These changes will be merged
+# with the access controls in the default policy.json. E.g.
+#senlin_policy_overrides:
+#  "cloudformation:ListStacks": "rule:deny_stack_user"
+#  "cloudformation:CreateStack": "rule:deny_stack_user"
+
+# Common pip packages
+senlin_pip_packages:
+  - cryptography
+  - "git+{{ senlin_git_repo }}@{{ senlin_git_install_branch }}#egg=senlin"
+  - keystonemiddleware
+  - osprofiler
+  - PyMySQL
+  - pymemcache
+  - python-memcached
+  - systemd-python
+
+# Memcached override
+senlin_memcached_servers: "{{ memcached_servers }}"
+
+# Specific pip packages provided by the user
+senlin_user_pip_packages: []
+
+senlin_optional_oslomsg_amqp1_pip_packages:
+  - oslo.messaging[amqp1]
+
+senlin_api_init_overrides: {}
+senlin_engine_init_overrides: {}
+senlin_conductor_init_overrides: {}
+senlin_health_manager_init_overrides: {}
+
+## Allow Enable/Disable uWSGI
+senlin_use_uwsgi: True
+
+## Service Name-Group Mapping
+senlin_services:
+  senlin-api:
+    group: senlin_api
+    service_name: senlin-api
+    init_config_overrides: "{{ senlin_api_init_overrides }}"
+    start_order: 4
+    execstarts: "{{ senlin_bin }}/senlin-api"
+    wsgi_app: "{{ senlin_use_uwsgi }}"
+    wsgi_name: senlin-wsgi-api
+    uwsgi_overrides: "{{ senlin_api_uwsgi_ini_overrides }}"
+    uwsgi_port: "{{ senlin_service_port }}"
+    uwsgi_bind_address: "{{ senlin_api_uwsgi_bind_address }}"
+  senlin-engine:
+    group: senlin_engine
+    service_name: senlin-engine
+    execstarts: "{{ senlin_bin }}/senlin-engine"
+    init_config_overrides: "{{ senlin_engine_init_overrides }}"
+    start_order: 3
+  senlin-conductor:
+    group: senlin_conductor
+    service_name: senlin-conductor
+    execstarts: "{{ senlin_bin }}/senlin-conductor"
+    init_config_overrides: "{{ senlin_conductor_init_overrides }}"
+    start_order: 2
+  senlin-health-manager:
+    group: senlin_health_manager
+    service_name: senlin-health-manager
+    execstarts: "{{ senlin_bin }}/senlin-health-manager"
+    init_config_overrides: "{{ senlin_health_manager_init_overrides }}"
+    start_order: 1
+
+# Required secrets for the role
+senlin_required_secrets:
+  - keystone_auth_admin_password
+  - senlin_galera_password
+  - senlin_oslomsg_rpc_password
+  - senlin_service_password
+  - memcached_encryption_key
+
+# uWSGI Settings
+senlin_api_uwsgi_ini_overrides: {}
+senlin_wsgi_processes_max: 16
+senlin_wsgi_processes: "{{ [[ansible_facts['processor_vcpus']|default(1), 1] | max * 2, senlin_wsgi_processes_max] | min }}"
+senlin_wsgi_threads: 1
+senlin_api_uwsgi_bind_address: "{{ openstack_service_bind_address | default('0.0.0.0') }}"
+#senlin_api_cfn_uwsgi_bind_address: "{{ openstack_service_bind_address | default('0.0.0.0') }}"
+
+senlin_role_project_group: senlin_all
+
+## Tunable overrides
+senlin_senlin_conf_overrides: {}
+senlin_api_paste_ini_overrides: {}
+senlin_default_yaml_overrides: {}
+senlin_aws_cloudwatch_alarm_yaml_overrides: {}
+senlin_aws_rds_dbinstance_yaml_overrides: {}
+senlin_policy_overrides: {}

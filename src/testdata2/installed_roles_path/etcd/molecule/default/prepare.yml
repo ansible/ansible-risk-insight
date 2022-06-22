@@ -1,0 +1,24 @@
+---
+
+- name: Ensure packages are present
+  hosts: all
+  vars:
+    pgrep_package_name:
+      redhat: procps-ng
+      debian: procps
+    iproute_package_name:
+      redhat: iproute
+      debian: iproute2
+  tasks:
+    - name: Install required packages
+      package:
+        name: "{{ item }}"
+        state: present
+        update_cache: true
+      with_items:
+        - ca-certificates
+        - "{{ iproute_package_name[ansible_facts['os_family'] | lower] }}"
+        - "{{ pgrep_package_name[ansible_facts['os_family'] | lower] }}"
+
+    - name: Clear gathered facts
+      meta: clear_facts

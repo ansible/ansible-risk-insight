@@ -1,0 +1,316 @@
+---
+# Copyright 2017, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+_ironic_api_is_first_play_host: "{{ (ironic_services['ironic-api']['group'] in group_names and inventory_hostname == (groups[ironic_services['ironic-api']['group']] | intersect(ansible_play_hosts)) | first) | bool }}"
+_ironic_inspector_is_first_play_host: "{{ (ironic_services['ironic-inspector']['group'] in group_names and inventory_hostname == (groups[ironic_services['ironic-inspector']['group']] | intersect(ansible_play_hosts)) | first) | bool }}"
+
+# This special list brings together all of the package installations into one
+# task to save time.
+
+ironic_driver_types:
+  agent_ilo:
+    hardware_type: ilo
+    boot: ilo-virtual-media
+    deploy: direct
+    inspect: ilo
+    management: ilo
+    power: ilo
+  agent_ipmitool:
+    hardware_type: ipmi
+    boot: pxe
+    deploy: direct
+    inspect: inspector
+    management: ipmitool
+    power: ipmitool
+  agent_ipmitool_socat:
+    hardware_type: ipmi
+    boot: pxe
+    deploy: direct
+    inspect: inspector
+    management: ipmitool
+    power: ipmitool
+  agent_irmc:
+    hardware_type: irmc
+    boot: irmc-virtual-media
+    deploy: direct
+    inspect: irmc
+    management: irmc
+    power: irmc
+  agent_ucs:
+    hardware_type: cisco-ucs-managed
+    boot: pxe
+    deploy: direct
+    inspect: inspector
+    management: ucsm
+    power: ucsm
+  pxe_agent_cimc:
+    hardware_type: cisco-ucs-standalone
+    boot: pxe
+    deploy: direct
+    inspect: inspector
+    management: cimc
+    power: cimc
+  pxe_drac:
+    hardware_type: idrac
+    boot: pxe
+    deploy: direct
+    inspect: idrac
+    management: idrac
+    power: idrac
+  pxe_drac_inspector:
+    hardware_type: idrac
+    boot: pxe
+    deploy: direct
+    inspect: inspector
+    management: idrac
+    power: idrac
+  pxe_ilo:
+    hardware_type: ilo
+    boot: ilo-pxe
+    deploy: direct
+    inspect: ilo
+    management: ilo
+    power: ilo
+  pxe_ipmitool:
+    hardware_type: ipmi
+    boot: pxe
+    deploy: direct
+    inspect: inspector
+    management: ipmitool
+    power: ipmitool
+  pxe_ipmitool_socat:
+    hardware_type: ipmi
+    boot: pxe
+    deploy: direct
+    inspect: inspector
+    management: ipmitool
+    power: ipmitool
+  pxe_irmc:
+    hardware_type: irmc
+    boot: irmc-pxe
+    deploy: direct
+    inspect: irmc
+    management: irmc
+    power: irmc
+  pxe_snmp:
+    hardware_type: snmp
+    boot: pxe
+    deploy: direct
+    inspect: no-inspect
+    management: fake
+    power: snmp
+  pxe_ucs:
+    hardware_type: cisco-ucs-managed
+    boot: pxe
+    deploy: direct
+    inspect: inspector
+    management: ucsm
+    power: ucsm
+
+ironic_packages_list: >
+  {%- set package_list = [] %}
+  {%- if ironic_services['ironic-api']['group'] in group_names %}
+  {%-   set package_list = package_list + ironic_api_distro_packages %}
+  {%- endif %}
+  {%- if ironic_services['ironic-conductor']['group'] in group_names %}
+  {%-   set package_list = package_list + ironic_conductor_distro_packages %}
+  {%-   if ironic_standalone | bool %}
+  {%-     set package_list = package_list + ironic_conductor_standalone_distro_packages %}
+  {%-   endif %}
+  {%- endif %}
+  {%- if ironic_inspector_dhcp_type == "dnsmasq" %}
+  {%-   set package_list = package_list + ironic_inspector_dnsmasq_distro_packages %}
+  {%- else %}
+  {%-   set package_list = package_list + ironic_inspector_isc_dhcp_distro_packages %}
+  {%- endif %}
+  {%- if ironic_inspector_boot_mode == "http" %}
+  {%-   set package_list = package_list + ironic_inspector_http_distro_packages %}
+  {%- endif %}
+  {{- package_list -}}
+
+ironic_service_user_list: >
+  {%- set service_user_list = [] %}
+  {%- if ironic_services['ironic-api']['group'] in group_names %}
+  {%-   set _ = service_user_list.append(
+          {
+            'name': ironic_service_user_name,
+            'password': ironic_service_password,
+            'role': ironic_service_role_names
+          }
+        )
+  %}
+  {%- endif %}
+  {%- if ironic_services['ironic-inspector']['group'] in group_names %}
+  {%-   set _ = service_user_list.append(
+          {
+            'name': ironic_inspector_service_user_name,
+            'password': ironic_inspector_service_password,
+            'role': ironic_inspector_service_role_names
+          }
+        )
+  %}
+  {%- endif %}
+  {{- service_user_list -}}
+
+ironic_service_endpoint_list: >
+  {%- set service_endpoint_list = [] %}
+  {%- if ironic_services['ironic-api']['group'] in group_names %}
+  {%-   set _ = service_endpoint_list.append(
+          {
+            'service': ironic_service_name,
+            'interface': 'public',
+            'url': ironic_service_publicurl
+          }
+        )
+  %}
+  {%-   set _ = service_endpoint_list.append(
+          {
+            'service': ironic_service_name,
+            'interface': 'internal',
+            'url': ironic_service_internalurl
+          }
+        )
+  %}
+  {%-   set _ = service_endpoint_list.append(
+          {
+            'service': ironic_service_name,
+            'interface': 'admin',
+            'url': ironic_service_adminurl
+          }
+        )
+  %}
+  {%- endif %}
+  {%- if ironic_services['ironic-inspector']['group'] in group_names %}
+  {%-   set _ = service_endpoint_list.append(
+          {
+            'service': ironic_inspector_service_name,
+            'interface': 'public',
+            'url': ironic_inspector_service_publicurl
+          }
+        )
+  %}
+  {%-   set _ = service_endpoint_list.append(
+          {
+            'service': ironic_inspector_service_name,
+            'interface': 'internal',
+            'url': ironic_inspector_service_internalurl
+          }
+        )
+  %}
+  {%-   set _ = service_endpoint_list.append(
+          {
+            'service': ironic_inspector_service_name,
+            'interface': 'admin',
+            'url': ironic_inspector_service_adminurl
+          }
+        )
+  %}
+  {%- endif %}
+  {{- service_endpoint_list -}}
+
+ironic_service_catalog_list: >
+  {%- set service_catalog_list = [] %}
+  {%- if ironic_services['ironic-api']['group'] in group_names %}
+  {%-   set _ = service_catalog_list.append(
+          {
+            'name': ironic_service_name,
+            'type': ironic_service_type,
+            'description': ironic_service_description
+          }
+        )
+  %}
+  {%- endif %}
+  {%- if ironic_services['ironic-inspector']['group'] in group_names %}
+  {%-   set _ = service_catalog_list.append(
+          {
+            'name': ironic_inspector_service_name,
+            'type': ironic_inspector_service_type,
+            'description': ironic_inspector_service_description
+          }
+        )
+  %}
+  {%- endif %}
+  {{- service_catalog_list -}}
+
+filtered_ironic_services: |-
+  {% set services = [] %}
+  {% for key, value in ironic_services.items() %}
+  {%   if (value['group'] in group_names) and
+          (('service_en' not in value) or
+           ('service_en' in value and value['service_en'])) and
+           not ('wsgi_app' in value and value['wsgi_app']) %}
+  {%     set _ = value.update(
+           {
+             'service_key': key,
+             'enabled': 'yes',
+             'state': 'started',
+             'config_overrides': value.init_config_overrides
+           }
+         )
+  %}
+  {%     set _ = value.pop('init_config_overrides') %}
+  {# Note (noonedeadpunk): The following if statement is added for backwards compatibility #}
+  {# As up to train release ironic role didn't have 'execstarts' in ironic_services keys #}
+  {%     if ('execstarts' not in value) %}
+  {%       set _ = value.update({'execstarts': value.program_override | default(ironic_bin ~ '/' ~ value.service_name)}) %}
+  {%     endif %}
+  {%     set _ = services.append(value) %}
+  {%   endif %}
+  {% endfor %}
+  {{ services }}
+
+uwsgi_ironic_services: |-
+  {% set services = {} %}
+  {% for key, value in ironic_services.items() %}
+  {%   if (value['group'] in group_names) and
+         (('condition' not in value) or ('condition' in value and value['condition']))
+         and ('wsgi_app' in value and value['wsgi_app']) %}
+  {%     set _ = value.update(
+            {
+             'wsgi_path':  ironic_bin ~ '/' ~ value.wsgi_name,
+             'wsgi_venv': ironic_bin | dirname,
+             'uwsgi_uid': ironic_system_user_name,
+             'uwsgi_guid': ironic_system_group_name,
+             'uwsgi_processes': ironic_wsgi_processes,
+             'uwsgi_threads': ironic_wsgi_threads
+           }
+         ) %}
+  {%     set _ = services.update({key: value}) %}
+  {%   endif %}
+  {% endfor %}
+  {{ services }}
+
+filtered_ironic_drivers: |-
+  {% if ironic_ipxe_enabled | bool %}
+  {% set concat_drivers = [{'boot': 'ipxe'}] %}
+  {% else %}
+  {% set concat_drivers = [] %}
+  {% endif %}
+  {% for driver in ironic_drivers_enabled %}
+  {%   if driver in ironic_driver_types.keys() %}
+  {%     set _ = concat_drivers.append(ironic_driver_types[driver]) %}
+  {%   endif %}
+  {% endfor %}
+  {{ concat_drivers }}
+
+ironic_venv_packages: |-
+  {%- set pkg_list = ironic_pip_packages %}
+  {%- if (ironic_oslomsg_amqp1_enabled | bool) %}
+  {%-   set _ = pkg_list.extend(ironic_optional_oslomsg_amqp1_pip_packages) %}
+  {%- endif %}
+  {%- if (ironic_services['ironic-inspector']['group'] in group_names) %}
+  {%-   set _ = pkg_list.extend(ironic_inspector_pip_packages) %}
+  {%- endif %}
+  {{- pkg_list | unique }}

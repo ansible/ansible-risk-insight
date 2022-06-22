@@ -1,0 +1,13 @@
+---
+HOST_ID: "{{ rackpos }}"
+container_netns_name: "netns-{{ container_name }}"
+
+# third octet of ip address for containers & host bridge
+SUBNET_SEGMENT: "{{ rackpos }}"
+
+# H_IXd == integer host index (within rack/datacenter)
+H_IXd: "{{ rackpos }}"
+
+# H_IXx == H_IXd as a hex number for mac addresses
+# C_IX == Container index within host (e.g. 11)
+C_IX: "{{ COMP_ID }}"

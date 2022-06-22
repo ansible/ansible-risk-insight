@@ -1,0 +1,57 @@
+---
+- name: red hat based systems - repo handling
+  when: ceph_origin == 'repository'
+  block:
+    - name: red hat based systems - stable repo related tasks
+      when:
+        - nfs_ganesha_stable | bool
+        - ceph_repository == 'community'
+      block:
+        - name: add nfs-ganesha stable repository
+          yum_repository:
+            name: nfs_ganesha_stable
+            description: nfs-ganesha stable repo
+            gpgcheck: yes
+            state: present
+            gpgkey: "{{ ceph_stable_key }}"
+            baseurl: "{{ ceph_mirror }}/nfs-ganesha/rpm-{{ nfs_ganesha_stable_branch }}/{{ ceph_release }}/el$releasever/$basearch"
+            file: nfs_ganesha_stable
+
+        - name: add nfs-ganesha stable noarch repository
+          yum_repository:
+            name: nfs_ganesha_stable_noarch
+            description: nfs-ganesha stable noarch repo
+            gpgcheck: yes
+            state: present
+            gpgkey: "{{ ceph_stable_key }}"
+            baseurl: "{{ ceph_mirror }}/nfs-ganesha/rpm-{{ nfs_ganesha_stable_branch }}/{{ ceph_release }}/el$releasever/noarch"
+            file: nfs_ganesha_stable
+
+    - name: red hat based systems - dev repo related tasks
+      block:
+        - name: add nfs-ganesha dev repo
+          get_url:
+            url: "https://shaman.ceph.com/api/repos/nfs-ganesha/next/latest/{{ ansible_facts['distribution'] | lower }}/{{ ansible_facts['distribution_major_version'] }}/flavors/{{ nfs_ganesha_flavor }}/repo?arch={{ ansible_facts['architecture'] }}"
+            dest: /etc/yum.repos.d/nfs-ganesha-dev.repo
+            force: true
+      when:
+        - nfs_ganesha_dev | bool
+        - ceph_repository == 'dev'
+
+- name: red hat based systems - install nfs packages
+  block:
+    - name: install nfs cephfs gateway
+      package:
+        name: ['nfs-ganesha-ceph', 'nfs-ganesha-rados-grace']
+        state: "{{ (upgrade_ceph_packages|bool) | ternary('latest','present') }}"
+      register: result
+      until: result is succeeded
+      when: nfs_file_gw | bool
+
+    - name: install redhat nfs-ganesha-rgw and ceph-radosgw packages
+      package:
+        name: ['nfs-ganesha-rgw', 'nfs-ganesha-rados-grace', 'nfs-ganesha-rados-urls', 'ceph-radosgw']
+        state: "{{ (upgrade_ceph_packages|bool) | ternary('latest','present') }}"
+      register: result
+      until: result is succeeded
+      when: nfs_obj_gw | bool

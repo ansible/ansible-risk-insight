@@ -1,0 +1,84 @@
+---
+# Copyright 2021, City Network International AB
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+_haproxy_tls_vip_binds: |
+  {% set vip_binds = [haproxy_bind_external_lb_vip_address] %}
+  {% if haproxy_bind_internal_lb_vip_address != haproxy_bind_external_lb_vip_address %}
+  {%   set _ = vip_binds.append(haproxy_bind_internal_lb_vip_address) %}
+  {% endif %}
+  {% for vip_address in extra_lb_tls_vip_addresses %}
+  {%   set _ = vip_binds.append(vip_address) %}
+  {% endfor %}
+  {{ vip_binds }}
+
+_haproxy_pki_certificates: |
+  {% set _pki_certs = [] %}
+  {% for vip in _haproxy_tls_vip_binds %}
+  {% set _ = _pki_certs.append(
+      {
+        'name': 'haproxy_' ~ ansible_facts['hostname'] ~ '-' ~ vip,
+        'provider': 'ownca',
+        'cn': ansible_facts['hostname'],
+        'san': 'DNS:' ~ ansible_facts['hostname'] ~  ',DNS:' ~ ansible_facts['fqdn'] ~ ',' ~ (vip | ansible.utils.ipaddr) | ternary('IP:', 'DNS:') ~ vip,
+        'signed_by': haproxy_pki_intermediate_cert_name,
+      }
+    ) %}
+  {% endfor %}
+  {{ _pki_certs }}
+
+_haproxy_pki_install_certificates: |
+  {% set _pki_install = [] %}
+  {% for vip in _haproxy_tls_vip_binds %}
+  {% set _cert_basename = '/haproxy_' ~ ansible_facts['hostname'] ~ '-' ~ vip %}
+  {% set _ = _pki_install.append(
+      {
+        'src': haproxy_user_ssl_cert | default(haproxy_pki_certs_path ~ _cert_basename ~ '.crt'),
+        'dest': haproxy_ssl_cert_path ~ _cert_basename  ~ '.crt',
+        'owner': 'root',
+        'group': 'root',
+        'mode': '0644'
+      }
+    )
+  %}
+  {% set _ = _pki_install.append(
+      {
+        'src': haproxy_user_ssl_key | default(haproxy_pki_keys_path ~ _cert_basename ~ '.key.pem'),
+        'dest': haproxy_ssl_cert_path ~ _cert_basename  ~ '.key',
+        'owner': 'root',
+        'group': 'root',
+        'mode': '0644'
+      }
+    )
+  %}
+  {# We need to put CA only when it's provided by user or internal CA is used and user certs are not provided #}
+  {% if (haproxy_user_ssl_cert is not defined and haproxy_user_ssl_key is not defined) or haproxy_user_ssl_ca_cert is defined %}
+  {%   set _ = _pki_install.append(
+        {
+          'src': haproxy_user_ssl_ca_cert | default(haproxy_pki_intermediate_cert_path),
+          'dest': haproxy_ssl_cert_path ~ _cert_basename  ~ '-ca.crt',
+          'owner': 'root',
+          'group': 'root',
+          'mode': '0644'
+        })
+  %}
+  {% endif %}
+  {% endfor %}
+  {{ _pki_install }}
+
+# In case CSP is enabled, on newer haproxy versions, header size
+# fill more than bufsize-maxrewrite, which results in 500
+# See: https://github.com/haproxy/haproxy/issues/1597
+_haproxy_default_tuning_params:
+  tune.maxrewrite: 1280

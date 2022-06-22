@@ -1,0 +1,43 @@
+---
+# Copyright 2016, Intel Corporation.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+glance_distro_packages:
+  - git
+  - libxml2
+  - nfs-utils
+  - rpcbind
+  - cronie
+
+glance_devel_distro_packages:
+  - libxml2-devel
+  - systemd-devel
+
+glance_service_distro_packages:
+  - openstack-glance
+  - python3-systemd
+
+glance_oslomsg_amqp1_distro_packages:
+  - cyrus-sasl-lib
+  - cyrus-sasl-plain
+  - cyrus-sasl-md5
+
+_glance_core_files:
+  - tmp_f: "/tmp/glance-api-dist-paste.ini"
+    target_f: "{{ glance_etc_dir }}/glance-api-paste.ini"
+    target_f_override: "{{ glance_etc_dir }}/glance-api-paste.ini"
+    config_overrides: "{{ glance_glance_api_paste_ini_overrides }}"
+    config_type: "ini"
+
+glance_core_files: "{{ (glance_install_method == 'source') | ternary(_glance_core_files, []) }}"

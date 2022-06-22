@@ -1,0 +1,86 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Download the RabbitMQ package
+  get_url:
+    url: "{{ rabbitmq_package_url }}"
+    dest: "{{ rabbitmq_package_path }}"
+    mode: "0644"
+    checksum: "sha256:{{ rabbitmq_package_sha256 }}"
+  register: package_download
+  retries: 3
+  delay: 10
+  until: package_download is success
+  when: rabbitmq_install_method == 'file'
+  tags:
+    - rabbitmq-package-deb
+    - rabbitmq-package-deb-get
+    - rabbitmq-package-rpm
+    - rabbitmq-package-rpm-get
+
+- name: Manage /etc/hosts files
+  block:
+    - name: Fail if hosts file is not managed yet
+      command: grep "OPENSTACK-ANSIBLE MANAGED BLOCK" /etc/hosts
+      changed_when: false
+  rescue:
+    - name: Rescue failure and add required records
+      lineinfile:
+        dest: /etc/hosts
+        state: present
+        line: "{{ item.address }} {{ item.hostnames | join(' ') }}"
+      with_items: "{{ rabbitmq_hosts_entries }}"
+  always:
+    - name: Ensure localhost /etc/hosts entry is correct
+      lineinfile:
+        dest: /etc/hosts
+        state: present
+        line: '127.0.0.1 localhost'
+        regexp: '^127\.0\.0\.1'
+    - name: Remove hostname record for 127.0.1.1
+      replace:
+        path: /etc/hosts
+        regexp: '^(127\.0\.1\.1)\s*(\S*)\s*({{ ansible_facts["hostname"] }})($|\s.*)'
+        replace: '\1 \2 \4'
+  when:
+    - rabbitmq_manage_hosts_entries | bool
+  tags:
+    - rabbitmq-config
+
+- name: Create the system group
+  group:
+    name: "{{ rabbit_system_group_name }}"
+    state: "present"
+    system: "yes"
+
+- name: Create the rabbit system user
+  user:
+    name: "{{ rabbit_system_user_name }}"
+    group: "{{ rabbit_system_group_name }}"
+    comment: "RabbitMQ messaging server"
+    shell: "/bin/false"
+    system: "yes"
+    createhome: "yes"
+    home: "/var/lib/rabbitmq"
+
+- name: Create the local directories
+  file:
+    path: "/etc/rabbitmq/"
+    state: "directory"
+    group: "{{ rabbit_system_user_name }}"
+    owner: "{{ rabbit_system_group_name }}"
+    mode: "0755"
+  tags:
+    - rabbitmq-config

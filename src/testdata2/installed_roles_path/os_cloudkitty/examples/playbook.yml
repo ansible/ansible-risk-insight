@@ -1,0 +1,20 @@
+---
+
+- name: Gather cloudkitty facts
+  hosts: cloudkitty_all
+  gather_facts: True
+  tags:
+    - always
+
+- name: Install cloudkitty services
+  hosts: cloudkitty_all
+  gather_facts: False
+  serial:
+    - 1
+    - "100%"
+  user: root
+  environment: "{{ deployment_environment_variables | default({}) }}"
+  tags:
+    - cloudkitty
+  roles:
+   - role: "os_cloudkitty"

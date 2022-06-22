@@ -1,0 +1,17 @@
+# {{ ansible_managed }}
+
+# OVN cluster parameters
+{{ neutron_ovn_northd_opts }}=" \
+  --db-nb-create-insecure-remote=yes \
+  --db-sb-create-insecure-remote=yes \
+  --db-nb-addr={{ ansible_host }} \
+  --db-sb-addr={{ ansible_host }} \
+  --db-nb-cluster-local-addr={{ ansible_host }} \
+  --db-sb-cluster-local-addr={{ ansible_host }} \
+  {% if leader_node %}
+  --db-nb-cluster-remote-addr={% for item in leader_node %}{{ item }} {% endfor %} \
+  --db-sb-cluster-remote-addr={% for item in leader_node %}{{ item }} {% endfor %} \
+  {% endif %}
+  --ovn-northd-nb-db=tcp:{{ groups['neutron_ovn_northd'] | map('extract', hostvars, ['ansible_host']) | join(':6641,tcp:') }}:6641 \
+  --ovn-northd-sb-db=tcp:{{ groups['neutron_ovn_northd'] | map('extract', hostvars, ['ansible_host']) | join(':6642,tcp:') }}:6642 \
+"

@@ -1,0 +1,29 @@
+[composite:main]
+use = egg:Paste#urlmap
+/: zun_api_pipeline
+/healthcheck: healthcheck
+
+[pipeline:zun_api_pipeline]
+pipeline = cors request_id osprofiler authtoken api_v1
+
+[app:api_v1]
+paste.app_factory = zun.api.app:app_factory
+
+[filter:authtoken]
+acl_public_routes = /, /v1
+paste.filter_factory = zun.api.middleware.auth_token:AuthTokenMiddleware.factory
+
+[filter:osprofiler]
+paste.filter_factory = zun.common.profiler:WsgiMiddleware.factory
+
+[filter:request_id]
+paste.filter_factory = oslo_middleware:RequestId.factory
+
+[filter:cors]
+paste.filter_factory =  oslo_middleware.cors:filter_factory
+oslo_config_project = zun
+
+[app:healthcheck]
+paste.app_factory = oslo_middleware:Healthcheck.app_factory
+backends = disable_by_file
+disable_by_file_path = /etc/zun/healthcheck_disable

@@ -1,0 +1,135 @@
+# Copyright 2019, VEXXHOST, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Set installation method
+placement_install_method: "{{ service_install_method | default('source') }}"
+placement_venv_python_executable: "{{ openstack_venv_python_executable | default('python3') }}"
+
+# Set the package install state for distribution packages
+# Options are 'present' and 'latest'
+placement_package_state: "{{ package_state | default('latest') }}"
+
+# Set the host which will execute the shade modules
+# for the service setup. The host must already have
+# clouds.yaml properly configured.
+placement_service_setup_host: "{{ openstack_service_setup_host | default('localhost') }}"
+placement_service_setup_host_python_interpreter: "{{ openstack_service_setup_host_python_interpreter | default((placement_service_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable'])) }}"
+
+placement_git_repo: https://opendev.org/openstack/placement
+placement_git_install_branch: master
+placement_upper_constraints_url: "{{ requirements_git_url | default('https://releases.openstack.org/constraints/upper/' ~ requirements_git_install_branch | default('master')) }}"
+placement_git_constraints:
+  - "--constraint {{ placement_upper_constraints_url }}"
+
+placement_pip_install_args: "{{ pip_install_options | default('') }}"
+
+# Name of the virtual env to deploy into
+placement_venv_tag: "{{ venv_tag | default('untagged') }}"
+placement_bin: "{{ _placement_bin }}"
+
+## Database info
+placement_db_setup_host: "{{ openstack_db_setup_host | default('localhost') }}"
+placement_db_setup_python_interpreter: "{{ openstack_db_setup_python_interpreter | default((placement_db_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable'])) }}"
+placement_galera_address: "{{ galera_address | default('127.0.0.1') }}"
+placement_galera_database: placement
+placement_galera_user: placement
+placement_galera_use_ssl: "{{ galera_use_ssl | default(False) }}"
+placement_galera_ssl_ca_cert: "{{ galera_ssl_ca_cert | default('') }}"
+placement_galera_port: "{{ galera_port | default('3306') }}"
+placement_db_max_overflow: "{{ openstack_db_max_overflow | default('50') }}"
+placement_db_max_pool_size: "{{ openstack_db_max_pool_size | default('5') }}"
+placement_db_pool_timeout: "{{ openstack_db_pool_timeout | default('30') }}"
+placement_db_connection_recycle_time: "{{ openstack_db_connection_recycle_time | default('600') }}"
+
+## Placement User / Group
+placement_system_user_name: placement
+placement_system_group_name: placement
+placement_system_comment: placement system user
+placement_system_shell: /bin/false
+placement_system_user_home: "/var/lib/{{ placement_system_user_name }}"
+
+# API
+placement_bind_address: "{{ openstack_service_bind_address | default('0.0.0.0') }}"
+placement_service_port: 8780
+
+# UWSGI
+placement_wsgi_processes_max: 16
+placement_wsgi_processes: "{{ [[(ansible_facts['processor_vcpus']//ansible_facts['processor_threads_per_core'])|default(1), 1] | max * 2, placement_wsgi_processes_max] | min }}"
+placement_wsgi_threads: 1
+
+## Service Type and Data
+placement_service_region: "{{ service_region | default('RegionOne') }}"
+placement_service_name: placement
+placement_service_proto: http
+placement_service_registry_proto: "{{ placement_service_proto }}"
+placement_service_publicuri_proto: "{{ openstack_service_publicuri_proto | default(placement_service_proto) }}"
+placement_service_adminuri_proto: "{{ openstack_service_adminuri_proto | default(placement_service_proto) }}"
+placement_service_internaluri_proto: "{{ openstack_service_internaluri_proto | default(placement_service_proto) }}"
+placement_service_type: placement
+placement_service_description: "Placement Service"
+placement_service_user_name: placement
+placement_service_project_name: service
+placement_service_project_domain_id: default
+placement_service_user_domain_id: default
+placement_service_publicurl: "{{ placement_service_publicuri_proto }}://{{ external_lb_vip_address }}:{{ placement_service_port }}"
+placement_service_internalurl: "{{ placement_service_internaluri_proto }}://{{ internal_lb_vip_address }}:{{ placement_service_port }}"
+placement_service_adminurl: "{{ placement_service_adminuri_proto }}://{{ internal_lb_vip_address }}:{{ placement_service_port }}"
+placement_service_in_ldap: "{{ service_ldap_backend_enabled | default(False) }}"
+
+# List of roles assigned to placement_service_user_name
+placement_service_role_names:
+  - admin
+  - service
+
+# List of roles for which service tokens will be accepted
+placement_service_token_roles:
+  - service
+
+placement_service_token_roles_required: "{{ openstack_service_token_roles_required | default(True) }}"
+
+placement_auth_strategy: keystone
+
+## Keystone authentication middleware
+placement_keystone_auth_type: password
+
+# Common pip packages
+placement_pip_packages:
+  - "git+{{ placement_git_repo }}@{{ placement_git_install_branch }}#egg=openstack-placement"
+  - PyMySQL
+  - pymemcache
+  - python-memcached
+  - cryptography
+  - systemd-python
+
+# Memcached override
+placement_memcached_servers: "{{ memcached_servers }}"
+
+## Service Name-Group Mapping
+placement_services:
+  placement-api:
+    group: placement_api
+    service_name: placement-api
+    init_config_overrides: "{{ placement_api_init_overrides }}"
+    start_order: 1
+    wsgi_app: True
+    wsgi_name: placement-api
+    uwsgi_overrides: "{{ placement_api_uwsgi_ini_overrides }}"
+    uwsgi_bind_address: "{{ placement_bind_address }}"
+    uwsgi_port: "{{ placement_service_port }}"
+
+## Tunable overrides
+placement_api_uwsgi_ini_overrides: {}
+placement_api_init_overrides: {}
+placement_placement_conf_overrides: {}
+placement_policy_overrides: {}

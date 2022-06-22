@@ -1,0 +1,139 @@
+---
+# Copyright 2016, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+## OpenStack Source Code Release
+openstack_release: "{{ lookup('env', 'OSA_VERSION') | default('undefined', true) }}"
+
+## OpenStack Configuration directory
+openstack_config_dir: "{{ lookup('env', 'OSA_CONFIG_DIR') | default('/etc/openstack_deploy', true) }}"
+
+## OpenStack Clone directory
+openstack_clone_root: "{{ (lookup('env', 'OSA_CLONE_ROOT') | default('/opt/openstack-ansible', true)) }}"
+
+## OpenStack service python version
+openstack_venv_python_executable: "python3"
+
+## Verbosity Options
+debug: False
+
+## SSH connection wait time
+ssh_delay: 5
+
+management_address: "{{ container_address }}"
+openstack_service_bind_address: "{{ management_address }}"
+
+package_state: "present"
+
+# Set "/var/log" to be a bind mount to the physical host.
+default_bind_mount_logs: true
+
+# Set distro variable
+# NOTE(hwoarang): ansible_facts['distribution'] may return a string with spaces
+# such as "openSUSE Leap" so we need to replace the space with underscore
+# in order to create a more sensible repo name for the distro.
+os_distro_version: "{{ (ansible_facts['distribution'] | lower) | replace(' ', '_') }}-{{ ansible_facts['distribution_version'].split('.')[:2] | join('.') }}-{{ ansible_facts['architecture'] | lower }}"
+
+openstack_lock_dir: "/run/lock"
+
+# Ensure that the package state matches the global setting
+rsyslog_client_package_state: "{{ package_state }}"
+rsyslog_client_enabled: False
+rsyslog_server_enabled: False
+
+# URL for the frozen internal openstack repo.
+repo_server_port: 8181
+
+## Default installation method for OpenStack services
+install_method: "source"
+service_install_method: "{{ install_method }}"
+
+## DNS resolution (resolvconf) options
+#Group containing resolvers to configure
+resolvconf_resolver_group: unbound
+
+# Disable /etc/hosts management if unbound DNS resolution containers exist
+openstack_host_manage_hosts_file: "{{ groups['unbound'] is not defined or groups['unbound'] | length < 1 }}"
+
+## Enable external SSL handling for general OpenStack services
+openstack_external_ssl: true
+
+## OpenStack global Endpoint Protos
+openstack_service_publicuri_proto: https
+openstack_service_adminuri_proto: http
+openstack_service_internaluri_proto: http
+
+## Region Name
+service_region: RegionOne
+
+## OpenStack Domain
+openstack_domain: openstack.local
+lxc_container_domain: "{{ container_domain }}"
+container_domain: "{{ openstack_domain }}"
+
+## DHCP Domain Name
+dhcp_domain: openstacklocal
+
+## LDAP enabled toggle
+service_ldap_backend_enabled: "{{ keystone_ldap is defined and keystone_ldap.Default is defined }}"
+
+## Base venv configuration
+venv_tag: "{{ openstack_release }}"
+
+## OpenStack Openrc
+openrc_os_auth_url: "{{ keystone_service_internalurl }}"
+openrc_os_password: "{{ keystone_auth_admin_password }}"
+openrc_os_domain_name: "Default"
+openrc_region_name: "{{ service_region }}"
+
+## Host security hardening
+# The ansible-hardening role provides security hardening for hosts
+# by applying security configurations from the STIG. Hardening is enabled by
+# default, but an option to opt out is available by setting the following
+# variable to 'false'.
+# Docs: https://docs.openstack.org/ansible-hardening/latest/
+apply_security_hardening: true
+
+## Ansible ssh configuration
+ansible_ssh_extra_args: >
+  -o UserKnownHostsFile=/dev/null
+  -o StrictHostKeyChecking=no
+  -o ServerAliveInterval=64
+  -o ServerAliveCountMax=1024
+  -o Compression=no
+  -o TCPKeepAlive=yes
+  -o VerifyHostKeyDNS=no
+  -o ForwardX11=no
+  -o ForwardAgent=yes
+  -T
+
+# Toggle whether the service is deployed in a container or not
+is_metal: >-
+  {{ (properties is defined) and
+     (properties.is_metal is defined) and
+     (properties.is_metal | bool) }}
+
+_global_pins_file_path: "{{ openstack_clone_root }}/global-requirement-pins.txt"
+
+venv_build_global_constraints: >-
+  {{ lookup('file', _global_pins_file_path).splitlines() | reject('match','^#.*$') | reject('equalto', '') | list }}
+
+deployment_extra_facts_subset: hardware
+deployment_extra_facts_filter: ansible_processor_*
+
+# Set permissions for repo server and files built on it
+repo_service_user_name: nginx
+repo_service_group_name: www-data
+venv_build_host_user_name: "{{ repo_service_user_name }}"
+venv_build_host_group_name: "{{ repo_service_group_name }}"

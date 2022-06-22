@@ -1,0 +1,14 @@
+- name: Remove old ODL yum repo cfg file
+  file:
+    state: absent
+    path: /etc/yum.repos.d/opendaylight.repo
+- name: Download ODL yum repo cfg file
+  get_url:
+    url={{ rpm_repo_url }}
+    dest=/etc/yum.repos.d/opendaylight.repo
+- name: Set ODL yum repo cfg file properties
+  file:
+    path=/etc/yum.repos.d/opendaylight.repo
+    owner=root
+    group=root
+    mode=0644

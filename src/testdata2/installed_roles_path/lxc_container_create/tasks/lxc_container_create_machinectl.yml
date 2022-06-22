@@ -1,0 +1,48 @@
+---
+# Copyright 2017, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# NOTE(cloudnull): When the machinectl backend is set the container create
+#                  module will use the "machinectl" container template which
+#                  will build and store all containers using a copy-on-write
+#                  snapshot from the base image stored withine machinectl.
+- name: Create container (machinectl)
+  lxc_container:
+    name: "{{ inventory_hostname }}"
+    container_log: true
+    container_log_level: "{{ (debug | bool) | ternary('DEBUG', 'INFO') }}"
+    config: "{{ lxc_container_config }}"
+    template: "machinectl"
+    state: started
+    template_options: "{{ lxc_container_machinectl_template_options }}"
+  delegate_to: "{{ physical_host }}"
+
+- name: Set the qgroup limits
+  block:
+    - name: Set the qgroup size|compression limits on machines
+      command: "btrfs qgroup limit {{ item }} /var/lib/machines/{{ inventory_hostname }}"
+      changed_when: false
+      delegate_to: "{{ physical_host }}"
+      with_items:
+        - "-e {{ lxc_host_btrfs_qgroup_space_limit }}"
+        - "-c {{ lxc_host_btrfs_qgroup_compression_limit }}"
+      when:
+        - not (lxc_host_btrfs_quota_disabled | bool)
+  rescue:
+    - name: Notice regarding quota system
+      debug:
+        msg: >-
+          There was an error processing the setup of qgroups. Check the system
+          to ensure they're available otherwise disable the quota system by
+          setting `lxc_host_btrfs_quota_disabled` to true.

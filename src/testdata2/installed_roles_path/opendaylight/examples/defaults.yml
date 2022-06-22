@@ -1,0 +1,7 @@
+---
+- hosts: all
+  become: yes
+  roles:
+    - role: opendaylight
+      # Accept all default vars
+      # https://github.com/dfarrell07/ansible-opendaylight/blob/master/vars/main.yml

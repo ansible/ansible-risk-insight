@@ -1,0 +1,4 @@
+# {{ ansible_managed }}
+{% for share in item.value.shares %}
+{{ share.ip }}:{{ share.share }}
+{% endfor %}

@@ -1,0 +1,8 @@
+[all]
+localhost ansible_connection=local ansible_become=True
+test1 ansible_host=127.111.111.101 ansible_become=True
+test2 ansible_host=127.111.111.102 ansible_become=True
+
+[rsyslog_all]
+test1
+test2

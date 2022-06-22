@@ -1,0 +1,6 @@
+---
+- name: Install blazar server
+  hosts: blazar_all
+  user: root
+  roles:
+    - { role: "os_blazar", tags: [ "os-blazar" ] }

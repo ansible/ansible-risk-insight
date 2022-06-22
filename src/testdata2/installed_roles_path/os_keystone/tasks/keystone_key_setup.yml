@@ -1,0 +1,45 @@
+---
+# Copyright 2015, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Ensure .ssh directory is present
+  file:
+    state: directory
+    path: "{{ keystone_system_user_home }}/.ssh"
+    owner: "{{ keystone_system_user_name }}"
+    group: "{{ keystone_system_group_name }}"
+    mode: '0755'
+
+- name: Create ssh keys for synchronising fernet keys
+  include_role:
+    name: openstack.osa.ssh_keypairs
+  args:
+    apply:
+      tags:
+        - keystone-key
+  vars:
+      ssh_keypairs_setup_host: "{{ keystone_ssh_keypairs_setup_host }}"
+      ssh_keypairs_dir: "{{ keystone_ssh_keypairs_dir }}"
+      ssh_keypairs: "{{ keystone_ssh_keypairs }}"
+      ssh_keypairs_install_keys: "{{ keystone_ssh_keypairs_install_keys }}"
+      ssh_keypairs_install_ca: "{{ keystone_ssh_keypairs_install_ca }}"
+      ssh_keypairs_principals: "{{ keystone_ssh_keypairs_principals }}"
+  tags:
+    - always
+
+# TODO (jrosser) Remove this task for the Z release
+- name: Remove legacy authorized keys file
+  file:
+    path: "{{ keystone_system_user_name }}/.ssh/authorized_keys"
+    state: absent

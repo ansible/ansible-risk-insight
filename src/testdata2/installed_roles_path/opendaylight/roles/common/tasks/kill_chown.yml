@@ -1,0 +1,45 @@
+---
+- name: Sleep for {{ sleep_time }} seconds to allow stacking to start
+  tags:
+    - openstack
+    - stack
+    - workaround
+  command: sleep {{ sleep_time }}
+
+- name: Get PID of devstack::chown process
+  tags:
+    - openstack
+    - stack
+    - workaround
+  shell: "docker exec -i {{ container_name }} pgrep chown || exit 0"
+  register: chown_pid
+
+- name: Show output of pgrep
+  tags:
+    - openstack
+    - stack
+    - workaround
+  debug:
+    msg: "{{ chown_pid }}"
+  when: chown_pid is defined
+
+- name: Show "kill" command
+  tags:
+    - openstack
+    - stack
+    - workaround
+  debug:
+    msg: "docker exec -d {{ container_name }} kill -15 {{ chown_pid.stdout }}"
+  when: chown_pid.stdout != ""
+
+- name: Kill devstack chown process because it's unnecessary
+  tags:
+    - openstack
+    - stack
+    - workaround
+  shell: |
+    echo "Sleeping for 5 seconds to allow chown to get stuck"
+    sleep 5
+    "docker exec -d {{ container_name }} kill -15 {{ chown_pid.stdout }}"
+  when: chown_pid.stdout != ""
+

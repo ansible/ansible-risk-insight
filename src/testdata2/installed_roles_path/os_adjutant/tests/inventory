@@ -1,0 +1,27 @@
+[all]
+localhost
+service1 ansible_host=10.100.100.2 ansible_become=True ansible_user=root
+openstack1 ansible_host=10.100.100.3 ansible_become=True ansible_user=root
+
+[all_containers]
+service1
+openstack1
+
+[galera_all]
+service1
+
+[service_all:children]
+galera_all
+
+[keystone_all]
+openstack1
+
+[adjutant_api]
+openstack1
+
+[adjutant_apis_container]
+openstack1
+
+[adjutant_all:children]
+adjutant_api
+adjutant_apis_container

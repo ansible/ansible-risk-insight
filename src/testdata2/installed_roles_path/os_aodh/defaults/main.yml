@@ -1,0 +1,207 @@
+---
+# Copyright 2015, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+## Verbosity Options
+debug: False
+
+# Set the host which will execute the shade modules
+# for the service setup. The host must already have
+# clouds.yaml properly configured.
+aodh_service_setup_host: "{{ openstack_service_setup_host | default('localhost') }}"
+aodh_service_setup_host_python_interpreter: "{{ openstack_service_setup_host_python_interpreter | default((aodh_service_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable'])) }}"
+
+# Set the package install state for distribution packages
+# Options are 'present' and 'latest'
+aodh_package_state: "{{ package_state | default('latest') }}"
+
+# Set installation method.
+aodh_install_method: "{{ service_install_method | default('source') }}"
+aodh_venv_python_executable: "{{ openstack_venv_python_executable | default('python3') }}"
+
+## The git source/branch
+aodh_git_repo: https://opendev.org/openstack/aodh
+aodh_git_install_branch: master
+aodh_upper_constraints_url: "{{ requirements_git_url | default('https://releases.openstack.org/constraints/upper/' ~ requirements_git_install_branch | default('master')) }}"
+aodh_git_constraints:
+  - "--constraint {{ aodh_upper_constraints_url }}"
+
+aodh_pip_install_args: "{{ pip_install_options | default('') }}"
+
+# Name of the virtual env to deploy into
+aodh_venv_tag: "{{ venv_tag | default('untagged') }}"
+aodh_bin: "{{ _aodh_bin }}"
+
+## System info
+aodh_system_user_name: aodh
+aodh_system_group_name: aodh
+aodh_system_shell: /bin/false
+aodh_system_comment: aodh system user
+aodh_system_user_home: "/var/lib/{{ aodh_system_user_name }}"
+
+## Database info
+aodh_db_setup_host: "{{ openstack_db_setup_host | default('localhost') }}"
+aodh_db_setup_python_interpreter: "{{ openstack_db_setup_python_interpreter | default((aodh_db_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable'])) }}"
+aodh_db_address: "{{ galera_address | default('127.0.0.1') }}"
+aodh_database_name: aodh
+aodh_database_user: aodh
+aodh_db_type: "mysql+pymysql"
+aodh_galera_use_ssl: "{{ galera_use_ssl | default(False) }}"
+aodh_galera_ssl_ca_cert: "{{ galera_ssl_ca_cert | default('') }}"
+aodh_connection_string: "{{ aodh_db_type }}://{{ aodh_database_user }}:{{ aodh_container_db_password }}@{{ aodh_db_address }}/{{ aodh_database_name }}?charset=utf8{% if aodh_galera_use_ssl | bool %}&ssl_verify_cert=true{% if aodh_galera_ssl_ca_cert | length > 0 %}&ssl_ca={{ aodh_galera_ssl_ca_cert }}{% endif %}{% endif %}"
+aodh_galera_port: "{{ galera_port | default('3306') }}"
+aodh_db_max_overflow: "{{ openstack_db_max_overflow | default('50') }}"
+aodh_db_max_pool_size: "{{ openstack_db_max_pool_size | default('5') }}"
+aodh_db_pool_timeout: "{{ openstack_db_pool_timeout | default('30') }}"
+aodh_db_connection_recycle_time: "{{ openstack_db_connection_recycle_time | default('600') }}"
+
+# Oslo Messaging
+# RPC
+aodh_oslomsg_rpc_host_group: "{{ oslomsg_rpc_host_group | default('rabbitmq_all') }}"
+aodh_oslomsg_rpc_setup_host: "{{ (aodh_oslomsg_rpc_host_group in groups) | ternary(groups[aodh_oslomsg_rpc_host_group][0], 'localhost') }}"
+aodh_oslomsg_rpc_transport: "{{ oslomsg_rpc_transport | default('rabbit') }}"
+aodh_oslomsg_rpc_servers: "{{ oslomsg_rpc_servers | default('127.0.0.1') }}"
+aodh_oslomsg_rpc_port: "{{ oslomsg_rpc_port | default('5672') }}"
+aodh_oslomsg_rpc_use_ssl: "{{ oslomsg_rpc_use_ssl | default(False) }}"
+aodh_oslomsg_rpc_userid: aodh
+aodh_oslomsg_rpc_vhost: /aodh
+aodh_oslomsg_rpc_ssl_version: "{{ oslomsg_rpc_ssl_version | default('TLSv1_2') }}"
+aodh_oslomsg_rpc_ssl_ca_file: "{{ oslomsg_rpc_ssl_ca_file | default('') }}"
+
+# Notify
+aodh_oslomsg_notify_host_group: "{{ oslomsg_notify_host_group | default('rabbitmq_all') }}"
+aodh_oslomsg_notify_setup_host: "{{ (aodh_oslomsg_notify_host_group in groups) | ternary(groups[aodh_oslomsg_notify_host_group][0], 'localhost') }}"
+aodh_oslomsg_notify_transport: "{{ oslomsg_notify_transport | default('rabbit') }}"
+aodh_oslomsg_notify_servers: "{{ oslomsg_notify_servers | default('127.0.0.1') }}"
+aodh_oslomsg_notify_port: "{{ oslomsg_notify_port | default('5672') }}"
+aodh_oslomsg_notify_use_ssl: "{{ oslomsg_notify_use_ssl | default(False) }}"
+aodh_oslomsg_notify_userid: "{{ aodh_oslomsg_rpc_userid }}"
+aodh_oslomsg_notify_password: "{{ aodh_oslomsg_rpc_password }}"
+aodh_oslomsg_notify_vhost: "{{ aodh_oslomsg_rpc_vhost }}"
+aodh_oslomsg_notify_ssl_version: "{{ oslomsg_notify_ssl_version | default('TLSv1_2') }}"
+aodh_oslomsg_notify_ssl_ca_file: "{{ oslomsg_notify_ssl_ca_file | default('') }}"
+
+## (Qdrouterd) info
+# TODO(ansmith): Change structure when more backends will be supported
+aodh_oslomsg_amqp1_enabled: "{{ aodh_oslomsg_rpc_transport == 'amqp' }}"
+
+## uWSGI setup
+aodh_wsgi_threads: 1
+aodh_wsgi_processes_max: 16
+aodh_wsgi_processes: "{{ [[(ansible_facts['processor_vcpus']//ansible_facts['processor_threads_per_core'])|default(1), 1] | max * 2, aodh_wsgi_processes_max] | min }}"
+
+#Aodh services info
+aodh_service_role_names:
+  - admin
+  - service
+aodh_service_token_roles:
+  - service
+aodh_service_token_roles_required: "{{ openstack_service_token_roles_required | default(True) }}"
+
+## Service Type and Data
+aodh_service_region: "{{ service_region | default('RegionOne') }}"
+aodh_service_endpoint_type: internalURL
+aodh_service_name: aodh
+aodh_service_bind_address: "{{ openstack_service_bind_address | default('0.0.0.0') }}"
+aodh_service_port: 8042
+aodh_service_proto: http
+aodh_service_publicuri_proto: "{{ openstack_service_publicuri_proto | default(aodh_service_proto) }}"
+aodh_service_adminuri_proto: "{{ openstack_service_adminuri_proto | default(aodh_service_proto) }}"
+aodh_service_internaluri_proto: "{{ openstack_service_internaluri_proto | default(aodh_service_proto) }}"
+aodh_service_type: alarming
+aodh_service_description: "Telemetry"
+aodh_service_project_domain_id: default
+aodh_service_user_domain_id: default
+aodh_service_user_name: aodh
+aodh_keystone_auth_plugin: "{{ aodh_keystone_auth_type }}"
+aodh_keystone_auth_type: password
+aodh_service_tenant_name: service
+aodh_service_project_name: service
+aodh_service_publicuri: "{{ aodh_service_publicuri_proto }}://{{ external_lb_vip_address }}:{{ aodh_service_port }}"
+aodh_service_publicurl: "{{ aodh_service_publicuri }}"
+aodh_service_internaluri: "{{ aodh_service_internaluri_proto }}://{{ internal_lb_vip_address }}:{{ aodh_service_port }}"
+aodh_service_internalurl: "{{ aodh_service_internaluri }}"
+aodh_service_adminuri: "{{ aodh_service_adminuri_proto }}://{{ internal_lb_vip_address }}:{{ aodh_service_port }}"
+aodh_service_adminurl: "{{ aodh_service_adminuri }}"
+
+aodh_service_in_ldap: "{{ service_ldap_backend_enabled | default(False) }}"
+
+# Common pip packages
+aodh_pip_packages:
+  - "git+{{ aodh_git_repo }}@{{ aodh_git_install_branch }}#egg=aodh"
+  - aodh
+  - ceilometermiddleware
+  - cryptography
+  - gnocchiclient
+  - osprofiler
+  - PyMySQL
+  - pymemcache
+  - python-memcached
+  - sqlalchemy
+  - sqlalchemy-utils
+  - systemd-python
+  - warlock
+aodh_user_pip_packages: []
+
+aodh_optional_oslomsg_amqp1_pip_packages:
+  - oslo.messaging[amqp1]
+
+aodh_memcached_servers: "{{ memcached_servers }}"
+
+aodh_alarm_notifier_init_overrides: {}
+aodh_alarm_evaluator_init_overrides: {}
+aodh_api_init_overrides: {}
+aodh_listener_init_overrides: {}
+
+## Service Name-Group Mapping
+aodh_services:
+  aodh-api:
+    group: aodh_api
+    service-name: aodh-api
+    init_config_overrides: "{{ aodh_api_init_overrides }}"
+    wsgi_app: True
+    wsgi_name: aodh-api
+    uwsgi_overrides: "{{ aodh_uwsgi_conf_overrides }}"
+    uwsgi_port: "{{ aodh_service_port }}"
+    uwsgi_bind_address: "{{ aodh_service_bind_address }}"
+  aodh-notifier:
+    group: aodh_alarm_notifier
+    service_name: aodh-notifier
+    execstarts: "{{ aodh_bin }}/aodh-notifier"
+    init_config_overrides: "{{ aodh_alarm_notifier_init_overrides }}"
+  aodh-evaluator:
+    group: aodh_alarm_evaluator
+    service_name: aodh-evaluator
+    execstarts: "{{ aodh_bin }}/aodh-evaluator"
+    init_config_overrides: "{{ aodh_alarm_evaluator_init_overrides }}"
+  aodh-listener:
+    group: aodh_listener
+    service_name: aodh-listener
+    execstarts: "{{ aodh_bin }}/aodh-listener"
+    init_config_overrides: "{{ aodh_listener_init_overrides }}"
+
+aodh_required_secrets:
+  - memcached_encryption_key
+  - aodh_container_db_password
+  - aodh_oslomsg_rpc_password
+  - aodh_oslomsg_notify_password
+  - aodh_service_password
+
+install_test_packages: False
+
+## Tunable overrides
+aodh_policy_overrides: {}
+aodh_aodh_conf_overrides: {}
+aodh_api_paste_ini_overrides: {}
+aodh_uwsgi_conf_overrides: {}

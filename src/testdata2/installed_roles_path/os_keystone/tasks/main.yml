@@ -1,0 +1,280 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Fail if our required secrets are not present
+  fail:
+    msg: "Please set the {{ item }} variable prior to applying this role."
+  when: (item is undefined) or (item is none)
+  with_items: "{{ keystone_required_secrets }}"
+  tags:
+    - always
+
+- name: Fail if service was deployed using a different installation method
+  fail:
+    msg: "Switching installation methods for OpenStack services is not supported"
+  when:
+    - ansible_local is defined
+    - ansible_local.openstack_ansible is defined
+    - ansible_local.openstack_ansible.keystone is defined
+    - ansible_local.openstack_ansible.keystone.install_method is defined
+    - ansible_local.openstack_ansible.keystone.install_method != keystone_install_method
+
+- name: Gather variables for each operating system
+  include_vars: "{{ lookup('first_found', params) }}"
+  vars:
+    params:
+      files:
+        - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_version'] | lower }}.yml"
+        - "{{ ansible_facts['distribution'] | lower }}-{{ ansible_facts['distribution_major_version'] | lower }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}-{{ ansible_facts['distribution_major_version'] | lower }}.yml"
+        - "{{ ansible_facts['distribution'] | lower }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}-{{ ansible_facts['distribution_version'].split('.')[0] }}.yml"
+        - "{{ ansible_facts['os_family'] | lower }}.yml"
+      paths:
+        - "{{ role_path }}/vars"
+  tags:
+    - always
+
+- name: Gather variables for installation method
+  include_vars: "{{ keystone_install_method }}_install.yml"
+  tags:
+    - always
+
+- name: Fact for apache module shibboleth to be installed
+  set_fact:
+    keystone_sp_apache_mod_shib:
+      "{{ (keystone_sp != {} and
+      (keystone_sp.apache_mod is undefined or
+      (keystone_sp.apache_mod is defined and keystone_sp.apache_mod != 'mod_auth_openidc'))
+      ) | ternary('true', 'false') }}"
+  tags:
+    - always
+
+- name: Fact for apache module mod_auth_openidc to be installed
+  set_fact:
+    keystone_sp_apache_mod_auth_openidc:
+      "{{ (keystone_sp != {} and
+      keystone_sp.apache_mod is defined and keystone_sp.apache_mod == 'mod_auth_openidc')
+      | ternary('true', 'false') }}"
+  tags:
+    - always
+
+- include_role:
+    name: openstack.osa.db_setup
+    apply:
+      tags:
+        - common-db
+        - keystone-config
+  when:
+    - "_keystone_is_first_play_host"
+  vars:
+    _oslodb_setup_host: "{{ keystone_db_setup_host }}"
+    _oslodb_ansible_python_interpreter: "{{ keystone_db_setup_python_interpreter }}"
+    _oslodb_setup_endpoint: "{{ keystone_galera_address }}"
+    _oslodb_setup_port: "{{ keystone_galera_port }}"
+    _oslodb_databases:
+      - name: "{{ keystone_galera_database }}"
+        users:
+          - username: "{{ keystone_galera_user }}"
+            password: "{{ keystone_container_mysql_password }}"
+  tags:
+    - always
+
+- include_role:
+    name: openstack.osa.mq_setup
+    apply:
+      tags:
+        - common-mq
+        - keystone-config
+  when:
+    - "_keystone_is_first_play_host"
+  vars:
+    _oslomsg_rpc_setup_host: "{{ keystone_oslomsg_rpc_setup_host }}"
+    _oslomsg_rpc_userid: "{{ keystone_oslomsg_rpc_userid }}"
+    _oslomsg_rpc_password: "{{ keystone_oslomsg_rpc_password }}"
+    _oslomsg_rpc_vhost: "{{ keystone_oslomsg_rpc_vhost }}"
+    _oslomsg_rpc_transport: "{{ keystone_oslomsg_rpc_transport }}"
+    _oslomsg_notify_setup_host: "{{ keystone_oslomsg_notify_setup_host }}"
+    _oslomsg_notify_userid: "{{ keystone_oslomsg_notify_userid }}"
+    _oslomsg_notify_password: "{{ keystone_oslomsg_notify_password }}"
+    _oslomsg_notify_vhost: "{{ keystone_oslomsg_notify_vhost }}"
+    _oslomsg_notify_transport: "{{ keystone_oslomsg_notify_transport }}"
+  tags:
+    - always
+
+- import_tasks: keystone_install.yml
+  tags:
+    - keystone-install
+
+- name: refresh local facts
+  setup:
+    filter: ansible_local
+    gather_subset: "!all"
+  tags:
+    - keystone-config
+
+- import_tasks: keystone_post_install.yml
+  tags:
+    - keystone-config
+
+- import_tasks: keystone_fernet.yml
+  when:
+    - "'fernet' in keystone_token_provider"
+    - keystone_service_setup | bool
+  tags:
+    - keystone-config
+
+- import_tasks: keystone_db_sync.yml
+  when:
+    - "keystone_database_enabled | bool"
+  tags:
+    - keystone-config
+
+- import_tasks: keystone_credential.yml
+  when: keystone_service_setup | bool
+  tags:
+    - keystone-config
+
+- import_tasks: keystone_federation_sp_shib_setup.yml
+  when:
+    - keystone_sp_apache_mod_shib
+  tags:
+    - keystone-config
+
+- name: Create and install SSL certificates
+  include_role:
+    name: pki
+    tasks_from: main_certs.yml
+  vars:
+    pki_setup_host: "{{ keystone_pki_setup_host }}"
+    pki_dir: "{{ keystone_pki_dir }}"
+    pki_create_ca: "{{ keystone_pki_create_ca }}"
+    pki_authorities: "{{ keystone_pki_ca_certificates }}"
+    pki_regen_ca: "{{ keystone_pki_regen_ca }}"
+    pki_create_certificates: "{{ keystone_pki_create_certificates }}"
+    pki_regen_cert: "{{ keystone_pki_regen_cert }}"
+    pki_certificates: "{{ keystone_pki_certificates }}"
+    pki_install_certificates: "{{ keystone_pki_install_certificates }}"
+  when:
+    - (keystone_ssl | bool) or (keystone_idp['certfile'] is defined)
+  tags:
+    - keystone-config
+
+- import_tasks: "keystone_apache.yml"
+  tags:
+    - keystone-config
+
+- name: Import uwsgi role
+  import_role:
+    name: uwsgi
+  vars:
+    uwsgi_services: "{{ uwsgi_keystone_services }}"
+    uwsgi_install_method: "{{ keystone_install_method }}"
+  tags:
+    - keystone-config
+    - uwsgi
+
+- name: Flush handlers
+  meta: flush_handlers
+
+- import_tasks: keystone_service_bootstrap.yml
+  when:
+    - "_keystone_is_first_play_host"
+    - "keystone_service_setup | bool"
+  tags:
+    - keystone-config
+
+# Note(odyssey4me):
+# This set of tasks specifically runs against the last keystone
+# node in the cluster to ensure that the modules have access to
+# the endpoints which were bootstrapped in keystone_service_bootstrap.
+- name: Wait for services to be up
+  delegate_to: "{{ keystone_service_setup_host }}"
+  uri:
+    url: "{{ item.url }}"
+    validate_certs: "{{ item.validate_certs }}"
+    method: "HEAD"
+    status_code: 300
+  with_items:
+    - url: "{{ keystone_service_adminuri }}"
+      validate_certs: "{{ not keystone_service_adminuri_insecure }}"
+    - url: "{{ keystone_service_internaluri }}"
+      validate_certs: "{{ not keystone_service_internaluri_insecure }}"
+  register: _wait_check
+  when:
+    - "_keystone_is_last_play_host"
+  until: _wait_check is success
+  retries: 12
+  delay: 5
+
+- include_role:
+    name: openstack.osa.service_setup
+    apply:
+      tags:
+        - keystone-config
+        - common-service
+  vars:
+    _service_adminuri_insecure: "{{ keystone_service_adminuri_insecure }}"
+    _service_in_ldap: "{{ keystone_service_in_ldap }}"
+    _service_setup_host: "{{ keystone_service_setup_host }}"
+    _service_setup_host_python_interpreter: "{{ keystone_service_setup_host_python_interpreter }}"
+    _project_name: "{{ keystone_service_tenant_name }}"
+    _project_description: "{{ keystone_service_project_description }}"
+    _service_region: "{{ keystone_service_region }}"
+    _service_catalog:
+      - name: "{{ keystone_service_name }}"
+        type: "{{ keystone_service_type }}"
+        description: "{{ keystone_service_description }}"
+    _service_endpoints:
+      - interface: "public"
+        url: "{{ keystone_service_publicuri }}"
+        service: "{{ keystone_service_name }}"
+      - interface: "internal"
+        url: "{{ keystone_service_internaluri }}"
+        service: "{{ keystone_service_name }}"
+      - interface: "admin"
+        url: "{{ keystone_service_adminuri }}"
+        service: "{{ keystone_service_name }}"
+  when:
+    - "_keystone_is_last_play_host"
+    - "keystone_service_setup | bool"
+  tags:
+    - always
+
+- import_tasks: keystone_ldap_setup.yml
+  when:
+    - keystone_service_setup | bool
+    - keystone_ldap != {}
+  tags:
+    - keystone-config
+
+- name: Flush handlers
+  meta: flush_handlers
+
+- import_tasks: keystone_idp_setup.yml
+  when: keystone_idp != {}
+  tags:
+    - keystone-config
+
+- name: Diagnose common problems with keystone deployments
+  command: "{{ keystone_bin }}/keystone-manage doctor"
+  become: yes
+  become_user: "{{ keystone_system_user_name }}"
+  register: keystone_doctor
+  failed_when: not debug and keystone_doctor.rc != 0
+  changed_when: false
+  run_once: yes
+  tags:
+    - keystone-config

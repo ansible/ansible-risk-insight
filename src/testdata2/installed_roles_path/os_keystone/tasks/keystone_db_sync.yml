@@ -1,0 +1,97 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Check current state of Keystone DB
+  command: "{{ keystone_bin }}/keystone-manage db_sync --check"
+  become: yes
+  become_user: "{{ keystone_system_user_name }}"
+  register: keystone_db_sync_check
+  failed_when: "keystone_db_sync_check.rc == 1"
+  changed_when: "keystone_db_sync_check.rc not in [2, 3, 4]"
+  run_once: yes
+
+- name: Set the db sync local facts
+  ini_file:
+    dest: "/etc/ansible/facts.d/openstack_ansible.fact"
+    section: keystone
+    option: "{{ item.name }}"
+    value: "{{ item.state }}"
+  with_items:
+    - name: "need_db_expand"
+      state: "{{ (keystone_db_sync_check.rc | int == 2) | bool }}"
+    - name: "need_db_migrate"
+      state: "{{ (keystone_db_sync_check.rc | int in [2, 3] ) | bool }}"
+    - name: "need_db_contract"
+      state: "{{ (keystone_db_sync_check.rc | int in [2, 3, 4]) | bool }}"
+
+- name: Refresh local facts
+  setup:
+    filter: ansible_local
+    gather_subset: "!all"
+  tags:
+    - keystone-config
+
+# When keystone is initially built, the service does not yet exist on the
+# host this task is executed on. Detect the presence of the services.
+- name: Test if keystone service exists
+  service:
+    name: "{{ item }}"
+  check_mode: yes
+  register: keystone_service_exists
+  with_items: "{{ keystone_services.keys() | list }}"
+
+- name: Ensure keystone service is stopped
+  service:
+    name: "{{ item.name }}"
+    state: stopped
+  register: _stop
+  until: _stop is success
+  retries: 5
+  delay: 2
+  with_items: "{{ keystone_service_exists.results }}"
+  when:
+    - "(ansible_local['openstack_ansible']['keystone']['need_db_expand'] | bool) or
+       (ansible_local['openstack_ansible']['keystone']['need_db_migrate'] | bool)"
+    - "(item.status['LoadState'] == 'loaded' | bool)"
+  notify:
+    - Restart uWSGI
+
+- name: Perform a Keystone DB sync expand
+  command: "{{ keystone_bin }}/keystone-manage db_sync --expand"
+  become: yes
+  become_user: "{{ keystone_system_user_name }}"
+  when:
+    - "ansible_local['openstack_ansible']['keystone']['need_db_expand'] | bool"
+  run_once: yes
+  notify: flush cache
+
+- name: Perform a Keystone DB sync migrate
+  command: "{{ keystone_bin }}/keystone-manage db_sync --migrate"
+  become: yes
+  become_user: "{{ keystone_system_user_name }}"
+  when:
+    - "ansible_local['openstack_ansible']['keystone']['need_db_migrate'] | bool"
+  run_once: yes
+  notify: flush cache
+
+- name: Perform a Keystone DB sync contract
+  command: "{{ keystone_bin }}/keystone-manage db_sync --contract"
+  become: yes
+  become_user: "{{ keystone_system_user_name }}"
+  when:
+    - "(keystone_all_software_updated | default('no')) | bool"
+    - "ansible_local['openstack_ansible']['keystone']['need_db_contract'] | bool"
+  run_once: yes
+  notify: flush cache

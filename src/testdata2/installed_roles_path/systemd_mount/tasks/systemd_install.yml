@@ -1,0 +1,90 @@
+---
+# Copyright 2020, City Network International AB.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Install EPEL
+  when:
+    - "'s3fs' in systemd_mount_types"
+    - ansible_facts['os_family'] | lower == 'redhat'
+  block:
+    - name: Download EPEL gpg keys
+      get_url:
+        url: "{{ systemd_centos_epel_key }}"
+        dest: /etc/pki/rpm-gpg
+      register: _get_yum_keys
+      until: _get_yum_keys is success
+      retries: 5
+      delay: 2
+
+    - name: Install EPEL gpg keys
+      rpm_key:
+        key: "/etc/pki/rpm-gpg/{{ systemd_centos_epel_key.split('/')[-1] }}"
+        state: present
+
+    - name: Install the EPEL repository
+      yum_repository:
+        name: epel-systemd_mounts
+        baseurl: "{{ systemd_centos_epel_mirror ~ '/' ~ ansible_facts['distribution_major_version'] ~ '/Everything/' ~ ansible_facts['architecture'] }}"
+        description: "Extra Packages for Enterprise Linux {{ ansible_facts['distribution_major_version'] }} - $basearch"
+        gpgcheck: yes
+        enabled: yes
+        state: present
+        includepkgs: "s3fs-fuse"
+      register: install_epel_repo
+      until: install_epel_repo is success
+      retries: 5
+      delay: 2
+
+- name: Install required distro packages for mounts
+  package:
+    name: "{{ systemd_mount_packages }}"
+    state: present
+
+# NOTE(jrosser) as we call systemd_service from inside a block: with a when:
+#  parameter, the when: condition must be able to be resolved inside the
+#  systemd_service role where role vars from systemd_mount are not in scope
+- name: Make boolean flag for setting up glusterfs
+  set_fact:
+    _configure_glusterfs: "{{ 'glusterfs' in systemd_mount_types }}"
+
+- name: Configure fuse for glusterfs
+  when:
+    - _configure_glusterfs
+  block:
+    - name: Configure systemd-tmpfiles to create /dev/fuse at boot
+      copy:
+        content: "c /dev/fuse 0600 - - - 10:229"
+        dest: "/etc/tmpfiles.d/openstack-ansible-systemd_mount-glusterfs-client.conf"
+      register: _glusterfs_server_tmpfiles
+
+    - name: Apply systemctl overrides
+      when: ansible_facts['pkg_mgr'] == 'dnf'
+      include_role:
+        name: systemd_service
+      vars:
+        systemd_services:
+          - service_name: systemd-tmpfiles-setup-dev
+            restart_changed: false
+            load: false
+            systemd_overrides_only: true
+            systemd_overrides:
+              Unit:
+                ConditionCapability: ""
+
+    - name: Restart systemd-tmpfiles-setup-dev
+      service:
+        name: "systemd-tmpfiles-setup-dev"
+        state: restarted
+      when:
+        - _glusterfs_server_tmpfiles is changed

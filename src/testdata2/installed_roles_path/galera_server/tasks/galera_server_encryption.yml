@@ -1,0 +1,94 @@
+---
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Create encryption config
+  openstack.config_template.config_template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "root"
+    group: "root"
+    mode: "{{ item.mode | default('0644') }}"
+    config_overrides: "{{ item.config_overrides }}"
+    config_type: "{{ item.config_type }}"
+    ignore_none_type: False
+  when: item.condition | default(True)
+  with_items:
+    - src: encryption.cnf.j2
+      dest: "{{ galera_etc_include_dir }}/encryption.cnf"
+      config_overrides: "{{ galera_encryption_overrides }}"
+      config_type: "ini"
+  notify: Restart all mysql
+
+- name: use encryption with the file key management plugin
+  block:
+    - name: Create encryption directory
+      file:
+        path: "/etc/mysql/encryption"
+        state: "directory"
+        owner: "mysql"
+        group: "mysql"
+        mode: "0755"
+
+    - name: Create a fact for the name of the temporary directory
+      set_fact:
+        galera_db_encryption_tmp_dir: "{{ lookup('env', 'OSA_CONFIG_DIR') | default(osa_config_dir, True) }}/mysql"
+      delegate_to: "localhost"
+      run_once: true
+      when: galera_db_encryption_tmp_dir | length == 0
+
+    - name: Create a temporary directory to store the keyfile
+      file:
+        path: "{{ galera_db_encryption_tmp_dir }}"
+        state: directory
+      delegate_to: "localhost"
+      run_once: true
+
+    - name: Create encryption keys if the user does not specify them and put them on the deploy host
+      shell: "for i in {1..2}; do echo \"$i;$(openssl rand -hex 32)\"; done | tee {{ galera_db_encryption_tmp_dir }}/mysql_encryption_keys > /dev/null"
+      delegate_to: "localhost"
+      run_once: true
+      when:
+        - galera_db_encryption_keys is not defined
+
+    - name: Create the encryption key file from the user provided galera_db_encryption_keys
+      shell: "echo '{{ galera_db_encryption_keys }}' > {{ galera_db_encryption_tmp_dir }}/mysql_encryption_keys"
+      delegate_to: "localhost"
+      run_once: true
+      when:
+        - galera_db_encryption_keys is defined
+
+    - name: Create an encrypted keyfile using encryption key
+      command: "openssl enc -aes-256-cbc -md sha1 -k {{ galera_db_encryption_password }} -in {{ galera_db_encryption_tmp_dir }}/mysql_encryption_keys -out {{ galera_db_encryption_tmp_dir }}/mysql_encryption_keyfile.enc"
+      delegate_to: "localhost"
+      run_once: true
+
+    - name: Copy encypted keyfile to servers
+      copy:
+        src: "{{ galera_db_encryption_tmp_dir }}/mysql_encryption_keyfile.enc"
+        dest: "/etc/mysql/encryption/keyfile.enc"
+        owner: mysql
+        group: mysql
+        mode: 0600
+        force: false  # only copy the file if it does not exist
+      notify: Restart all mysql
+
+    - name: Copy password to file to servers
+      copy:
+        content: "{{ galera_db_encryption_password }}"
+        dest: "/etc/mysql/encryption/.keyfile.key"
+        owner: mysql
+        group: mysql
+        mode: 0600
+  when:
+    - galera_mariadb_encryption_plugin == "file_key_management"
+

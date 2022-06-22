@@ -1,0 +1,34 @@
+---
+- name: Installation and setup of horizon
+  hosts: horizon_all
+  user: root
+  roles:
+    - { role: "os_horizon", tags: [ "os-horizon" ] }
+  vars:
+    galera_client_drop_config_file: false
+    external_lb_vip_address: 10.100.100.101
+    internal_lb_vip_address: 10.100.100.101
+    horizon_galera_address: 10.100.100.101
+    horizon_container_mysql_password: "SuperSecrete"
+    horizon_secret_key: "SuperSecreteHorizonKey"
+    horizon_external_ssl: true
+    rabbitmq_servers: 10.100.100.101
+    rabbitmq_use_ssl: false
+    rabbitmq_port: 5671
+    keystone_admin_user_name: admin
+    keystone_auth_admin_password: "SuperSecretePassword"
+    keystone_admin_tenant_name: admin
+    keystone_service_adminuri_insecure: false
+    keystone_service_internaluri_insecure: false
+    keystone_service_internaluri: "http://{{ internal_lb_vip_address }}:5000"
+    keystone_service_internalurl: "{{ keystone_service_internaluri }}/v3"
+    keystone_service_adminuri: "http://{{ internal_lb_vip_address }}:5000"
+    keystone_service_adminurl: "{{ keystone_service_adminuri }}/v3"
+    openrc_os_password: "{{ keystone_auth_admin_password }}"
+    openrc_os_domain_name: "Default"
+    memcached_servers: 10.100.100.101
+    memcached_encryption_key: "secrete"
+    galera_root_user: root
+  vars_prompt:
+    - name: "galera_root_password"
+      prompt: "What is galera_root_password?"

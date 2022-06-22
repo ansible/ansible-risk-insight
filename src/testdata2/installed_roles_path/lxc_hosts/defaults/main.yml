@@ -1,0 +1,238 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Set the package install state for distribution packages
+# Options are 'present' and 'latest'
+lxc_hosts_package_state: "latest"
+
+# Define a list of extra distribuition packages to install onto the host
+# at the discretion of the deployer
+lxc_hosts_extra_distro_packages: []
+
+# Define the total list of packages which to install onto the host combining
+# distibution specific and deployers extra package lists
+lxc_hosts_distro_packages: "{{ _lxc_hosts_distro_packages + lxc_hosts_extra_distro_packages }}"
+
+# Mappings from Ansible reported architecture to distro release architecture
+lxc_architecture_mapping:
+  x86_64: amd64
+  ppc64le: ppc64el
+  s390x: s390x
+  armv7l: armhf
+  aarch64: arm64
+
+# Set the volume size for the machine image caches. We only use the
+# most specific mountpoint from the hierarchy.
+# NOTE: Size is set in Gigabytes.
+lxc_host_machine_volume_size: |-
+    {%- set mounts = [] -%}
+    {%- set mount_points = ['/var/lib/machines', '/var/lib/', '/var', '/'] -%}
+    {%- for mount in mount_points -%}
+    {%-   for dev in ansible_facts['mounts'] -%}
+    {%-     if mount == dev.mount -%}
+    {%-       set _ = mounts.append(dev.size_total // (1024 ** 3)) -%}
+    {%-     endif -%}
+    {%-   endfor -%}
+    {%- endfor -%}
+    {{ mounts[0] }}
+
+# Enable or Disable the BTRFS quota system for the "/var/lib/machines" mount
+# point. More information on the BTRFS quota system can be found here:
+#  * https://btrfs.wiki.kernel.org/index.php/Quota_support
+lxc_host_machine_quota_disabled: false
+
+# Set the default qgroup limits used for file system quotas. The default is
+# "none". See the following documentation for more information:
+#  * https://btrfs.wiki.kernel.org/index.php/Manpage/btrfs-qgroup
+lxc_host_machine_qgroup_space_limit: none
+lxc_host_machine_qgroup_compression_limit: none
+
+
+# DefaultTasksMax systemd value. It's not recommended to change this value as it
+# could prevent new processes from starting on busy containers.
+lxc_default_tasks_max: 8192
+
+# lxc container rootfs directory and cache path
+lxc_container_directory: "/var/lib/lxc"
+lxc_container_cache_path: "/var/cache/lxc/download"
+
+# The container backing store can be set to 'overlayfs' to use overlayfs
+# This should only be done for production use with a linux kernel > 3.14
+# which is when overlayfs was merged into the mainline kernel
+lxc_container_backing_store: dir
+
+# The container backing method can be set to 'copy-on-write' to use LVM
+# snapshot-backed containers when the container backing store is set to
+# 'lvm'.
+# lxc_container_backing_method: copy-on-write
+
+# The cache map is used as a basic instruction set when prep'ing the base
+# container image. If the cache map is overridden, the following fields are
+# required:
+#     lxc_cache_map:
+#       distro: name of the distro
+#       arch: "CPU architecture"
+#       release: version of the release
+#       copy_from_host: []  # List of files to copy into the container
+lxc_cache_map: "{{ _lxc_cache_map }}"
+
+# When using a base container to snapshot from for the overlayfs or LVM
+# copy-on-write backing stored, the base container can be set.
+lxc_container_base_name: "{{ lxc_cache_map.distro }}-{{ lxc_cache_map.release }}-{{ lxc_cache_map.arch }}"
+
+# Set the default zfs root name
+lxc_container_zfs_root_name: "pool/lxc"
+
+# lxc container net network
+lxc_net_bridge: lxcbr0
+lxc_net_bridge_port: none
+lxc_net_address: 10.0.3.1
+lxc_net_netmask: 255.255.255.0
+lxc_net_cidr: 24
+lxc_net_gateway: null  ## if null, no gateway will be on the LXC bridge. lxc_net_nat must be "false" to use a gateway.
+#lxc_net_mtu: 1500 ##setting this variable will add mtu configuration for the lxc config and network bridge
+
+# lxc container nat enabled
+lxc_net_nat: true  ## If "true", nat rules will be created with the lxc network.
+
+# Enable iptables for lxc network
+lxc_net_manage_iptables: true  ## If "true" iptables rules will be added when the bridge is up and deleted when bridge is down
+
+# lxc container dhcp settings
+lxc_net_dhcp_range: 10.0.3.2,10.0.3.253
+lxc_net_dhcp_max: 253
+lxc_net_dhcp_config: ''
+lxc_net_dnsmasq_user: lxc-dnsmasq
+lxc_net_domain: ''
+
+# lxc network ipv6 settings
+lxc_net6_address: null ## ie. fd05:ffb8:32b4:1212::1
+lxc_net6_netmask: null ## ie. 64
+lxc_net6_nat: false
+
+# System control kernel tuning
+lxc_kernel_options:
+  - { key: 'fs.inotify.max_user_instances', value: 1024 }
+
+lxc_cache_sshd_configuration:
+    - { regexp: "^PermitRootLogin",         line: "PermitRootLogin prohibit-password" }
+    - { regexp: "^TCPKeepAlive",            line: "TCPKeepAlive yes" }
+    - { regexp: "^UseDNS",                  line: "UseDNS no" }
+    - { regexp: "^X11Forwarding",           line: "X11Forwarding no" }
+    - { regexp: "^PasswordAuthentication",  line: "PasswordAuthentication no" }
+
+# The compression ratio used when creating the container cache rootfs archive
+lxc_image_compression_ratio: 0
+
+# A list of files may be copied into the container image cache from the
+# deployment host during its preparation.
+# Example:
+#   lxc_container_cache_files:
+#     - src: "/etc/openstack_deploy/files/etc/issue"
+#       dest: "/etc/issue"
+lxc_container_cache_files: []
+
+# A list of files may be copied into the container image cache from the
+# LXC host during its preparation.
+# Example:
+#   lxc_container_cache_files_from_host:
+#     - "/etc/apt/sources.list.d/myrepo.list"
+lxc_container_cache_files_from_host: []
+
+# LXC container shutdown delay before force-killing running container
+lxc_container_shutdown_delay: 60
+
+# DNS servers to use during cache preparation
+lxc_cache_prep_dns:
+  - "{{ lxc_net_address }}"
+
+# Custom shell commands to run before/after the LXC cache prep process has taken
+# place.
+lxc_cache_prep_pre_commands: '## pre command skipped ##'
+lxc_cache_prep_post_commands: '## post command skipped ##'
+
+# User defined variable pointing to a specific variable file used when setting
+# up the base container image. Deployers can use the provided container variable
+# files by simply inputting the file name
+# "{{ ansible_facts['distribution'] }}-{{ ansible_facts['distribution_version'] }}-container.yml"
+# or by providing the full path to a local file containing all of the variables
+# needed to prepare a container. built-in supported values are:
+#   [redhat-7.yml, ubuntu-16.04.yml, ubuntu-18.04.yml]
+#lxc_user_defined_container: null
+
+# Full path to the base image prep script. By default this will use the
+# named script for a given OS within the "templates/prep-scripts" directory.
+# If a deployer wishes to override this script with something else they can
+# do so by defining a user variable with the full path to the local script
+# which will be templated onto the deployment targets.
+lxc_cache_prep_template: "{{ _lxc_cache_prep_template }}"
+
+## Define a list of extra distribuition packages to install in the container
+# cache at the discretion of the deployer
+lxc_cache_extra_distro_packages: []
+
+# List of packages to be installed into the base container cache
+# Combines the distribution specific list with deployers extra list
+lxc_cache_distro_packages: "{{ _lxc_cache_distro_packages + lxc_cache_extra_distro_packages }}"
+
+# The maximum amount of time (in seconds) to wait until failing the cache
+# preparation process. This is necessary to mitigate the issue that can
+# arise where the cache prep hangs and never fails.
+# The value is specified in seconds, with the default being 20 minutes.
+lxc_cache_prep_timeout: "{{ _lxc_cache_prep_timeout | default(1200) }}"
+
+# Command to build a chroot for the container rootfs
+lxc_hosts_container_build_command: "{{ _lxc_hosts_container_build_command | default ('') }}"
+
+# Local path to cached image
+lxc_image_cache_path: "/var/lib/machines/{{ lxc_container_base_name }}"
+
+# Set this option to true to pull a new cached image.
+lxc_image_cache_refresh: false
+
+## Default download template options
+##  This can be customized to use a local build server and options.
+##  By default these options will be fulfilled by the distro specific
+##  variable files found in vars/
+# lxc_cache_download_template_options: >
+#   --dist NAME_OF_DISTRO
+#   --release DISTRO_RELEASE
+#   --arch CONTAINER_ARCH
+#   --force-cache
+#   --server SERVER_TO_GET_IMAGES_FROM
+lxc_cache_default_variant: default
+lxc_cache_download_template_extra_options: ""
+lxc_cache_download_template_options: >-
+  --dist {{ lxc_cache_map.distro }}
+  --release {{ lxc_cache_map.release }}
+  --arch {{ lxc_cache_map.arch }}
+  --force-cache
+  --server localhost
+  --variant {{ lxc_cache_default_variant }}
+  {{ lxc_cache_download_template_extra_options }}
+
+# Locales to populate in the LXC base cache
+lxc_cache_locales: "{{ _lxc_cache_locales | default(['en_US.UTF-8']) }}"
+
+# Centos EPEL repository options
+lxc_centos_epel_mirror: "{{ centos_epel_mirror | default('http://download.fedoraproject.org/pub/epel') }}"
+lxc_centos_epel_key: "{{ centos_epel_key | default('http://download.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-' ~ ansible_facts['distribution_major_version']) }}"
+
+# LXC must be installed from a COPR repository on CentOS since the version
+# provided in EPEL is much too old (1.x).
+lxc_centos_package_baseurl: "{{ _lxc_centos_package_baseurl }}"
+lxc_centos_package_key: "{{ _lxc_centos_package_key }}"
+
+lxc_apt_mirror: "{{ ansible_facts['distribution'] == 'Ubuntu') | ternary('http://archive.ubuntu.com/ubuntu', 'http://deb.debian.org/debian') }}"

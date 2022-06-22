@@ -1,0 +1,24 @@
+---
+- name: Install the python venv
+  hosts: localhost
+  user: root
+  roles:
+    - role: "python_venv_build"
+  vars:
+    venv_python_executable: "python3"
+    venv_build_constraints:
+      - "--constraint https://releases.openstack.org/constraints/upper/master"
+    venv_build_distro_package_list:
+      - "libsystemd-dev"
+    venv_install_destination_path: "/openstack/venvs/service-version"
+    venv_install_distro_package_list:
+      - "libxml2"
+    venv_pip_install_args: ""
+    venv_pip_packages:
+      - cryptography
+      - systemd-python
+      - uwsgi
+    venv_facts_when_changed:
+      - section: "service"
+        option: "need_service_restart"
+        value: True

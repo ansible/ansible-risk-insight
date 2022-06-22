@@ -1,0 +1,6 @@
+---
+- name: Install os_adjutant service
+  hosts: localhost
+  user: root
+  roles:
+    - role: "os_adjutant"

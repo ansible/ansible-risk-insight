@@ -1,0 +1,72 @@
+---
+# Copyright 2017, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# EPEL repo is required for s3fs package. It won't be added in case s3fs is not required.
+systemd_centos_epel_mirror: "{{ centos_epel_mirror | default('http://download.fedoraproject.org/pub/epel') }}"
+systemd_centos_epel_key: "{{ centos_epel_key | default('http://download.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-' ~ ansible_facts['distribution_major_version']) }}"
+
+# Any optioned required to make the mount point work. If no options are
+#  provided the default will be used. This list is comma separted.
+#  https://www.freedesktop.org/software/systemd/man/systemd.mount.html#Options=
+systemd_default_mount_options: 'defaults'
+
+# The systemd mounts dictionary is a set of mounts that will be created. The
+#  dictionary can contain the following options:
+#  `config_overrides` -- (optional) used to inject extra configuration options into the mount file.
+#  `what` -- (required) Define what will be mounted. This can be a network target.
+#  `where` -- (required) Where will the "what" be mounted. Required when type is not swap.
+#  `type` -- (required) The type of file system that will be mounted.
+#  `options` -- (optional) Any optioned required to make the mount point work.
+#                          If no options are provided the default will be used.
+#                          This list is comma separted. See
+#                          `systemd_default_mount_options` for more details.
+#  `state` -- (optional) system state of the mount point. The default will omit
+#                        the state so that it is not started or stopped
+#                        unessisarily. If it is desirable for this role to
+#                        start/stop the mount immediately this can be done by
+#                        setting the state to ["started", "stopped", "absent"].
+#                        If the state is absent the mount will be stopped and
+#                        unit file deleted.
+#  `enabled` -- (optional) Set a Boolean to enable or disable the mount, the
+#                          default is set to "true".
+
+# systemd_mounts:
+#   - what: '/var/lib/machines.raw'
+#     where: '/var/lib/machines'
+#     type: 'btrfs'
+#     options: 'loop'
+#     state: 'started'
+#     enabled: true
+#   - config_overrides: {}
+#     What: "10.1.10.1:/srv/nfs"
+#     Where: "/var/lib/glance/images"
+#     type: "nfs"
+#     options: "_netdev,auto"
+#   - what: "/openstack/swap.img"
+#     priority: "0"
+#     options: "%%"
+#     type: "swap"
+#     state: 'started'
+#     enabled: true
+#   - what: bucket
+#     where: "/mnt/shared_storage"
+#     type: "fuse.s3fs"
+#     options: "url=https://s3-{{aws_region}}.amazonaws.com,_netdev,allow_other,use_path_request_style"
+#     credentials: "ACCESS_KEY_ID:SECRET_ACCESS_KEY"
+#   - what: gluster-server:gluster-volume-name
+#     where: /mnt/shared_storage
+#     type: glusterfs
+
+systemd_mounts: []

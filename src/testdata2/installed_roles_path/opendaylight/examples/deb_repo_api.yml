@@ -1,0 +1,9 @@
+---
+- hosts: all
+  become: yes
+  roles:
+    - role: opendaylight
+      # Install ODL from a Debian repo. Not including this
+      # causes the install to use a repo for the RPM.
+      odl_install_method: "deb_repo"
+      extra_features: [odl-restconf-all]

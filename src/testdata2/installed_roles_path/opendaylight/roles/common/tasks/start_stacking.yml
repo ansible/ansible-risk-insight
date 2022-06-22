@@ -1,0 +1,28 @@
+---
+- name: Set devstack to 'OFFLINE' mode for compute nodes
+  tags:
+    - openstack
+    - stack
+  shell: |
+    docker exec --user stack "{{ container_name }}" sed -i 's:^# \(OFFLINE=True\):\1:g' /home/stack/compute.odl.local.conf
+    docker exec --user stack "{{ container_name }}" sed -i 's:^# \(RECLONE=False\):\1:g' /home/stack/compute.odl.local.conf
+  when:
+    - stack_in_offline_mode
+    - "'compute' in container_name"
+
+- name: Start stacking (devstack)
+  tags:
+    - openstack
+    - stack
+    - start
+  remote_user: root
+  become: yes
+  become_method: sudo
+  shell: docker exec --detach --user stack "{{ container_name }}" /bin/bash -c /home/stack/start.sh
+
+- include: kill_chown.yml
+
+# TODO: have the openstack nodes "check in" when they've finished stacking
+#       + maybe with ansible pull mode
+# vim: set et sw=2 ts=2 :
+

@@ -1,0 +1,108 @@
+---
+# Copyright 2016, Logan Vig <logan2211@gmail.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Create sparse ceph OSD files
+  command: truncate -s {{ bootstrap_host_loopback_ceph_size }}G /openstack/{{ item }}.img
+  args:
+    creates: "/openstack/{{ item }}.img"
+  with_items: "{{ ceph_osd_images }}"
+  register: ceph_create
+  tags:
+    - ceph-file-create
+
+- name: Run the systemd service role
+  include_role:
+    name: systemd_service
+  vars:
+    systemd_services:
+      - service_name: "loop-{{ loopback_var }}"
+        config_overrides:
+          Unit:
+            Description: no
+            After: systemd-udev-settle.service
+          Service:
+            RemainAfterExit: yes
+        service_type: oneshot
+        execstarts:
+          - /bin/bash -c "/sbin/losetup $(/sbin/losetup -f) /openstack/{{ loopback_var }}.img"
+        execstops:
+          - /bin/bash -c "losetup -d $(losetup -l | awk '/{{ loopback_var }}.img/ {print $1}')"
+        enabled: yes
+        state: started
+    systemd_tempd_prefix: openstack
+  with_items: "{{ ceph_osd_images }}"
+  loop_control:
+    loop_var: loopback_var
+  tags:
+    - ceph-config
+
+- name: Get loopback device
+  shell: "losetup -l | awk '/{{ item }}.img/ {print $1}'"
+  changed_when: false
+  register: ceph_create_loopback
+  with_items: "{{ ceph_osd_images }}"
+  tags:
+    - skip_ansible_lint
+
+- name: Set permissions on loopback devices
+  file:
+    path: "{{ item.stdout }}"
+    mode: "0777"
+  with_items: "{{ ceph_create_loopback.results }}"
+
+# NOTE(jrosser) ceph-volume is unwilling to automatically create OSD
+# directly on loop devices - see http://tracker.ceph.com/issues/36603
+# Work around this with manual LVM creation and the advanced lvm OSD
+# scenario
+- name: Create LVM VG
+  lvg:
+    vg: "vg-{{ item.stdout | basename }}"
+    pvs: "{{ item.stdout }}"
+  loop: "{{ ceph_create_loopback.results }}"
+
+- name: Create LVM LV
+  lvol:
+    lv: "lv-{{ item.stdout | basename }}"
+    vg: "vg-{{ item.stdout | basename }}"
+    size: 100%FREE
+  loop: "{{ ceph_create_loopback.results }}"
+
+# TODO(logan): Move these vars to user_variables.ceph.yml.j2 once LP #1649381
+# is fixed and eliminate this task.
+- name: Write ceph cluster config
+  copy:
+    content: |
+      ---
+      lvm_volumes:
+      {% for d in ceph_create_loopback | json_query('results[].stdout') %}
+        - data_vg: vg-{{ d | basename }}
+          data: lv-{{ d | basename }}
+      {% endfor %}
+      cinder_backends:
+        "rbd_volumes":
+          volume_driver: cinder.volume.drivers.rbd.RBDDriver
+          rbd_pool: volumes
+          rbd_ceph_conf: /etc/ceph/ceph.conf
+          rbd_store_chunk_size: 8
+          volume_backend_name: rbddriver
+          rbd_user: cinder
+          rbd_secret_uuid: "{% raw %}{{ cinder_ceph_client_uuid }}{% endraw %}"
+          report_discard_supported: true
+    dest: /etc/openstack_deploy/user_ceph_aio.yml
+    force: no
+  become: false
+  when: not ceph_create_loopback is skipped
+  tags:
+    - skip_ansible_lint

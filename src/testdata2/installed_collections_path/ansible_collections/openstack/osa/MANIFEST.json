@@ -1,0 +1,38 @@
+{
+ "collection_info": {
+  "namespace": "openstack",
+  "name": "osa",
+  "version": "1.0.0",
+  "authors": [
+   "Dmitriy Rabotyagov <noonedeadpunk@ya.ru>",
+   "Jonathan Rosser <jonathan.rosser@rd.bbc.co.uk>",
+   "Kevin Carter <kevin.carter@rackspace.com>",
+   "Jimmy McCrory <jimmy.mccrory@gmail.com>",
+   "Jesse Pretorius <jesse.pretorius@rackspace.co.uk>",
+   "Logan V <logan2211@gmail.com>",
+   "Jean-Philippe Evrard <jean-philippe@evrard.me>"
+  ],
+  "readme": "README.rst",
+  "tags": [
+   "openstack"
+  ],
+  "description": "Utility roles, modules and filters user internally in\nopenstack-ansible.",
+  "license": [
+   "Apache-2.0"
+  ],
+  "license_file": null,
+  "dependencies": {},
+  "repository": "https://github.com/openstack/openstack-ansible-plugins",
+  "documentation": null,
+  "homepage": null,
+  "issues": null
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "e59d6548557a04ebb883bfa6a72badb2f5f4b61e4c01ae1cd46c4f5ac27bdfe4",
+  "format": 1
+ },
+ "format": 1
+}

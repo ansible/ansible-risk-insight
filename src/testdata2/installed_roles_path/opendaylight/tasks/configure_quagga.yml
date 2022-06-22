@@ -1,0 +1,71 @@
+---
+# Copyright (c) 2017-2018 Ericsson AB and others.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Retrieve checksum for Quagga download
+  uri:
+    url: "{{ quagga_package_url | replace('tar.gz', 'checksum') }}"
+    return_content: yes
+  register: quagga_package_checksum
+
+- name: Attempt Quagga download
+  get_url:
+    url: "{{ quagga_package_url }}"
+    dest: "/var/cache/{{ quagga_package_url | basename }}"
+    checksum: "sha1:{{ quagga_package_checksum.content | trim }}"
+
+- name: Unarchive pre-built Quagga packages
+  unarchive:
+    src: "/var/cache/{{ quagga_package_url | basename }}"
+    dest: "{{ temp_quagga_dir | dirname }}"
+    copy: "no"
+
+- name: Add Debian Local Repository for Quagga Packages
+  apt_repository:
+    repo: deb [trusted=yes] file://{{ temp_quagga_dir }} ./
+    state: present
+    update_cache: yes
+  when:
+    - ansible_os_family == "Debian"
+
+- name: Add YUM Local Repository for Quagga Packages
+  copy:
+    src: "{{ temp_quagga_dir }}/quagga.repo"
+    dest: /etc/yum.repos.d/quagga.repo
+    owner: root
+    group: root
+    mode: 0644
+  when:
+    - ansible_os_family == "RedHat"
+
+- name: Add Zypper Local Repository for Quagga Packages
+  zypper_repository:
+    repo: -t YUM {{ temp_quagga_dir }} quagga.repo
+    state: present
+  when: ansible_os_family == "Suse"
+
+- name: Install Quagga packages
+  package:
+    name: "{{ quagga_dependencies }}"
+    state: present
+    update_cache: "{{ (ansible_pkg_mgr in ['apt', 'zypper']) | ternary('yes', omit) }}"
+    cache_valid_time: "{{ (ansible_pkg_mgr == 'apt') | ternary(600, omit) }}"
+
+- name: Create Symbolic link for Quagga Zebra RPC service Init script
+  file:
+    src: "/opt/quagga/etc/init.d/zrpcd"
+    dest: "/etc/init.d/zrpcd"
+    state: link
+  notify: "configure odl for bgp"
+  when: inventory_hostname == odl_bgp_speaker_host

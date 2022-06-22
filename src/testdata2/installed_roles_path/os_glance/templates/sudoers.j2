@@ -1,0 +1,6 @@
+# {{ ansible_managed }}
+
+Defaults:{{ glance_system_user_name }} !requiretty
+Defaults:{{ glance_system_user_name }} secure_path="{{ glance_bin }}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+glance ALL = (root) NOPASSWD: {{ glance_bin }}/{{ glance_service_name }}-rootwrap

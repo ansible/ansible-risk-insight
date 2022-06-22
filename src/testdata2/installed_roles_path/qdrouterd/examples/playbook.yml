@@ -1,0 +1,11 @@
+---
+
+- name: Install qdrouterd server
+  hosts: "{{ qdrouterd_host_group | default('qdrouterd_all') }}"
+  serial: 20%
+  gather_facts: false
+  environment: "{{ deployment_environment_variables | default({}) }}"
+  tags:
+    - qdrouterd
+  roles:
+    - role: "qdrouterd"

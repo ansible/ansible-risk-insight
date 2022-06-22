@@ -1,0 +1,2 @@
+lxc.include = LXC_TEMPLATE_CONFIG/{{ lxc_cache_map.distro }}.common.conf
+lxc.arch = x86_64

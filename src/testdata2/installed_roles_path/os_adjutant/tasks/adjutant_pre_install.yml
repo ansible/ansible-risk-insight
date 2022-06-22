@@ -1,0 +1,44 @@
+---
+# Copyright 2016, Rackspace US, Inc.
+#
+# (C) 2016 Michael Rice <michael.rice@rackspace.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Create the system group
+  group:
+    name: "{{ adjutant_system_group_name }}"
+    state: "present"
+    system: "yes"
+
+- name: Create the adjutant system user
+  user:
+    name: "{{ adjutant_system_user_name }}"
+    group: "{{ adjutant_system_group_name }}"
+    comment: "{{ adjutant_system_comment }}"
+    shell: "{{ adjutant_system_shell }}"
+    system: "yes"
+    createhome: "yes"
+    home: "{{ adjutant_system_home_folder }}"
+
+- name: Create adjutant dir
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner|default(adjutant_system_user_name) }}"
+    group: "{{ item.group|default(adjutant_system_group_name) }}"
+    mode: "{{ item.mode|default('0755') }}"
+  with_items:
+    - { path: "/openstack", mode: "0755", owner: "root", group: "root" }
+    - { path: "/etc/adjutant" }
+    - { path: "/var/log/adjutant" }

@@ -1,0 +1,12 @@
+---
+# file: site.yml
+# setup framework infrastructure
+- include: examples/example_setup_infrastructure.yml
+# spawn a service node
+- include: examples/example_start_service_node.yml
+# spawn a compute node with COMP_ID=11
+- include: examples/example_spawn_compute_node_11.yml
+
+
+# vim: set et ai sw=2 ts=2 :
+

@@ -1,0 +1,58 @@
+---
+# Copyright 2016, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+ceph_client_package_state: "{{ package_state }}"
+
+## ceph-ansible configuration
+mon_group_name: ceph-mon
+mgr_group_name: "{{ mon_group_name }}"
+osd_group_name: ceph-osd
+rgw_group_name: ceph-rgw
+mds_group_name: ceph-mds
+nfs_group_name: ceph-nfs
+ceph_origin: repository
+ceph_repository: community
+# The _stable_release var is used by both the OSA ceph_client role and the
+# ceph-ansible roles. It is defaulted in ceph_client but set here to keep the
+# OSA/ceph-ansible integrations in sync.
+ceph_stable_release: pacific
+fetch_directory: "{{ openstack_config_dir }}/ceph-fetch/"
+# tries to create /var/log/ceph as a directory and fails if the log link already
+# exists. we handle the log dir creation so this is not something we need
+# ceph-common to prepare for us.
+rbd_client_directories: false
+
+# Configure the ceph-mons host list for the OSA ceph_client role
+# The role will connect to one of these mons (first available) in order to
+# download a copy of the cluster's ceph.conf.
+ceph_mons: "{{ groups[mon_group_name] }}"
+
+# Provide a variable which can be overidden by a deployer to specify a list of
+# dicts describing RadosGW provisioned by means other than OpenStack-Ansible.
+# The ip_addr should be accessible by the haproxy internal interface.
+# - name: ceph-rgw-name
+#   ip_addr: x.x.x.x
+ceph_rgws: []
+
+# NOTE(jrosser) temporary overrides, see
+# https://github.com/ceph/ceph-ansible/pull/4329
+# https://github.com/ceph/ceph-ansible/issues/2296
+openstack_keys:
+  - { name: client.glance, caps: { mon: "profile rbd", osd: "allow class-read object_prefix rbd_children, profile rbd pool={{ openstack_glance_pool.name }}"}, mode: "0600" }
+  - { name: client.cinder, caps: { mon: "profile rbd", osd: "allow class-read object_prefix rbd_children, profile rbd pool={{ openstack_cinder_pool.name }}, profile rbd pool={{ openstack_nova_pool.name }}, profile rbd pool={{ openstack_glance_pool.name }}"}, mode: "0600" }
+  - { name: client.cinder-backup, caps: { mon: "profile rbd", osd: "profile rbd pool={{ openstack_cinder_backup_pool.name }}"}, mode: "0600" }
+  - { name: client.gnocchi, caps: { mon: "profile rbd", osd: "profile rbd pool={{ openstack_gnocchi_pool.name }}"}, mode: "0600", }
+  - { name: client.manila, caps: { mon: "allow r", mgr: "allow rw", osd: "allow rw pool={{ openstack_cephfs_data_pool.name }}"}, mode: "0600", }
+  - { name: client.openstack, caps: { mon: "profile rbd", osd: "profile rbd pool={{ openstack_glance_pool.name }}, profile rbd pool={{ openstack_nova_pool.name }}, profile rbd pool={{ openstack_cinder_pool.name }}, profile rbd pool={{ openstack_cinder_backup_pool.name }}"}, mode: "0600" }

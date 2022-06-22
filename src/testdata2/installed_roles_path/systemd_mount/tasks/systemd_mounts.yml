@@ -1,0 +1,114 @@
+---
+# Copyright 2018, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Set mount facts
+  set_fact:
+    systemd_mount_suffix: "{{ (item.type == 'swap') | ternary('swap', 'mount') }}"
+    systemd_mount_item: "{{ item.where | default(item.what) }}"
+
+- name: Escape mount service file name
+  command: systemd-escape -p --suffix="{{ systemd_mount_suffix }}" "{{ systemd_mount_item }}"
+  changed_when: false
+  register: mount_service_name
+
+# NOTE(noonedeadpunk): with s3fs IO error would raise on attempt to change permissions.
+- name: Create mount target(s)
+  file:
+    path: "{{ item.where }}"
+    state: directory
+    owner: "{{ item.owner | default(omit) }}"
+    group: "{{ item.group | default(omit) }}"
+    mode: "0755"
+  failed_when: false
+  when:
+    - item.where is defined
+    - item.state | default('unknown') != 'absent'
+    - item.type != 'swap'
+  tags:
+    - systemd-mount
+
+- name: Place mount credentials when required
+  copy:
+    dest: "/etc/passwd-{{ mount_service_name.stdout }}"
+    content: "{{ item.credentials }}"
+    owner: "root"
+    group: "root"
+    mode: "0600"
+  when:
+    - item.type == "fuse.s3fs"
+    - "'credentials' in item"
+
+- name: Create systemd mount services(s)
+  openstack.config_template.config_template:
+    src: "systemd-mount.j2"
+    dest: "/etc/systemd/system/{{ mount_service_name.stdout }}"
+    owner: "root"
+    group: "root"
+    mode: "0640"
+    config_overrides: "{{ item.config_overrides | default({}) }}"
+    config_type: "ini"
+  when:
+    - item.state | default('unknown') != 'absent'
+  tags:
+    - systemd-mount
+
+- name: Load or Unload mount(s)
+  systemd:
+    daemon_reload: yes
+    name: "{{ mount_service_name.stdout }}"
+    enabled: "{{ item.enabled | default(true) }}"
+  when:
+    - item.state | default('unknown') != 'absent'
+
+# NOTE(cloudnull): The systemd module is not used to start the
+#                  mount because we don't want to inavertently
+#                  "restart" a mount unnecessarily. To ensure
+#                  we're able to load new options without
+#                  requiring a mount restart the systemctl
+#                  command is used with the "reload-or-restart"
+#                  argument. Additionally this command escapes
+#                  the name of the mount. If this command fails
+#                  the task will be rescued and the regular
+#                  systemd module will be attempted before
+#                  failing the task run.
+- name: Mount state block
+  block:
+    - name: Set the state of the mount
+      shell: >-
+        systemctl
+        {{ systemd_mount_states[item.state] }}
+        $(systemd-escape -p --suffix="{{ systemd_mount_suffix }}" "{{ systemd_mount_item }}")
+      args:
+        warn: no
+      changed_when: false
+      when:
+        - item.state is defined
+      tags:
+        - skip_ansible_lint
+  rescue:
+    - name: Set the state of the mount (fallback)
+      systemd:
+        name: "{{ mount_service_name.stdout }}"
+        state: "{{ item.state }}"
+
+- name: Unload mount(s)
+  systemd:
+    daemon_reload: yes
+    name: "{{ mount_service_name.stdout }}"
+    enabled: false
+    no_block: yes
+  when:
+    - item.state | default('unknown') == 'absent'
+  notify: Remove mount

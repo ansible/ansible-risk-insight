@@ -1,0 +1,20 @@
+# {{ ansible_managed }}
+
+# General
+[DEFAULT]
+debug = {{ debug }}
+
+num_sync_threads = {{ neutron_num_sync_threads | default(neutron_api_threads) }}
+
+# Drivers
+interface_driver = {{ neutron_plugins[neutron_plugin_type].driver_interface }}
+dhcp_driver = {{ neutron_driver_dhcp }}
+
+# Dnsmasq options
+dnsmasq_config_file = {{ neutron_conf_dir }}/dnsmasq-neutron.conf
+dnsmasq_dns_servers = {{ neutron_dnsmasq_dns_servers }}
+dnsmasq_lease_max = {{ neutron_dnsmasq_lease_max }}
+
+# Metadata
+enable_isolated_metadata = True
+force_metadata = {{ neutron_dnsmasq_force_metadata }}

@@ -1,0 +1,454 @@
+#!/usr/bin/python
+# (c) 2014, Kevin Carter <kevin.carter@rackspace.com>
+#
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+# import module snippets
+from ansible.module_utils.basic import AnsibleModule
+
+
+DOCUMENTATION = """
+---
+module: provider_networks
+version_added: "1.8.7"
+short_description:
+    - Parse a list of networks and return data that Ansible can use
+description:
+    - Parse a list of networks and return data that Ansible can use
+options:
+    provider_networks:
+        description:
+            - List of networks to parse
+        required: true
+    is_metal:
+        description:
+            - Enable handling of on metal hosts
+        required: false
+    bind_prefix:
+        description:
+            - Add a prefix to all network interfaces.
+        required: false
+author: Kevin Carter
+"""
+
+EXAMPLES = """
+## This is what the provider_networks list should look like.
+# provider_networks:
+# - network:
+#     container_bridge: "br-mgmt"
+#     container_type: "veth"
+#     container_interface: "eth1"
+#     ip_from_q: "container"
+#     type: "raw"
+#     group_binds:
+#       - all_containers
+#       - hosts
+#     is_container_address: true
+#     is_ssh_address: true
+# - network:
+#     container_bridge: "br-vxlan"
+#     container_type: "veth"
+#     container_interface: "eth10"
+#     ip_from_q: "tunnel"
+#     type: "vxlan"
+#     range: "1:1000"
+#     net_name: "vxlan"
+#     group_binds:
+#       - neutron_linuxbridge_agent
+# - network:
+#     container_bridge: "br-vxlan"
+#     container_type: "veth"
+#     container_interface: "eth10"
+#     ip_from_q: "tunnel"
+#     type: "geneve"
+#     range: "1:1000"
+#     net_name: "geneve"
+#     group_binds:
+#       - neutron_ovn_northd
+#       - neutron_ovn_controller
+# - network:
+#     container_bridge: "br-vlan"
+#     container_type: "veth"
+#     container_interface: "eth12"
+#     host_bind_override: "eth12"
+#     type: "flat"
+#     net_name: "flat"
+#     group_binds:
+#       - neutron_linuxbridge_agent
+# - network:
+#     container_bridge: "br-vlan"
+#     container_type: "veth"
+#     container_interface: "eth11"
+#     host_bind_override: "eth11"
+#     sriov_host_interfaces: "p1p1,p1p2"
+#     type: "vlan"
+#     range: "1:1, 101:101"
+#     net_name: "vlan"
+#     group_binds:
+#       - neutron_linuxbridge_agent
+# - network:
+#     host_bind_override: "bond1"
+#     type: "vlan"
+#     net_name: "physnet1"
+#     group_binds:
+#       - neutron_linuxbridge_agent
+# - network:
+#     host_bind_override: "bond2"
+#     type: "vlan"
+#     net_name: "physnet2_rack1"
+#     range: "1:999"
+#     reference_group: "rack1_hosts"
+#     group_binds:
+#       - neutron_linuxbridge_agent
+# - network:
+#     host_bind_override: "bond2"
+#     type: "vlan"
+#     net_name: "physnet2_rack2"
+#     range: "1000:1999"
+#     reference_group: "rack2_hosts"
+#     group_binds:
+#       - neutron_linuxbridge_agent
+# - network:
+#     container_bridge: "br-provider"
+#     container_type: "veth"
+#     container_interface: "eth11"
+#     network_interface: "bond1"
+#     type: "vlan"
+#     range: "1:1, 101:101"
+#     net_name: "physnet1"
+#     group_binds:
+#       - neutron_openvswitch_agent
+# - network:
+#     container_bridge: "br-provider"
+#     container_type: "veth"
+#     container_interface: "eth11"
+#     network_bond_interfaces:
+#       - "0000:02:00.0"
+#       - "0000:02:00.1"
+#     bond_mode: balance-tcp
+#     bond_updelay: 100
+#     bond_downdelay: 100
+#     lacp: active
+#     type: "vlan"
+#     range: "1:1, 101:101"
+#     net_name: "physnet1"
+#     group_binds:
+#       - neutron_openvswitch_agent
+# - network:
+#     container_bridge: "br-storage"
+#     container_type: "veth"
+#     container_interface: "eth2"
+#     ip_from_q: "storage"
+#     type: "raw"
+#     group_binds:
+#       - glance_api
+#       - cinder_api
+#       - cinder_volume
+#       - nova_compute
+#       - swift_proxy
+
+- name: Test provider networks
+  provider_networks:
+    provider_networks: "{{ provider_networks }}"
+  register: pndata1
+
+- name: Test provider networks is metal
+  provider_networks:
+    provider_networks: "{{ provider_networks }}"
+    is_metal: true
+  register: pndata2
+
+- name: Test provider networks with prfix
+  provider_networks:
+    provider_networks: "{{ provider_networks }}"
+    bind_prefix: "brx"
+    is_metal: true
+  register: pndata3
+
+## Module output:
+# {
+#         "network_flat_networks": "flat",
+#         "network_flat_networks_list": [
+#             "flat"
+#         ],
+#         "network_mappings": "flat:brx-eth12,vlan:brx-eth11",
+#         "network_mappings_list": [
+#             "flat:brx-eth12",
+#             "vlan:brx-eth11"
+#         ],
+#         "network_bond_interfaces_mappings": [{
+#             'bridge': 'br-provider',
+#             'interfaces': ['0000:02:00.0', '0000:02:00.1'],
+#             'bond_mode': 'balance-tcp',
+#             'lacp': 'active',
+#             'bond_updelay': 100,
+#             'bond_downdelay': 100
+#         }],
+#         "network_sriov_mappings": "physnet1:p1p1,physnet1:p1p2",
+#         "network_sriov_mappings_list": [
+#             "physnet1:p1p1"
+#             "physnet1:p1p2"
+#         ],
+#         "network_types": "vxlan,flat,vlan,geneve",
+#         "network_types_list": [
+#             "vxlan",
+#             "flat",
+#             "vlan",
+#             "geneve"
+#         ],
+#         "network_vlan_ranges": "vlan:1:1,vlan:1024:1025",
+#         "network_vlan_ranges_list": [
+#             "vlan:1:1",
+#             "vlan:1024:1025"
+#         ],
+#         "network_vxlan_ranges": "1:1000",
+#         "network_vxlan_ranges_list": [
+#             "1:1000"
+#         ]
+#         "network_geneve_ranges": "1:1000",
+#         "network_geneve_ranges_list": [
+#             "1:1000"
+#         ]
+# }
+"""
+
+
+class ProviderNetworksParsing(object):
+    def __init__(self, module):
+        """Generate an integer from a name.
+
+        :param module: Load the ansible module
+        :type module: ``object``
+        """
+        self.module = module
+        self.network_vlan_ranges = list()
+        self.network_vxlan_ranges = list()
+        self.network_geneve_ranges = list()
+        self.network_flat_networks = list()
+        self.network_mappings = list()
+        self.network_types = list()
+        self.network_sriov_mappings = list()
+        self.network_interface_mappings = list()
+        self.network_bond_interfaces_mappings = list()
+
+    def load_networks(self, provider_networks, is_metal=False,
+                      bind_prefix=None, group_names=None):
+        """Load the lists of network and network data types.
+
+        :param provider_networks: list of networks defined in user_config
+        :type provider_networks: ``list``
+        :param is_metal: Enable of disable handling of on metal nodes
+        :type is_metal: ``bol``
+        :param bind_prefix: Pre-interface prefix forced within the network map
+        :type bind_prefix: ``str``
+        :param group_names: list of groups associated with node
+        :type group_names: ``list``
+        """
+
+        for net in provider_networks:
+            reference_group = net['network'].get('reference_group')
+            if reference_group is None or reference_group in group_names:
+                in_reference_group = True
+            else:
+                in_reference_group = False
+            if net['network']['type'] == "vlan":
+                if (
+                    (set(
+                        net["network"]["group_binds"]
+                    ).intersection(group_names) and in_reference_group)
+                    or "neutron_server" in group_names    # noqa W503
+                ):
+                    if "vlan" not in self.network_types:
+                        self.network_types.append('vlan')
+                    if "range" in net['network']:
+                        for vlan_range in net['network']['range'].split(','):
+                            self.network_vlan_ranges.append(
+                                '%s:%s' % (
+                                    net['network']['net_name'],
+                                    vlan_range.strip()
+                                )
+                            )
+                    else:
+                        self.network_vlan_ranges.append(
+                            net['network']['net_name']
+                        )
+            elif net['network']['type'] == "vxlan":
+                if "vxlan" not in self.network_types:
+                    self.network_types.append('vxlan')
+                    self.network_vxlan_ranges.append(net['network']['range'])
+            elif net['network']['type'] == "geneve":
+                if "geneve" not in self.network_types:
+                    self.network_types.append('geneve')
+                    self.network_geneve_ranges.append(net['network']['range'])
+            elif net['network']['type'] == "flat":
+                if (
+                    (set(
+                        net["network"]["group_binds"]
+                    ).intersection(group_names) and in_reference_group)
+                    or "neutron_server" in group_names  # noqa W503
+                ):
+                    if "flat" not in self.network_types:
+                        self.network_types.append('flat')
+                    self.network_flat_networks.append(
+                        net['network']['net_name']
+                    )
+
+            # Create the network mappings
+            if net['network']['type'] not in ['raw', 'vxlan', 'geneve']:
+                if (
+                    set(
+                        net["network"]["group_binds"]
+                    ).intersection(group_names) and in_reference_group
+                ):
+                    if 'net_name' in net['network']:
+                        if is_metal:
+                            if 'host_bind_override' in net['network']:
+                                bind_device = \
+                                    net['network']['host_bind_override']
+                            else:
+                                bind_device = \
+                                    net['network']['container_bridge']
+                        else:
+                            bind_device = net['network']['container_interface']
+
+                        if bind_prefix:
+                            bind_device = '%s-%s' % (bind_prefix, bind_device)
+
+                        self.network_mappings.append(
+                            '%s:%s' % (
+                                net['network']['net_name'],
+                                bind_device
+                            )
+                        )
+
+                        # Builds a list of provider bridge to physical
+                        # interface mappings and is used when adding OVS
+                        # ports to bridges
+                        if 'network_interface' in net['network']:
+                            self.network_interface_mappings.append(
+                                '%s:%s' % (
+                                    net['network']['container_bridge'],
+                                    net['network']['network_interface']
+                                )
+                            )
+
+                        # Builds a list of provider bridge to physical
+                        # interface (bond member) mappings and is used
+                        # when constructing OVS bonds
+                        if 'network_bond_interfaces' in net['network']:
+                            self.network_bond_interfaces_mappings.append({
+                                'bridge': net['network'][
+                                    'container_bridge'
+                                ],
+                                'interfaces': net['network'][
+                                    'network_bond_interfaces'
+                                ],
+                                'bond_mode': net['network'].get(
+                                    'bond_mode', 'active-backup'
+                                ),
+                                'lacp': net['network'].get('lacp', 'off'),
+                                'bond_updelay': net['network'].get(
+                                    'bond_updelay', 100
+                                ),
+                                'bond_downdelay': net['network'].get(
+                                    'bond_downdelay', 100
+                                )
+                            })
+
+                        # SR-IOV interface mappings
+                        if 'sriov_host_interfaces' in net['network']:
+                            host_interfaces = \
+                                net['network']['sriov_host_interfaces']
+                            for interface in host_interfaces.split(','):
+                                self.network_sriov_mappings.append(
+                                    '%s:%s' % (
+                                        net['network']['net_name'],
+                                        interface
+                                    )
+                                )
+
+
+def main():
+
+    module = AnsibleModule(
+        argument_spec=dict(
+            provider_networks=dict(
+                type='list',
+                required=True
+            ),
+            is_metal=dict(
+                type='bool',
+                default='false'
+            ),
+            bind_prefix=dict(
+                type='str',
+                required=False,
+                default=None
+            ),
+            group_names=dict(
+                type='list',
+                required=False,
+                default=None
+            )
+        ),
+        supports_check_mode=False
+    )
+
+    try:
+        pnp = ProviderNetworksParsing(module=module)
+        pnp.load_networks(
+            provider_networks=module.params.get('provider_networks'),
+            is_metal=module.params.get('is_metal'),
+            bind_prefix=module.params.get('bind_prefix'),
+            group_names=module.params.get('group_names')
+        )
+
+        # Response dictionary, this adds commas to all list items in string
+        # format as well as preserves the list functionality for future data
+        # processing.
+        resp = {
+            'network_vlan_ranges': ','.join(pnp.network_vlan_ranges),
+            'network_vlan_ranges_list': pnp.network_vlan_ranges,
+            'network_vxlan_ranges': ','.join(pnp.network_vxlan_ranges),
+            'network_vxlan_ranges_list': pnp.network_vxlan_ranges,
+            'network_geneve_ranges': ','.join(pnp.network_geneve_ranges),
+            'network_geneve_ranges_list': pnp.network_geneve_ranges,
+            'network_flat_networks': ','.join(pnp.network_flat_networks),
+            'network_flat_networks_list': pnp.network_flat_networks,
+            'network_mappings': ','.join(list(set(pnp.network_mappings))),
+            'network_mappings_list': pnp.network_mappings,
+            'network_types': ','.join(pnp.network_types),
+            'network_sriov_mappings': ','.join(pnp.network_sriov_mappings),
+            'network_sriov_mappings_list': pnp.network_sriov_mappings,
+            'network_interface_mappings': ','.join(
+                pnp.network_interface_mappings
+            ),
+            'network_interface_mappings_list': pnp.network_interface_mappings,
+            'network_bond_interfaces_mappings': ','.join(
+                map(str, pnp.network_bond_interfaces_mappings)
+            ),
+            'network_bond_interfaces_mappings_list':
+                pnp.network_bond_interfaces_mappings
+        }
+
+        module.exit_json(changed=True, **resp)
+    except Exception as exp:
+        resp = {'stderr': exp}
+        module.fail_json(msg='Failed Process', **resp)
+
+
+if __name__ == '__main__':
+    main()

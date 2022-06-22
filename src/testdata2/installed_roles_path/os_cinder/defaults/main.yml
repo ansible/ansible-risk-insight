@@ -1,0 +1,398 @@
+---
+# Copyright 2014, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Set the package install state for distribution packages
+# Options are 'present' and 'latest'
+cinder_package_state: "{{ package_state | default('latest') }}"
+
+# Set the host which will execute the shade modules
+# for the service setup. The host must already have
+# clouds.yaml properly configured.
+cinder_service_setup_host: "{{ openstack_service_setup_host | default('localhost') }}"
+cinder_service_setup_host_python_interpreter: "{{ openstack_service_setup_host_python_interpreter | default((cinder_service_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable'])) }}"
+
+# Set installation method.
+cinder_install_method: "{{ service_install_method | default('source') }}"
+cinder_venv_python_executable: "{{ openstack_venv_python_executable | default('python3') }}"
+
+cinder_git_repo: https://opendev.org/openstack/cinder
+cinder_git_install_branch: master
+cinder_upper_constraints_url: "{{ requirements_git_url | default('https://releases.openstack.org/constraints/upper/' ~ requirements_git_install_branch | default('master')) }}"
+cinder_git_constraints:
+  - "--constraint {{ cinder_upper_constraints_url }}"
+
+cinder_pip_install_args: "{{ pip_install_options | default('') }}"
+
+# Name of the virtual env to deploy into
+cinder_venv_tag: "{{ venv_tag | default('untagged') }}"
+cinder_bin: "{{ _cinder_bin }}"
+
+# Enable/Disable Barbican
+cinder_barbican_enabled: "{{ (groups['barbican_all'] is defined) and (groups['barbican_all'] | length > 0) }}"
+
+# Enable/Disable Ceilometer
+cinder_ceilometer_enabled: "{{ (groups['ceilometer_all'] is defined) and (groups['ceilometer_all'] | length > 0) }}"
+
+# Time period for which to generate volume usages. The options are hour, day,
+# month, or year. (string value)
+cinder_volume_usage_audit: hour
+cinder_volume_usage_audit_send_actions_enabled: True
+
+cinder_storage_availability_zone: nova
+cinder_default_availability_zone: "{{ cinder_storage_availability_zone }}"
+
+cinder_storage_address: 127.0.0.1
+cinder_management_address: "{{ management_address | default('127.0.0.1') }}"
+cinder_uwsgi_bind_address: "{{ openstack_service_bind_address | default('0.0.0.0') }}"
+
+cinder_nova_catalog_info: compute:nova:internalURL
+cinder_nova_catalog_admin_info: compute:nova:adminURL
+
+cinder_fatal_deprecations: False
+
+## Database info
+cinder_db_setup_host: "{{ openstack_db_setup_host | default('localhost') }}"
+cinder_db_setup_python_interpreter: "{{ openstack_db_setup_python_interpreter | default((cinder_db_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable'])) }}"
+cinder_galera_address: "{{ galera_address | default('127.0.0.1') }}"
+cinder_galera_user: cinder
+cinder_galera_database: cinder
+cinder_galera_use_ssl: "{{ galera_use_ssl | default(False) }}"
+cinder_galera_ssl_ca_cert: "{{ galera_ssl_ca_cert | default('') }}"
+cinder_galera_port: "{{ galera_port | default('3306') }}"
+cinder_db_max_overflow: "{{ openstack_db_max_overflow | default('50') }}"
+cinder_db_max_pool_size: "{{ openstack_db_max_pool_size | default('5') }}"
+cinder_db_pool_timeout: "{{ openstack_db_pool_timeout | default('30') }}"
+cinder_db_connection_recycle_time: "{{ openstack_db_connection_recycle_time | default('600') }}"
+
+## Oslo Messaging
+
+# RabbitMQ
+cinder_oslomsg_heartbeat_in_pthread: "{{ oslomsg_heartbeat_in_pthread | default(_cinder_oslomsg_heartbeat_in_pthread) }}"
+
+# RPC
+cinder_oslomsg_rpc_host_group: "{{ oslomsg_rpc_host_group | default('rabbitmq_all') }}"
+cinder_oslomsg_rpc_setup_host: "{{ (cinder_oslomsg_rpc_host_group in groups) | ternary(groups[cinder_oslomsg_rpc_host_group][0], 'localhost') }}"
+cinder_oslomsg_rpc_transport: "{{ oslomsg_rpc_transport | default('rabbit') }}"
+cinder_oslomsg_rpc_servers: "{{ oslomsg_rpc_servers | default('127.0.0.1') }}"
+cinder_oslomsg_rpc_port: "{{ oslomsg_rpc_port | default('5672') }}"
+cinder_oslomsg_rpc_use_ssl: "{{ oslomsg_rpc_use_ssl | default(False) }}"
+cinder_oslomsg_rpc_userid: cinder
+cinder_oslomsg_rpc_vhost: /cinder
+cinder_oslomsg_rpc_ssl_version: "{{ oslomsg_rpc_ssl_version | default('TLSv1_2') }}"
+cinder_oslomsg_rpc_ssl_ca_file: "{{ oslomsg_rpc_ssl_ca_file | default('') }}"
+
+# Notify
+cinder_oslomsg_notify_host_group: "{{ oslomsg_notify_host_group | default('rabbitmq_all') }}"
+cinder_oslomsg_notify_setup_host: "{{ (cinder_oslomsg_notify_host_group in groups) | ternary(groups[cinder_oslomsg_notify_host_group][0], 'localhost') }}"
+cinder_oslomsg_notify_transport: "{{ oslomsg_notify_transport | default('rabbit') }}"
+cinder_oslomsg_notify_servers: "{{ oslomsg_notify_servers | default('127.0.0.1') }}"
+cinder_oslomsg_notify_port: "{{ oslomsg_notify_port | default('5672') }}"
+cinder_oslomsg_notify_use_ssl: "{{ oslomsg_notify_use_ssl | default(False) }}"
+cinder_oslomsg_notify_userid: "{{ cinder_oslomsg_rpc_userid }}"
+cinder_oslomsg_notify_password: "{{ cinder_oslomsg_rpc_password }}"
+cinder_oslomsg_notify_vhost: "{{ cinder_oslomsg_rpc_vhost }}"
+cinder_oslomsg_notify_ssl_version: "{{ oslomsg_notify_ssl_version | default('TLSv1_2') }}"
+cinder_oslomsg_notify_ssl_ca_file: "{{ oslomsg_notify_ssl_ca_file | default('') }}"
+
+## (Qdrouterd) integration
+# TODO(evrardjp): Change structure when more backends will be supported
+cinder_oslomsg_amqp1_enabled: "{{ cinder_oslomsg_rpc_transport == 'amqp' }}"
+
+## Cinder User / Group
+cinder_system_user_name: cinder
+cinder_system_group_name: cinder
+cinder_system_comment: cinder system user
+cinder_system_shell: /bin/false
+cinder_system_home_folder: "/var/lib/{{ cinder_system_user_name }}"
+cinder_system_slice_name: cinder
+
+## Manually specified cinder UID/GID
+# Deployers can specify a UID for the cinder user as well as the GID for the
+# cinder group if needed. This is commonly used in environments where shared
+# storage is used, such as NFS or GlusterFS, and cinder UID/GID values must be
+# in sync between multiple servers.
+#
+# WARNING: Changing these values on an existing deployment can lead to
+#          failures, errors, and instability.
+#
+# cinder_system_user_uid = <UID>
+# cinder_system_group_gid = <GID>
+
+cinder_lock_dir: "{{ openstack_lock_dir | default('/run/lock') }}"
+
+## Cinder Auth
+cinder_service_admin_tenant_name: "service"
+cinder_service_admin_username: "cinder"
+
+## Cinder api service type and data
+cinder_service_name: cinder
+cinder_service_project_domain_id: default
+cinder_service_user_domain_id: default
+cinder_service_user_name: cinder
+cinder_service_project_name: service
+cinder_service_role_names:
+  - admin
+  - service
+cinder_service_token_roles:
+  - service
+cinder_service_token_roles_required: "{{ openstack_service_token_roles_required | default(True) }}"
+cinder_service_region: "{{ service_region | default('RegionOne') }}"
+cinder_service_description: "Cinder Volume Service"
+cinder_service_port: 8776
+cinder_service_proto: http
+cinder_service_publicuri_proto: "{{ openstack_service_publicuri_proto | default(cinder_service_proto) }}"
+cinder_service_adminuri_proto: "{{ openstack_service_adminuri_proto | default(cinder_service_proto) }}"
+cinder_service_internaluri_proto: "{{ openstack_service_internaluri_proto | default(cinder_service_proto) }}"
+cinder_service_type: volume
+cinder_service_publicuri: "{{ cinder_service_publicuri_proto }}://{{ external_lb_vip_address }}:{{ cinder_service_port }}"
+cinder_service_adminuri: "{{ cinder_service_adminuri_proto }}://{{ internal_lb_vip_address }}:{{ cinder_service_port }}"
+cinder_service_internaluri: "{{ cinder_service_internaluri_proto }}://{{ internal_lb_vip_address }}:{{ cinder_service_port }}"
+
+cinder_service_v2_name: cinderv2
+cinder_service_v2_port: 8776
+cinder_service_v2_proto: http
+cinder_service_v2_type: volumev2
+cinder_service_v2_description: "Cinder Volume Service V2"
+cinder_service_v2_publicuri: "{{ cinder_service_publicuri_proto }}://{{ external_lb_vip_address }}:{{ cinder_service_port }}"
+cinder_service_v2_publicurl: "{{ cinder_service_publicuri }}/v2/%(tenant_id)s"
+cinder_service_v2_adminuri: "{{ cinder_service_adminuri_proto }}://{{ internal_lb_vip_address }}:{{ cinder_service_port }}"
+cinder_service_v2_adminurl: "{{ cinder_service_adminuri }}/v2/%(tenant_id)s"
+cinder_service_v2_internaluri: "{{ cinder_service_internaluri_proto }}://{{ internal_lb_vip_address }}:{{ cinder_service_port }}"
+cinder_service_v2_internalurl: "{{ cinder_service_internaluri }}/v2/%(tenant_id)s"
+
+cinder_service_v3_name: cinderv3
+cinder_service_v3_port: 8776
+cinder_service_v3_proto: http
+cinder_service_v3_type: volumev3
+cinder_service_v3_description: "Cinder Volume Service V3"
+cinder_service_v3_publicuri: "{{ cinder_service_publicuri_proto }}://{{ external_lb_vip_address }}:{{ cinder_service_port }}"
+cinder_service_v3_publicurl: "{{ cinder_service_publicuri }}/v3/%(tenant_id)s"
+cinder_service_v3_adminuri: "{{ cinder_service_adminuri_proto }}://{{ internal_lb_vip_address }}:{{ cinder_service_port }}"
+cinder_service_v3_adminurl: "{{ cinder_service_adminuri }}/v3/%(tenant_id)s"
+cinder_service_v3_internaluri: "{{ cinder_service_internaluri_proto }}://{{ internal_lb_vip_address }}:{{ cinder_service_port }}"
+cinder_service_v3_internalurl: "{{ cinder_service_internaluri }}/v3/%(tenant_id)s"
+
+cinder_auth_strategy: keystone
+
+## Keystone authentication middleware
+cinder_keystone_auth_plugin: "{{ cinder_keystone_auth_type }}"
+cinder_keystone_auth_type: password
+
+## In order to enable the cinder backup you MUST set ``cinder_service_backup_program_enabled`` to "true"
+cinder_service_backup_program_enabled: false
+# cinder_service_backup_driver: Options include 'cinder.backup.drivers.swift.SwiftBackupDriver' or
+#                               'cinder.backup.drivers.ceph.CephBackupDriver'
+cinder_service_backup_driver: cinder.backup.drivers.swift.SwiftBackupDriver
+# cinder_service_backup_swift_auth: Options include 'per_user' or 'single_user', we default to
+#                                   'per_user' so that backups are saved to a user's swift account.
+cinder_service_backup_swift_auth: per_user
+# cinder_service_backup_swift_url: This is your swift storage url when using 'per_user', or keystone
+#                                  endpoint when using 'single_user'.  When using 'per_user', you
+#                                  can leave this as empty or as None to allow cinder-backup to
+#                                  obtain storage url from environment.
+cinder_service_backup_swift_url:
+cinder_service_backup_swift_auth_version: 2
+cinder_service_backup_swift_user:
+cinder_service_backup_swift_tenant:
+cinder_service_backup_swift_key:
+cinder_service_backup_swift_container: volumebackups
+cinder_service_backup_swift_object_size: 52428800
+cinder_service_backup_swift_retry_attempts: 3
+cinder_service_backup_swift_retry_backoff: 2
+cinder_service_backup_ceph_user: cinder-backup
+cinder_service_backup_ceph_pool: backups
+cinder_service_backup_compression_algorithm: zlib
+cinder_service_backup_metadata_version: 2
+
+cinder_swift_catalog_info: "object-store:swift:internalURL"
+
+## Cap the maximun number of threads / workers when a user value is unspecified.
+cinder_osapi_volume_workers_max: 16
+cinder_osapi_volume_workers: "{{ [[(ansible_facts['processor_vcpus']//ansible_facts['processor_threads_per_core'])|default(1), 1] | max * 2, cinder_osapi_volume_workers_max] | min }}"
+
+## Cinder iscsi
+cinder_target_helper_mapping:
+  RedHat: lioadm
+  Debian: tgtadm
+cinder_target_helper: "{{ cinder_target_helper_mapping[ansible_facts['os_family']] }}"
+cinder_iscsi_iotype: fileio
+cinder_iscsi_num_targets: 100
+cinder_iscsi_port: 3260
+
+## Cinder RPC
+cinder_rpc_executor_thread_pool_size: 64
+cinder_rpc_response_timeout: 60
+
+# (StrOpt) Method used to wipe old volumes (valid options are: none, zero)
+cinder_volume_clear: zero
+# (StrOpt) The flag to pass to ionice to alter the i/o priority of the process
+# used to zero a volume after deletion, for example "-c3" for idle only
+# priority.
+cinder_volume_clear_ionice: -c3
+
+# (IntOpt) Size in MiB to wipe at start of old volumes. 0 => all
+cinder_volume_clear_size: 0
+
+cinder_volume_name_template: volume-%s
+
+# osprofiler
+cinder_profiler_enabled: false
+# cinder_profiler_hmac_key is set in user_secrets.yml
+cinder_profiler_trace_sqlalchemy: false
+
+cinder_client_socket_timeout: 900
+
+## Cinder quota
+cinder_quota_volumes: 10
+cinder_quota_snapshots: 10
+cinder_quota_consistencygroups: 10
+cinder_quota_gigabytes: 1000
+cinder_quota_backups: 10
+cinder_quota_backup_gigabytes: 1000
+
+## General configuration
+# cinder_backends:
+#   lvm:
+#     volume_group: cinder-volumes
+#     volume_driver: cinder.volume.drivers.lvm.LVMVolumeDriver
+#     volume_backend_name: LVM_iSCSI
+#     extra_volume_types:
+#       - lvm_high_iops
+#       - lvm_low_iops
+
+# Override generated device filter in lvm.conf
+# Example:
+# cinder_lvm_devices_filter_override:
+#  - '"a/sd.*/"'
+#  - '"a/hd.*/"'
+cinder_lvm_devices_filter_override: []
+
+# cinder_backend_lvm_inuse: True if current host has an lvm backend
+cinder_backend_lvm_inuse: '{{ (cinder_backends|default("")|to_json).find("lvm") != -1 }}'
+# cinder_backend_rbd_inuse: True if the current host has an rbd backend
+cinder_backend_rbd_inuse: '{{ (cinder_backends|default("")|to_json).find("cinder.volume.drivers.rbd.RBDDriver") != -1 }}'
+
+# Set to false if you want to explicitly disable active/active cluster
+cinder_active_active_cluster: "{{ cinder_backend_rbd_inuse }}"
+cinder_active_active_cluster_name: ceph
+
+## Policy vars
+# Provide a list of access controls to merge with the default
+# access controls in the service code.
+#cinder_policy_overrides:
+#  "volume:create": ""
+#  "volume:delete": ""
+
+# Comma separated list of Glance API servers
+cinder_glance_api_servers: "{{ (glance_service_internalurl | default('http://localhost')) | urlsplit('scheme') ~ '://' ~ (glance_service_internalurl | default('http://localhost')) | urlsplit('netloc') }}"
+
+cinder_service_in_ldap: "{{ service_ldap_backend_enabled | default(False) }}"
+
+# Common pip packages
+cinder_pip_packages:
+  - "git+{{ cinder_git_repo }}@{{ cinder_git_install_branch }}#egg=cinder"
+  - cryptography
+  - ecdsa
+  - httplib2
+  - keystonemiddleware
+  - osprofiler
+  - PyMySQL
+  - pymemcache
+  - python-memcached
+  - systemd-python
+
+# Specific pip packages provided by the user
+cinder_user_pip_packages: []
+
+cinder_optional_oslomsg_amqp1_pip_packages:
+  - oslo.messaging[amqp1]
+
+cinder_api_init_overrides: {}
+cinder_scheduler_init_overrides: {}
+cinder_volume_init_overrides: {}
+cinder_backup_init_overrides: {}
+
+## Service Name-Group Mapping
+cinder_services:
+  cinder-scheduler:
+    group: cinder_scheduler
+    service_name: cinder-scheduler
+    init_config_overrides: "{{ cinder_scheduler_init_overrides }}"
+    start_order: 1
+    execstarts: "{{ cinder_bin }}/cinder-scheduler"
+    execreloads: "/bin/kill -HUP $MAINPID"
+  cinder-volume:
+    group: cinder_volume
+    service_name: cinder-volume
+    init_config_overrides: "{{ cinder_volume_init_overrides }}"
+    start_order: 2
+    execstarts: "{{ cinder_bin }}/cinder-volume"
+    execreloads: "/bin/kill -HUP $MAINPID"
+  cinder-backup:
+    group: cinder_backup
+    service_name: cinder-backup
+    condition: "{{ cinder_service_backup_program_enabled | bool }}"
+    init_config_overrides: "{{ cinder_backup_init_overrides }}"
+    start_order: 3
+    execstarts: "{{ cinder_bin }}/cinder-backup"
+    execreloads: "/bin/kill -HUP $MAINPID"
+  cinder-api:
+    group: cinder_api
+    service_name: cinder-api
+    init_config_overrides: "{{ cinder_api_init_overrides }}"
+    start_order: 4
+    wsgi_app: True
+    wsgi_name: cinder-wsgi
+    uwsgi_overrides: "{{ cinder_api_uwsgi_ini_overrides }}"
+    uwsgi_port: "{{ cinder_service_port }}"
+    uwsgi_bind_address: "{{ cinder_uwsgi_bind_address }}"
+
+# Cinder uWSGI settings
+cinder_wsgi_processes_max: 16
+cinder_wsgi_processes: "{{ [[ansible_facts['processor_vcpus']|default(1), 1] | max * 2, cinder_wsgi_processes_max] | min }}"
+cinder_wsgi_threads: 1
+
+# Define the following dictionary variable to enable qos settings on volumes.
+# cinder_qos_specs
+# - name: high-iops
+#   options:
+#     consumer: front-end
+#     read_iops_sec: 2000
+#     write_iops_sec: 2000
+#   cinder_volume_types:
+#     - volumes-1
+#     - volumes-2
+# - name: low-iops
+#   options:
+#     consumer: front-end
+#     write_iops_sec: 100
+
+## Tunable overrides
+cinder_policy_overrides: {}
+cinder_rootwrap_conf_overrides: {}
+cinder_api_paste_ini_overrides: {}
+cinder_cinder_conf_overrides: {}
+cinder_api_uwsgi_ini_overrides: {}
+cinder_resource_filters_overrides: {}
+
+## Set default cinder path in service units. The default override sets the
+## execution path for the cinder service.
+cinder_environment_overrides:
+  Service:
+    Environment: "PATH={{ cinder_bin }}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+_UUID_regex: "[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}"
+
+cinder_memcached_servers: "{{ memcached_servers }}"

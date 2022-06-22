@@ -1,0 +1,41 @@
+---
+# Copyright 2022, BBC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# directories for keypairs on the CA host
+ssh_keypairs_dirs:
+  - path: "{{ ssh_keypairs_dir }}"
+
+ssh_keypairs_cert_base_options:
+  - clear
+
+_ssh_keypairs_install_keys_expanded: |-
+  {% set _kps = [] %}
+  {% for _kp in ssh_keypairs_install_keys['keys'] %}
+  {%   set _owner = _kp.owner | default(ssh_keypairs_install_keys.owner | default(omit)) %}
+  {%   set _group = _kp.group | default(ssh_keypairs_install_keys.group | default(omit)) %}
+  {%   if _kp.src is defined %}
+  {%       set _ = _kps.extend([_kp]) %}
+  {%   elif _kp.keypair is defined %}
+  {%       set _src_keypair = ssh_keypairs_dir + '/' + kp.keypair %}
+  {%       set _ = _kps.extend( [{'src': _src_keypair, 'dest': _kp.dest, 'mode':'0600', 'owner': _owner, 'group': _group }] ) %}
+  {%       set _ = _kps.extend( [{'src': _src_keypair + '.pub', 'dest': _kp.dest + '.pub', 'owner': _owner, 'group': _group }] ) %}
+  {%   elif _kp.cert is defined %}
+  {%       set _src_cert = ssh_keypairs_dir + '/' + _kp.cert %}
+  {%       set _ = _kps.extend( [{'src': _src_cert, 'dest': _kp.dest, 'mode':'0600', 'owner': _owner, 'group': _group }] ) %}
+  {%       set _ = _kps.extend( [{'src': _src_cert + '.pub', 'dest': _kp.dest + '.pub', 'owner': _owner, 'group': _group }] ) %}
+  {%       set _ = _kps.extend( [{'src': _src_cert + '-cert.pub', 'dest': _kp.dest + '-cert.pub', 'owner': _owner, 'group': _group }] ) %}
+  {%   endif %}
+  {% endfor %}
+  {{ _kps }}

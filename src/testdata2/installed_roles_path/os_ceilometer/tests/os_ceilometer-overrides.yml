@@ -1,0 +1,35 @@
+---
+# Copyright 2015, Rackspace US, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+ceilometer_oslomsg_rpc_password: "{{ oslomsg_rpc_password }}"
+ceilometer_oslomsg_notify_password: "{{ oslomsg_notify_password }}"
+ceilometer_service_password: secrete
+ceilometer_telemetry_secret: secrete
+ceilometer_container_db_password: secrete
+
+# Tempest testing relies on glance notifications
+glance_ceilometer_enabled: True
+glance_oslomsg_notify_host_group: oslomsg_notify_all
+glance_oslomsg_notify_transport: rabbit
+glance_oslomsg_notify_userid: glance
+glance_oslomsg_notify_password: "{{ oslomsg_notify_password }}"
+glance_oslomsg_notify_port: "{{ oslomsg_notify_port }}"
+glance_oslomsg_notify_vhost: "/glance"
+
+# Used by the ceilometer role
+swift_system_user_name: swift
+swift_system_shell: /bin/false
+swift_system_comment: swift test user
+swift_system_home_folder: "/var/lib/{{ swift_system_user_name }}"

@@ -1,0 +1,211 @@
+---
+# Copyright (c) 2018 NTT DATA
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+## Verbosity Options
+debug: False
+
+# Set the host which will execute the shade modules
+# for the service setup. The host must already have
+# clouds.yaml properly configured.
+masakari_service_setup_host: "{{ openstack_service_setup_host | default('localhost') }}"
+masakari_service_setup_host_python_interpreter: "{{ openstack_service_setup_host_python_interpreter | default((masakari_service_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_python['executable'])) }}"
+masakari_venv_python_executable: "{{ openstack_venv_python_executable | default('python3') }}"
+
+# Set the package install state for distribution packages
+# Options are 'present' and 'latest'
+masakari_package_state: "{{ package_state | default('latest') }}"
+
+masakari_git_repo: https://opendev.org/openstack/masakari
+masakari_monitors_git_repo: https://opendev.org/openstack/masakari-monitors
+masakari_git_install_branch: master
+masakari_monitors_git_install_branch: master
+masakari_upper_constraints_url: "{{ requirements_git_url | default('https://releases.openstack.org/constraints/upper/' ~ requirements_git_install_branch | default('master')) }}"
+masakari_git_constraints:
+  - "--constraint {{ masakari_upper_constraints_url }}"
+
+## System info
+masakari_system_user_name: masakari
+masakari_system_group_name: masakari
+masakari_system_shell: /bin/false
+masakari_system_comment: masakari system user
+masakari_system_user_home: "/var/lib/{{ masakari_system_user_name }}"
+
+## Database credentials
+masakari_db_setup_host: "{{ openstack_db_setup_host | default('localhost') }}"
+masakari_db_setup_python_interpreter: "{{ openstack_db_setup_python_interpreter | default((masakari_db_setup_host == 'localhost') | ternary(ansible_playbook_python, ansible_facts['python']['executable'])) }}"
+masakari_galera_address: "{{ galera_address | default('127.0.0.1') }}"
+masakari_galera_database: masakari
+masakari_galera_user: masakari
+masakari_galera_use_ssl: "{{ galera_use_ssl | default(False) }}"
+masakari_galera_ssl_ca_cert: "{{ galera_ssl_ca_cert | default('') }}"
+masakari_galera_port: "{{ galera_port | default('3306') }}"
+masakari_db_max_overflow: "{{ openstack_db_max_overflow | default('50') }}"
+masakari_db_max_pool_size: "{{ openstack_db_max_pool_size | default('5') }}"
+masakari_db_pool_timeout: "{{ openstack_db_pool_timeout | default('30') }}"
+masakari_db_connection_recycle_time: "{{ openstack_db_connection_recycle_time | default('600') }}"
+
+masakari_pip_install_args: "{{ pip_install_options | default('') }}"
+
+# Name of the virtual env to deploy into
+masakari_venv_tag: "{{ venv_tag | default('untagged') }}"
+masakari_bin: "/openstack/venvs/masakari-{{ masakari_venv_tag }}/bin"
+
+# Common pip packages
+masakari_pip_packages:
+  - cryptography
+  - "git+{{ masakari_git_repo }}@{{ masakari_git_install_branch }}#egg=masakari"
+  - masakari
+  - keystonemiddleware
+  - osprofiler
+  - PyMySQL
+  - pymemcache
+  - python-masakariclient
+  - python-novaclient
+  - python-keystoneclient
+  - python-memcached
+  - python-swiftclient
+  - systemd-python
+  - uwsgi
+  - keystoneauth1
+
+# Memcached override
+masakari_memcached_servers: "{{ memcached_servers }}"
+
+masakari_monitor_pip_packages:
+  - "git+{{ masakari_monitors_git_repo }}@{{ masakari_monitors_git_install_branch }}#egg=masakari-monitors"
+  - systemd-python
+
+## Tunable overrides
+masakari_api_paste_ini_overrides: {}
+masakari_masakari_conf_overrides: {}
+masakari_policy_json_overrides: {}
+masakari_policy_overrides: "{{ masakari_policy_json_overrides }}"
+masakari_api_init_overrides: {}
+masakari_engine_init_overrides: {}
+masakari_monitors_conf_overrides: {}
+masakari_monitors_process_overrides: {}
+masakari_monitors_init_overrides: {}
+
+## Service Type and Data
+masakari_service_region: "{{ service_region | default('RegionOne') }}"
+masakari_service_name: masakari
+masakari_service_port: 15868
+masakari_service_proto: http
+masakari_service_registry_proto: "{{ masakari_service_proto }}"
+masakari_service_publicuri_proto: "{{ openstack_service_publicuri_proto | default(masakari_service_proto) }}"
+masakari_service_adminuri_proto: "{{ openstack_service_adminuri_proto | default(masakari_service_proto) }}"
+masakari_service_internaluri_proto: "{{ openstack_service_internaluri_proto | default(masakari_service_proto) }}"
+masakari_service_type: ha
+masakari_service_description: "Masakari ha Service"
+masakari_service_user_name: masakari
+masakari_service_project_name: service
+masakari_service_project_domain_id: default
+masakari_service_user_domain_id: default
+masakari_service_publicuri: "{{ masakari_service_publicuri_proto }}://{{ external_lb_vip_address }}:{{ masakari_service_port }}"
+masakari_service_publicurl: "{{ masakari_service_publicuri }}/v1/%(tenant_id)s"
+masakari_service_internaluri: "{{ masakari_service_internaluri_proto }}://{{ internal_lb_vip_address }}:{{ masakari_service_port }}"
+masakari_service_internalurl: "{{ masakari_service_internaluri }}/v1/%(tenant_id)s"
+masakari_service_adminuri: "{{ masakari_service_adminuri_proto }}://{{ internal_lb_vip_address }}:{{ masakari_service_port }}"
+masakari_service_adminurl: "{{ masakari_service_adminuri }}/v1/%(tenant_id)s"
+
+masakari_service_in_ldap: "{{ service_ldap_backend_enabled | default(False) }}"
+
+masakari_service_role_names:
+  - admin
+  - service
+masakari_service_token_roles:
+  - service
+masakari_service_token_roles_required: "{{ openstack_service_token_roles_required | default(True) }}"
+masakari_api_bind_address: "{{ openstack_service_bind_address | default('0.0.0.0') }}"
+masakari_api_service_port: 15868
+
+## API options
+masakari_enable_v1_api: True
+
+masakari_etc_dir: /etc/masakari
+masakari_monitor_etc_dir: /etc/masakarimonitors
+masakari_config_options: --config-file {{ masakari_etc_dir }}/masakari.conf
+
+## Services
+masakari_services:
+  masakari-api:
+    group: masakari_api
+    service_name: masakari-api
+    execstarts: "{{ masakari_bin }}/masakari-api"
+    config_overrides: "{{ masakari_api_init_overrides }}"
+  masakari-engine:
+    group: masakari_engine
+    service_name: masakari-engine
+    execstarts: "{{ masakari_bin }}/masakari-engine"
+    config_overrides: "{{ masakari_engine_init_overrides }}"
+  masakari-hostmonitor:
+    group: masakari_monitor
+    service_name: masakari-hostmonitor
+    execstarts: "{{ masakari_bin }}/masakari-hostmonitor"
+    config_overrides: "{{ masakari_monitors_init_overrides }}"
+  masakari-instancemonitor:
+    group: masakari_monitor
+    service_name: masakari-instancemonitor
+    execstarts: "{{ masakari_bin }}/masakari-instancemonitor"
+    config_overrides: "{{ masakari_monitors_init_overrides }}"
+  masakari-introspectiveinstancemonitor:
+    group: masakari_monitor
+    service_name: masakari-introspectiveinstancemonitor
+    execstarts: "{{ masakari_bin }}/masakari-introspectiveinstancemonitor"
+    config_overrides: "{{ masakari_monitors_init_overrides }}"
+  masakari-processmonitor:
+    group: masakari_monitor
+    service_name: masakari-processmonitor
+    execstarts: "{{ masakari_bin }}/masakari-processmonitor"
+    config_overrides: "{{ masakari_monitors_init_overrides }}"
+
+## Configuration for Oslo Messaging
+
+# RPC
+masakari_oslomsg_rpc_host_group: "{{ oslomsg_rpc_host_group | default('rabbitmq_all') }}"
+masakari_oslomsg_rpc_setup_host: "{{ (masakari_oslomsg_rpc_host_group in groups) | ternary(groups[masakari_oslomsg_rpc_host_group][0], 'localhost') }}"
+masakari_oslomsg_rpc_transport: "{{ oslomsg_rpc_transport | default('rabbit') }}"
+masakari_oslomsg_rpc_servers: "{{ oslomsg_rpc_servers | default('127.0.0.1') }}"
+masakari_oslomsg_rpc_port: "{{ oslomsg_rpc_port | default('5672') }}"
+masakari_oslomsg_rpc_use_ssl: "{{ oslomsg_rpc_use_ssl | default(False) }}"
+masakari_oslomsg_rpc_userid: masakari
+masakari_oslomsg_rpc_vhost: /masakari
+masakari_oslomsg_rpc_ssl_version: "{{ oslomsg_rpc_ssl_version | default('TLSv1_2') }}"
+masakari_oslomsg_rpc_ssl_ca_file: "{{ oslomsg_rpc_ssl_ca_file | default('') }}"
+
+# Notify
+masakari_oslomsg_notify_host_group: "{{ oslomsg_notify_host_group | default('rabbitmq_all') }}"
+masakari_oslomsg_notify_setup_host: "{{ (masakari_oslomsg_notify_host_group in groups) | ternary(groups[masakari_oslomsg_notify_host_group][0], 'localhost') }}"
+masakari_oslomsg_notify_transport: "{{ oslomsg_notify_transport | default('rabbit') }}"
+masakari_oslomsg_notify_servers: "{{ oslomsg_notify_servers | default('127.0.0.1') }}"
+masakari_oslomsg_notify_port: "{{ oslomsg_notify_port | default('5672') }}"
+masakari_oslomsg_notify_use_ssl: "{{ oslomsg_notify_use_ssl | default(False) }}"
+masakari_oslomsg_notify_userid: "{{ masakari_oslomsg_rpc_userid }}"
+masakari_oslomsg_notify_password: "{{ masakari_oslomsg_rpc_password }}"
+masakari_oslomsg_notify_vhost: "{{ masakari_oslomsg_rpc_vhost }}"
+masakari_oslomsg_notify_ssl_version: "{{ oslomsg_notify_ssl_version | default('TLSv1_2') }}"
+masakari_oslomsg_notify_ssl_ca_file: "{{ oslomsg_notify_ssl_ca_file | default('') }}"
+
+## (Qdrouterd) integration
+# TODO(ansmith): Change structure when more backends will be supported
+masakari_oslomsg_amqp1_enabled: "{{ masakari_oslomsg_rpc_transport == 'amqp' }}"
+
+masakari_optional_oslomsg_amqp1_pip_packages:
+  - oslo.messaging[amqp1]
+
+# The multicast interface used by corocync for masakari hostmonitor
+masakari_monitor_corosync_multicast_interface: "br-mgmt"
+masakari_monitor_corosync_multicast_ports: 5405
+masakari_monitor_corosync_ipmi_check: False

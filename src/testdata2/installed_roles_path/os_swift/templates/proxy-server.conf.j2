@@ -1,0 +1,191 @@
+# {{ ansible_managed }}
+
+[DEFAULT]
+# Disable stderr logging
+use_stderr = False
+bind_ip = {{ swift_proxy_bind_address }}
+bind_port = {{ swift_proxy_port }}
+workers = {{ swift_proxy_server_workers }}
+
+user = {{ swift_system_user_name }}
+
+{% set _statsd_host = swift_proxy_vars.statsd_host | default(swift.statsd_host | default(statsd_host | default(False))) %}
+{% if _statsd_host | bool %}
+log_statsd_host = {{ _statsd_host }}
+log_statsd_port = {{ swift_proxy_vars.statsd_port | default(swift.statsd_port | default(statsd_port)) }}
+log_statsd_default_sample_rate = {{ swift_proxy_vars.statsd_default_sample_rate | default(swift.statsd_default_sample_rate | default(statsd_default_sample_rate)) }}
+log_statsd_sample_rate_factor = {{ swift_proxy_vars.statsd_sample_rate_factor | default(swift.statsd_sample_rate_factor | default(statsd_sample_rate_factor))}}
+log_statsd_metric_prefix = {{ swift_proxy_vars.statsd_metric_prefix | default(swift.statsd_metric_prefix | default(inventory_hostname)) }}
+{% endif %}
+
+[pipeline:main]
+pipeline = {{ swift_middleware_list | join(' ') }}
+
+[filter:copy]
+use = egg:swift#copy
+
+[app:proxy-server]
+use = egg:swift#proxy
+node_timeout = 60
+conn_timeout = 3.5
+account_autocreate = true
+{% if swift_proxy_vars is defined %}
+{%   if swift_proxy_vars.read_affinity is defined %}
+read_affinity = {{ swift_proxy_vars.read_affinity }}
+{%     set swift_sorting_method = 'affinity' %}
+{%   endif %}
+{%   if swift_proxy_vars.write_affinity is defined %}
+write_affinity = {{ swift_proxy_vars.write_affinity }}
+{%     if swift_proxy_vars.write_affinity_node_count is defined %}
+write_affinity_node_count = {{ swift_proxy_vars.write_affinity_node_count }}
+{%     endif %}
+{%   endif %}
+{% endif %}
+sorting_method = {{ swift_sorting_method }}
+
+{% if 'tempauth' in swift_middleware_list %}
+[filter:tempauth]
+use = egg:swift#tempauth
+{% for user in swift_tempauth_users %}
+{{ user }}
+{% endfor %}
+{% endif %}
+
+{% if 'authtoken' in swift_middleware_list %}
+[filter:authtoken]
+paste.filter_factory = keystonemiddleware.auth_token:filter_factory
+auth_type = {{ swift_keystone_auth_plugin }}
+auth_url = {{ keystone_service_adminuri }}
+www_authenticate_uri = {{ keystone_service_internaluri }}
+insecure = {{ keystone_service_adminuri_insecure | bool }}
+region_name = {{ keystone_service_region }}
+project_domain_id = {{ swift_service_project_domain_id }}
+user_domain_id = {{ swift_service_user_domain_id }}
+project_name = {{ swift_service_project_name }}
+username = {{ swift_service_user_name }}
+password = {{ swift_service_password }}
+delay_auth_decision = {{ swift_delay_auth_decision }}
+include_service_catalog = False
+
+service_token_roles_required = {{ swift_service_token_roles_required | bool }}
+service_token_roles = {{ swift_service_token_roles | join(',') }}
+service_type = {{ swift_service_type }}
+
+{% if memcached_servers is defined %}
+memcached_servers = {{ swift_memcached_servers }}
+cache = swift.cache
+
+token_cache_time = 300
+revocation_cache_time = 60
+
+memcache_security_strategy = ENCRYPT
+memcache_secret_key = {{ memcached_encryption_key }}
+{% endif %}
+{% endif %}
+
+{% if 'keystoneauth' in swift_middleware_list %}
+[filter:keystoneauth]
+use = egg:swift#keystoneauth
+{% if swift_allow_all_users is defined and swift_allow_all_users == True %}
+{% if 'ceilometer' in swift_middleware_list %}
+operator_roles = admin, {{ swift_operator_role }}, _member_, {{ swift_reselleradmin_role }}
+{% else %}
+operator_roles = admin, {{ swift_operator_role }}, _member_
+{% endif %}
+{% else %}
+{% if 'ceilometer' in swift_middleware_list %}
+operator_roles = admin, {{ swift_operator_role }}, {{ swift_reselleradmin_role }}
+{% else %}
+operator_roles = admin, {{ swift_operator_role }}
+{% endif %}
+{% endif %}
+# The reseller admin role has the ability to create and delete accounts
+reseller_admin_role = {{ swift_reselleradmin_role }}
+{% endif %}
+
+[filter:healthcheck]
+use = egg:swift#healthcheck
+
+[filter:cache]
+use = egg:swift#memcache
+
+[filter:ratelimit]
+use = egg:swift#ratelimit
+
+[filter:domain_remap]
+use = egg:swift#domain_remap
+
+[filter:catch_errors]
+use = egg:swift#catch_errors
+
+[filter:cname_lookup]
+use = egg:swift#cname_lookup
+
+[filter:staticweb]
+use = egg:swift#staticweb
+
+[filter:tempurl]
+use = egg:swift#tempurl
+
+[filter:formpost]
+use = egg:swift#formpost
+
+[filter:name_check]
+use = egg:swift#name_check
+
+[filter:list-endpoints]
+use = egg:swift#list_endpoints
+
+[filter:proxy-logging]
+use = egg:swift#proxy_logging
+
+[filter:bulk]
+use = egg:swift#bulk
+
+[filter:container-quotas]
+use = egg:swift#container_quotas
+
+[filter:slo]
+use = egg:swift#slo
+
+[filter:dlo]
+use = egg:swift#dlo
+
+[filter:versioned_writes]
+use = egg:swift#versioned_writes
+allow_versioned_writes = True
+
+[filter:account-quotas]
+use = egg:swift#account_quotas
+
+[filter:gatekeeper]
+use = egg:swift#gatekeeper
+
+[filter:container_sync]
+use = egg:swift#container_sync
+
+[filter:xprofile]
+use = egg:swift#xprofile
+
+{% if 'ceilometer' in swift_middleware_list %}
+[filter:ceilometer]
+paste.filter_factory = ceilometermiddleware.swift:filter_factory
+control_exchange = swift
+driver = messagingv2
+url = {{ swift_oslomsg_notify_transport }}://{% for host in swift_oslomsg_notify_servers.split(',') %}{{ swift_oslomsg_notify_userid }}:{{ swift_oslomsg_notify_password }}@{{ host }}:{{ swift_oslomsg_notify_port }}{% if not loop.last %},{% else %}/{{ swift_oslomsg_notify_vhost }}{% if swift_oslomsg_notify_use_ssl | bool %}?ssl=1&ssl_version={{ swift_oslomsg_notify_ssl_version }}&ssl_ca_file={{ swift_oslomsg_notify_ssl_ca_file }}{% else %}?ssl=0{% endif %}{% endif %}{% endfor %}
+
+topic = notifications
+{% if gnocchi_service_project_name is defined %}
+ignore_projects = {{ gnocchi_service_project_name }}
+auth_type = {{ swift_keystone_auth_plugin }}
+auth_url = {{ keystone_service_adminuri }}
+insecure = {{ keystone_service_adminuri_insecure | bool }}
+region_name = {{ keystone_service_region }}
+project_domain_id = {{ swift_service_project_domain_id }}
+user_domain_id = {{ swift_service_user_domain_id }}
+project_name = {{ swift_service_project_name }}
+username = {{ swift_service_user_name }}
+password = {{ swift_service_password }}
+{% endif %}
+log_level = WARN
+{% endif %}
