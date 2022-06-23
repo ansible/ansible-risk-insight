@@ -25,7 +25,7 @@ class UsedInResolver(Resolver):
     def role(self, obj):
         role = obj
         # set used_in for this role
-        used_in = self.used_in_dict["role"].get(role.defined_in, set())
+        used_in = self.used_in_dict["role"].get(role.fqcn, set())
         role.used_in = sorted(list(used_in))
         return
     
