@@ -1,0 +1,19 @@
+---
+# Copyright (C) 2013-2017 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015-2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Manage NFS shares
+  collections: [ 'debops.debops', 'debops.roles01',
+                 'debops.roles02', 'debops.roles03' ]
+  hosts: [ 'debops_service_nfs' ]
+  become: True
+
+  environment: '{{ inventory__environment | d({})
+                   | combine(inventory__group_environment | d({}))
+                   | combine(inventory__host_environment  | d({})) }}'
+
+  roles:
+
+    - role: nfs
+      tags: [ 'role::nfs', 'skip::nfs' ]

@@ -1,0 +1,31 @@
+galaxy_info:
+  author: Ernestas Poskus
+  description: Ansible playbook for managing Prometheus monitoring system
+  company: None
+
+  license: BSD
+
+  min_ansible_version: 2.4
+
+  platforms:
+    - name: EL
+      versions:
+        - 7
+    - name: Ubuntu
+      versions:
+        - xenial
+
+  galaxy_tags:
+    - prometheus
+    - alerting
+    - monitoring
+    - alert
+    - manager
+    - node
+    - blackbox
+    - snmp
+    - exporter
+    - push
+    - gateway
+
+dependencies: []

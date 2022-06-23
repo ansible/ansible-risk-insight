@@ -1,0 +1,10 @@
+---
+# Copyright (C) 2015 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Restart snmpd
+  ansible.builtin.service:
+    name: 'snmpd'
+    enabled: True
+    state: 'restarted'

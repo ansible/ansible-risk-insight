@@ -1,0 +1,48 @@
+---
+# Copyright (C) 2017 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Manage Postwhite service
+  collections: [ 'debops.debops', 'debops.roles01',
+                 'debops.roles02', 'debops.roles03' ]
+  hosts: [ 'debops_service_postwhite' ]
+  become: True
+
+  environment: '{{ inventory__environment | d({})
+                   | combine(inventory__group_environment | d({}))
+                   | combine(inventory__host_environment  | d({})) }}'
+
+  pre_tasks:
+
+    - name: Prepare postfix environment
+      ansible.builtin.import_role:
+        name: 'postfix'
+        tasks_from: 'main_env'
+      vars:
+        postfix__dependent_maincf:
+          - role: 'postwhite'
+            config: '{{ postwhite__postfix__dependent_maincf }}'
+      when: (ansible_local | d() and ansible_local.postfix | d() and
+             (ansible_local.postfix.installed | d()) | bool)
+      tags: [ 'role::postfix', 'role::secret' ]
+
+  roles:
+
+    - role: secret
+      tags: [ 'role::secret', 'role::postfix' ]
+      secret__directories:
+        - '{{ postfix__secret__directories }}'
+      when: (ansible_local | d() and ansible_local.postfix | d() and
+             (ansible_local.postfix.installed | d()) | bool)
+
+    - role: postfix
+      tags: [ 'role::postfix', 'skip::postfix' ]
+      postfix__dependent_maincf:
+        - role: 'postwhite'
+          config: '{{ postwhite__postfix__dependent_maincf }}'
+      when: (ansible_local | d() and ansible_local.postfix | d() and
+             (ansible_local.postfix.installed | d()) | bool)
+
+    - role: postwhite
+      tags: [ 'role::postwhite', 'skip::postwhite' ]

@@ -1,0 +1,47 @@
+---
+# Copyright (C) 2014-2020 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2014-2020 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Manage Postfix SMTP service
+  collections: [ 'debops.debops', 'debops.roles01',
+                 'debops.roles02', 'debops.roles03' ]
+  hosts: [ 'debops_service_postfix' ]
+  become: True
+
+  environment: '{{ inventory__environment | d({})
+                   | combine(inventory__group_environment | d({}))
+                   | combine(inventory__host_environment  | d({})) }}'
+
+  pre_tasks:
+
+    - name: Prepare etc_aliases environment
+      ansible.builtin.import_role:
+        name: 'etc_aliases'
+        tasks_from: 'main_env'
+      tags: [ 'role::etc_aliases', 'role::secret', 'role::postfix' ]
+
+    - name: Prepare postfix environment
+      ansible.builtin.import_role:
+        name: 'postfix'
+        tasks_from: 'main_env'
+      tags: [ 'role::postfix', 'role::secret', 'role::ferm' ]
+
+  roles:
+
+    - role: secret
+      tags: [ 'role::secret', 'role::postfix' ]
+      secret__directories:
+        - '{{ etc_aliases__secret__directories }}'
+        - '{{ postfix__secret__directories }}'
+
+    - role: ferm
+      tags: [ 'role::ferm', 'skip::ferm' ]
+      ferm__dependent_rules:
+        - '{{ postfix__ferm__dependent_rules }}'
+
+    - role: etc_aliases
+      tags: [ 'role::etc_aliases', 'skip::etc_aliases' ]
+
+    - role: postfix
+      tags: [ 'role::postfix', 'skip::postfix' ]

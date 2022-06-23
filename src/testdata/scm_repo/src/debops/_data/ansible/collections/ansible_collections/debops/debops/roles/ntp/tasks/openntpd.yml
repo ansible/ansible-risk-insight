@@ -1,0 +1,36 @@
+---
+# Copyright (C) 2014-2017 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015-2017 Robin Schneider <ypid@riseup.net>
+# Copyright (C) 2014-2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Divert OpenNTPd configuration files
+  dpkg_divert:
+    path: '{{ item }}'
+  loop:
+    - '/etc/default/openntpd'
+    - '/etc/openntpd/ntpd.conf'
+    - '/etc/network/if-up.d/openntpd'
+
+- name: Configure OpenNTPd
+  ansible.builtin.template:
+    src: '{{ item.name }}.j2'
+    dest: '/{{ item.name }}'
+    owner: 'root'
+    group: 'root'
+    mode: '{{ item.mode | d("0644") }}'
+  with_items:
+
+    - name: 'etc/default/openntpd'
+
+    - name: 'etc/openntpd/ntpd.conf'
+
+    - name: 'etc/network/if-up.d/openntpd'
+      mode: '0755'
+
+    - name: 'etc/dpkg/dpkg.cfg.d/debops-ntp-openntpd'
+
+    - name: 'usr/local/lib/debops-ntp-openntpd-dpkg-cleanup'
+      mode: '0755'
+
+  notify: [ 'Restart openntpd' ]

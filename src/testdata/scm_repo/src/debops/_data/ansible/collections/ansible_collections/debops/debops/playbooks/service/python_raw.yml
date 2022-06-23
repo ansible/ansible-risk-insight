@@ -1,0 +1,20 @@
+---
+# Copyright (C) 2018 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2018 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Bootstrap Python environment
+  collections: [ 'debops.debops', 'debops.roles01',
+                 'debops.roles02', 'debops.roles03' ]
+  hosts: [ 'debops_all_hosts', 'debops_service_python' ]
+  strategy: linear
+  become: True
+  gather_facts: False
+
+  tasks:
+
+    - name: Initialize Ansible support via raw tasks
+      ansible.builtin.import_role:
+        name: 'python'
+        tasks_from: 'main_raw'
+      tags: [ 'role::python_raw', 'skip::python_raw' ]

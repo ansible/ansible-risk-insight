@@ -1,0 +1,17 @@
+---
+# Copyright (C) 2016      Mariano Barcia <mariano.barcia@gmail.com>
+# Copyright (C) 2016-2019 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2016-2019 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: "Restart php-fpm"
+  ansible.builtin.service:
+    name: "php{{ php__version }}-fpm"
+    state: 'restarted'
+  when: '"fpm" in php__server_api_packages'
+
+- name: "Reload php-fpm"
+  ansible.builtin.service:
+    name: "php{{ php__version }}-fpm"
+    state: 'reloaded'
+  when: '"fpm" in php__server_api_packages'

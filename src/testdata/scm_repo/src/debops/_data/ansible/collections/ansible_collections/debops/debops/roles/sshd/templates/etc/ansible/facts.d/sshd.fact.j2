@@ -1,0 +1,59 @@
+#!{{ ansible_python['executable'] }}
+# -*- coding: utf-8 -*-
+
+# Copyright (C) 2013-2016 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015-2017 Robin Schneider <ypid@riseup.net>
+# Copyright (C) 2014-2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# {{ ansible_managed }}
+
+from __future__ import print_function
+from json import dumps
+from re import match, IGNORECASE
+from sys import exit
+import os
+
+
+def cmd_exists(cmd):
+    return any(
+        os.access(os.path.join(path, cmd), os.X_OK)
+        for path in os.environ["PATH"].split(os.pathsep)
+    )
+
+
+sshd_facts = [
+    {'variable': 'AllowUsers',
+     'fact': 'allow_users',
+     'default': []},
+    {'variable': 'AllowGroups',
+     'fact': 'allow_groups',
+     'default': []}
+]
+
+output = {'configured': True,
+          'installed': cmd_exists('sshd')}
+
+for item in sshd_facts:
+    output.update({item['fact']: item['default']})
+
+try:
+    with open("/etc/ssh/sshd_config") as fd:
+        for line in fd.readlines():
+            for item in sshd_facts:
+                match_fact = match(
+                    r"^" + item['variable'] + r" ([ \w]+)",
+                    line, flags=IGNORECASE)
+                if match_fact:
+                    if isinstance(item['default'], list):
+                        output[item['fact']] = match_fact.groups()[0].split()
+                    elif isinstance(item['default'], str):
+                        output[item['fact']] = match_fact.groups()[0]
+                    elif isinstance(item['default'], int):
+                        output[item['fact']] = int(match_fact.groups()[0])
+
+except Exception as e:
+    print("{}")
+    exit()
+
+print(dumps(output, sort_keys=True, indent=4))

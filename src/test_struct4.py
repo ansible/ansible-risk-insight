@@ -2,7 +2,7 @@ import unittest
 from struct4 import Module, Collection, Task, Role, Playbook, Repository
 
 
-class TestStruct3(unittest.TestCase):
+class TestStruct4(unittest.TestCase):
     """test class of struct4.py
     """
 
@@ -37,7 +37,7 @@ class TestStruct3(unittest.TestCase):
                 "state": 'present',
             },
         }
-        t.load("testdata/scm_repo/roles/java/tasks/main.yml", 6, task_block_dict)
+        t.load("testdata/scm_repo/ansible/roles/java/tasks/main.yml", 6, task_block_dict)
         expected = "dpkg_divert"
         actual = t.module
         self.assertEqual(expected, actual)
@@ -46,16 +46,23 @@ class TestStruct3(unittest.TestCase):
         """test method for Role
         """
         r = Role()
-        r.load("testdata/scm_repo/roles/apt")
+        r.load("testdata/scm_repo/ansible/roles/apt")
+        expected = 1
+        actual = len(r.taskfiles)
+        self.assertEqual(expected, actual)
+
+        tasks = []
+        for tf in r.taskfiles:
+            tasks.extend(tf.tasks)
         expected = 23
-        actual = len(r.tasks)
+        actual = len(tasks)
         self.assertEqual(expected, actual)
 
     def test_playbook(self):
         """test method for Playbook
         """
         p = Playbook()
-        p.load("testdata/scm_repo/playbooks/service/minio.yml")
+        p.load("testdata/scm_repo/ansible/playbooks/service/minio.yml")
         expected = 2
         actual = len(p.tasks)
         self.assertEqual(expected, actual)
@@ -69,7 +76,7 @@ class TestStruct3(unittest.TestCase):
         """
         r = Repository()
         r.load("testdata/scm_repo", "testdata/installed_collections_path")
-        expected = 22
+        expected = 360
         actual = len(r.playbooks)
         self.assertEqual(expected, actual)
 
@@ -121,7 +128,7 @@ class TestStruct3(unittest.TestCase):
         """test method for Repository
         """
         r = Repository()
-        r.load("testdata3/scm_repo/playbooks", "testdata3/installed_collections_path")
+        r.load("testdata3/scm_repo", "testdata3/installed_collections_path")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,32 @@
+---
+# Copyright (C) 2017 Robin Schneider <ypid@riseup.net>
+# Copyright (C) 2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# Ensure that custom Ansible plugins and modules included in the main DebOps
+# collection are available to roles in other collections.
+collections: [ 'debops.debops' ]
+
+dependencies: []
+
+galaxy_info:
+
+  company: 'DebOps'
+  author: 'Robin Schneider'
+  description: 'Setup and manage Kodi'
+  license: 'GPL-3.0-only'
+  min_ansible_version: '2.1.5'
+
+  platforms:
+
+    - name: Debian
+      versions:
+        - buster
+
+  galaxy_tags:
+    - kodi
+    - home
+    - htpc
+    - mediacenter
+    - media
+    - player

@@ -1,0 +1,9 @@
+############################################################
+# Auto generated
+############################################################
+prometheus_snmp_exporter_service_config:
+  - ['config.file', "{{ prometheus_snmp_exporter_config__file }}"]
+  - ['log.format', "{{ prometheus_snmp_exporter_log__format }}"]
+  - ['log.level', "{{ prometheus_snmp_exporter_log__level }}"]
+  - ['web.listen-address', "{{ prometheus_snmp_exporter_web__listen_address }}"]
+  - ['web.config.file', "{{ prometheus_snmp_exporter_web__config__file }}"]

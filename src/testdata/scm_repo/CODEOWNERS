@@ -1,0 +1,105 @@
+# Copyright (C) 2017-2020 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2017-2020 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# This is a CODEOWNERS file, which uses a syntax similar to the
+# '.gitignore' file to define the reviewers of certain files or directories in
+# the repository. Order of the entries is important, the last matching entry
+# wins. You can read more about how this file works at:
+# * https://help.github.com/articles/about-codeowners/
+# * https://docs.gitlab.com/ee/user/project/code_owners.html
+
+# Reviewers can be added into "teams" according to their interests, each
+# reviewer is identified by their GitHub username to allow for GitHub to notify
+# them on changes in their selected files. If you are registered as a reviewer
+# here, you are expected to perform reviews of pull requests to the repository
+# in a reasonable time, usually a week. If a review might take longer, leave
+# a comment so that we know that you want to do it.
+#
+# Available teams:
+# - Documentation: drybjed, tasosalvas
+# - Mail: imrejonk
+# - Security (DebOps Security Policy): drybjed, ypid
+# - Self-hosting (etesync, debops-contrib.*): ypid
+
+
+# Global, default reviewers for everything in the repository
+*                                                   @drybjed
+
+
+# Documentation
+/docs/                                              @drybjed @tasosalvas
+*.rst                                               @drybjed @tasosalvas
+*.md                                                @drybjed @tasosalvas
+lib/images/                                         @drybjed @tasosalvas
+docs/news/releases.rst                              @drybjed @tasosalvas @ypid
+
+
+# Authors of new roles should add themselves below if they want to be notified
+# about changes in their roles. Include all people in the global section as
+# well, otherwise only you will be notified.
+# To avoid redundancy, the sections below must reflect those find in
+# docs/ansible/role-index.rst
+#
+# **SOFTWARE** is used with the intention to match all files with dovecot
+# SOFTWARE in the file name (with as a substring match).
+
+# Applications
+**owncloud**                                        @drybjed @ypid @imrejonk
+**etesync**                                         @drybjed @ypid
+**foodsoft**                                        @drybjed @ypid
+**homeassistant**                                   @drybjed @ypid
+**volkszaehler**                                    @drybjed @ypid
+**kodi**                                            @drybjed @ypid
+**netbox**                                          @drybjed @ypid
+
+# Application services
+**debops_api**                                      @drybjed @ypid
+**bitcoind**                                        @drybjed @ypid
+**x2go_server**                                     @drybjed @ypid
+
+# Encryption
+**cryptsetup**                                      @drybjed @ypid
+
+# Filesystems
+**persistent_paths**                                @drybjed @ypid
+**btrfs**                                           @drybjed @ypid
+**fuse**                                            @drybjed @ypid
+**snapshot_snapper**                                @drybjed @ypid
+
+# Host provisioning
+**dropbear_initramfs**                              @drybjed @ypid
+
+# Mail and SMS services
+**dovecot**                                         @drybjed @imrejonk
+**etc_aliases**                                     @drybjed @imrejonk
+**mailman**                                         @drybjed @imrejonk
+**nullmailer**                                      @drybjed @imrejonk
+**opendkim**                                        @drybjed @imrejonk
+**postconf**                                        @drybjed @imrejonk
+**postfix**                                         @drybjed @imrejonk
+**postldap**                                        @drybjed @imrejonk
+**postscreen**                                      @drybjed
+**postwhite**                                       @drybjed
+**roundcube**                                       @drybjed @imrejonk
+**saslauthd**                                       @drybjed
+**smstools**                                        @drybjed
+
+# Networking
+**tor**                                             @drybjed @ypid
+
+# Operating system packages
+**apt_cacher_ng**                                   @drybjed @ypid
+
+# System configuration
+**etckeeper**                                       @drybjed @ypid
+
+# Security
+**apparmor**                                        @drybjed @ypid
+**firejail**                                        @drybjed @ypid
+
+# Virtualization
+**docker_server**                                   @drybjed @imrejonk
+
+# Not fully integrated roles.
+ansible/debops-contrib-playbooks/                   @drybjed @ypid

@@ -1,0 +1,39 @@
+#!{{ ansible_python['executable'] }}
+# -*- coding: utf-8 -*-
+
+# Copyright (C) 2016-2017 Robin Schneider <ypid@riseup.net>
+# Copyright (C) 2016-2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# {{ ansible_managed }}
+
+from __future__ import print_function
+from json import loads, dumps
+import subprocess
+import re
+
+output = loads('''{{ ({
+    "enabled": (apache__deploy_state == "present"),
+    "user": apache__user,
+    "use_if_version": apache__config_use_if_version,
+    "min_version": apache__config_min_version,
+    }) | to_nice_json }}''')
+
+try:
+    apache_v = subprocess.check_output(
+            ['apache2', '-v']).decode('utf-8').split('\n')
+
+    for line in apache_v:
+        _re = re.match(r'Server version: Apache/(?P<version>[^ ]+)', line)
+        if _re:
+            output['version'] = _re.group('version')
+
+    if output['use_if_version']:
+        if output['min_version'] == 'current_major_minor':
+            output['min_version'] = '.'.join(
+                    output['version'].split('.')[:2])
+
+except Exception:
+    pass
+
+print(dumps(output, sort_keys=True, indent=4))

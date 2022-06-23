@@ -1,0 +1,6 @@
+---
+- name: Converge
+  hosts: all
+  roles:
+    - role: redis_role
+    - role: prometheus_redis_exporter_role

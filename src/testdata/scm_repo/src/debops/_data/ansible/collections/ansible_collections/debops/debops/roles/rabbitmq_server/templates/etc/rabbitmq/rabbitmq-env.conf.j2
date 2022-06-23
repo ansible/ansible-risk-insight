@@ -1,0 +1,11 @@
+{# Copyright (C) 2017 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2017 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+# {{ ansible_managed }}}
+
+# Custom environment variables for RabbitMQ Server
+
+{% for env_key, env_value in rabbitmq_server__combined_environment.items() %}
+{{ '{}="{}"'.format(env_key | upper, env_value) }}
+{% endfor %}

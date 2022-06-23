@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+# Copyright (C) 2014-2019 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2019      Alin Alexandru <alin.alexandru@innobyte.com>
+# Copyright (C) 2015-2019 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# {{ ansible_managed }}
+
+# phpipam-hosts wrapper script
+
+number_of_groups="{{ phpipam__scripts_config_groups.keys() | count }}"
+readarray -t config_groups << EOF
+{% for group, config in phpipam__scripts_config_groups.items() %}
+{{ group }}
+{% endfor %}
+EOF
+
+if [ "${number_of_groups}" -eq 1 ] ; then
+    for config_group in "${config_groups[@]}" ; do
+        /usr/local/sbin/phpipam-hosts -g "${config_group}" -x > /dev/null
+    done
+else
+    for config_group in "${config_groups[@]}" ; do
+        /usr/local/sbin/phpipam-hosts -g "${config_group}"
+    done
+    /usr/local/sbin/phpipam-hosts -X > /dev/null
+fi

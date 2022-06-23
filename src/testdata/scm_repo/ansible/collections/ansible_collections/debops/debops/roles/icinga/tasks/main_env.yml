@@ -1,0 +1,8 @@
+---
+# Copyright (C) 2018 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2018 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Prepare Icinga environment
+  ansible.builtin.set_fact:
+    icinga__secret__directories: '{{ lookup("template", "lookup/icinga__secret__directories.j2") | from_yaml }}'

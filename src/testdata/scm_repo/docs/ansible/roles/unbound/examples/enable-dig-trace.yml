@@ -1,0 +1,17 @@
+---
+# Copyright (C) 2017 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# Allow use of the `dig +trace` command on the Unbound host
+
+unbound__server:
+
+  - name: 'access-control'
+    value:
+
+      - name: '127.0.0.0/8'
+        args: 'allow_snoop'
+
+      - name: '::1/128'
+        args: 'allow_snoop'

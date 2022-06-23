@@ -1,0 +1,10 @@
+# Copyright (C) 2018 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2018 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# Role: icinga_web
+# Package: grafana
+# Version: 1.4.2
+
+version=4
+https://github.com/Mikesch-mp/icingaweb2-module-grafana/tags .*\/v?(\d\S+)\.tar\.gz

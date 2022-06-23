@@ -1,0 +1,63 @@
+---
+## General
+redis_exporter_version: 1.3.1
+redis_exporter_release_system: linux-amd64
+
+# Package paths
+redis_exporter_release_name: "redis_exporter-v{{ redis_exporter_version }}.{{ redis_exporter_release_system }}"
+redis_exporter_package: "{{ redis_exporter_release_name}}.tar.gz"
+redis_exporter_url: "https://github.com/oliver006/redis_exporter/releases/download/v{{ redis_exporter_version }}/{{ redis_exporter_package }}"
+redis_exporter_download_path: /usr/src
+redis_exporter_package_path: "{{ redis_exporter_download_path }}/{{ redis_exporter_package }}"
+redis_exporter_src_bin: "{{ redis_exporter_download_path }}/{{ redis_exporter_release_name }}/redis_exporter"
+# Redis Exporter 0.x has a different packaging
+#redis_exporter_src_bin: "{{ redis_exporter_download_path }}/redis_exporter"
+
+# Set true to force the download and installation of the binary
+redis_exporter_force_reinstall: false
+
+## Service options
+redis_exporter_private_tmp: true
+
+# Owner
+redis_exporter_user: prometheus
+redis_exporter_group: prometheus
+
+# start on boot
+redis_exporter_service_enabled: True
+# current state: started, stopped
+redis_exporter_service_state: started
+
+# Files & Paths
+# redis_exporter_log_path: /var/log/redis_exporter
+# redis_exporter_log_file: redis_exporter.log
+redis_exporter_log_output: journal
+# If you need output to a file, you can use file:{{ redis_exporter_log_path }}/{{ redis_exporter_log_file }}, append:..., rsyslog and other
+# options in Debian 10 (see https://www.freedesktop.org/software/systemd/man/systemd.exec.html)
+
+redis_exporter_root_path: /opt/redis_exporter
+redis_exporter_bin_path: "{{ redis_exporter_root_path }}/bin"
+
+# Flags (https://github.com/oliver006/redis_exporter#flags)
+redis_exporter_port: 9121
+redis_exporter_ip: 0.0.0.0
+redis_exporter_debug: false
+redis_exporter_log_format: txt #(txt | json)
+redis_exporter_check_keys: ""
+redis_exporter_redis_addr: redis://localhost:6379
+redis_exporter_redis_password: ""
+redis_exporter_redis_alias: redis_{{ ansible_nodename }}
+redis_exporter_redis_namespace: redis
+redis_exporter_web_telemetry_path: metrics
+
+redis_exporter_options:
+  - "{{ redis_exporter_debug | ternary('debug','') }}"
+  - "log-format {{ redis_exporter_log_format }}"
+  - "{{ redis_exporter_check_keys | ternary('check-keys ' + redis_exporter_check_keys, '') }}"
+  - "redis.addr {{ redis_exporter_redis_addr }}"
+  - "{{ redis_exporter_redis_password | ternary('redis.password ' + redis_exporter_redis_password, '') }}"
+  - "namespace {{ redis_exporter_redis_namespace }}"
+  - "web.listen-address {{ redis_exporter_ip }}:{{ redis_exporter_port }}"
+  - "web.telemetry-path /{{ redis_exporter_web_telemetry_path }}"
+#  redis.alias only for 0.x version https://github.com/oliver006/redis_exporter/pull/256
+#  - "redis.alias {{ redis_exporter_redis_alias }}"

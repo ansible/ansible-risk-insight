@@ -1,0 +1,18 @@
+---
+# Copyright (C) 2013-2016 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2014-2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Manage console configuration
+  collections: [ 'debops.debops' ]
+  hosts: [ 'debops_all_hosts', 'debops_service_console' ]
+  become: True
+
+  environment: '{{ inventory__environment | d({})
+                   | combine(inventory__group_environment | d({}))
+                   | combine(inventory__host_environment  | d({})) }}'
+
+  roles:
+
+    - role: console
+      tags: [ 'role::console' ]

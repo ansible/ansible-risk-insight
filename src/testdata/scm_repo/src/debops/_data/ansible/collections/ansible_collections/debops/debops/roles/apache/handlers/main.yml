@@ -1,0 +1,24 @@
+---
+# Copyright (C) 2016-2017 Robin Schneider <ypid@riseup.net>
+# Copyright (C) 2016-2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Test apache and reload
+  ansible.builtin.command: apache2ctl configtest
+  notify: [ 'Reload apache' ]
+
+# - name: Test apache and restart
+#   ansible.builtin.command: apache2ctl configtest
+#   notify: [ 'Restart apache' ]
+
+- name: Reload apache
+  ansible.builtin.service:
+    name: '{{ apache__service_name }}'
+    state: 'reloaded'
+
+## Listed here for completeness but not used.
+## Refer to ../docs/ansible-integration.rst
+# - name: Restart apache
+#   ansible.builtin.service:
+#     name: '{{ apache__service_name }}'
+#     state: 'restarted'

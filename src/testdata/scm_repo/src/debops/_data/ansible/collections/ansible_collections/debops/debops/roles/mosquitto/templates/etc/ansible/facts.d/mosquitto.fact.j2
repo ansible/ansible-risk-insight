@@ -1,0 +1,11 @@
+{# Copyright (C) 2017 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2017 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+{% set mosquitto__tpl_anonymous = mosquitto__allow_anonymous %}
+{% set mosquitto__tpl_password = mosquitto__password %}
+{
+"anonymous": {{ mosquitto__tpl_anonymous | bool | lower }},
+"installed": true,
+"password": {{ mosquitto__tpl_password | bool | lower }}
+}

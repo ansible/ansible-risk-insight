@@ -5,4 +5,5 @@ collections:
 - name: community.rabbitmq
 - name: community.docker
 - name: community.mysql
+- name: community.mongodb
 - name: community.postgresql

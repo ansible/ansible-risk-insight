@@ -1,0 +1,9 @@
+---
+# Copyright (C) 2017 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Prepare debops.rabbitmq_server environment
+  ansible.builtin.set_fact:
+    rabbitmq_server__secret__directories: '{{ lookup("template", "lookup/rabbitmq_server__secret__directories.j2")
+                                              | from_yaml }}'

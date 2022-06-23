@@ -1,0 +1,24 @@
+---
+# Copyright (C) 2020 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2020 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Manage Filebeat service
+  collections: [ 'debops.debops', 'debops.roles01',
+                 'debops.roles02', 'debops.roles03' ]
+  hosts: [ 'debops_service_filebeat' ]
+  become: True
+
+  environment: '{{ inventory__environment | d({})
+                   | combine(inventory__group_environment | d({}))
+                   | combine(inventory__host_environment  | d({})) }}'
+
+  roles:
+
+    - role: extrepo
+      tags: [ 'role::extrepo', 'skip::extrepo', 'role::filebeat' ]
+      extrepo__dependent_sources:
+        - '{{ filebeat__extrepo__dependent_sources }}'
+
+    - role: filebeat
+      tags: [ 'role::filebeat', 'skip::filebeat' ]

@@ -67,7 +67,7 @@ class TestResolver(unittest.TestCase):
         """test method for Repository
         """
         repo = Repository()
-        repo.load("testdata3/scm_repo/playbooks", "testdata3/installed_collections_path")
+        repo.load("testdata3/scm_repo", "testdata3/installed_collections_path")
 
         # resolve `fqcn` of Task and `role_path` of RoleInPlay
         fqcn_resolver = FQCNResolver(repo_obj=repo)

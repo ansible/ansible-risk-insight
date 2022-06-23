@@ -1,0 +1,26 @@
+---
+# Copyright (C) 2015-2016 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015-2016 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- import_playbook: ifupdown.yml
+
+- import_playbook: radvd.yml
+
+- import_playbook: dhcpd.yml
+
+- import_playbook: unbound.yml
+
+- import_playbook: dnsmasq.yml
+
+- import_playbook: tinc.yml
+
+- import_playbook: dhcrelay.yml
+
+- import_playbook: dhcp_probe.yml
+
+- import_playbook: stunnel.yml
+
+- import_playbook: keepalived.yml
+
+- import_playbook: avahi.yml

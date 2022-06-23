@@ -1,0 +1,23 @@
+---
+# Copyright (C) 2017 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# Create a basic set of Erlang applications used by RabbitMQ, based on the
+# example configuration file:
+
+rabbitmq_server__config:
+
+  - name: 'rabbit'
+    weight: 1
+
+  - name: 'rabbitmq_management'
+    comment: |
+      RabbitMQ Management Plugin
+
+      See https://www.rabbitmq.com/management.html for details
+    options: []
+    weight: 2
+
+  - name: 'rabbitmq_management_agent'
+    weight: 3

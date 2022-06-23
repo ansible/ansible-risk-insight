@@ -1,0 +1,11 @@
+{# Copyright (C) 2015-2016 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2015-2016 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+# {{ ansible_managed }}
+
+[client]
+host = {{ librenms__database_server }}
+user = {{ librenms__database_user }}
+password = "{{ librenms__database_password }}"
+database = {{ librenms__database_name }}

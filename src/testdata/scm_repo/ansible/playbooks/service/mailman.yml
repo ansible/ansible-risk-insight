@@ -1,0 +1,83 @@
+---
+# Copyright (C) 2014-2020 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2020      CipherMail B.V. <https://www.ciphermail.com/>
+# Copyright (C) 2014-2020 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Manage Mailman service
+  collections: [ 'debops.debops', 'debops.roles01',
+                 'debops.roles02', 'debops.roles03' ]
+  hosts: [ 'debops_service_mailman' ]
+  become: True
+
+  environment: '{{ inventory__environment | d({})
+                   | combine(inventory__group_environment | d({}))
+                   | combine(inventory__host_environment  | d({})) }}'
+
+  pre_tasks:
+
+    - name: Prepare postfix environment
+      ansible.builtin.import_role:
+        name: 'postfix'
+        tasks_from: 'main_env'
+      vars:
+        postfix__dependent_maincf:
+          - role: 'mailman'
+            config: '{{ mailman__postfix__dependent_maincf }}'
+      tags: [ 'role::postfix', 'role::secret', 'role::ferm' ]
+
+  roles:
+
+    - role: keyring
+      tags: [ 'role::keyring', 'skip::keyring', 'role::nginx' ]
+      keyring__dependent_apt_keys:
+        - '{{ nginx__keyring__dependent_apt_keys }}'
+
+    - role: secret
+      tags: [ 'role::secret', 'role::postfix' ]
+      secret__directories:
+        - '{{ postfix__secret__directories }}'
+
+    - role: apt_preferences
+      tags: [ 'role::apt_preferences', 'skip::apt_preferences' ]
+      apt_preferences__dependent_list:
+        - '{{ nginx__apt_preferences__dependent_list }}'
+
+    - role: ferm
+      tags: [ 'role::ferm', 'skip::ferm' ]
+      ferm__dependent_rules:
+        - '{{ nginx__ferm__dependent_rules }}'
+        - '{{ postfix__ferm__dependent_rules }}'
+
+    - role: python
+      tags: [ 'role::python', 'skip::python' ]
+      python__dependent_packages3:
+        - '{{ ldap__python__dependent_packages3 | d([]) }}'
+        - '{{ nginx__python__dependent_packages3 }}'
+        - '{{ mailman__python__dependent_packages3 }}'
+      python__dependent_packages2:
+        - '{{ ldap__python__dependent_packages2 | d([]) }}'
+        - '{{ nginx__python__dependent_packages2 }}'
+        - '{{ mailman__python__dependent_packages2 }}'
+
+    - role: ldap
+      tags: [ 'role::ldap', 'skip::ldap' ]
+      ldap__dependent_tasks:
+        - '{{ mailman__ldap__dependent_tasks }}'
+      when: mailman__ldap_enabled | bool
+
+    - role: postfix
+      tags: [ 'role::postfix', 'skip::postfix' ]
+      postfix__dependent_maincf:
+        - role: 'mailman'
+          config: '{{ mailman__postfix__dependent_maincf }}'
+
+    - role: nginx
+      tags: [ 'role::nginx', 'skip::nginx' ]
+      nginx__dependent_servers:
+        - '{{ mailman__nginx__dependent_servers }}'
+      nginx__dependent_upstreams:
+        - '{{ mailman__nginx__dependent_upstreams }}'
+
+    - role: mailman
+      tags: [ 'role::mailman', 'skip::mailman' ]

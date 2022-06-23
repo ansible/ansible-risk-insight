@@ -1,0 +1,34 @@
+#!{{ ansible_python['executable'] }}
+# -*- coding: utf-8 -*-
+
+# Copyright (C) 2014-2016 Nick Janetakis <nick.janetakis@gmail.com>
+# Copyright (C) 2014-2017 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2016      Reto Gantenbein <reto.gantenbein@linuxmonk.ch>
+# Copyright (C) 2014-2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# {{ ansible_managed }}
+
+from __future__ import print_function
+from json import load, loads, dumps
+from sys import exit
+import subprocess
+import os
+
+output = {'installed': True, 'configured': False}
+
+try:
+    version_stdout = subprocess.check_output(
+            ["dpkg-query", "-W", "-f=${Version}",
+             "elasticsearch"]).decode('utf-8')
+    output['version'] = version_stdout
+
+except Exception:
+    pass
+
+marker = '/etc/elasticsearch/elasticsearch.yml.dpkg-divert'
+
+if (os.path.exists(marker) and os.path.isfile(marker)):
+    output['configured'] = True
+
+print(dumps(output, sort_keys=True, indent=4))

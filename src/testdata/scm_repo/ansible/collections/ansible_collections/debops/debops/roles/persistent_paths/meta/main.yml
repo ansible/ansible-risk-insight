@@ -1,0 +1,33 @@
+---
+# Copyright (C) 2016-2017 Robin Schneider <ypid@riseup.net>
+# Copyright (C) 2016-2022 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# Ensure that custom Ansible plugins and modules included in the main DebOps
+# collection are available to roles in other collections.
+collections: [ 'debops.debops' ]
+
+dependencies: []
+
+galaxy_info:
+
+  author: 'Robin Schneider'
+  description: 'Ensure paths are stored on persistent storage'
+  company: 'DebOps'
+  license: 'GPL-3.0-only'
+  min_ansible_version: '2.1.4'
+
+  platforms:
+
+    - name: 'Ubuntu'
+      versions: [ 'all' ]
+
+    - name: 'Debian'
+      versions: [ 'all' ]
+
+  galaxy_tags:
+    - persistent
+    - persistence
+    - qubesos
+    - templatebasedvm
+    - appvm

@@ -1,0 +1,41 @@
+{# Copyright (C) 2014-2019 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2015-2019 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+# This file is managed by Ansible, all changes will be lost
+
+# /etc/smsd.conf
+#
+# Description: Main configuration file for smsd
+
+devices = {% for modem in smstools_devices %}{{ modem.name }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+# Global options
+{% for key, value in smstools_global_options.items() %}
+{{ key }} = {{ value }}
+{% endfor %}
+
+outgoing = /var/spool/sms/outgoing
+checked = /var/spool/sms/checked
+incoming = /var/spool/sms/incoming
+logfile = /var/log/smstools/smsd.log
+infofile = /var/run/smstools/smsd.working
+pidfile = /var/run/smstools/smsd.pid
+outgoing = /var/spool/sms/outgoing
+checked = /var/spool/sms/checked
+failed = /var/spool/sms/failed
+incoming = /var/spool/sms/incoming
+sent = /var/spool/sms/sent
+
+stats = /var/log/smstools/smsd_stats
+stats_interval = {{ smstools_stats_interval }}
+stats_no_zeroes = yes
+
+{% for modem in smstools_devices %}
+[{{ modem.name }}]
+device = {{ modem.device }}
+{% for key, value in modem.options.items() %}
+{{ key }} = {{ value }}
+{% endfor %}
+{% endfor %}
+

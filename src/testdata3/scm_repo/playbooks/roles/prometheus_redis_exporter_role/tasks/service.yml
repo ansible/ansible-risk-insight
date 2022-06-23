@@ -1,0 +1,8 @@
+---
+
+- name: REDIS_EXPORTER | Configuring service
+  systemd:
+    name: redis_exporter
+    state: "{{ redis_exporter_service_state }}"
+    enabled: "{{ redis_exporter_service_enabled }}"
+    daemon_reload: yes

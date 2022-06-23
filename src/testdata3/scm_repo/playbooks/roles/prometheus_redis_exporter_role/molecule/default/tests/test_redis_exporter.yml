@@ -1,0 +1,51 @@
+port:
+# Check port at IPv6
+# https://github.com/aelsabbahy/goss/issues/177
+  tcp6:{{ redis_exporter_port }}:
+    listening: true
+    ip:
+    - '::'
+service:
+  redis_exporter:
+    enabled: true
+    running: true
+process:
+  redis_exporter:
+    running: true
+
+user:
+  {{ redis_exporter_user }}:
+    exists: true
+    groups:
+      - {{ redis_exporter_group }}
+    shell: /usr/sbin/nologin
+group:
+  {{ redis_exporter_group }}:
+    exists: true
+file:
+  {{ redis_exporter_bin_path }}:
+    owner: {{ redis_exporter_user }}
+    group: {{ redis_exporter_group }}
+    exists: true
+    filetype: directory
+{% if redis_exporter_log_path is defined %}
+  {{ redis_exporter_log_path }}:
+    owner: {{ redis_exporter_user }}
+    group: {{ redis_exporter_group }}
+    exists: true
+    filetype: directory
+  {{ redis_exporter_log_path }}/{{ redis_exporter_log_file }}:
+    owner: root
+    group: root
+    exists: true
+    filetype: file
+{% endif %}
+command:
+  private_tmp:
+    # required attributes
+    exit-status: 0
+    # defaults to hash key
+    exec: "systemctl cat redis_exporter.service"
+    # optional attributes
+    stdout:
+    - PrivateTmp={{ redis_exporter_private_tmp }}

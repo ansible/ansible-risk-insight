@@ -1,0 +1,54 @@
+---
+# Copyright (C) 2015-2017 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015-2017 Robin Schneider <ypid@riseup.net>
+# Copyright (C) 2015-2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Manage network configuration using ifupdown
+  collections: [ 'debops.debops', 'debops.roles01',
+                 'debops.roles02', 'debops.roles03' ]
+  hosts: [ 'debops_service_ifupdown' ]
+  become: True
+
+  environment: '{{ inventory__environment | d({})
+                   | combine(inventory__group_environment | d({}))
+                   | combine(inventory__host_environment  | d({})) }}'
+
+  pre_tasks:
+
+    - name: Prepare ifupdown environment
+      ansible.builtin.import_role:
+        name: 'ifupdown'
+        tasks_from: 'main_env'
+      tags: [ 'role::ifupdown', 'role::kmod', 'role::ferm', 'role::sysctl' ]
+
+  roles:
+
+    - role: resolvconf
+      tags: [ 'role::resolvconf', 'skip::resolvconf' ]
+      resolvconf__enabled: True
+
+    - role: python
+      tags: [ 'role::python', 'skip::python', 'role::kmod' ]
+      python__dependent_packages3:
+        - '{{ kmod__python__dependent_packages3 }}'
+      python__dependent_packages2:
+        - '{{ kmod__python__dependent_packages2 }}'
+
+    - role: kmod
+      tags: [ 'role::kmod', 'skip::kmod' ]
+      kmod__dependent_load:
+        - '{{ ifupdown__env_kmod__dependent_load }}'
+
+    - role: ferm
+      tags: [ 'role::ferm', 'skip::ferm' ]
+      ferm__dependent_rules:
+        - '{{ ifupdown__env_ferm__dependent_rules }}'
+
+    - role: sysctl
+      tags: [ 'role::sysctl', 'skip::sysctl' ]
+      sysctl__dependent_parameters:
+        - '{{ ifupdown__env_sysctl__dependent_parameters }}'
+
+    - role: ifupdown
+      tags: [ 'role::ifupdown', 'skip::ifupdown' ]
