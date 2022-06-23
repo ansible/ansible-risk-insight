@@ -1,0 +1,8 @@
+---
+# Copyright (C) 2018 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2018 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Prepare Redis Sentinel role environment
+  ansible.builtin.set_fact:
+    redis_sentinel__env_ports: '{{ lookup("template", "lookup/redis_sentinel__env_ports.j2") | from_yaml }}'

@@ -1,0 +1,16 @@
+{# Copyright (C) 2014-2018 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2014-2018 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+{% set dhcp_probe__tpl_interfaces = [] %}
+{% for element in ansible_interfaces %}
+{%   if element.startswith(('bond', 'br', 'en', 'eth', 'mesh', 'sit', 'sl', 'tap', 'tun', 'vlan', 'wl', 'ww')) %}
+{%     if hostvars[inventory_hostname]['ansible_' + element]['ipv4'] is defined %}
+{%       set _ = dhcp_probe__tpl_interfaces.append({
+  'name': element,
+  'state': 'present'
+}) %}
+{%     endif %}
+{%   endif %}
+{% endfor %}
+{{ dhcp_probe__tpl_interfaces | to_yaml }}

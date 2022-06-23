@@ -1,0 +1,19 @@
+---
+# Copyright (C) 2014-2019 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015-2019 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# Settings for system user account
+smstools_service_user: 'sms'
+smstools_service_group: 'sms'
+smstools_service_home: '/srv/users/{{ smstools_service_user }}'
+
+# Settings for TCP service (name and port)
+smstools_service_name: 'sms'
+smstools_service_port: '9898'
+
+# Settings for mail transport script
+smstools_mail_transport_sendsms: '/usr/local/bin/sendsms'
+smstools_mail_transport_senders: '/etc/sms-senders'
+smstools_mail_transport_msgdel: '/etc/sms-msgdel'
+smstools_mail_transport_maxchars: '158'

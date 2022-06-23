@@ -1,0 +1,10 @@
+{# Copyright (C) 2016 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2016 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+# {{ ansible_managed }}
+
+# vagrant-libvirt requires access to the libvirt image files to be able to
+# package them as boxes. This command allows to grant that access from an
+# unprivileged user account.
+{{ gitlab_runner__user }}   ALL=(root) NOPASSWD: /usr/bin/env chmod a+r /var/lib/libvirt/images/*.img

@@ -1,0 +1,28 @@
+---
+# Copyright (C) 2014-2017 Maciej Delmanowski <drybjed@drybjed.net>
+# Copyright (C) 2015-2017 Robin Schneider <ypid@riseup.net>
+# Copyright (C) 2014-2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Detect passenger root
+  ansible.builtin.command: passenger-config about root
+  register: nginx_register_passenger_root
+  changed_when: False
+
+- name: Set passenger_root value
+  ansible.builtin.set_fact:
+    nginx_passenger_root: '{{ nginx_register_passenger_root.stdout }}'
+  when: nginx_passenger_root is undefined or not nginx_passenger_root
+
+- name: Detect passenger ruby
+  ansible.builtin.shell: "set -o nounset -o pipefail -o errexit &&
+          passenger-config about ruby-command | grep Command | tail -1 | awk -F: '{print $2}'"
+  args:
+    executable: 'bash'
+  register: nginx_register_passenger_ruby
+  changed_when: False
+
+- name: Set passenger_ruby value
+  ansible.builtin.set_fact:
+    nginx_passenger_ruby: '{{ nginx_register_passenger_ruby.stdout | trim }}'
+  when: nginx_passenger_ruby is undefined or not nginx_passenger_ruby

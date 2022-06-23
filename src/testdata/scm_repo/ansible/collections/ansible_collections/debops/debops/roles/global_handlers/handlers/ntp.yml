@@ -1,0 +1,27 @@
+---
+# Copyright (C) 2014-2017 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015-2017 Robin Schneider <ypid@riseup.net>
+# Copyright (C) 2014-2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Restart openntpd
+  ansible.builtin.service:
+    name: 'openntpd'
+    state: 'restarted'
+  when: not ansible_check_mode
+
+- name: Restart ntp
+  ansible.builtin.service:
+    name: 'ntp'
+    state: 'restarted'
+  when: ntp__daemon == 'ntpd'
+
+- name: Restart systemd-timesyncd
+  ansible.builtin.service:
+    name: 'systemd-timesyncd'
+    state: 'restarted'
+
+- name: Restart chrony
+  ansible.builtin.service:
+    name: 'chrony'
+    state: 'restarted'

@@ -1,0 +1,35 @@
+#!{{ ansible_python['executable'] }}
+# -*- coding: utf-8 -*-
+
+# Copyright (C) 2019 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2019 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# {{ ansible_managed }}
+
+from __future__ import print_function
+from json import loads, dumps
+import subprocess
+import os
+
+
+output = loads('''{{ {"configured": True,
+                      "enabled": keyring__enabled,
+                      "keyserver": keyring__keyserver}
+                     | to_nice_json }}''')
+
+try:
+    with open(os.devnull, 'w') as devnull:
+        gpg_stdout = subprocess.check_output(
+            ["/usr/bin/gpg --version"],
+            shell=True, stderr=devnull).decode('utf-8')
+
+except subprocess.CalledProcessError:
+    pass
+
+if gpg_stdout:
+    for line in gpg_stdout.split('\n'):
+        if '(GnuPG)' in line:
+            output['gpg_version'] = line.split()[2]
+
+print(dumps(output, sort_keys=True, indent=4))

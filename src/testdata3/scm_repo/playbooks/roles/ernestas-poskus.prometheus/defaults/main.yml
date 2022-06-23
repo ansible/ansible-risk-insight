@@ -1,0 +1,562 @@
+---
+# defaults file for ansible-prometheus
+
+prometheus_install: true
+prometheus_node_exporter_install: true
+prometheus_alert_manager_install: true
+prometheus_push_gateway_install: false
+prometheus_snmp_exporter_install: false
+prometheus_blackbox_exporter_install: false
+
+prometheus_owner: 'prometheus'
+prometheus_group: 'prometheus'
+
+prometheus_install_dir: '/usr/local/opt'
+prometheus_config_dir: '/etc/prometheus'
+prometheus_lib_dir: '/var/lib/prometheus'
+prometheus_rules_dir: "{{ prometheus_config_dir }}/rules"
+prometheus_working_dir: "{{ prometheus_install_dir }}/{{ prometheus_archive }}"
+
+prometheus_data_dir: "{{ prometheus_lib_dir }}/prometheus2"
+prometheus_alert_manager_data_dir: "{{ prometheus_lib_dir }}/alertmanager"
+prometheus_alert_manager_config_dir: "{{ prometheus_config_dir }}/alertmanager"
+prometheus_alert_manager_templates_dir: "{{ prometheus_config_dir }}/alertmanager/templates"
+prometheus_snmp_exporter_config_dir: "{{ prometheus_config_dir }}/snmpexporter"
+prometheus_blackbox_exporter_config_dir: "{{ prometheus_config_dir }}/blackboxexporter"
+
+# Prometheus
+prometheus_version: '2.25.1'
+prometheus_platform_architecture: 'linux-amd64'
+
+# Node exporter
+prometheus_node_exporter_version: '1.1.2'
+
+# Alert manager
+prometheus_alert_manager_version: '0.21.0'
+
+# Pushgateway
+prometheus_push_gateway_version: '1.4.0'
+
+# SNMP exporter
+prometheus_snmp_exporter_version: '0.20.0'
+
+# Blackbox exporter
+prometheus_blackbox_exporter_version: '0.18.0'
+
+# Prometheus
+# https://prometheus.io/docs/operating/configuration/
+
+prometheus_config_global_scrape_interval: '15s'
+prometheus_config_global_evaluation_interval: '30s'
+prometheus_config_global_scrape_timeout: '10s'
+prometheus_config_global_external_labels:
+prometheus_config_rule_files:
+  - "{{ prometheus_rules_dir }}/*.rules.yml"
+
+# Prometheus alert manager rules
+# since Ansible uses double curly braces as well as Prometheus for
+# variable interpolation in alerts use square brackets, those will be
+# replaced to curly braces in task
+prometheus_rules:
+  - name: instancedown
+    rules:
+    - alert: InstanceDown
+      expr: up == 0
+      for: '10s'
+      annotations:
+        summary: 'Instance [[ $labels.instance ]] down'
+        description: '[[ $labels.instance ]] of job [[ $labels.job ]] has been down for more than 10 seconds.'
+
+# Allow Prometheus to disover alert managers
+prometheus_config_scrape_configs:
+  # - job_name: 'prometheus'
+  #   honor_labels: true
+  #   scrape_interval: '20s'
+  #   scrape_timeout: '2s'
+  #   metrics_path: '/metrics'
+  #   scheme: 'http'
+  #   static_configs:
+  #     - targets:
+  #         - 'localhost:9090'
+  # - job_name: 'consul-services'
+  #   consul_sd_configs:
+  #     - server: "localhost:8500"
+
+# Allow Prometheus to disover alert managers
+prometheus_config_alerting:
+  alertmanagers:
+  - static_configs:
+    - targets:
+      - localhost:9093
+
+# Allow Prometheus to write in remote storage
+prometheus_config_remote_write:
+  # - url: 'http://localhost:8086/api/v1/prom/write?db=prometheus'
+
+# Allow Prometheus to read from remote storage
+prometheus_config_remote_read:
+  # - url: 'http://localhost:8086/api/v1/prom/read?db=prometheus'
+
+prometheus_config__file: "{{ prometheus_config_dir }}/prometheus.yml"
+# Prometheus configuration file name.
+
+prometheus_log__format: "logfmt"
+# Output format of log messages. One of: [logfmt, json]
+
+prometheus_web__listen_address: ":9090"
+# Address to listen on for the web interface, API, and telemetry.
+
+prometheus_web__read_timeout: '30s'
+# Maximum duration before timing out read of the request, and closing
+
+prometheus_web__max_connections: 512
+# Maximum number of simultaneous connections.
+
+prometheus_web__page_title:
+# Document title of Prometheus instance.
+
+prometheus_web__external_url:
+# The URL under which Prometheus is externally reachable (for
+# example, if Prometheus is served via a reverse proxy). Used for
+# generating relative and absolute links back to Prometheus itself. If the
+# URL has a path portion, it will be used to prefix all HTTP endpoints
+# served by Prometheus. If omitted, relevant URL components will be derived
+# automatically.
+
+prometheus_web__route_prefix:
+# Prefix for the internal routes of web endpoints. Defaults to path
+# of .web.external.url.
+
+prometheus_web__user_assets:
+# Path to static asset directory, available at /user.
+
+prometheus_web__config__file:
+# [EXPERIMENTAL] Path to configuration file that can enable TLS or authentication.
+
+prometheus_web__console__templates: 'consoles'
+# Path to the console template directory, available at /consoles.
+
+prometheus_web__cors__origin: ".*"
+# Regex for CORS origin. It is fully anchored. Eg. 'https?://(domain1|domain2)\.com'
+
+prometheus_web__console__libraries: 'console_libraries'
+# Path to the console library directory.
+
+prometheus_storage__tsdb__path: "{{ prometheus_data_dir }}"
+# Base path for metrics storage.
+
+prometheus_storage__tsdb__retention: '15d'
+# How long to retain samples in the storage.
+
+prometheus_storage__tsdb__retention__size:
+# [EXPERIMENTAL] Maximum number of bytes that can
+# be stored for blocks. Units supported: KB, MB,
+# GB, TB, PB. This flag is experimental and can
+# be changed in future releases.
+
+prometheus_storage__tsdb__retention__time: "{{ prometheus_storage__tsdb__retention }}"
+# How long to retain samples in the storage.
+
+prometheus_alertmanager__notification_queue_capacity: 10000
+# The capacity of the queue for pending alert manager notifications.
+
+prometheus_query__lookback_delta: '5m'
+# The delta difference allowed for retrieving metrics during expression evaluations.
+
+prometheus_query__timeout: '2m'
+# Maximum time a query may take before being aborted.
+
+prometheus_rules__alert__for_grace_period: '10m'
+# Minimum duration between alert and restored
+# 'for' state. This is maintained only for alerts
+# with configured 'for' time greater than grace
+# period.
+
+prometheus_rules__alert__for_outage_tolerance: '1h'
+# Max time to tolerate prometheus outage for
+# restoring 'for' state of alert.
+
+prometheus_rules__alert__resend_delay: '1m'
+# Minimum amount of time to wait before resending
+# an alert to Alertmanager.
+
+prometheus_storage__remote__flush_deadline:
+# How long to wait flushing sample on shutdown or
+# config reload.
+
+prometheus_storage__remote__read_concurrent_limit: 10
+# Maximum number of concurrent remote read calls.
+# 0 means no limit.
+
+prometheus_storage__remote__read_max_bytes_in_frame: 1048576
+# Maximum number of bytes in a single frame for
+# streaming remote read response types before
+# marshalling. Note that client might have limit
+# on frame size as well. 1MB as recommended by
+# protobuf by default.
+
+prometheus_storage__remote__read_sample_limit: '5e7'
+# Maximum overall number of samples to return via
+# the remote read interface, in a single query. 0 means no limit.
+
+prometheus_query__max_concurrency: 20
+# Maximum number of queries executed concurrently.
+
+prometheus_query__max_samples: 50000000
+# Maximum number of samples a single query can
+# load into memory. Note that queries will fail
+# if they would load more samples than this into
+# memory, so this also limits the number of
+# samples a query can return.
+
+prometheus_log__level: 'info'
+# Only log messages with the given severity or above. Valid levels:
+# [debug, info, warn, error, fatal].
+
+prometheus_enable__features:
+# Comma separated feature names to enable. Valid options: 'promql-at-modifier'
+# to enable the @ modifier, 'remote-write-receiver' to enable remote write receiver.
+# See https://prometheus.io/docs/prometheus/latest/disabled_features/ for more details.
+
+# Prometheus flags
+prometheus____enabled_flags: []
+#  - 'storage.tsdb.allow-overlapping-blocks' # disabled by default
+#  - 'storage.tsdb.no-lockfile' # disabled by default
+#  - 'storage.tsdb.wal-compression' # disabled by default
+#  - 'web.enable-admin-api' # disabled by default
+#  - 'web.enable-lifecycle' # disabled by default
+#  - 'web.external-url.' # disabled by default
+
+# Node exporter
+# https://github.com/prometheus/node_exporter
+
+prometheus_collector__cpu__info__flags_include: "COLLECTOR.CPU.INFO.FLAGS-INCLUDE"
+# Filter the `flags` field in cpuInfo with a value that must be a regular expression
+prometheus_collector__cpu__info__bugs_include: "COLLECTOR.CPU.INFO.BUGS-INCLUDE"
+# Filter the `bugs` field in cpuInfo with a value that must be a regular expression
+prometheus_collector__diskstats__ignored_devices: "^(ram|loop|fd|(h|s|v|xv)d[a-z]|nvme\\d+n\\d+p)\\d+$"
+# Regexp of devices to ignore for diskstats.
+prometheus_collector__filesystem__ignored_fs_types: '^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$'
+# Regexp of filesystem types to ignore for filesystem collector.
+prometheus_collector__ipvs__backend_labels: "local_address,local_port,remote_address,remote_port,proto,local_mark"
+# Comma separated list for IPVS backend stats labels.
+prometheus_collector__netclass__ignored_devices: "^$"
+# Regexp of net devices to ignore for netclass collector.
+prometheus_collector__filesystem__ignored_mount_points: '^/(dev|proc|sys|var/lib/docker/.+)($|/)'
+# Regexp of mount points to ignore for filesystem
+prometheus_collector__netdev__device_include:
+# Regexp of net devices to include (mutually exclusive to device-exclude).
+prometheus_collector__netdev__device_exclude:
+# Regexp of net devices to exclude (mutually exclusive to device-include).
+prometheus_collector__netstat__fields: "^(.*_(InErrors|InErrs)|Ip_Forwarding|Ip(6|Ext)_(InOctets|OutOctets)|Icmp6?_(InMsgs|OutMsgs)|TcpExt_(Listen.*|Syncookies.*|TCPSynRetrans)|Tcp_(ActiveOpens|InSegs|OutSegs|PassiveOpens|RetransSegs|CurrEstab)|Udp6?_(InDatagrams|OutDatagrams|NoPorts))$"
+# Regexp of fields to return for netstat collector.
+prometheus_collector__ntp__protocol_version: 4
+# NTP protocol version (default 4)
+prometheus_collector__ntp__server: '127.0.0.1'
+# NTP server to use for ntp.
+prometheus_collector__ntp__ip_ttl: 1
+# IP TTL to use while sending NTP query
+prometheus_collector__ntp__max_distance:
+# Max accumulated distance to the root
+prometheus_collector__ntp__local_offset_tolerance:
+# Offset between local clock and local ntpd time to tolerate
+prometheus_collector__path__procfs:
+# procfs mountpoint. (default "/proc")
+prometheus_collector__runit__servicedir: '/etc/service'
+# Path to runit service directory. (default "/etc/service")
+prometheus_collector__supervisord__url:
+# XML RPC endpoint (default "http://localhost:9001/RPC2")
+prometheus_collector__path__sysfs:
+# sysfs mountpoint. (default "/sys")
+prometheus_collector__path__rootfs: '/'
+# rootfs mountpoint.
+prometheus_collector__systemd__unit_include: ".+"
+# Regexp of systemd units to include. Units must both match include and not match exclude to be included.
+prometheus_collector__systemd__unit_exclude: ".+\\.(automount|device|mount|scope|slice)"
+# Regexp of systemd units to exclude. Units must both match include and not match exclude to be included.
+prometheus_collector__textfile__directory:
+# Directory to read text files with metrics from.
+prometheus_collector__vmstat__fields: "^(oom_kill|pgpg|pswp|pg.*fault).*"
+# Regexp of fields to return for vmstat collector.
+prometheus_collector__log__format:
+# If set use a syslog logger or JSON logging. Example: logger:syslog?appname=bob&local=7 or logger:stdout?json=true. Defaults to stderr.
+prometheus_collector__web__max_requests: 40
+# Maximum number of parallel scrape requests. Use 0 to disable.
+prometheus_collector__web__config:
+# [EXPERIMENTAL] Path to config yaml file that can enable TLS or authentication.
+prometheus_collector__log__level: 'info'
+# Only log messages with the given severity or above. Valid levels: [debug, info, warn, error, fatal]. (default info)
+prometheus_collector__web__listen_address: ':9100'
+# Address on which to expose metrics and web interface. (default ":9100")
+prometheus_collector__web__telemetry_path: '/metrics'
+# Path under which to expose metrics. (default "/metrics")
+prometheus_collector__perf__cpus:
+# List of CPUs from which perf metrics should be collected
+prometheus_collector__perf__tracepoint: 'COLLECTOR.PERF.TRACEPOINT'
+# perf tracepoint that should be collected
+prometheus_collector__powersupply__ignored_supplies: "^$"
+# Regexp of power supplies to ignore for powersupplyclass collector.
+prometheus_collector__qdisc__fixtures:
+# Test fixtures to use for qdisc collector end-to-end testing
+prometheus_collector__wifi__fixtures:
+# Test fixtures to use for wifi collector metrics
+
+# Prometheus node exporter flags
+prometheus_collector_____enabled_collectors:
+  - 'collector.arp'
+  - 'collector.bcache'
+  - 'collector.btrfs'
+  - 'collector.cpu'
+  - 'collector.edac'
+  - 'collector.filefd'
+  - 'collector.hwmon'
+  - 'collector.ipvs'
+  - 'collector.mdadm'
+  - 'collector.netdev'
+  - 'collector.nfs'
+  - 'collector.nfsd'
+  - 'collector.rapl'
+  - 'collector.stat'
+  - 'collector.time'
+  - 'collector.timex'
+  - 'collector.uname'
+  - 'collector.vmstat'
+  - 'collector.xfs'
+  - 'collector.zfs'
+#  - 'collector.bcache.priorityStats' # disabled by default
+#  - 'collector.bonding' # disabled by default
+#  - 'collector.buddyinfo' # disabled by default
+#  - 'collector.conntrack' # disabled by default
+#  - 'collector.cpu.info' # disabled by default
+#  - 'collector.cpufreq' # disabled by default
+#  - 'collector.disable-defaults' # disabled by default
+#  - 'collector.diskstats' # disabled by default
+#  - 'collector.drbd' # disabled by default
+#  - 'collector.entropy' # disabled by default
+#  - 'collector.fibrechannel' # disabled by default
+#  - 'collector.filesystem' # disabled by default
+#  - 'collector.infiniband' # disabled by default
+#  - 'collector.interrupts' # disabled by default
+#  - 'collector.ksmd' # disabled by default
+#  - 'collector.loadavg' # disabled by default
+#  - 'collector.logind' # disabled by default
+#  - 'collector.meminfo' # disabled by default
+#  - 'collector.meminfo_numa' # disabled by default
+#  - 'collector.mountstats' # disabled by default
+#  - 'collector.netclass' # disabled by default
+#  - 'collector.netstat' # disabled by default
+#  - 'collector.network_route' # disabled by default
+#  - 'collector.ntp' # disabled by default
+#  - 'collector.ntp.server-is-local' # disabled by default
+#  - 'collector.perf' # disabled by default
+#  - 'collector.powersupplyclass' # disabled by default
+#  - 'collector.pressure' # disabled by default
+#  - 'collector.processes' # disabled by default
+#  - 'collector.qdisc' # disabled by default
+#  - 'collector.runit' # disabled by default
+#  - 'collector.schedstat' # disabled by default
+#  - 'collector.sockstat' # disabled by default
+#  - 'collector.softnet' # disabled by default
+#  - 'collector.supervisord' # disabled by default
+#  - 'collector.systemd' # disabled by default
+#  - 'collector.systemd.enable-restarts-metrics' # disabled by default
+#  - 'collector.systemd.enable-start-time-metrics' # disabled by default
+#  - 'collector.systemd.enable-task-metrics' # disabled by default
+#  - 'collector.tcpstat' # disabled by default
+#  - 'collector.textfile' # disabled by default
+#  - 'collector.thermal_zone' # disabled by default
+#  - 'collector.udp_queues' # disabled by default
+#  - 'collector.wifi' # disabled by default
+#  - 'collector.zoneinfo' # disabled by default
+#  - 'web.disable-exporter-metrics' # disabled by default
+
+# Alertmanager
+# https://github.com/prometheus/alertmanager
+
+prometheus_alert_manager_config_global:
+  # # The smarthost and SMTP sender used for mail notifications.
+  # smtp_smarthost: 'localhost:25'
+  # smtp_from: 'alertmanager@example.org'
+  # smtp_auth_username: 'alertmanager'
+  # smtp_auth_password: 'password'
+  # # The auth token for Hipchat.
+  # hipchat_auth_token: '1234556789'
+  # # Alternative host for Hipchat.
+  # hipchat_url: 'https://hipchat.foobar.org/'
+
+# The directory from which notification templates are read.
+prometheus_alert_manager_config_templates:
+  - "{{ prometheus_alert_manager_templates_dir }}/*.tmpl"
+
+# The root route on which each incoming alert enters.
+prometheus_alert_manager_config_route:
+  group_by: ['alertname', 'cluster']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 3h
+  receiver: 'default-pager'
+
+# Inhibition rules allow to mute a set of alerts given that another alert is
+# firing.
+# We use this to mute any warning-level notifications if the same alert is
+# already critical.
+prometheus_alert_manager_config_inhibit_rules:
+
+# Prometheus alert manager receivers
+# since Ansible uses double curly braces as well as Prometheus for
+# variable interpolation in receivers use double square brackets,
+# those will be replaced to curly braces.
+prometheus_alert_manager_config_receivers:
+  - name: 'default-pager'
+    pagerduty_configs:
+    - service_key: '<team-X-key>'
+
+prometheus_alert_manager_alerts__gc_interval: '30m'
+# Interval between alert GC.
+prometheus_alert_manager_cluster__advertise_address:
+# Explicit address to advertise in cluster.
+prometheus_alert_manager_cluster__gossip_interval: '200ms'
+# Interval between sending gossip messages. By
+prometheus_alert_manager_cluster__listen_address: '0.0.0.0:9094'
+# Listen address for cluster.
+prometheus_alert_manager_cluster__peer:
+# Initial peers (may be repeated).
+prometheus_alert_manager_cluster__peer_timeout: '15s'
+# Time to wait between peers to send notifications.
+prometheus_alert_manager_cluster__probe_interval: '1s'
+# Interval between random node probes. Setting this lower (more frequent)
+# will cause the cluster to detect failed nodes more quickly at the expense
+# of increased bandwidth usage.
+prometheus_alert_manager_cluster__probe_timeout: '500ms'
+# Timeout to wait for an ack from a probed node before assuming it is
+# unhealthy. This should be set to 99-percentile of RTT (round-trip time)
+# on your network.
+prometheus_alert_manager_cluster__pushpull_interval: '1m'
+# Interval for gossip state syncs. Setting this interval lower (more frequent)
+# will increase convergence speeds across larger clusters at
+# the expense of increased bandwidth usage.
+prometheus_alert_manager_cluster__reconnect_interval: '10s'
+# Interval between attempting to reconnect to lost peers.
+prometheus_alert_manager_cluster__reconnect_timeout: '6h'
+# Length of time to attempt to reconnect to a lost peer.
+prometheus_alert_manager_cluster__settle_timeout: '1m'
+# Maximum time to wait for cluster connections to
+# settle before evaluating notifications.
+prometheus_alert_manager_cluster__tcp_timeout: '10s'
+# Timeout for establishing a stream connection with a remote node for a
+# full state sync, and for stream read and write operations.
+prometheus_alert_manager_config__file: "{{ prometheus_alert_manager_config_dir }}/alertmanager.yml"
+# Alertmanager configuration file name. (default "alertmanager.yml")
+prometheus_alert_manager_data__retention: '120h0m0s'
+# How long to keep data for. (default 120h0m0s)
+prometheus_alert_manager_log__format: 'logfmt'
+# Output format of log messages. One of: [logfmt,json]
+prometheus_alert_manager_log__level: 'info'
+# Only log messages with the given severity or above. Valid levels: [debug, info, warn, error, fatal]. (default info)
+prometheus_alert_manager_storage__path: "{{ prometheus_alert_manager_data_dir }}"
+# Base path for data storage. (default "data/")
+prometheus_alert_manager_web__external_url:
+# The URL under which Alertmanager is externally reachable
+# (for example, if Alertmanager is served via a reverse proxy).
+# Used for generating relative and absolute links back to Alertmanager itself.
+# If the URL has a path portion, it will be used to prefix all HTTP endpoints served by Alertmanager.
+# If omitted, relevant URL components will be derived automatically.
+prometheus_alert_manager_web__get_concurrency:
+# Maximum number of GET requests processed
+# concurrently. If negative or zero, the limit is
+# GOMAXPROC or 8, whichever is larger.
+prometheus_alert_manager_web__listen_address: ':9093'
+# Address to listen on for the web:interface and API. (default ":9093")
+prometheus_alert_manager_web__route_prefix:
+# Prefix for the internal routes of web endpoints. Defaults to path of -web.external-url.
+prometheus_alert_manager_web__timeout: 0
+# Timeout for HTTP requests. If negative or zero,no timeout is set.
+
+# Pushgateway
+# https://github.com/prometheus/pushgateway
+
+prometheus_push_gateway_log__format:
+# If set use a syslog logger or JSON logging. Example: logger:syslog?appname=bob&local=7 or logger:stdout?json=true. Defaults to stderr.
+prometheus_push_gateway_log__level: 'info'
+# Only log messages with the given severity or above. Valid levels: [debug, info, warn, error, fatal].
+prometheus_push_gateway_persistence__file:
+# File to persist metrics. If empty, metrics are only kept in memory.
+prometheus_push_gateway_persistence__interval:
+# The minimum interval at which to write out the persistence file. (default 5m0s)
+prometheus_push_gateway_web__listen_address: ':9091'
+# Address to listen on for the web interface, API, and telemetry. (default ":9091")
+prometheus_push_gateway_web__route_prefix:
+# Prefix for the internal routes of web endpoints.
+prometheus_push_gateway_web__telemetry_path: '/metrics'
+# Path under which to expose metrics. (default "/metrics")
+prometheus_push_gateway_web__external_url:
+# The URL under which Pushgateway is externally reachable.
+prometheus_push_gateway____enabled_flags: []
+#  - 'push.disable-consistency-check' # disabled by default
+#  - 'web.enable-admin-api' # disabled by default
+#  - 'web.enable-lifecycle' # disabled by default
+prometheus_push_gateway_web__config__file:
+# [EXPERIMENTAL] Path to configuration file that can enable TLS or authentication.
+
+# Snmp exporter
+# https://github.com/prometheus/snmp_exporter
+
+# Path to configuration file.
+prometheus_snmp_exporter_config__file: "{{ prometheus_snmp_exporter_config_dir }}/snmp.yml"
+
+# [EXPERIMENTAL] Path to configuration file that can enable TLS or authentication.
+prometheus_snmp_exporter_web__config__file:
+
+# Address to listen on for web interface and telemetry.
+prometheus_snmp_exporter_web__listen_address: ':9116'
+
+# Only log messages with the given severity or above. Valid levels: [debug, info, warn, error, fatal]
+prometheus_snmp_exporter_log__level: 'info'
+
+# Output format of log messages. One of: [logfmt, json]
+prometheus_snmp_exporter_log__format: 'logfmt'
+
+# SNMP exporter flags
+prometheus_snmp_exporter____enabled_flags: []
+#  - 'snmp.wrap-large-counters' # disabled by default
+
+# Blackbox exporter
+# https://github.com/prometheus/blackbox_exporter
+
+prometheus_black_box_config__file: "{{ prometheus_blackbox_exporter_config_dir }}/blackbox.yml"
+# Blackbox exporter configuration file.
+
+prometheus_black_box_history__limit: 100
+# The maximum amount of items to keep in the history.
+
+prometheus_black_box_log__format: 'logfmt'
+# Output format of log messages. One of: [logfmt, json]
+
+prometheus_black_box_web__listen_address: ':9115'
+# The address to listen on for HTTP requests.
+
+prometheus_black_box_web__route_prefix:
+# Prefix for the internal routes of web endpoints. Defaults to path of
+
+prometheus_black_box_timeout_offset: '0.5'
+# Offset to subtract from timeout in seconds.
+
+prometheus_black_box_web__external_url:
+# The URL under which Blackbox exporter is
+# externally reachable (for example, if Blackbox
+# exporter is served via a reverse proxy). Used
+# for generating relative and absolute links back
+# to Blackbox exporter itself. If the URL has a
+# path portion, it will be used to prefix all
+# HTTP endpoints served by Blackbox exporter. If
+# omitted, relevant URL components will be
+# derived automatically.
+
+prometheus_black_box_log__level: 'info'
+# Only log messages with the given severity or above. One of: [debug, info, warn, error]
+
+prometheus_black_box_config_modules:
+# Blackbox modules config in format of YAML
+
+# Number of open file allowed, value for LimitNOFILE
+prometheus_service_limitnofile: infinity

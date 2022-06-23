@@ -1,3 +1,4 @@
+import os
 import re
 from struct4 import BuiltinModuleSet
 from resolver import Resolver
@@ -28,6 +29,22 @@ class FQCNResolver(Resolver):
                     fqcn = self.search_module_fqcn(task.module)
                     if fqcn == "":
                         logging.warning("module \"{}\" not found for task \"{}\"".format(task.module, task.id))
+            elif task.executable_type == "TaskFile":
+                # if the role name is in fqcn format, just set it
+                if role_name_re.match(task.executable):
+                    fqcn = task.executable
+                else:
+                    # otherwise, search fqcn from module dict
+                    fqcn = self.search_taskfile_path(task.defined_in, task.executable)
+                    if fqcn == "":
+                        # if "{{" is found in the target path for include_tasks/import_tasks, 
+                        # task file reference is parameterized, so give up to get fqcn in the case.
+                        if "{{" in task.executable:
+                            logging.debug("task file \"{}\" is including variable and we cannot resolve this for the task \"{}\"".format(task.executable, task.id))
+                            pass
+                        else:
+                            # otherwise, the path should be resolved but not found. warn it here.
+                            logging.warning("task file \"{}\" not found for task \"{}\"".format(task.executable, task.id))
             elif task.executable_type == "Role":
                 # if the role name is in fqcn format, just set it
                 if role_name_re.match(task.executable):
@@ -45,16 +62,16 @@ class FQCNResolver(Resolver):
             task.fqcn = fqcn
         return
 
-    def role_in_play(self, obj):
-        super().role_in_play(obj)
-        role_in_play = obj
-        if role_in_play.fqcn == "":
+    def roleinplay(self, obj):
+        super().roleinplay(obj)
+        roleinplay = obj
+        if roleinplay.fqcn == "":
             fqcn = ""
-            if role_name_re.match(role_in_play.name):
-                fqcn = role_in_play.name
+            if role_name_re.match(roleinplay.name):
+                fqcn = roleinplay.name
             else:
-                fqcn = self.search_role_fqcn(role_in_play.name)
-            role_in_play.fqcn = fqcn
+                fqcn = self.search_role_fqcn(roleinplay.name)
+            roleinplay.fqcn = fqcn
         return
 
     def search_module_fqcn(self, module_name):
@@ -69,11 +86,35 @@ class FQCNResolver(Resolver):
             fqcn = m.fqcn
         return fqcn
 
+    def search_taskfile_path(self, task_defined_path, taskfile_ref):
+        # include/import tasks can have a path like "roles/xxxx/tasks/yyyy.yml"
+        # then try to find roles directory
+        if taskfile_ref.startswith("roles/"):
+            if "/roles/" in task_defined_path:
+                roles_parent_dir = task_defined_path.split("/roles/")[0]
+                fpath = os.path.join(roles_parent_dir, taskfile_ref)
+                fpath = os.path.normpath(fpath)
+                tf = self.repo.get_taskfile_by_path(fpath)
+                if tf is not None:
+                    return tf.defined_in
+
+        task_dir = os.path.dirname(task_defined_path)
+        fpath = os.path.join(task_dir, taskfile_ref)
+        # need to normalize path here because taskfile_ref can be smoething like "../some_taskfile.yml",
+        # but "tasks/some_dir/../some_taskfile.yml" cannot be found in the taskfile_dict
+        # it will be "tasks/some_taskfile.yml" by this normalize
+        fpath = os.path.normpath(fpath)
+        tf = self.repo.get_taskfile_by_path(fpath)
+        if tf is None:
+            return ""
+        fqcn = tf.defined_in
+        return fqcn
+
     def search_role_fqcn(self, role_name):
         r = self.repo.get_role_by_fqcn(role_name)
         if r is not None:
             return r.fqcn
         r = self.repo.get_role_by_short_name(role_name)
-        if r is None:
-            return ""
-        return r.fqcn
+        if r is not None:
+            return r.fqcn
+        return ""

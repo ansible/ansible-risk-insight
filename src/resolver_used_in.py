@@ -9,17 +9,12 @@ class UsedInResolver(Resolver):
         self.used_in_dict = {
             "module": {},
             "task": {},
+            "taskfile": {},
             "role": {},
         }
 
     def playbook(self, obj):
         playbook = obj
-        # recording used_in info for the tasks in this playbook
-        for t in playbook.tasks:
-            current = self.used_in_dict["task"].get(t.id, set())
-            current.add(playbook.defined_in)
-            self.used_in_dict["task"].update({t.id: current})
-
         # recording used_in info for the roles in this playbook
         for r in playbook.roles:
             current = self.used_in_dict["role"].get(r.fqcn, set())
@@ -29,16 +24,23 @@ class UsedInResolver(Resolver):
 
     def role(self, obj):
         role = obj
-        # recording used_in info for the tasks in this role
-        for t in role.tasks:
-            current = self.used_in_dict["task"].get(t.id, set())
-            current.add(role.defined_in)
-            self.used_in_dict["task"].update({t.id: current})
-
         # set used_in for this role
         used_in = self.used_in_dict["role"].get(role.defined_in, set())
         role.used_in = sorted(list(used_in))
         return
+    
+    def taskfile(self, obj):
+        taskfile = obj
+        # set used_in for this taskfile
+        used_in = self.used_in_dict["taskfile"].get(taskfile.defined_in, set())
+        if taskfile.role != "":
+            parent_role_used_in = set()
+            r = self.repo.get_role_by_short_name(taskfile.role)
+            if r is not None:
+                parent_role_used_in = self.used_in_dict["role"].get(r.fqcn, set())
+            used_in.update(parent_role_used_in)
+        taskfile.used_in = sorted(list(used_in))
+        
 
     def task(self, obj):
         task = obj
@@ -51,10 +53,6 @@ class UsedInResolver(Resolver):
         current = self.used_in_dict[exec_type].get(task.fqcn, set())
         current.add(task.id)
         self.used_in_dict[exec_type].update({task.fqcn: current})
-
-        # set used_in for this task
-        used_in = self.used_in_dict["task"].get(task.id, set())
-        task.used_in = sorted(list(used_in))
         return
 
     def module(self, obj):

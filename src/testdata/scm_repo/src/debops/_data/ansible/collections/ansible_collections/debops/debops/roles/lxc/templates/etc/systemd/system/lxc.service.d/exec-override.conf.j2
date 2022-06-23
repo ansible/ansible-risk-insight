@@ -1,0 +1,17 @@
+{# Copyright (C) 2014-2018 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2015-2016 Robin Schneider <ypid@riseup.net>
+ # Copyright (C) 2014-2018 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+# {{ ansible_managed }}
+
+# Override the default ExecStart and ExecStop commands in the main
+# 'lxc.service' unit to prevent accidental launch of LXC containers
+# not supervised by systemd
+
+[Service]
+ExecStart=
+ExecStart=/bin/true
+
+ExecStop=
+ExecStop=/bin/true

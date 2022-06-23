@@ -1,0 +1,79 @@
+---
+- hosts: localhost
+  remote_user: root
+  sudo: yes
+  tasks:
+    - name: Check if Prometheus service is enabled
+      command: systemctl is-enabled prometheus
+      register: command_result
+      failed_when: "'disabled' in command_result.stdout"
+
+    - name: Check if node exporter service is enabled
+      command: systemctl is-enabled nodeexporter
+      register: command_result
+      failed_when: "'disabled' in command_result.stdout"
+
+    - name: Check if alert manager service is enabled
+      command: systemctl is-enabled alertmanager
+      register: command_result
+      failed_when: "'disabled' in command_result.stdout"
+
+    - name: Check if push gateway service is enabled
+      command: systemctl is-enabled pushgateway
+      register: command_result
+      failed_when: "'disabled' in command_result.stdout"
+
+    - shell: "systemctl status prometheus | grep -i running"
+      register: status
+      failed_when: status.rc != 0
+
+    - shell: "systemctl status nodeexporter | grep -i running"
+      register: status
+      failed_when: status.rc != 0
+
+    - shell: "systemctl status alertmanager | grep -i running"
+      register: status
+      failed_when: status.rc != 0
+
+    - shell: "systemctl status pushgateway | grep -i running"
+      register: status
+      failed_when: status.rc != 0
+
+    - name: Check alertmanager receivers configuration is valid
+      command: cat /etc/prometheus/alertmanager/alertmanager.yml
+      register: command_result
+      failed_when: "'[[ range $Alerts ]][[ $Annotations.summary ]]' in command_result.stdout"
+
+    - name: Check if snmp exporter service is enabled
+      command: systemctl is-enabled snmpexporter
+      register: command_result
+      failed_when: "'disabled' in command_result.stdout"
+
+    - shell: "systemctl status snmpexporter | grep -i running"
+      register: status
+      failed_when: status.rc != 0
+
+    - shell: "test -f /etc/prometheus/snmpexporter/snmp.yml"
+      register: status
+      failed_when: status.rc != 0
+
+    - name: Check if blackbox exporter service is enabled
+      command: systemctl is-enabled blackboxexporter
+      register: command_result
+      failed_when: "'disabled' in command_result.stdout"
+
+    - shell: "systemctl status blackboxexporter | grep -i running"
+      register: status
+      failed_when: status.rc != 0
+
+    - shell: "systemctl reload blackboxexporter"
+      register: status
+      failed_when: status.rc != 0
+
+    - shell: "test -f /etc/prometheus/blackboxexporter/blackbox.yml"
+      register: status
+      failed_when: status.rc != 0
+
+    - shell: "grep 'NICK prober' /etc/prometheus/blackboxexporter/blackbox.yml"
+      register: status
+      failed_when: status.rc != 0

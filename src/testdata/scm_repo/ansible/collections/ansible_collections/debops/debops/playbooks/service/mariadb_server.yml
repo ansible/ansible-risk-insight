@@ -1,0 +1,46 @@
+---
+# Copyright (C) 2015-2016 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2015-2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Manage MariaDB server
+  collections: [ 'debops.debops', 'debops.roles01',
+                 'debops.roles02', 'debops.roles03' ]
+  hosts: [ 'debops_service_mariadb_server' ]
+  become: True
+
+  environment: '{{ inventory__environment | d({})
+                   | combine(inventory__group_environment | d({}))
+                   | combine(inventory__host_environment  | d({})) }}'
+
+  roles:
+
+    - role: keyring
+      tags: [ 'role::keyring', 'skip::keyring', 'role::mariadb_server' ]
+      keyring__dependent_apt_keys:
+        - '{{ mariadb_server__keyring__dependent_apt_keys }}'
+
+    - role: etc_services
+      tags: [ 'role::etc_services' ]
+      etc_services__dependent_list:
+        - '{{ mariadb_server__etc_services__dependent_rules }}'
+
+    - role: ferm
+      tags: [ 'role::ferm', 'skip::ferm' ]
+      ferm__dependent_rules:
+        - '{{ mariadb_server__ferm__dependent_rules }}'
+
+    - role: tcpwrappers
+      tags: [ 'role::tcpwrappers', 'skip::tcpwrappers' ]
+      tcpwrappers__dependent_allow:
+        - '{{ mariadb_server__tcpwrappers__dependent_allow }}'
+
+    - role: python
+      tags: [ 'role::python', 'skip::python', 'role::mariadb_server' ]
+      python__dependent_packages3:
+        - '{{ mariadb_server__python__dependent_packages3 }}'
+      python__dependent_packages2:
+        - '{{ mariadb_server__python__dependent_packages2 }}'
+
+    - role: mariadb_server
+      tags: [ 'role::mariadb_server', 'skip::mariadb_server' ]

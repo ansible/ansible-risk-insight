@@ -1,0 +1,15 @@
+{{ ansible_managed | comment }}
+{{ redis_exporter_log_path }}/{{ redis_exporter_log_file }} {
+  daily
+  sharedscripts
+  notifempty
+  missingok
+  rotate 7
+  size 500M
+  compress
+  delaycompress
+  create 664 {{ redis_exporter_user }} {{ redis_exporter_group }}
+  postrotate
+        systemctl restart redis_exporter.service
+  endscript
+}

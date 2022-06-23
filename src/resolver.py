@@ -1,4 +1,4 @@
-from struct4 import Module, Collection, Task, Role, RoleInPlay, Playbook, Repository
+from struct4 import Module, Collection, Task, TaskFile, Role, RoleInPlay, Playbook, Repository
 
 
 class Resolver:
@@ -9,9 +9,11 @@ class Resolver:
         elif obj_type == "Playbook":
             self.playbook(obj)
         elif obj_type == "RoleInPlay":
-            self.role_in_play(obj)
+            self.roleinplay(obj)
         elif obj_type == "Role":
             self.role(obj)
+        elif obj_type == "TaskFile":
+            self.taskfile(obj)
         elif obj_type == "Task":
             self.task(obj)
         elif obj_type == "Collection":
@@ -29,13 +31,17 @@ class Resolver:
         if not isinstance(obj, Playbook):
             raise ValueError("this object is not a Playbook")
 
-    def role_in_play(self, obj):
+    def roleinplay(self, obj):
         if not isinstance(obj, RoleInPlay):
             raise ValueError("this object is not a RoleInPlay")
 
     def role(self, obj):
         if not isinstance(obj, Role):
             raise ValueError("this object is not a Role")
+
+    def taskfile(self, obj):
+        if not isinstance(obj, TaskFile):
+            raise ValueError("this object is not a TaskFile")
 
     def task(self, obj):
         if not isinstance(obj, Task):

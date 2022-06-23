@@ -1,0 +1,14 @@
+---
+# Copyright (C) 2014-2020 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2014-2020 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Restart mailman3
+  ansible.builtin.service:
+    name: 'mailman3'
+    state: 'restarted'
+
+- name: Restart mailman3-web
+  ansible.builtin.service:
+    name: 'mailman3-web'
+    state: 'restarted'

@@ -1,0 +1,16 @@
+---
+
+- name: REDIS_EXPORTER | Install
+  include: install.yml
+  tags:
+    - install
+
+- name: REDIS_EXPORTER | Configure
+  include: config.yml
+  tags:
+    - configure
+
+- name: REDIS_EXPORTER | Service
+  include: service.yml
+  tags:
+    - service

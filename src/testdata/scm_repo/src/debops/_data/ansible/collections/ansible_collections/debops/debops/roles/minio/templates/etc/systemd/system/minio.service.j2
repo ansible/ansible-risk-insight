@@ -1,0 +1,23 @@
+{# Copyright (C) 2019 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2019 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+# {{ ansible_managed }}
+
+[Unit]
+Description=MinIO service
+After=network-online.target
+Documentation=https://docs.min.io
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists={{ minio__config_dir }}
+AssertFileIsExecutable={{ minio__binary }}
+
+[Service]
+Type=oneshot
+ExecStart=/bin/true
+ExecReload=/bin/true
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

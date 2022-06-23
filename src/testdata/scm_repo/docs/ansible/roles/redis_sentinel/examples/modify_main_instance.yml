@@ -1,0 +1,17 @@
+---
+# Copyright (C) 2018 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2018 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# Change the default bind of the specific Redis Sentinel instance 'main' to
+# listen on all network interfaces and configure it to monitor a distributed
+# Redis setup
+redis_sentinel__instances:
+
+  - name: 'main'
+    bind: [ '0.0.0.0', '::' ]
+
+redis_sentinel__monitors:
+
+  - name: 'redis-ha'
+    host: '{{ ansible_fqdn }}'

@@ -1,0 +1,304 @@
+name: CI
+on:
+  pull_request:
+  schedule:
+    - cron: "0 3 * * *"
+
+env:
+  mongodb_version_file: "./tests/integration/targets/setup_mongodb/defaults/main.yml"
+
+jobs:
+  sanity:
+    runs-on: ubuntu-20.04
+    defaults:
+      run:
+        working-directory: ansible_collections/community/mongodb
+    strategy:
+      matrix:
+        ansible_version:
+          - devel
+          - stable-2.13
+    steps:
+
+      - name: Check out code
+        uses: actions/checkout@v2
+        with:
+          path: ansible_collections/community/mongodb
+
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+
+      - name: Install ansible-base (${{ matrix.ansible_version }})
+        uses: nick-invision/retry@v2
+        with:
+          timeout_minutes: 3
+          max_attempts: 3
+          command: pip install https://github.com/ansible/ansible/archive/${{ matrix.ansible_version }}.tar.gz --disable-pip-version-check
+
+      - name: Run sanity tests
+        run: ansible-test sanity --docker -v --color --python 3.8 --exclude docs/* --exclude tests/ansible-operator/
+
+  units:
+    runs-on: ubuntu-20.04
+    defaults:
+      run:
+        working-directory: ansible_collections/community/mongodb
+    strategy:
+      matrix:
+        ansible_version:
+          - devel
+          - stable-2.13
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+        with:
+          path: ansible_collections/community/mongodb
+
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+
+      - name: Install ansible-base (${{ matrix.ansible_version }})
+        uses: nick-invision/retry@v2
+        with:
+          timeout_minutes: 3
+          max_attempts: 3
+          command: pip install https://github.com/ansible/ansible/archive/${{ matrix.ansible_version }}.tar.gz --disable-pip-version-check
+
+      - name: Install mongodb
+        uses: nick-invision/retry@v2
+        with:
+          timeout_minutes: 3
+          max_attempts: 3
+          command: sudo apt-get install -y mongodb-org
+
+      - name: Install dateutil
+        uses: nick-invision/retry@v2
+        with:
+          timeout_minutes: 3
+          max_attempts: 3
+          command: pip install python-dateutil
+
+      - name: Install python libs
+        uses: nick-invision/retry@v2
+        with:
+          timeout_minutes: 3
+          max_attempts: 3
+          command: pip install mtools==1.6.4 pymongo==3.12.3 psutil coverage==4.5.4 pytest-xdist
+
+      - name: Start a replicaset with mtools (3 nodes, starting from port 27017, auth enabled, rs name = replset)
+        run: mlaunch --replicaset --auth
+        working-directory: /home/runner/work/
+
+      - name: Launch a single instance (no auth)
+        run: mlaunch --single --port 27999
+
+      - name: Run unit tests
+        run: ansible-test units -v --color --python 3.8 --coverage
+
+      - name: Generate coverage report.
+        run: ansible-test coverage xml -v --requirements --group-by command --group-by version
+
+      - uses: codecov/codecov-action@v1
+        with:
+          fail_ci_if_error: false
+
+      - name: Clean up mlaunch replicaset
+        run: mtools stop --auth-user user --auth-password password || true
+
+  integration_matrix:
+    runs-on: ubuntu-20.04
+    defaults:
+      run:
+        working-directory: ansible_collections/community/mongodb
+    outputs:
+      matrix: ${{ steps.json-list.outputs.modules-to-test }}
+
+    steps:
+
+      - name: Check out code
+        uses: actions/checkout@v2
+        with:
+          path: ansible_collections/community/mongodb
+
+      - name: Generate module list
+        run: |
+          find tests/integration/targets -type d -maxdepth 1 -not -name 'setup*' -not -name 'master_tasks' | cut -d '/' -f4 | sort | awk NF | jq -sRc 'split("\n") | map(select(length > 0))' > int_test_modules.json
+
+      - name: Set output variable
+        id: json-list
+        run: |
+          output=$(cat int_test_modules.json)
+          echo "::set-output name=modules-to-test::$output"
+          echo "$output"
+
+  integration:
+    needs: integration_matrix
+    runs-on: ubuntu-20.04
+    defaults:
+      run:
+        working-directory: ansible_collections/community/mongodb
+    strategy:
+      matrix:
+        mongodb_version:
+          - "4.4"
+          - "5.0"
+        mongodb_module: ${{ fromJson(needs.integration_matrix.outputs.matrix) }}
+        versions:
+          #- python_version: "2.7"
+          #  ansible_version: "stable-2.10"
+          #  docker_image: "centos7"
+          #- python_version: "2.7"
+          #  ansible_version: "stable-2.11"
+          #  docker_image: "centos7"
+          - python_version: "3.6"
+            ansible_version: "stable-2.10"
+            docker_image: "ubuntu1804"
+          - python_version: "3.6"
+            ansible_version: "stable-2.11"
+            docker_image: "ubuntu1804"
+          - python_version: "3.8"
+            ansible_version: "stable-2.12"
+            docker_image: "default"
+          - python_version: "3.8"
+            ansible_version: "stable-2.13"
+            docker_image: "default"
+          # Fedora 33 should be possible after this is fixed
+          # https://jira.mongodb.org/browse/MONGOSH-941
+          #- python_version: "3.9"
+          #  ansible_version: "devel"
+          #  docker_image: "fedora33"
+    steps:
+
+      - name: Check out code
+        uses: actions/checkout@v2
+        with:
+          path: ansible_collections/community/mongodb
+
+      - name: Set up Python ${{ matrix.versions.python_version }}
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.versions.python_version }}
+
+      - name: Install ansible-base (${{ matrix.versions.ansible_version }})
+        uses: nick-invision/retry@v2
+        with:
+          timeout_minutes: 3
+          max_attempts: 3
+          command: pip install https://github.com/ansible/ansible/archive/${{ matrix.versions.ansible_version }}.tar.gz --disable-pip-version-check
+
+      - name: Install community.general
+        uses: nick-invision/retry@v2
+        with:
+          timeout_minutes: 3
+          max_attempts: 3
+          command: ansible-galaxy collection install 'community.general:<5.0.0' -p ansible_collections/
+
+      - name: Install community.crypto
+        uses: nick-invision/retry@v2
+        with:
+          timeout_minutes: 3
+          max_attempts: 3
+          command: ansible-galaxy collection install community.crypto -p ansible_collections/
+
+      - name: Ensure MongoDB version is set to ${{ matrix.mongodb_version }}
+        run: "sed -i 's/^mongodb_version:.*/mongodb_version: \"${{ matrix.mongodb_version }}\"/g' ${{ env.mongodb_version_file }}"
+
+      - name: Run integration tests on Python ${{ matrix.versions.python_version }} | ${{ matrix.versions.docker_image }} | ${{ matrix.versions.ansible_version }} | ${{ matrix.mongodb_version }}
+        run: ansible-test integration --docker ${{ matrix.versions.docker_image }} -v --color --retry-on-error --python ${{ matrix.versions.python_version }} --continue-on-error --diff --coverage ${{ matrix.mongodb_module }}
+
+      - name: Upload Coverage data
+        run: tests/coverage.sh
+
+  integration_3123:  # Run tests with pymongo 3.12.3 driver
+    needs: integration_matrix
+    runs-on: ubuntu-20.04
+    defaults:
+      run:
+        working-directory: ansible_collections/community/mongodb
+    strategy:
+      matrix:
+        mongodb_version:
+          - "4.4"
+          - "5.0"
+        mongodb_module: ${{ fromJson(needs.integration_matrix.outputs.matrix) }}
+        versions:
+          #- python_version: "2.7"
+         #   ansible_version: "stable-2.10"
+          #  docker_image: "centos7"
+         # - python_version: "2.7"
+         #   ansible_version: "stable-2.11"
+         #   docker_image: "centos7"
+          - python_version: "3.6"
+            ansible_version: "stable-2.10"
+            docker_image: "ubuntu1804"
+          - python_version: "3.6"
+            ansible_version: "stable-2.11"
+            docker_image: "ubuntu1804"
+          - python_version: "3.8"
+            ansible_version: "stable-2.12"
+            docker_image: "default"
+          - python_version: "3.8"
+            ansible_version: "stable-2.13"
+            docker_image: "default"
+          # Fedora 33 should be possible after this is fixed
+          # https://jira.mongodb.org/browse/MONGOSH-941
+          #- python_version: "3.9"
+          #  ansible_version: "devel"
+          #  docker_image: "fedora33"
+    steps:
+
+      - name: Check out code
+        uses: actions/checkout@v2
+        with:
+          path: ansible_collections/community/mongodb
+
+      - name: Set up Python ${{ matrix.versions.python_version }}
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.versions.python_version }}
+
+      - name: Install ansible-base (${{ matrix.versions.ansible_version }})
+        uses: nick-invision/retry@v2
+        with:
+          timeout_minutes: 3
+          max_attempts: 3
+          command: pip install https://github.com/ansible/ansible/archive/${{ matrix.versions.ansible_version }}.tar.gz --disable-pip-version-check
+
+      - name: Install community.general
+        uses: nick-invision/retry@v2
+        with:
+          timeout_minutes: 3
+          max_attempts: 3
+          command: ansible-galaxy collection install 'community.general:<5.0.0' -p ansible_collections/
+
+      - name: Install community.crypto
+        uses: nick-invision/retry@v2
+        with:
+          timeout_minutes: 3
+          max_attempts: 3
+          command: ansible-galaxy collection install community.crypto -p ansible_collections/
+
+      #- name: Upgrade pip to the max for python 2.7
+      #  run: pip install pip==20.3.* --upgrade
+
+      #- name: Upgrade setuptools
+      #  run: pip install setuptools==44.1.* --upgrade
+
+      - name: Set pymongo driver version to 3.12.3
+        run: sed -i 's/  - pymongo*/  - pymongo==3.12.3/g' tests/integration/targets/setup_mongodb/defaults/main.yml
+
+      #- name: Install psutils 5.4.4 for this python version
+      #  run: sed -i 's/  - psutils*/  - psutils==5.4.4/g' tests/integration/targets/setup_mongodb/defaults/main.yml
+
+      - name: Ensure MongoDB version is set to ${{ matrix.mongodb_version }}
+        run: "sed -i 's/^mongodb_version:.*/mongodb_version: \"${{ matrix.mongodb_version }}\"/g' ${{ env.mongodb_version_file }}"
+
+      - name: Run integration tests on Python ${{ matrix.versions.python_version }} | ${{ matrix.versions.docker_image }} | ${{ matrix.versions.ansible_version }} | ${{ matrix.mongodb_version }}
+        run: ansible-test integration --docker ${{ matrix.versions.docker_image }} -v --color --retry-on-error --python ${{ matrix.versions.python_version }} --continue-on-error --diff --coverage ${{ matrix.mongodb_module }}
+
+      - name: Upload Coverage data
+        run: tests/coverage.sh 

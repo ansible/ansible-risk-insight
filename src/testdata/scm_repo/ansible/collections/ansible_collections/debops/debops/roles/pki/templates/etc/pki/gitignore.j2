@@ -1,0 +1,13 @@
+{# Copyright (C) 2013-2018 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2015-2017 Robin Schneider <ypid@riseup.net>
+ # Copyright (C) 2014-2018 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+# {{ ansible_managed }}
+#
+# Ensure that sensitive files are excluded from version control.
+#
+{{ (pki_vcs_ignore_patterns_role +
+    pki_vcs_ignore_patterns +
+    pki_vcs_ignore_patterns_group +
+    pki_vcs_ignore_patterns_host) | unique | sort | join("\n") }}

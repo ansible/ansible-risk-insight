@@ -1,0 +1,12 @@
+---
+# vim: foldmarker=[[[,]]]:foldmethod=marker
+
+# Copyright (C) 2017 Robin Schneider <ypid@riseup.net>
+# Copyright (C) 2017 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Restart Home Assistant
+  ansible.builtin.systemd:
+    name: 'home-assistant'
+    state: 'restarted'
+  when: (ansible_distribution_release not in ["trusty"])

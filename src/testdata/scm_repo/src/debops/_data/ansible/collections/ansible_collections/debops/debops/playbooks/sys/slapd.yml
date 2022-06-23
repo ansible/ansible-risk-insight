@@ -1,0 +1,56 @@
+---
+# Copyright (C) 2016-2019 Maciej Delmanowski <drybjed@gmail.com>
+# Copyright (C) 2016-2019 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Manage OpenLDAP service
+  collections: [ 'debops.debops', 'debops.roles01',
+                 'debops.roles02', 'debops.roles03' ]
+  hosts: [ 'debops_service_slapd' ]
+  become: True
+
+  environment: '{{ inventory__environment | d({})
+                   | combine(inventory__group_environment | d({}))
+                   | combine(inventory__host_environment  | d({})) }}'
+
+  roles:
+
+    - role: ferm
+      tags: [ 'role::ferm', 'skip::ferm' ]
+      ferm__dependent_rules:
+        - '{{ slapd__ferm__dependent_rules }}'
+
+    - role: tcpwrappers
+      tags: [ 'role::tcpwrappers', 'skip::tcpwrappers' ]
+      tcpwrappers__dependent_allow:
+        - '{{ slapd__tcpwrappers__dependent_allow }}'
+
+    - role: cron
+      tags: [ 'role::cron', 'skip::cron' ]
+
+    - role: logrotate
+      tags: [ 'role::logrotate', 'skip::logrotate' ]
+      logrotate__dependent_config:
+        - '{{ slapd__logrotate__dependent_config }}'
+
+    - role: python
+      tags: [ 'role::python', 'skip::python', 'role::ldap', 'role::slapd' ]
+      python__dependent_packages3:
+        - '{{ ldap__python__dependent_packages3 }}'
+        - '{{ slapd__python__dependent_packages3 }}'
+      python__dependent_packages2:
+        - '{{ ldap__python__dependent_packages2 }}'
+        - '{{ slapd__python__dependent_packages2 }}'
+
+    - role: ldap
+      tags: [ 'role::ldap', 'skip::ldap' ]
+      ldap__dependent_tasks:
+        - '{{ saslauthd__ldap__dependent_tasks }}'
+
+    - role: saslauthd
+      tags: [ 'role::saslauthd', 'skip::saslauthd' ]
+      saslauthd__dependent_instances:
+        - '{{ slapd__saslauthd__dependent_instances }}'
+
+    - role: slapd
+      tags: [ 'role::slapd', 'skip::slapd' ]

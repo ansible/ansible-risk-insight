@@ -1,0 +1,24 @@
+---
+# Copyright (C) 2018 Norbert Summer <git@o-g.at>
+# Copyright (C) 2018 DebOps <https://debops.org/>
+# SPDX-License-Identifier: GPL-3.0-only
+
+- name: Manage Prosody
+  collections: [ 'debops.debops', 'debops.roles01',
+                 'debops.roles02', 'debops.roles03' ]
+  hosts: [ 'debops_service_prosody' ]
+  become: True
+
+  environment: '{{ inventory__environment | d({})
+                   | combine(inventory__group_environment | d({}))
+                   | combine(inventory__host_environment  | d({})) }}'
+
+  roles:
+
+    - role: ferm
+      tags: [ 'role::ferm', 'skip::ferm' ]
+      ferm__dependent_rules:
+        - '{{ prosody__ferm__dependent_rules }}'
+
+    - role: prosody
+      tags: [ 'role::prosody', 'skip::prosody' ]

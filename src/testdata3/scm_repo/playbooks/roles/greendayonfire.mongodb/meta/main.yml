@@ -1,0 +1,32 @@
+---
+dependencies: []
+
+galaxy_info:
+  author: Sergei Antipov
+  role_name: mongodb
+  namespace: undergreen
+  company: Self-employed
+  description: Manage MongoDB with authentication and replica sets
+  license: GPLv2
+  min_ansible_version: 2.8
+  platforms:
+    - name: Ubuntu
+      versions:
+        - trusty
+        - xenial
+        - bionic
+    - name: Debian
+      versions:
+        - stretch
+        - buster
+    - name: EL
+      versions:
+        - 7
+        - 8
+    - name: Amazon
+      versions:
+        - Amazon Linux 2
+  galaxy_tags:
+    - database
+    - nosql
+    - mongodb

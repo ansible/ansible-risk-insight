@@ -1,0 +1,31 @@
+{# Copyright (C) 2014-2019 Maciej Delmanowski <drybjed@gmail.com>
+ # Copyright (C) 2019      Alin Alexandru <alin.alexandru@innobyte.com>
+ # Copyright (C) 2015-2019 DebOps <https://debops.org/>
+ # SPDX-License-Identifier: GPL-3.0-only
+ #}
+# {{ ansible_managed }}
+
+# Configuration for phpipam-hosts
+
+# Database configuration
+[mysql]
+user		= {{ phpipam__scripts_database_user }}
+host		= {{ phpipam__scripts_database_host }}
+database	= {{ phpipam__scripts_database_name }}
+password	= {{ phpipam__scripts_database_password }}
+
+{% if phpipam__scripts_config_groups is defined and phpipam__scripts_config_groups %}
+{%   for group, config in phpipam__scripts_config_groups.items() %}
+[{{ group }}]
+{%     for key, value in config.items() %}
+{%       if value is defined and value %}
+{%         if value is string %}
+{{ "%-20s = %s" | format(key | replace("_","-"), value) }}
+{%         else %}
+{{ "%-20s = %s" | format(key | replace("_","-"), value | join(" ")) }}
+{%         endif %}
+{%       endif %}
+{%     endfor %}
+
+{%   endfor %}
+{% endif %}

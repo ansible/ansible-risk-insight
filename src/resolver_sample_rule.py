@@ -40,6 +40,20 @@ class NonBuiltinResolver(Resolver):
                 task.annotations[self.annotation_name] = True
         return
 
+    def taskfile(self, obj):
+        taskfile = obj
+        # if the annotation is already set, do nothing
+        if taskfile.annotations.get(self.annotation_name, False):
+            return
+        
+        use_non_builtin = False
+        for t in taskfile.tasks:
+            if t.annotations.get(self.annotation_name, False):
+                use_non_builtin = True
+                break
+        if use_non_builtin:
+            taskfile.annotations[self.annotation_name] = True
+
     # add `use-non-builtin-module` annotation to the role if it uses a task with the annotation
     def role(self, obj):
         role = obj
@@ -48,8 +62,8 @@ class NonBuiltinResolver(Resolver):
             return
         
         use_non_builtin = False
-        for t in role.tasks:
-            if t.annotations.get(self.annotation_name, False):
+        for tf in role.taskfiles:
+            if tf.annotations.get(self.annotation_name, False):
                 use_non_builtin = True
                 break
         if use_non_builtin:

@@ -1,0 +1,7 @@
+---
+
+- name: restart redis_exporter
+  systemd:
+    name: redis_exporter
+    state: restarted
+  when: redis_exporter_service_state != 'stopped'

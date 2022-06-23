@@ -1,0 +1,44 @@
+- name: Include alert manager variables
+  include_vars: 'alertmanager.yml'
+
+- name: Creating alert manager directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ prometheus_owner }}"
+    group: "{{ prometheus_group }}"
+    mode: 0750
+  with_items:
+    - "{{ prometheus_lib_dir }}"
+    - "{{ prometheus_config_dir }}"
+    - "{{ prometheus_alert_manager_data_dir }}"
+    - "{{ prometheus_alert_manager_config_dir }}"
+    - "{{ prometheus_alert_manager_templates_dir }}"
+
+- name: Download and extract Prometheus alertmanager tarball
+  unarchive:
+    src: "{{ prometheus_alert_manager_tarball_url }}"
+    dest: "{{ prometheus_install_dir }}"
+    owner: "{{ prometheus_owner }}"
+    group: "{{ prometheus_group }}"
+    copy: no
+    creates: "{{ prometheus_install_dir }}/{{ prometheus_alert_manager_archive }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: Copy alert manager config
+  template:
+    src: alertmanager.yml.j2
+    dest: "{{ prometheus_alert_manager_config_dir }}/alertmanager.yml"
+    owner: "{{ prometheus_owner }}"
+    group: "{{ prometheus_group }}"
+    validate: "{{ prometheus_install_dir }}/{{ prometheus_alert_manager_archive }}/amtool check-config %s --alertmanager.url={{ _alert_manager_validate_url }}"
+  notify:
+    restart alertmanager
+
+- name: Install Prometheus alert manager systemd service
+  template:
+    src: alert_manager.service.j2
+    dest: /etc/systemd/system/alertmanager.service
+  notify:
+    - reload daemon
+    - restart alertmanager
