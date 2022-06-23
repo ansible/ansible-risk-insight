@@ -1,0 +1,15 @@
+---
+- name: Install unbound and resolvconf
+  apt:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - unbound
+    - resolvconf
+
+- name: Copy the configuration for caching and forwarding
+  template:
+    src: cache-and-forward.conf.j2
+    dest: "{{ unbound_config_dir }}/cache-and-forward.conf"
+  notify:
+    - restart unbound

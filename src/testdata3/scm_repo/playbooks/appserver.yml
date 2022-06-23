@@ -1,0 +1,15 @@
+---
+# Playbook to set up common services on any type of appserver.
+
+- name: Set up common services on appservers
+  hosts: app
+  become: true
+  roles:
+    - role: consul
+      when: consul_servers | length > 0
+    - role: node-exporter
+      when: NODE_EXPORTER_PASSWORD is not none
+    - role: filebeat
+      # Appservers may have some Elastic stuff already installed on them.
+      filebeat_elastic_apt_pin: 200
+      when: filebeat_logstash_hosts | length > 0

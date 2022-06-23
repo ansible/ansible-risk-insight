@@ -1,0 +1,21 @@
+- name: Copy screen session configuration
+  template:
+    src: "accounting-screenrc"
+    dest: "{{ accounting_screenrc_path }}"
+    owner: ubuntu
+    group: ubuntu
+
+- name: Copy systemd service file
+  template:
+    src: "accounting-screen.service"
+    dest: "/etc/systemd/system/accounting-screen.service"
+
+- name: Enable the systemd service to start on boot automatically
+  systemd:
+    name: accounting-screen.service
+    enabled: yes
+
+- name: Start the systemd service right now
+  systemd:
+    name: accounting-screen.service
+    state: started

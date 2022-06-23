@@ -1,0 +1,9 @@
+---
+# Playbook for setting up Vault Policies.
+
+- name: Set up Vault Policies
+  hosts: vault-policy
+  become: true
+  roles:
+    - role: vault-policy
+      tags: 'vault-policy'

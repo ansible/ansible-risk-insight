@@ -1,0 +1,37 @@
+---
+
+# Meta
+vault_version: "1.0.2"
+vault_url: "https://releases.hashicorp.com/vault/{{ vault_version }}/vault_{{ vault_version }}_linux_amd64.zip"
+
+# Vault user
+vault_user_createhome: no
+
+# Vault server
+vault_server_options: "-config {{ vault_config_dir }}"
+
+# TLS settings
+vault_tls_cert: ""
+vault_tls_key: ""
+vault_tls_ca: ""
+
+# General options
+vault_ui: true
+vault_log_level: "info"
+vault_max_lease_ttl: "87600h"
+vault_api_addr: "" # example: https://vault-a-1.mysite.com:8200
+vault_cluster_addr: "" # example: https://vault-a-1.mysite.com:8201
+
+# Listener stanza
+vault_tcp_tls_require_and_verify_client_cert: true
+
+# Firewall
+vault_ufw: true
+
+# Storage stanza
+vault_consul_storage: true
+vault_consul_scheme: "http"
+vault_consul_address: "127.0.0.1:8500"
+vault_consul_path: "vault/"
+vault_consul_acl_token: null
+vault_consul_consistency_mode: "strong"

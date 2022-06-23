@@ -1,0 +1,15 @@
+---
+# Playbook for setting up a memcached server.
+
+- name: Set up Memcached servers
+  hosts: memcached
+  become: true
+  roles:
+    - role: common-server
+      tags: 'common-server'
+
+    - role: memcached
+      tags: 'memcached'
+
+    - role: geerlingguy.memcached
+      tags: 'geerlingguy.memcached'

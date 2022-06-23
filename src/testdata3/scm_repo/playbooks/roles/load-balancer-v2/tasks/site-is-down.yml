@@ -1,0 +1,37 @@
+---
+# This set of tasks is meant to be run like so:
+# ansible-playbook -v deploy/playbooks/load-balancer-v2.yml \
+#   -l load-balancer-v2-stage \
+#   --tags "site-is-down" \
+#   -e "maintenance_base_domain='a.domain.opencraft.hosting'" \
+#   -e "maintenance_type='scheduled_maintenance'"
+
+- name: Fetch backend map from load balancer
+  slurp:
+    src: /etc/haproxy/backend.map
+  register: backend_map
+
+- name: Parse backend map for matching domains
+  set_fact:
+    # fact's value explained:
+    # (backend_map['content'] | b64decode) -- slurp base64 encodes the file
+    # .split("\n") -- get array of lines
+    # map("regex_replace", '^(\S+)\s+\S+$', "\1") -- extract the domain
+    # select('search', maintenance_base_domain) -- filter out non-matching domains
+    # list -- convert the previous generator into a list
+    backend_matched_domains: "{{ (backend_map['content'] | b64decode).split('\n') | map('regex_replace', '^(\\S+)\\s+\\S+$', '\\1') | select('search', maintenance_base_domain) | list }}"
+
+- name: Insert entries into the HAProxy maintenance map
+  # This maps the domains to the HAProxy maintenance backend
+  # specified by maintenance_type. These entries override the
+  # normal mapping in /etc/haproxy/backend.map
+  lineinfile:
+    path: /etc/haproxy/maint.map
+    line: "{{ item }} {{ maintenance_type }}"
+    create: yes
+  loop: "{{ backend_matched_domains }}"
+  when: backend_matched_domains
+  notify: reload haproxy
+
+- name: These domains were placed into maintenance mode
+  debug: msg="{{ backend_matched_domains }}"

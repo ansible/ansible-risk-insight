@@ -1,0 +1,37 @@
+---
+
+# A file that setups all env-vars required to authenticate to swift
+# Example:
+#
+#   export OS_AUTH_URL=''
+#   export OS_TENANT_ID=''
+#   export OS_TENANT_NAME=''
+#   export OS_USERNAME=''
+#   export OS_PASSWORD=''
+#   export OS_REGION_NAME=''
+BACKUP_SWIFT_RC: null
+BACKUP_SWIFT_RC_DEST: /root/local-swift-rc
+
+BACKUP_SWIFT_CONTAINER_DEPS:
+  - python-swiftclient
+
+# Container to be backed up
+BACKUP_SWIFT_CONTAINER: null
+
+# Container contents will be stored locally during the backup, this
+# is the directory where they'll be stored.
+BACKUP_SWIFT_LOCAL_DIR: null
+
+# Name of tarsnap backup, we will append a timestamp
+# if you set this to foo, your backup will be foo-2016-01-01T10:10
+BACKUP_SWIFT_BACKUP_NAME: "swift-backup"
+
+# Optionally a Dead Mans Snitch url that will be notified, after succesfull backup.
+BACKUP_SWIFT_SNITCH: null
+
+# No need to set this if the key is uploaded can be uploaded by prior role.
+BACKUP_SWIFT_TARSNAP_KEY: null
+
+BACKUP_SWIFT_KEY_REMOTE_LOCATION: '/root/swift-tarsnap.key'
+
+BACKUP_SWIFT_PRE_DEST: '/usr/local/sbin/backup-swift-pre-backup.sh'

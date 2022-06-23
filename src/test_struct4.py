@@ -116,12 +116,12 @@ class TestStruct3(unittest.TestCase):
         with open("test2.json", "w") as file:
             file.write(data)
 
-    # # testdata3
-    # def test_repository_3(self):
-    #     """test method for Repository
-    #     """
-    #     r = Repository()
-    #     r.load("testdata3/scm_repo/playbooks")
+    # testdata3
+    def test_repository_3(self):
+        """test method for Repository
+        """
+        r = Repository()
+        r.load("testdata3/scm_repo/playbooks", "testdata3/installed_collections_path")
 
 
 if __name__ == "__main__":

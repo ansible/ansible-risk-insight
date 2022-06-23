@@ -1,0 +1,9 @@
+- name: Set up Prometheus monitoring servers
+  hosts: prometheus
+  become: true
+  roles:
+    - name: common-server
+      tags: common-server
+
+    - name: prometheus
+      tags: prometheus

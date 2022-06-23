@@ -1,0 +1,46 @@
+---
+
+- fail: msg="Please configure TARSNAP_BACKUP_FOLDERS, we want all servers to be backed up :)"
+  when: "TARSNAP_BACKUP_FOLDERS is not defined or TARSNAP_BACKUP_FOLDERS == ''"
+
+# Note: tarsnap.key template is actually neccessary. YAML strips whitespace from
+# variables, and tarsnap requires key to end with a newline.
+- name: Copy key file into place
+  template:
+    src: tarsnap.key
+    dest: "{{ TARSNAP_KEY_REMOTE_LOCATION }}"
+    owner: "root"
+    group: "root"
+    mode: 0600
+
+- name: Create cache directory
+  file:
+    state: directory
+    path: "{{ TARSNAP_CACHE }}"
+    owner: root
+    group: root
+    mode: 0750
+
+- name: template main backup script
+  template:
+    src: "backup.sh"
+    dest: "{{ TARSNAP_BACKUP_SCRIPT_LOCATION }}"
+    owner: root
+    group: root
+    mode: 0500
+
+- name: Install backup in cron
+  cron:
+    name: "Backup for this server, archive: {{ TARSNAP_ARCHIVE_NAME }}"
+    job: "{{ TARSNAP_BACKUP_SCRIPT_LOCATION }} >> {{ TARSNAP_BACKUP_LOG_FILE }} 2>&1"
+    minute: "{{ TARSNAP_BACKUP_MINUTE }}"
+    hour: "{{ TARSNAP_BACKUP_HOUR }}"
+    day: "{{ TARSNAP_BACKUP_DAY }}"
+    month: "{{ TARSNAP_BACKUP_MONTH }}"
+    weekday: "{{ TARSNAP_BACKUP_WEEKDAY }}"
+    state: "{{ TARSNAP_CRONTAB_STATE }}"
+
+- name: Set up log rotation for backup logs
+  template:
+    src: logrotate
+    dest: "{{ TARSNAP_BACKUP_LOGROTATE_CONFIG }}"

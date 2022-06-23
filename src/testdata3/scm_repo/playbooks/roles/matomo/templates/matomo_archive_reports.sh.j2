@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# Matomo requires a cron job executing the command to generate reports. This invokes
+# that command within the 'matomo' container and should be added to a cron job on the host.
+docker exec -u www-data matomo php /var/www/html/console core:archive --url=https://{{ MATOMO_APP_DOMAIN}} > /dev/null

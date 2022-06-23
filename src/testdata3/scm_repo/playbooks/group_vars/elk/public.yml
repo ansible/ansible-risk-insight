@@ -1,0 +1,45 @@
+---
+
+# COMMON ######################################################################
+
+COMMON_SERVER_INSTALL_SANITY_CHECKER: false
+
+# ELASTICSEARCH ###############################################################
+
+elasticsearch_repo: "deb https://artifacts.elastic.co/packages/7.x/apt stable main"
+elasticsearch_data_dir: /var/lib/elasticsearch
+elasticsearch_cfg_dir: /etc/elasticsearch
+
+# TARSNAP #####################################################################
+
+TARSNAP_BACKUP_FOLDERS: "{{ elasticsearch_data_dir }} /var/lib/logstash /var/lib/kibana"
+TARSNAP_ARCHIVE_NAME: "{{ inventory_hostname }}"
+
+# CONSUL ######################################################################
+
+consul_service_config:
+  services:
+    - name: "elasticsearch"
+      tags: ["elasticsearch"]
+      port: "{{ elasticsearch_http_port }}"
+      enable_tag_override: true
+    - name: "logstash"
+      tags: ["logstash"]
+      port: 5044
+      enable_tag_override: true
+    - name: "kibana"
+      tags: ["kibana"]
+      port: 443
+      enable_tag_override: true
+
+# FILEBEAT ####################################################################
+
+filebeat_prospectors:
+  - fields:
+      type: elasticsearch
+    paths:
+      - "{{ elasticsearch_log_dir }}/*.log"
+  - fields:
+      type: logstash
+    paths:
+      - "/var/log/logstash/*.log"

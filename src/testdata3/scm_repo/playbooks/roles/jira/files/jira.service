@@ -1,0 +1,12 @@
+[Unit]
+Description=JIRA Service
+After=network.target
+ 
+[Service]
+Type=forking
+User=www-data
+ExecStart=/var/www/jira/jira/bin/start-jira.sh
+ExecStop=/var/www/jira/jira/bin/stop-jira.sh
+ 
+[Install]
+WantedBy=multi-user.target

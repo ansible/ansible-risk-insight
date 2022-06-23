@@ -1,0 +1,28 @@
+---
+
+- name: Install system dependencies
+  command: make install_system_dependencies
+  args:
+    chdir: "{{ opencraft_root_dir }}"
+
+- name: Install the python requirements
+  shell: |
+    . "{{ pyenv_root }}/.pyenvrc"
+    pyenv activate opencraft
+    pip install -r "{{ opencraft_root_dir }}/requirements.txt"
+  become_user: "{{ www_user }}"
+
+- name: Copy archived_cleanup script
+  template:
+    src: "archived_cleanup.j2"
+    dest: "{{ opencraft_root_dir }}/bin/archived_cleanup.sh"
+    owner: "{{ www_user }}"
+    group: "{{ www_group }}"
+    mode: 0750
+
+- name: Add calling management command delete_archived to the crontab
+  cron:
+    name: "run delete_archived"
+    special_time: weekly
+    job: "{{ opencraft_root_dir }}/bin/archived_cleanup.sh >> {{ opencraft_root_dir }}/log/delete_archived.log"
+    user: "{{ www_user }}"

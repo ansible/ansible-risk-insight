@@ -62,33 +62,33 @@ class TestResolver(unittest.TestCase):
         with open("test2.json", "w") as file:
             file.write(json_str) 
 
-    # # testdata3
-    # def test_repository_3(self):
-    #     """test method for Repository
-    #     """
-    #     repo = Repository()
-    #     repo.load("testdata3/scm_repo/playbooks")
+    # testdata3
+    def test_repository_3(self):
+        """test method for Repository
+        """
+        repo = Repository()
+        repo.load("testdata3/scm_repo/playbooks", "testdata3/installed_collections_path")
 
-    #     # resolve `fqcn` of Task and `role_path` of RoleInPlay
-    #     fqcn_resolver = FQCNResolver(repo_obj=repo)
-    #     repo.resolve(fqcn_resolver)
+        # resolve `fqcn` of Task and `role_path` of RoleInPlay
+        fqcn_resolver = FQCNResolver(repo_obj=repo)
+        repo.resolve(fqcn_resolver)
 
-    #     json_str = repo.dump()
-    #     with open("test2.json", "w") as file:
-    #         file.write(json_str)
+        json_str = repo.dump()
+        with open("test3.json", "w") as file:
+            file.write(json_str)
 
-    #     # resolve `used_in` of Module / Task / Role
-    #     used_in_resolver = UsedInResolver(repo_obj=repo)
-    #     repo.resolve(used_in_resolver)
+        # resolve `used_in` of Module / Task / Role
+        used_in_resolver = UsedInResolver(repo_obj=repo)
+        repo.resolve(used_in_resolver)
 
-    #     # add `use-non-builtin-module: true` annotation to Task / Role / Playbook if it uses at least one non-builtin module
-    #     non_builtin_resolver = NonBuiltinResolver(repo_obj=repo)
-    #     repo.resolve(non_builtin_resolver)
+        # add `use-non-builtin-module: true` annotation to Task / Role / Playbook if it uses at least one non-builtin module
+        non_builtin_resolver = NonBuiltinResolver(repo_obj=repo)
+        repo.resolve(non_builtin_resolver)
 
-    #     # save the resolved repository data as a json file
-    #     json_str = repo.dump()
-    #     with open("test2.json", "w") as file:
-    #         file.write(json_str) 
+        # save the resolved repository data as a json file
+        json_str = repo.dump()
+        with open("test3.json", "w") as file:
+            file.write(json_str) 
 
 
 if __name__ == "__main__":

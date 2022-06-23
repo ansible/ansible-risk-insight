@@ -1,0 +1,15 @@
+www_user: www-data
+www_group: www-data
+www_dir: "/var/www"
+
+app_name: null
+app_repo: null
+app_deploy_dir: "{{ www_dir }}/{{ app_name }}"
+app_virtualenv_dir: "{{ www_dir }}/.virtualenvs/{{ app_name }}"
+app_env_vars: null
+
+gunicorn_version: "19.9.0"
+gunicorn_bind_address: 127.0.0.1
+gunicorn_bind_port: 5000
+gunicorn_num_workers: 4
+gunicorn_extra_params: null

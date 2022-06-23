@@ -1,0 +1,13 @@
+---
+- name: Set up the SprintCraft
+  hosts: sprintcraft
+  become: true
+  roles:
+    - role: common-server
+      tags: common-server
+
+    - role: docker-compose
+      tags: docker
+
+    - role: sprintcraft
+      tags: sprintcraft

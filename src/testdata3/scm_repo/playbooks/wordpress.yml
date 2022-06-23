@@ -1,0 +1,42 @@
+---
+- name: Deploy the OpenCraft landing page
+  hosts: wordpress
+  become: true
+  vars:
+    - nginx_remove_default_vhost: true
+    - php_memory_ilimit: "128M"
+    - php_max_execution_time: "90"
+    - php_upload_max_filesize: "256M"
+    - php_version: "7.3"
+    - php_enable_php_fpm: true
+    - php_webserver_daemon: "nginx"
+    - php_fpm_listen: "/var/run/php/php7.3-fpm.sock"
+    - php_packages:
+      - php7.3-common
+      - php7.3-fpm
+      - php7.3-cli
+      - php7.3-dev
+      - libpcre3-dev
+      - php7.3-gd
+      - php7.3-curl
+      - php7.3-imap
+      - php7.3-json
+    - php_mysql_package: php7.3-mysql
+  pre_tasks:
+
+    - name: mount /var/www
+      mount: name=/var/www src=/dev/vdb1 fstype=ext4 state=mounted
+
+    - name: chown www-data /var/www
+      file: path=/var/www mode=750 owner=www-data group=www-data state=directory
+
+    - name: mkdir /var/www/log
+      file: path=/var/www/log mode=750 state=directory
+
+  roles:
+    - role: common-server
+      tags: 'common-server'
+    - geerlingguy.php-versions
+    - geerlingguy.php-mysql
+    - wordpress
+    - tarsnap

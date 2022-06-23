@@ -1,0 +1,14 @@
+[Unit]
+Description=Consul Connect proxy
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/consul connect proxy -service connect-proxy{{ upstream_specs }}
+Restart=always
+RestartSec=10
+User=consul
+Group=consul
+
+[Install]
+WantedBy=multi-user.target

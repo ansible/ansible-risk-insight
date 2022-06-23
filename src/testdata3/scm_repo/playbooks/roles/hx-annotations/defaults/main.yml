@@ -1,0 +1,15 @@
+---
+
+# Hx SERVICE ##################################################################
+
+service_name: ""
+service_admin_password: ""
+service_db_password: ""
+
+service_allowed_hosts: "{{ inventory_hostname }}"
+service_secret_key: ""
+
+# TARSNAP #####################################################################
+
+TARSNAP_BACKUP_FOLDERS: "{{ service_config_dir }} {{ service_data_dir }} {{ service_backup_dir }}"
+TARSNAP_BACKUP_PRE_SCRIPT: "{{ service_bin_dir }}/pre_backup"

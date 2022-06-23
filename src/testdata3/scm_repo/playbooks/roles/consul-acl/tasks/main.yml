@@ -1,0 +1,21 @@
+---
+
+- name: Install Consul ACL apt requirements
+  apt:
+    name:
+      - python3-pip
+
+- name: Install Consul ACL python requirements
+  pip:
+    executable: pip3
+    name:
+      - python-consul==1.1.0
+      - pyhcl==0.3.10
+
+- name: Create Consul ACL tokens
+  consul_acl:
+    token: "{{ item.id }}"
+    rules: "{{ item.rules }}"
+    name: "{{ item.name | default(item.id) }}"
+    mgmt_token: "{{ consul_acl_mgmt_token }}"
+  with_items: "{{ consul_acl_tokens }}"

@@ -1,0 +1,18 @@
+"""
+Create initial service admin user if the user does not exist.
+"""
+
+from django.contrib.auth.models import User
+
+base_user_data = {
+    "username": "{{ service_admin_user }}",
+    "email": "{{ service_admin_email }}",
+}
+
+user, created = User.objects.get_or_create(**base_user_data)
+
+if created:
+    user.set_password("{{ service_admin_password }}")
+    user.is_superuser=True
+    user.is_staff=True
+    user.save()

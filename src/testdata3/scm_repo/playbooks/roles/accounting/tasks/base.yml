@@ -1,0 +1,25 @@
+- name: Set login shell for user www-data
+  user:
+    name: www-data
+    shell: /bin/bash
+
+- name: Create {{ www_data_home_dir }}
+  file:
+    path: "{{ www_data_home_dir }}"
+    owner: www-data
+    group: www-data
+    mode: 0750
+    state: directory
+
+- name: Copy shell configuration for user www-data
+  template:
+    src: "bashrc"
+    dest: "{{ www_data_home_dir }}/.bashrc"
+    owner: www-data
+    group: www-data
+
+- name: "Create directory {{ www_data_home_dir }}/.ssh"
+  file:
+    path: "{{ www_data_home_dir }}/.ssh"
+    state: directory
+  become_user: www-data

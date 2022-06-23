@@ -1,0 +1,13 @@
+---
+- name: format log download volume
+  filesystem:
+    dev: "{{ LPD_LOG_DOWNLOAD_VOLUME_DEVICE_ID }}"
+    fstype: "{{ LPD_LOG_DOWNLOAD_VOLUME_FILESYSTEM }}"
+    resizefs: yes
+
+- name: mount log download volume
+  mount:
+    src: "{{ LPD_LOG_DOWNLOAD_VOLUME_DEVICE_ID }}"
+    name: "{{ LPD_LOG_DOWNLOAD_USER_HOME }}"
+    fstype: "{{ LPD_LOG_DOWNLOAD_VOLUME_FILESYSTEM }}"
+    state: mounted

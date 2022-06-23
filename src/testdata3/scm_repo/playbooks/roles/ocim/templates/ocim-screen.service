@@ -1,0 +1,13 @@
+[Unit]
+Description=Screen session running the Ocim web server
+Documentation=https://github.com/open-craft/opencraft/tree/master/deploy/README.md
+After=nginx.service
+
+[Service]
+ExecStart=/usr/bin/screen -D -m -c {{ opencraft_screenrc_path }}
+Restart=no
+User={{ session_user }}
+Group={{ session_user_group }}
+
+[Install]
+WantedBy=multi-user.target

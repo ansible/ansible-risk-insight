@@ -1,0 +1,14 @@
+- name: Copy nginx site configuration
+  template:
+    src: accounting-nginx.j2
+    dest: /etc/nginx/sites-available/accounting
+  notify:
+    - reload nginx
+
+- name: Enable nginx site configuration
+  file:
+    src: /etc/nginx/sites-available/accounting
+    dest: /etc/nginx/sites-enabled/accounting
+    state: link
+  notify:
+    - reload nginx

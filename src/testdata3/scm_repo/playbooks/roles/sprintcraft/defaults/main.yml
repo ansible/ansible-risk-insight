@@ -1,0 +1,123 @@
+---
+APP_PATH: /sprintcraft
+USE_POSTGRES: true
+USE_SSL: true
+SPRINTCRAFT_NGINX_CONFIG_PATH: /etc/nginx/sites-available/sprintcraft
+
+CI_SSH_PUBLIC_KEY: your-CI-key
+
+API_HOSTNAME: backend.server
+
+# Helpers (specified for reusability).
+# Redis
+_REDIS_URL: redis://redis:6379/0
+
+# Database
+_POSTGRES_HOST: postgres
+_POSTGRES_PORT: 5432
+_POSTGRES_DB: sprintcraft
+_POSTGRES_USER: sprintcraft
+_POSTGRES_PASSWORD: set-me-please
+
+# App settings. See the role's README for details.
+ENV_TOKENS:
+  # General
+  # ------------------------------------------------------------------------------
+  DJANGO_READ_DOT_ENV_FILE: false
+  DJANGO_SETTINGS_MODULE: config.settings.production
+  DJANGO_SECRET_KEY: set-me-please
+  DJANGO_ADMIN_URL: admin/
+  DJANGO_ALLOWED_HOSTS: .api.your.domain
+
+  FRONTEND_URL: https://your.domain
+
+  # Security
+  # ------------------------------------------------------------------------------
+  # TIP: better off using DNS, however, redirect is OK too
+  DJANGO_SECURE_SSL_REDIRECT: false
+
+  # Email
+  # ------------------------------------------------------------------------------
+  MAILGUN_API_KEY:
+  DJANGO_SERVER_EMAIL:
+  MAILGUN_DOMAIN:
+
+  # AWS
+  # ------------------------------------------------------------------------------
+  DJANGO_AWS_ACCESS_KEY_ID:
+  DJANGO_AWS_SECRET_ACCESS_KEY:
+  DJANGO_AWS_STORAGE_BUCKET_NAME:
+
+  # django-allauth
+  # ------------------------------------------------------------------------------
+  DJANGO_ACCOUNT_ALLOW_REGISTRATION: true
+
+  # Gunicorn
+  # ------------------------------------------------------------------------------
+  WEB_CONCURRENCY: 4
+
+  # Sentry
+  # ------------------------------------------------------------------------------
+  SENTRY_DSN:
+
+
+  # Redis
+  # ------------------------------------------------------------------------------
+  REDIS_URL: "{{ _REDIS_URL }}"
+
+  # Celery
+  # ------------------------------------------------------------------------------
+  CELERY_BROKER_URL: "{{ _REDIS_URL }}"
+  CELERY_TASK_TIME_LIMIT: 1800
+
+  # Flower
+  CELERY_FLOWER_USER: set-me-please
+  CELERY_FLOWER_PASSWORD: set-me-please
+
+  # Jira
+  # ------------------------------------------------------------------------------
+  JIRA_SERVER: https://jira.server
+  JIRA_USERNAME: username
+  JIRA_PASSWORD: password
+  JIRA_CELL_ROLE_ACCOUNT: 1
+  JIRA_CELL_ROLES: {}
+
+  # Multiprocessing for budgets
+  MULTIPROCESSING_POOL_SIZE: 32
+  MULTIPROCESSING_TIMEOUT: 128
+
+  # Google
+  # ------------------------------------------------------------------------------
+  GOOGLE_API_PRIVATE_KEY: set-me-please
+  GOOGLE_API_CLIENT_EMAIL: set-me-please
+  GOOGLE_SPILLOVER_SPREADSHEET: set-me-please
+  GOOGLE_CONTACT_SPREADSHEET: set-me-please
+  GOOGLE_AVAILABILITY_RANGE: set-me-please
+  GOOGLE_ROTATIONS_SPREADSHEET: set-me-please
+  GOOGLE_ROTATIONS_RANGE: set-me-please
+
+  # Automation
+  # ------------------------------------------------------------------------------
+  FEATURE_SPRINT_AUTOMATION: false
+
+  # Mattermost
+  MATTERMOST_SERVER:
+  MATTERMOST_CHANNEL:
+  MATTERMOST_LOGIN_ID:
+  MATTERMOST_ACCESS_TOKEN:
+  MATTERMOST_TEAM_NAME:
+
+  # Webhooks
+  HANDBOOK_ROLES_PAGE:
+  FEATURE_CELL_ROLES: false
+
+  # Do not change the following values - they are generated from the helper variables specified above
+  # ------------------------------------------------------------------------------
+  POSTGRES_HOST: "{{ _POSTGRES_HOST }}"
+  POSTGRES_PORT: "{{ _POSTGRES_PORT }}"
+  POSTGRES_DB: "{{ _POSTGRES_DB }}"
+  POSTGRES_USER: "{{ _POSTGRES_USER }}"
+  POSTGRES_PASSWORD: "{{ _POSTGRES_PASSWORD }}"
+  DATABASE_URL: "postgres://{{ _POSTGRES_USER }}:{{ _POSTGRES_PASSWORD }}@{{ _POSTGRES_HOST }}:{{ _POSTGRES_PORT }}/{{ _POSTGRES_DB }}"
+
+all_env_tokens: "{{ ENV_TOKENS | combine( CUSTOM_ENV_TOKENS ) }}"

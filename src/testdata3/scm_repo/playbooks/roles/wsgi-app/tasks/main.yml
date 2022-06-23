@@ -1,0 +1,63 @@
+---
+- name: Set login shell for the {{ www_user }} user
+  user:
+    name: "{{ www_user }}"
+    shell: /bin/bash
+
+- name: Create the {{ www_dir }} directory
+  file:
+    path: "{{ www_dir }}"
+    owner: "{{ www_user }}"
+    group: "{{ www_user }}"
+    mode: 0750
+    state: directory
+
+- name: Clone the {{ app_name }} repository
+  git:
+    repo: "{{ app_repo }}"
+    dest: "{{ app_deploy_dir }}"
+    update: no
+  become_user: "{{ www_user }}"
+
+- name: Install the virtualenv package
+  apt:
+    name: virtualenv
+    state: present
+
+- name: Create the virtualenv environment and install the requirements
+  pip:
+    requirements: "{{ app_deploy_dir }}/requirements.txt"
+    virtualenv: "{{ app_virtualenv_dir }}"
+    virtualenv_python: python3.6
+
+- name: Install gunicorn
+  pip:
+    name: "gunicorn=={{ gunicorn_version }}"
+    virtualenv: "{{ app_virtualenv_dir }}"
+
+- name: Install the script for running the application
+  template:
+    src: run.sh
+    dest: "{{ www_dir }}/{{ app_name}}_run.sh"
+    mode: 0700
+    backup: yes
+  become_user: "{{ www_user }}"
+  tags: wsgi-app-env-file
+
+- name: Install supervisor
+  apt:
+    name: supervisor
+    state: present
+    update_cache: yes
+
+- name: Install supervisor configuration
+  template:
+    src: supervisor.conf
+    dest: "/etc/supervisor/conf.d/{{ app_name }}.conf"
+    mode: 0644
+    backup: yes
+
+- name: Restart supervisor
+  service:
+    name: supervisor
+    state: restarted

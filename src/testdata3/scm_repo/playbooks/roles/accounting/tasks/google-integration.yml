@@ -1,0 +1,16 @@
+- name: Copy Google Crafty service account PEM contents to a file
+  copy:
+    content: '{{ GOOGLE_CRAFTY_SERVICE_ACCOUNT_PEM }}'
+    dest: "{{ www_data_home_dir }}/google-crafty.pem"
+    mode: 0755
+  become_user: www-data
+
+# Note that we're putting a password here: the password for these files is not a secret, and is put on by default when downloaded from the Google Console. We may make the password configurable in the future.
+- name: Turn PEM file format into PKCS12
+  command: openssl pkcs12 -export -in google-crafty.pem -out {{ accounting_root_dir }}/.p12 -passin pass:notasecret -passout pass:notasecret chdir='{{ www_data_home_dir }}'
+  become_user: www-data
+
+- name: Delete unneeded PEM file
+  file:
+    path: '{{ www_data_home_dir }}/google-crafty.pem'
+    state: absent

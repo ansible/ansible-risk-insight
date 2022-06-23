@@ -1,0 +1,36 @@
+---
+
+# GENERAL #####################################################################
+
+MONGODB_OPENSTACK_DB_DEVICE: /dev/vdb1
+MONGODB_SERVER_BACKUP_DIR: /var/lib/mongodb/backup
+
+# PROMETHEUS ##################################################################
+
+MONGODB_EXPORTER_ENABLED: true
+MONGODB_EXPORTER_VERSION: "v0.20.1"
+MONGODB_EXPORTER_REPO: https://github.com/percona/mongodb_exporter.git
+MONGODB_EXPORTER_PASSWORD: null
+MONGODB_EXPORTER_EXTRA_OPTS: ""
+MONGODB_EXPORTER_PUBLIC_PORT: 19001
+MONGODB_EXPORTER_INTERNAL_PORT: 9001
+MONGODB_EXPORTER_LIMIT_OPEN_FILES: 64000
+
+# This is not meant to be changed, but to improve the readability and to reduce the repetition
+MONGODB_HOME: /var/lib/mongodb
+GO_PATH: "/tmp/mongodb"
+MONGODB_EXPORTER_DIR: "github.com/percona/mongodb_exporter"
+MONGODB_EXPORTER_PATH: "{{ GO_PATH }}/src/{{ MONGODB_EXPORTER_DIR }}"
+
+MONGODB_EXPORTER_CONSUL_SERVICE:
+  service:
+    name: mongodb-exporter
+    tags:
+      - mongodb-exporter
+      - monitor-https
+    port: "{{ MONGODB_EXPORTER_PUBLIC_PORT }}"
+    enable_tag_override: true
+
+# Used to set mongodb_master on deploying a new replicaSet
+# This must be false to get the primary to connect to the existing replicaSet
+mongodb_fresh_deployment: false

@@ -1,0 +1,9 @@
+---
+
+- name: Ensure sftp is enabled
+  lineinfile:
+    dest: /etc/ssh/sshd_config
+    regexp: '^Subsystem(\s+)sftp'
+    line: "Subsystem sftp internal-sftp"
+    state: present
+  notify: Restart sshd

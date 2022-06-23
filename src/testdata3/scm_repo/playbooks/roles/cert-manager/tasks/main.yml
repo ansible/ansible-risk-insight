@@ -1,0 +1,65 @@
+---
+
+- name: Add the `deadsnakes` PPA for getting Python3.6 on Ubuntu 16.04
+  apt_repository:
+    repo: 'ppa:deadsnakes/ppa'
+
+- name: Download Python3.6
+  apt:
+    name: python3.6
+
+- name: Download pip3.6
+  shell:
+    cmd: curl https://bootstrap.pypa.io/get-pip.py | sudo -H python3.6
+
+- name: Install pipenv to later install python dependencies and virtual environments.
+  pip:
+    name: pipenv
+    executable: pip3.6
+  become: true
+
+- name: Download cert-manager
+  git:
+    repo: "https://github.com/open-craft/cert-manager"
+    dest: "{{ cert_manager_path }}"
+
+- name: Install cert-manager requirements
+  shell: pipenv install --ignore-pipfile
+  args:
+    chdir: "{{ cert_manager_path }}"
+
+- name: Copy over cert-manager script and service files
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode }}"
+  with_items:
+    - src: "cert-manager.sh"
+      dest: "/usr/local/sbin/cert-manager.sh"
+      mode: "0755"
+    - src: "cert-manager.service"
+      dest: "/lib/systemd/system/cert-manager.service"
+      mode: "0644"
+
+- name: Copy the deploy_cert.sh script template
+  template:
+    src: "deploy_cert.sh"
+    dest: "/usr/local/sbin/deploy_cert.sh"
+    mode: "0755"
+
+- name: Enable and start the cert-manager service
+  systemd:
+    daemon_reload: yes
+    enabled: yes
+    state: restarted
+    name: "cert-manager"
+
+# For ACME challenges
+- name: Open HTTP and HTTPS port on the firewall
+  ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  with_items:
+    - 80
+    - 443

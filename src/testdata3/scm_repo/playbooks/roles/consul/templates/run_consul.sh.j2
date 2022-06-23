@@ -1,0 +1,9 @@
+#!/bin/bash
+
+PYTHONUNBUFFERED=1 /usr/bin/python3 /usr/local/sbin/update_consul_config.py
+
+if [ $? -eq 0 ]; then
+    {{ consul_bin_dir }}/consul agent -config-dir {{ consul_config_dir }}
+else
+    echo "Unable to update consul configuration. Exiting." >&2
+fi

@@ -1,0 +1,11 @@
+[Unit]
+Description=Consul Template Render
+After=haproxy.service
+
+[Service]
+ExecStart=/usr/local/sbin/consul-template-render.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

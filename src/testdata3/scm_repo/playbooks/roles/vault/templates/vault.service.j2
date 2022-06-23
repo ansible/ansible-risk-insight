@@ -1,0 +1,17 @@
+[Unit]
+Description=Vault
+Requires=network-online.target
+After=network-online.target
+
+[Service]
+User=vault
+Group=vault
+PermissionsStartOnly=true
+ExecStart={{ vault_bin_dir }}/vault server {{ vault_server_options }}
+ExecReload=/bin/kill -HUP $MAINPID
+KillSignal=SIGINT
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

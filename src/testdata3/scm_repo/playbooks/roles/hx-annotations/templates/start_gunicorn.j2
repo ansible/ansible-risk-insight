@@ -1,0 +1,36 @@
+#!/bin/bash
+
+NAME="{{ service_name }}"
+SOCKFILE="{{ service_virtualenv_dir }}/run/gunicorn.sock"
+NUM_WORKERS="3"
+
+USER="{{ service_user }}"
+GROUP="{{ service_group }}"
+
+GUNICORN_HOST="{{ service_host }}"
+GUNICORN_PORT="{{ service_port }}"
+
+# set to 0 for unlimited requests.
+MAX_REQUESTS="1000"
+
+echo "`date`: Starting $NAME as `whoami`"
+
+source "{{ service_virtualenv_dir }}/bin/activate"
+source "/home/{{ service_name }}/.bashrc"
+
+# create the run directory if it doesn't exist
+RUNDIR=$(dirname "${SOCKFILE}")
+test -d "${RUNDIR}" || mkdir -p "${RUNDIR}"
+
+WSGI_MODULE="{{ service_name }}"
+
+# run under supervisor so do not use --daemon
+exec gunicorn \
+    --name "${NAME}" \
+    --workers "${NUM_WORKERS}" \
+    --max-requests "${MAX_REQUESTS}" \
+    --timeout "{{ service_gunicorn_timeout_seconds | default(30) }}" \
+    --user "${USER}" --group "${GROUP}" \
+    --log-level debug \
+    --bind $GUNICORN_HOST:"${GUNICORN_PORT}" \
+    "${WSGI_MODULE}.wsgi"

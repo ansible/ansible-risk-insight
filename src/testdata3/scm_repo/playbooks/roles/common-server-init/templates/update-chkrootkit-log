@@ -1,0 +1,12 @@
+#!/bin/sh
+#
+# This script updates the expected log daily so each change is notified only
+# once.
+#
+
+LOG_DIR=/var/log/chkrootkit
+
+if ! diff -q $LOG_DIR/log.expected $LOG_DIR/log.today > /dev/null 2>&1; then
+    mv $LOG_DIR/log.expected $LOG_DIR/log.previous
+    cp -a -f $LOG_DIR/log.today $LOG_DIR/log.expected
+fi

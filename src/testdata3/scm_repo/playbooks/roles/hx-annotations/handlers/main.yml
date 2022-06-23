@@ -1,0 +1,4 @@
+---
+
+- name: "Restart {{ service_name }}"
+  shell: supervisorctl restart '{{ service_name }}:*' if websockets is defined and websockets.service_daphne is defined else '{{ service_name }}'

@@ -1,0 +1,2 @@
+root: {{ POSTFIX_OPS_EMAIL }}
+postmaster: root

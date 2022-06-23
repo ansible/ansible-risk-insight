@@ -1,0 +1,125 @@
+---
+
+- name: Test add user
+  block:
+    - name: Add user
+      rabbitmq_user: user=joe password=changeme
+      register: add_user
+
+    - name: Check that user adding succeeds with a change
+      assert:
+        that:
+          - add_user.changed == true
+
+- name: Test add user idempotence
+  block:
+    - name: Add user
+      rabbitmq_user: user=joe password=changeme
+      register: add_user
+
+    - name: Check that user adding succeeds without a change
+      assert:
+        that:
+          - add_user.changed == false
+
+- name: Test change user permissions
+  block:
+    - name: Add user with permissions
+      rabbitmq_user: user=joe password=changeme vhost=/ configure_priv=.* read_priv=.* write_priv=.*
+      register: add_user
+
+    - name: Check that changing permissions succeeds with a change
+      assert:
+        that:
+          - add_user.changed == true
+
+- name: Test change user permissions idempotence
+  block:
+    - name: Add user with permissions
+      rabbitmq_user: user=joe password=changeme vhost=/ configure_priv=.* read_priv=.* write_priv=.*
+      register: add_user
+
+    - name: Check that changing permissions succeeds without a change
+      assert:
+        that:
+          - add_user.changed == false
+
+- name: Test change user topic permissions
+  block:
+    - name: Add user with topic permissions
+      rabbitmq_user:
+        user: joe
+        password: changeme
+        topic_permissions:
+          - vhost: /
+            exchange: amq.topic
+            read_priv: .*
+            write_priv: .*
+      register: add_user
+
+    - name: Check that changing topic permissions succeeds with a change
+      assert:
+        that:
+          - add_user.changed == true
+
+- name: Test change user topic permissions idempotence
+  block:
+    - name: Add user with topic permissions
+      rabbitmq_user:
+        user: joe
+        password: changeme
+        topic_permissions:
+          - vhost: /
+            exchange: amq.topic
+            read_priv: .*
+            write_priv: .*
+      register: add_user
+
+    - name: Check that changing topic permissions succeeds without a change
+      assert:
+        that:
+          - add_user.changed == false
+
+- name: Test add user tags
+  block:
+    - name: Add user with tags
+      rabbitmq_user: user=joe password=changeme vhost=/ configure_priv=.* read_priv=.* write_priv=.* tags=management,administrator
+      register: add_user
+
+    - name: Check that adding tags succeeds with a change
+      assert:
+        that:
+          - add_user.changed == true
+
+- name: Test add user tags idempotence
+  block:
+    - name: Add user with tags
+      rabbitmq_user: user=joe password=changeme vhost=/ configure_priv=.* read_priv=.* write_priv=.* tags=administrator,management
+      register: add_user
+
+    - name: Check that adding tags succeeds without a change
+      assert:
+        that:
+          - add_user.changed == false
+
+- name: Test remove user
+  block:
+    - name: Remove user
+      rabbitmq_user: user=joe state=absent
+      register: remove_user
+
+    - name: Check that user removing succeeds with a change
+      assert:
+        that:
+          - remove_user.changed == true
+
+- name: Test remove user idempotence
+  block:
+    - name: Remove user
+      rabbitmq_user: user=joe state=absent
+      register: remove_user
+
+    - name: Check that user removing succeeds without a change
+      assert:
+        that:
+          - remove_user.changed == false

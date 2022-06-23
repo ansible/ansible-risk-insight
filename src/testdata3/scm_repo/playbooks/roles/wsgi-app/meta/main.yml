@@ -1,0 +1,8 @@
+dependencies:
+  - name: nginx-proxy
+    NGINX_PROXY_CONFIG_PATH: /etc/nginx/sites-available/pr-watcher-notifier
+    NGINX_PROXY_INTERNAL_PORT: "{{ gunicorn_bind_port }}"
+    NGINX_PROXY_PUBLIC_PORT: 443
+    NGINX_PROXY_SERVER_NAME: "{{ inventory_hostname }}"
+    NGINX_PROXY_SEND_TIMEOUT: 600s
+    NGINX_PROXY_READ_TIMEOUT: 600s

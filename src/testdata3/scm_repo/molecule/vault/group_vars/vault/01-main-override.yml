@@ -1,0 +1,3 @@
+---
+vault_host: vault-host
+vault_server_scheme: "http"

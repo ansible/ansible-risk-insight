@@ -1,0 +1,22 @@
+---
+- name: install mailutils apt package
+  apt:
+    name: mailutils
+
+- name: copy sanity check script
+  copy:
+    src: sanity_check.py
+    dest: "{{ SANITY_CHECK_SCRIPT_LOCATION }}"
+    mode: 0500
+
+- name: copy sanity check config
+  copy:
+    content: "{{ sanity_check_control_file|to_json }}"
+    dest: "{{ SANITY_CHECK_CONFIG }}"
+    mode: 0400
+
+- name: install sanity checks crontab
+  cron:
+    job: "{{ SANITY_CHECK_SCRIPT_LOCATION }} {{ SANITY_CHECK_CONFIG }} > /dev/null 2>&1"
+    minute: "1,11,21,31,41,51"
+    name: "sanity checker for: {{ SANITY_CHECK_SUBJECT }}"

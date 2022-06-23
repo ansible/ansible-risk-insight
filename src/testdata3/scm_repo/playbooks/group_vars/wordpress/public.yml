@@ -1,0 +1,12 @@
+---
+
+# Certbot
+CERTBOT_DOMAIN_NAME: "{{ LANDING_SITE_HOSTNAME }}"
+CERTBOT_ADDITIONAL_DOMAINS:
+  - "{{ DEFAULT_SITE_HOSTNAME }}"
+  - "{{ MAINTENANCE_SITE_HOSTNAME }}"
+COMMON_SERVER_INSTALL_CERTBOT: true
+
+# Use same path as certbot
+NGINX_PROXY_SSL_CERT: "/etc/letsencrypt/live/{{ LANDING_SITE_HOSTNAME }}/fullchain.pem"
+NGINX_PROXY_SSL_KEY: "/etc/letsencrypt/live/{{ LANDING_SITE_HOSTNAME }}/privkey.pem"

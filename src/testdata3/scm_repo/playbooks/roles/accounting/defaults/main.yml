@@ -1,0 +1,49 @@
+www_data_home_dir: '/var/www'
+accounting_screenrc_path: '/home/ubuntu/accounting-screenrc'
+
+ACCOUNTING_DOMAIN_NAME: '{{ inventory_hostname }}'
+
+# The PEM file format that'll be changed to PKCS12 format to be used by Google Auth.
+GOOGLE_CRAFTY_SERVICE_ACCOUNT_PEM: null
+
+# Number of workers to run the web server on
+ACCOUNTING_WORKERS: 3
+ACCOUNTING_WORKERS_LOW_PRIORITY: 3
+
+# Environment tokens to be picked up by Django settings
+ACCOUNTING_GENERATED_ENV_TOKENS: {}
+ACCOUNTING_ENV_TOKENS:
+  DEBUG: false
+  ALLOWED_HOSTS: '["{{ ACCOUNTING_DOMAIN_NAME }}"]'
+  DATABASE_URL: 'postgres://db-user:password@postgres.example.com:port/db-name'
+  SECRET_KEY: 'your-random-secret-key'
+  
+  # JIRA
+  ENABLE_JIRA: true
+  JIRA_SERVER_URL: 'https://jira.company.com'
+  JIRA_SERVICE_USER_USERNAME: 'service-user'
+  JIRA_SERVICE_USER_PASSWORD: '1234567890'
+
+  # Google
+  ENABLE_GOOGLE: true
+  GOOGLE_AUTH_CLIENT_SERVICE_EMAIL: 'bot-name@project-name.iam.gserviceaccount.com'
+  GOOGLE_DRIVE_ROOT: 'root-folder-id'
+
+# Additional tools.
+WKHTMLTOPDF_VERSION: '0.12.4'
+
+wkhtmltopdf_zipped_filename: 'wkhtmltox-{{ WKHTMLTOPDF_VERSION }}_linux-generic-amd64.tar.xz'
+wkhtmltopdf_url_path: 'https://github.com/wkhtmltopdf/wkhtmltopdf/releases/download/{{ WKHTMLTOPDF_VERSION }}/{{ wkhtmltopdf_zipped_filename }}'
+wkhtmltopdf_binary_path: '{{ www_data_home_dir }}/wkhtmltox/bin/wkhtmltopdf'
+
+accounting_root_dir: '{{ www_data_home_dir }}/accounting'
+accounting_static_files_dir: '{{ accounting_root_dir }}/static'
+accounting_media_files_dir: '{{ accounting_root_dir }}/media'
+accounting_env_tokens: "{{ ACCOUNTING_GENERATED_ENV_TOKENS | combine( ACCOUNTING_ENV_TOKENS ) }}"
+
+# Contents of accounting app's SSL certificate/key.
+# SSL is *not* setup by the role: you need to do this manually with `certbot`.
+# However, the role can be run after some other `certbot`-like role which automatically renews the certificate.
+# The NGINX template is setup to easily allow renewal through `certbot`.
+ACCOUNTING_SSL_CERT: null
+ACCOUNTING_SSL_KEY: null

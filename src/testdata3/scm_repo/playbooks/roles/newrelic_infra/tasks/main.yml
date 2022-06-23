@@ -1,0 +1,21 @@
+---
+
+- name: ensure /etc/newrelic-infra.yml is present
+  template:
+    src: newrelic-infra.yml.j2
+    dest: "/etc/newrelic-infra.yml"
+
+- name: ensure newrelic apt repository gpg key is added
+  apt_key:
+    url: "https://download.newrelic.com/infrastructure_agent/gpg/newrelic-infra.gpg"
+    state: present
+
+- name: ensure newrelic apt repository is registered
+  apt_repository:
+    repo: "deb [arch=amd64] https://download.newrelic.com/infrastructure_agent/linux/apt xenial main"
+    state: present
+
+- name: ensure newrelic infra plugin is installed
+  apt:
+    name: "newrelic-infra"
+    state: present

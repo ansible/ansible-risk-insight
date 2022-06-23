@@ -1,0 +1,20 @@
+---
+# The basic auth password to access the redis exporter.
+REDIS_EXPORTER_PASSWORD: null
+
+REDIS_EXPORTER_NGINX_CONFIG_PATH: /etc/nginx/sites-available/redis-exporter
+REDIS_EXPORTER_HTPASSWD_PATH: /etc/nginx/htpasswd
+
+REDIS_EXPORTER_USE_SSL: true
+
+REDIS_EXPORTER_REDIS_ADDR: null
+REDIS_EXPORTER_CHECK_KEYS: null
+
+REDIS_EXPORTER_CONSUL_SERVICE:
+  service:
+    name: redis-exporter
+    tags:
+      - redis-exporter
+      - "{{ 'monitor-https' if REDIS_EXPORTER_USE_SSL else 'monitor' }}"
+    port: 19103
+    enable_tag_override: true

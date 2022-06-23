@@ -1,0 +1,13 @@
+#!/bin/bash
+
+set -euo pipefail
+
+BACKUP_FILE="{{ service_backup_dir }}/{{ service_name }}.dump.gz"
+
+function dumpDB {
+    echo "Creating database dump \"${BACKUP_FILE}\"...";
+    sudo su postgres -c "pg_dumpall" | gzip -c9 > "${BACKUP_FILE}";
+    echo "Database dump created successfully!"
+}
+
+dumpDB;

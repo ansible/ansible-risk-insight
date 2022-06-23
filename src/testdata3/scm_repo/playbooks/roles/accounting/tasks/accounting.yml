@@ -1,0 +1,42 @@
+- name: Clone the accounting repository
+  git:
+    repo: https://github.com/open-craft/accounting.git
+    version: master
+    dest: "{{ accounting_root_dir }}"
+    update: no
+  become_user: www-data
+
+- name: Add the `deadsnakes` PPA for getting Python3.6 on Ubuntu 16.04
+  apt_repository:
+    repo: 'ppa:deadsnakes/ppa'
+
+- name: Install system dependencies for the accounting service
+  command: make install_system_dependencies chdir="{{ accounting_root_dir }}"
+
+- name: Install pew because pipenv requires it
+  pip:
+    name: pew
+    executable: pip3
+  become: true
+
+- name: Install pipenv to later install python dependencies and virtual environments.
+  pip:
+    name: pipenv
+    executable: pip3
+  become: true
+
+# Pipfiles and pipenv aren't widespread enough yet so there's no related ansible module today. Update to use it when there is.
+- name: Install all python dependencies and the virtual environment.
+  command: pipenv install --python 3.6 chdir="{{ accounting_root_dir }}"
+  become_user: www-data
+  environment:
+    LC_ALL: C.UTF-8
+    LANG: C.UTF-8
+    PYTHONIOENCODING: utf-8
+
+- name: Install the configuration/environment file for the accounting service
+  template:
+    src: env.accounting.j2
+    dest: "{{ accounting_root_dir }}/.env"
+    mode: 0600
+  become_user: www-data

@@ -1,0 +1,12 @@
+---
+# Playbooks for setting up the Certificate Manager.
+
+- name: Set up certificate management servers.
+  hosts: cert-manager
+  become: true
+  roles:
+    - role: common-server
+      tags: 'common-server'
+
+    - role: cert-manager
+      tags: 'cert-manager'

@@ -1,0 +1,14 @@
+Alias /static/ {{ catchpy_app_path }}/static/
+
+<Directory {{ catchpy_app_path }}/static>
+    Require all granted
+</Directory>
+
+WSGIScriptAlias / {{ catchpy_app_path }}/catchpy/wsgi.py
+WSGIPythonPath {{ catchpy_app_path }}
+
+<Directory {{ catchpy_app_path }}/catchpy>
+    <Files wsgi.py>
+    Require all granted
+    </Files>
+</Directory>

@@ -1,0 +1,43 @@
+---
+
+elasticsearch_repo: "deb http://packages.elastic.co/elasticsearch/2.x/debian stable main"
+elasticsearch_package: elasticsearch
+
+elasticsearch_data_dir: /usr/share/elasticsearch/data
+elasticsearch_cfg_dir: /usr/share/elasticsearch/config
+elasticsearch_bin_dir: /usr/share/elasticsearch/bin
+elasticsearch_log_dir: /var/log/elasticsearch
+
+elasticsearch_network_host: 127.0.0.1
+elasticsearch_http_port: 9200
+
+elasticsearch_script_inline: true
+elasticsearch_script_indexed: true
+
+es_api_uri: "https://{{ elasticsearch_network_host }}:{{ elasticsearch_http_port }}"
+elasticsearch_username: elastic
+elasticsearch_password: ""
+elasticsearch_keystore: ""
+
+elasticsearch_cfg_extra: ""
+
+# This should follow the format described in https://www.elastic.co/guide/en/elasticsearch/reference/current/jvm-options.html
+# It is templated out to 50-extra-jvm.options
+# Note that this is only supported by recent elasticsearch releases.
+elasticsearch_extra_jvm_options: ""
+
+# Define these and include tasks/create_user_roles.yml to create users and roles in Elasticsearch.
+# Note that Elasticsearch must be running for this to work.
+create_elasticsearch_users: []
+# - username: example_user
+#   password: example_password
+#   roles: ["viewer"]
+create_elasticsearch_roles: []
+# - name: example_role
+#   # Ref https://www.elastic.co/guide/en/elasticsearch/reference/current/security-api-put-role.html
+#   permissions: |-
+#     {
+#         "cluster": [...],
+#         "indices": [...],
+#         ...
+#     }

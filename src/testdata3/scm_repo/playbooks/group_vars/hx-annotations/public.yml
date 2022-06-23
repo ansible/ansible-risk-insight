@@ -1,0 +1,91 @@
+---
+
+lti_create_consumer_key_pair: no
+
+# Hx SERVICE ##################################################################
+
+service_name: "<REPLACE_ME>"
+service_user: "{{ service_name }}"
+service_group: "{{ service_user }}"
+
+service_git_repo: "https://github.com/nmaekawa/{{ service_name }}.git"
+service_git_revision: "master"
+
+service_host: "127.0.0.1"
+service_port: 8000
+service_log_level: "INFO"
+service_timeout_seconds: 30
+
+service_admin_user: "{{ service_name }}-admin"
+service_admin_email: "{{ service_name }}-admin@example.com"
+service_admin_password: "<REPLACE_ME>"
+
+service_db_host: "127.0.0.1"
+service_db_port: 5432
+service_db_user: "{{ service_name }}"
+service_db_password: "<REPLACE_ME>"
+service_db_name: "{{ service_name }}"
+
+root_dir: /opt/hx
+service_root_dir: "{{ root_dir }}/{{ service_name }}"
+service_bin_dir: "{{ service_root_dir }}/bin"
+service_config_dir: "{{ service_root_dir }}/conf"
+service_data_dir: "{{ service_root_dir }}/data"
+service_backup_dir: "{{ service_data_dir }}/backup"
+service_dotenv_path: "{{ service_config_dir }}/{{ service_name }}.env"
+service_install_dir: "{{ service_root_dir }}/{{ service_name }}"
+service_static_dir: "{{ service_root_dir }}/www"
+service_django_static_dir: "{{ service_static_dir }}/static"
+service_virtualenv_dir: "{{ service_root_dir }}/virtualenv"
+
+service_directories:
+  - "{{ service_root_dir }}"
+  - "{{ service_config_dir }}"
+  - "{{ service_data_dir }}"
+  - "{{ service_backup_dir }}"
+  - "{{ service_bin_dir }}"
+  - "{{ service_static_dir }}"
+  - "{{ service_django_static_dir }}"
+
+required_system_packages:
+  - python3-pip
+  - python3-dev
+  - python3-setuptools
+  - python3-virtualenv
+  - libpq-dev
+  - supervisor
+  - postgresql-client
+
+# NGINX PROXY #################################################################
+
+NGINX_PROXY_CONFIG_PATH: "/etc/nginx/sites-available/{{ service_name }}.conf"
+NGINX_PROXY_INTERNAL_SCHEME: http
+NGINX_PROXY_INTERNAL_DOMAIN: "{{ service_host }}"
+NGINX_PROXY_INTERNAL_PORT: "{{ service_port }}"
+NGINX_PROXY_EXTRA_CONFIG: |
+  location /static {
+    autoindex on;
+    root {{ service_static_dir }};
+  }
+
+# POSGRESQL DATABASE ##########################################################
+
+# Do not mount /var/lib/postgres to external volume
+POSTGRES_OPENSTACK_DB_DEVICE: null
+
+postgresql_version: 12
+
+postgresql_databases:
+  - name: "{{ service_db_name }}"
+
+postgresql_users:
+  - name: "{{ service_db_user }}"
+    password: "{{ service_db_password }}"
+    encrypted: yes
+    db: "{{ service_db_name }}"
+    priv: ALL
+    role_attr_flags: CREATEDB
+
+# REDIS #######################################################################
+
+redis_version: "6.2.6"

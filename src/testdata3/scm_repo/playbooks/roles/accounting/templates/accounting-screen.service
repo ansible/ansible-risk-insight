@@ -1,0 +1,13 @@
+[Unit]
+Description=Screen session running the Accounting app's web server
+Documentation=https://github.com/open-craft/accounting/tree/master/README.md
+After=nginx.service
+
+[Service]
+ExecStart=/usr/bin/screen -D -m -c {{ accounting_screenrc_path }}
+Restart=no
+User=ubuntu
+Group=ubuntu
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,31 @@
+---
+
+- name: "copy Let's Encrypt stage CA cert"
+  copy:
+    src: lets-encrypt-fake-cert.crt
+    dest: "{{ PROMETHEUS_LETSENCRYPT_STAGE_CA }}"
+
+- name: configure rsyslog to send Prometheus logs to a separate file
+  copy:
+    content: |
+      :programname, isequal, "prometheus"    /var/log/prometheus.log
+    dest: /etc/rsyslog.d/prometheus.conf
+
+- name: configure log rotation for the Prometheus logs
+  copy:
+    src: logrotate
+    dest: /etc/logrotate.d/prometheus
+
+- name: ensure prometheus service directory exists
+  file:
+    path: /etc/systemd/system/prometheus.service.d
+    state: directory
+
+- name: set the nofile limit for prometheus service to a high number
+  copy:
+    content: |
+      [Service]
+      LimitNOFILE=infinity
+    dest: /etc/systemd/system/prometheus.service.d/override.conf
+
+- import_tasks: grafana.yml

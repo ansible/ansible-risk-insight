@@ -1,0 +1,55 @@
+---
+
+# HAPROXY #####################################################################
+
+haproxy_domain_regex: "haproxy.*\\.net\\.opencraft\\.hosting"
+
+haproxy_ppa: "ppa:vbernat/haproxy-2.4"
+haproxy_version: "2.4.*"
+haproxy_custom_rules: null
+haproxy_custom_maps: []
+
+haproxy_consul_watch_prefix: "ocim/instances"
+haproxy_consul_lock_prefix: "lock/ocim/"
+haproxy_consul_certs_prefix: "ocim/certs"
+
+haproxy_enable_stats_page: false
+haproxy_stats_port: 8404
+haproxy_stats_page_username: "haproxy"
+haproxy_stats_page_password: "set-me-please"
+
+# Configuration for Nginx server serving maintenance pages.
+maintenance_server_port: 8888
+maintenance_scheduled_server_port: "{{ maintenance_server_port + 1 }}"
+maintenance_unscheduled_server_port: "{{ maintenance_server_port + 2 }}"
+maintenance_provisioning_server_port: "{{ maintenance_server_port + 3 }}"
+maintenance_server_static_root: /var/www/maintenance
+maintenance_pages_repo: "https://github.com/open-craft/maintenance-pages"
+
+# Default type when site-is-down.yml or site-is-up.yml are run.
+maintenance_type: "unscheduled_maintenance"
+
+# The IP address below should always be IP address which the PRELIMINARY_PAGE_HOSTNAME resolves to.
+preliminary_page_server_ip: '149.202.180.183'
+
+# Certificate manager
+cert_manager_server_address: "127.0.0.1:8080"
+
+# PROMETHEUS ##################################################################
+
+haproxy_exporter_enabled: false
+haproxy_exporter_version: 0.10.0
+haproxy_exporter_basename: "haproxy_exporter-{{ haproxy_exporter_version }}.linux-amd64"
+haproxy_exporter_binary: "/opt/{{ haproxy_exporter_basename }}/haproxy_exporter"
+haproxy_exporter_archive: "{{ haproxy_exporter_basename }}.tar.gz"
+haproxy_exporter_download_url: "https://github.com/prometheus/haproxy_exporter/releases/download/v{{ haproxy_exporter_version }}/{{ haproxy_exporter_archive }}"
+haproxy_exporter_password: null
+
+haproxy_exporter_consul_service:
+  service:
+    name: haproxy-exporter
+    tags:
+      - haproxy-exporter
+      - monitor-https
+    port: 19101
+    enable_tag_override: true

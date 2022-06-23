@@ -1,0 +1,24 @@
+---
+
+# This playbook is responsible for deploying CatchPy and HxAT for MIT.
+
+- hosts: catchpy:hxat
+  become: true
+  roles:
+    - role: common-server
+      tags: "common-server"
+
+    - role: postgres
+      tags: "postgres"
+
+    - role: geerlingguy.postgresql
+      tags: "geerlingguy.postgresql"
+
+    - role: davidwittman.redis
+      tags: "davidwittman.redis"
+
+    - role: hx-annotations
+      tags: "hx-annotations"
+
+    - role: nginx-proxy
+      tags: "nginx"

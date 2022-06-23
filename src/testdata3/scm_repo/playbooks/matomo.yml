@@ -1,0 +1,13 @@
+---
+- name: Set up the Matomo application
+  hosts: analytics
+  become: true
+  roles:
+    - role: common-server
+      tags: 'common-server'
+
+    - role: docker-compose
+      tags: 'docker'
+
+    - role: matomo
+      tags: 'matomo'

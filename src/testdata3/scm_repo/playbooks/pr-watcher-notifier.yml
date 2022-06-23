@@ -1,0 +1,12 @@
+---
+# Playbook for setting up the PR watcher notifier application
+
+- name: Set up pr-watcher-notifier app
+  hosts: pr-watcher-notifier
+  become: true
+  roles:
+    # No need for the common-server role since this currently runs on vm.opencraft.com.
+    # - role: common-server
+    #   tags: 'common-server'
+
+    - role: pr-watcher-notifier

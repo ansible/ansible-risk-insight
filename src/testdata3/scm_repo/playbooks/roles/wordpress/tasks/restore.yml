@@ -1,0 +1,14 @@
+---
+
+- name: Copy full backup
+  copy:
+    src: "{{ WORDPRESS_FULL_BACKUP_PATH }}"
+    dest: /tmp/uploads.zip
+
+- name: Extract full backup
+  unarchive:
+    src: /tmp/uploads.zip
+    dest: "/var/www/"
+    owner: www-data
+    group: www-data
+    remote_src: yes

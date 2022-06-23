@@ -1,0 +1,3 @@
+---
+- import_tasks: nginx.yml
+- import_tasks: wordpress.yml

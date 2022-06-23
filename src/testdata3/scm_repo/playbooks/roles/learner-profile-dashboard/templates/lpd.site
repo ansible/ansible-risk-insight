@@ -1,0 +1,30 @@
+server {
+    listen         443 ssl;
+    server_name    {{ LPD_SERVER_DOMAIN }};
+
+    add_header Strict-Transport-Security "max-age=31536000";
+
+    ssl on;
+    ssl_certificate /etc/letsencrypt/live/{{ LPD_HOSTNAME }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ LPD_HOSTNAME }}/privkey.pem;
+
+
+    location /static {
+      alias {{ LPD_STATICFILES_ROOT }};
+    }
+
+    location /media {
+      alias {{ LPD_MEDIA_ROOT }};
+    }
+
+    location / {
+      proxy_pass_header Server;
+      proxy_set_header Host $http_host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Scheme $scheme;
+      proxy_redirect off;
+      proxy_connect_timeout 10;
+      proxy_read_timeout 10;
+      proxy_pass http://localhost:8080/;
+    }
+}

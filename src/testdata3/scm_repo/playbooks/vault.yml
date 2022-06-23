@@ -1,0 +1,10 @@
+---
+# Playbook for setting up Vault.
+
+- name: Set up Vault
+  hosts: vault
+  become: true
+  roles:
+    # No need for the common-server role since this runs on LB servers.
+    - role: vault
+      tags: 'vault'

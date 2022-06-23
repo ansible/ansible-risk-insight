@@ -1,0 +1,44 @@
+---
+
+- name: checkout repository
+  git:
+    repo: "{{ DALITE_REPOSITORY }}"
+    version: "{{ DALITE_REPOSITORY_VERSION }}"
+    dest: "{{ DALITE_APP_LOCATION }}"
+
+- name: install dependencies
+  pip:
+    virtualenv: "{{ DALITE_VENV }}"
+    state: present
+    requirements: "{{ DALITE_APP_LOCATION }}/requirements/prod-openstack.txt"
+    virtualenv_python: "/usr/bin/python2.7"
+
+# This is a hack Gunicorn==17.5 is installed system wide, so virtualenv and system version match.
+# possibly this should be sloved in a cleaner way
+- name: install dependencies
+  pip:
+    virtualenv: "{{ DALITE_VENV }}"
+    state: present
+    name: "Gunicorn==17.5"
+    virtualenv_python: "/usr/bin/python2.7"
+
+- name: create settings
+  template:
+    src: dalite_settings.py
+    dest: "{{ DALITE_APP_LOCATION }}/dalite/local_settings.py"
+
+- name: create static root
+  file:
+    name: "{{ DALITE_STATICFILES_ROOT }}"
+    state: directory
+
+- name: create media root
+  file:
+    name: "{{ DALITE_MEDIA_ROOT }}"
+    state: directory
+
+- name: collectstatic
+  shell: "{{ DALITE_MANAGE_PY }} collectstatic --noinput"
+
+- name: migrate
+  shell: "{{ DALITE_MANAGE_PY }} migrate --noinput"

@@ -1,0 +1,135 @@
+---
+# This role contains tasks specific to catchpy nodes.
+
+- name: Install packages for catchpy
+  become: yes
+  apt:
+    name: "{{ packages }}"
+  vars:
+    packages:
+    - libapache2-mod-wsgi-py3
+    - postgresql
+    - postgresql-contrib
+    - libpq-dev
+    - python3-dev
+    - python3-pip
+    - python3-setuptools
+
+- name: Install psycopg2
+  become: yes
+  pip:
+    name: psycopg2
+
+# Database
+
+- name: ensure database is created
+  become: yes
+  become_user: postgres
+  postgresql_db: name={{catchpy_dbname}}
+
+- name: ensure user has access to database
+  become: yes
+  become_user: postgres
+  postgresql_user: db={{catchpy_dbname}} name={{catchpy_dbuser}} password={{catchpy_dbpassword}} priv=ALL
+
+- name: ensure user does not have unnecessary privilege
+  become: yes
+  become_user: postgres
+  postgresql_user: name={{catchpy_dbuser}} role_attr_flags=NOSUPERUSER,NOCREATEDB
+
+- name: copy pre backup script
+  template:
+    src: catchpy-pre-backup.sh
+    dest: /usr/local/sbin/catchpy-pre-backup.sh
+    owner: root
+    group: root
+    mode: 0700
+
+# catchpy code
+
+- stat: path={{ catchpy_app_path }}
+  register: app_path
+
+- name: clone repository and checkout correct version
+  become: yes
+  git:
+    repo: "{{ catchpy_app_repository }}"
+    dest: "{{ catchpy_app_path }}"
+    version: "{{ catchpy_version }}"
+  when: app_path.stat.exists == False
+
+- name: change owner
+  become: yes
+  file:
+    path: "{{ catchpy_app_path }}"
+    owner: www-data
+    group: www-data
+    recurse: yes
+
+- name: install python requirements
+  become: yes
+  pip:
+    requirements: "{{ catchpy_app_path}}/requirements.txt"
+    executable: pip3
+
+- name: get settings from template
+  become: yes
+  become_user: www-data
+  template:
+    src: prod.py.j2
+    dest: "{{ catchpy_app_path }}/catchpy/settings/prod.py"
+    mode: 0644
+
+- name: setup django database
+  become: yes
+  become_user: www-data
+  command: python3 manage.py migrate --noinput
+  args:
+    chdir: "{{ catchpy_app_path }}"
+  environment:
+    DJANGO_SETTINGS_MODULE: 'catchpy.settings.prod'
+
+- name: collect django static
+  become: yes
+  become_user: www-data
+  command: python3 manage.py collectstatic --noinput
+  args:
+    chdir: "{{ catchpy_app_path }}"
+  environment:
+    DJANGO_SETTINGS_MODULE: 'catchpy.settings.prod'
+
+- name: create admin superuser
+  become: yes
+  become_user: www-data
+  command: python3 manage.py create_user --username {{ catchpy_super_user }} --password {{ catchpy_super_pass }} --is_admin
+  args:
+    chdir: "{{ catchpy_app_path }}"
+  environment:
+    DJANGO_SETTINGS_MODULE: 'catchpy.settings.prod'
+
+# Apache deployment
+
+- name: disable default site
+  become: yes
+  file:
+    state: absent
+    path: /etc/apache2/sites-enabled/000-default.conf
+
+- name: make sure mod_wsgi is present
+  become: yes
+  apache2_module:
+    state: present
+    name: wsgi
+
+- name: get apache conf from template
+  become: yes
+  template:
+    src: apache2.conf.j2
+    dest: /etc/apache2/sites-enabled/catchpy.conf
+    mode: 0644
+
+- name: ensure apache reload its configuration
+  become: yes
+  service:
+    name: apache2
+    state: reloaded

@@ -1,0 +1,39 @@
+---
+- name: set up basic auth password
+  when: NGINX_PROXY_PASSWORD is not none
+  block:
+
+    - name: install passlib for htpasswd generation
+      apt:
+        name: python3-passlib
+
+    - name: generate htpasswd file
+      htpasswd:
+        path: "{{ NGINX_PROXY_HTPASSWD_PATH }}"
+        username: "{{ NGINX_PROXY_USERNAME }}"
+        password: "{{ NGINX_PROXY_PASSWORD }}"
+
+- name: set up nginx to reverse-proxy
+  template:
+    src: nginx-proxy.j2
+    dest: "{{ NGINX_PROXY_CONFIG_PATH }}"
+  register: sites_available
+
+- name: enable nginx site configuration
+  file:
+    src: "{{ NGINX_PROXY_CONFIG_PATH }}"
+    dest: "/etc/nginx/sites-enabled/{{ NGINX_PROXY_CONFIG_PATH | basename }}"
+    state: link
+  register: sites_enabled
+
+- name: open public port on the firewall
+  ufw:
+    rule: allow
+    port: "{{ NGINX_PROXY_PUBLIC_PORT }}"
+    proto: tcp
+
+- name: reload nginx
+  service:
+    name: nginx
+    state: reloaded
+  when: (sites_available.changed or sites_enabled.changed) and NGINX_PROXY_RELOAD_NGINX

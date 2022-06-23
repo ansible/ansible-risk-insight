@@ -1,0 +1,17 @@
+---
+FORWARD_MAIL_OS_PACKAGES:
+  - postfix
+  - mailutils
+  - libsasl2-2
+  - ca-certificates
+  - libsasl2-modules
+
+FORWARD_MAIL_MYDOMAIN: "{{ inventory_hostname }}"
+FORWARD_MAIL_SMTP_SERVER: null
+
+FORWARD_MAIL_SMTP_PORT: "587"
+FORWARD_MAIL_SMTP_USER: null
+FORWARD_MAIL_SMTP_PASSWORD: null
+FORWARD_MAIL_RELAY_MAIL_TO: "null@example.com"
+FORWARD_MAIL_SMTP_FROM: "{{ FORWARD_MAIL_RELAY_MAIL_TO }}"
+FORWARD_MAIL_SERVER_CERTIFICATE: null

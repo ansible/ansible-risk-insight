@@ -1,0 +1,14 @@
+[fcgi-program:{{ service_name }}]
+socket=tcp://{{ websockets.service_daphne.host }}:{{ websockets.service_daphne.port }}
+
+user = {{ service_name }}
+environment = {{ service_name | upper }}_DOTENV_PATH="{{ service_dotenv_path }}"
+
+command = {{ service_virtualenv_dir }}/bin/daphne -u {{ websockets.service_daphne.socket_dir }}/daphne%(process_num)d.sock --fd 0 --access-log - --proxy-headers {{ wsgi_module | default(service_name, true) }}.asgi:application
+
+numprocs = 2
+process_name = asgi%(process_num)d
+autostart = true
+autorestart = true
+stdout_logfile = syslog
+redirect_stderr = true

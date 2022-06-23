@@ -1,0 +1,25 @@
+ui = {{ "true" if vault_ui else "false" }}
+log_level = "{{ vault_log_level }}"
+max_lease_ttl = "{{ vault_max_lease_ttl }}"
+api_addr = "{{ vault_api_addr }}"
+cluster_addr = "{{ vault_cluster_addr }}"
+
+listener "tcp" {
+    address         = "{{ vault_tcp_address }}"
+    cluster_address = "{{ vault_tcp_cluster_address }}"
+
+    tls_cert_file                      = "{{ vault_tcp_tls_cert_file }}"
+    tls_key_file                       = "{{ vault_tcp_tls_key_file }}"
+    tls_client_ca_file                 = "{{ vault_tcp_tls_client_ca_file }}"
+    tls_require_and_verify_client_cert = "{{ "true" if vault_tcp_tls_require_and_verify_client_cert else "false" }}"
+}
+
+{% if vault_consul_storage %}
+storage "consul" {
+    scheme           = "{{ vault_consul_scheme }}"
+    address          = "{{ vault_consul_address }}"
+    path             = "{{ vault_consul_path }}"
+    token            = "{{ vault_consul_acl_token }}"
+    consistency_mode = "{{ vault_consul_consistency_mode }}"
+}
+{% endif %}

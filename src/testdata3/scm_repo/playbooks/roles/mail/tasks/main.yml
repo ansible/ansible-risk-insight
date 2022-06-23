@@ -1,0 +1,117 @@
+---
+
+- name: mailman3 packages
+  apt:
+    name:
+      - "mailman3-full"
+  notify:
+    - "restart mailman3"
+    - "update mailman3 aliases"
+
+- name: postfix packages
+  apt:
+    name:
+      - "postfix"
+  notify:
+    - "reload postfix"
+
+- name: Mailman3 mailman.cfg
+  template:
+    src: "mailman.cfg.j2"
+    dest: "/etc/mailman3/mailman.cfg"
+  notify:
+    - "restart mailman3"
+    - "update mailman3 aliases"
+
+- name: Mailman3 mailman-web.py
+  template:
+    src: "mailman-web.py.j2"
+    dest: "/etc/mailman3/mailman-web.py"
+  notify:
+    - "restart mailman3"
+    - "update mailman3 aliases"
+
+- name: Mailman3 mailman-hyperkitty.cfg
+  template:
+    src: "mailman-hyperkitty.cfg.j2"
+    dest: "/etc/mailman3/mailman-hyperkitty.cfg"
+  notify:
+    - "restart mailman3"
+    - "update mailman3 aliases"
+
+# mailman3 core has migrations, but they are run automatically.
+# We only need to run the mailman3-web migrations manually here.
+- name: Mailman3 web database migrations up to date
+  command: "/usr/share/mailman3-web/manage.py migrate"
+  become_user: "www-data"
+  register: "mailman3_web_migrations"
+  changed_when: "'No migrations to apply' not in mailman3_web_migrations.stdout"
+
+- name: Allow 443 tcp port for mailman3 web (nginx reverse proxy)
+  ufw:
+    rule: "allow"
+    port: "443"
+    proto: "tcp"
+
+- name: Allow tcp port 25 for SMTP
+  ufw:
+    rule: "allow"
+    port: "25"
+    proto: "tcp"
+
+- name: Allow tcp port 465 for SMTPS
+  ufw:
+    rule: "allow"
+    port: "465"
+    proto: "tcp"
+
+- name: Allow tcp port 587 for MSA
+  ufw:
+    rule: "allow"
+    port: "587"
+    proto: "tcp"
+
+- name: Mailman3 web nginx proxy config
+  template:
+    src: "mailman3-nginx-proxy.conf.j2"
+    dest: "/etc/nginx/sites-available/mailman3"
+  notify:
+    - "reload nginx"
+
+- name: Mailman3 nginx proxy config sites-enabled
+  file:
+    src: "/etc/nginx/sites-available/mailman3"
+    dest: "/etc/nginx/sites-enabled/mailman3"
+    state: "link"
+  notify:
+    - "reload nginx"
+
+- name: Postfix transport maps
+  template:
+    src: "postfix-transport.j2"
+    dest: "/etc/postfix/transport"
+  notify:
+    - "postmap transport"
+    - "reload postfix"
+
+- name: Postfix header check maps
+  when: OPENCRAFT_HEADER_TOKEN
+  template:
+    src: "postfix-header-checks.j2"
+    dest: "/etc/postfix/header_checks"
+  notify:
+    - "postmap header_checks"
+    - "reload postfix"
+
+- name: Postfix aliases
+  template:
+    src: "postfix-aliases.j2"
+    dest: "/etc/aliases"
+  notify:
+    - "newaliases"
+
+- name: Postfix is configured
+  template:
+    src: "postfix-main.cf.j2"
+    dest: "/etc/postfix/main.cf"
+  notify: "reload postfix"

@@ -1,0 +1,14 @@
+CONFIG = {
+    'mode': 'wsgi',
+    'working_dir': '{{ LPD_APP_LOCATION }}',
+    'python': '{{ LPD_PYTHON }}',
+    'user': '{{ LPD_USER_NAME }}',
+    'group': '{{ LPD_USER_NAME }}',
+    'environment': {{ LPD_ENV|to_json }},
+    'args': (
+        '--bind=127.0.0.1:8080',
+        '--workers=16',
+        '--timeout=60',
+        'app.wsgi',
+    ),
+}

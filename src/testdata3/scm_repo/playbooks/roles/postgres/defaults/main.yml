@@ -1,0 +1,4 @@
+---
+
+POSTGRES_OPENSTACK_DB_DEVICE: '/dev/vdb1'
+POSTGRES_SERVER_BACKUP_DIR: '/var/lib/postgresql/backup'

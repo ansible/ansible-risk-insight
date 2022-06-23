@@ -1,0 +1,11 @@
+cd {{ accounting_root_dir }} && pipenv shell
+
+export WORKERS={{ ACCOUNTING_WORKERS }}
+export WORKERS_LOW_PRIORITY={{ ACCOUNTING_WORKERS_LOW_PRIORITY }}
+
+# Prevent accidential closing of shells inside screen or tmux
+case $TERM in
+    screen*)
+        IGNOREEOF=10
+        ;;
+esac

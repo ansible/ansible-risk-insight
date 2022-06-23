@@ -1,0 +1,49 @@
+---
+
+- name: Install apt package dependencies.
+  apt:
+    name: apt-transport-https
+
+- name: Add Elastic's apt key
+  apt_key:
+    url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+
+- name: Add Elastic's apt repository
+  apt_repository:
+    repo: 'deb https://artifacts.elastic.co/packages/7.x/apt stable main'
+
+- name: Install Kibana
+  apt:
+    name: kibana
+
+- name: Configure Kibana directories
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: kibana
+    mode: 0750
+  with_items:
+    - { path: "{{ kibana_config_dir }}", owner: root }
+    - { path: "{{ kibana_data_dir }}", owner: kibana }
+
+- name: Install Elasticsearch Certificates
+  copy:
+    content: "{{ elasticsearch_ca }}"
+    dest: "{{ kibana_config_dir }}/elasticsearch-ca.pem"
+    owner: kibana
+    group: kibana
+    mode: 0640
+
+- name: Configure Kibana
+  template:
+    src: kibana.yml.j2
+    dest: /etc/kibana/kibana.yml
+    group: kibana
+  notify: restart kibana
+
+- name: Ensure Kibana is started and enabled at boot
+  service:
+    name: kibana
+    state: started
+    enabled: yes

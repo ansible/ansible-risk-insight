@@ -1,0 +1,3 @@
+---
+- name: reload consul
+  shell: "if command -v consul; then consul reload; fi"

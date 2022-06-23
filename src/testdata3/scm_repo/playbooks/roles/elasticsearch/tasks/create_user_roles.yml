@@ -1,0 +1,50 @@
+# Create / update the given roles and users
+# 
+# WARNING We don't recommend altering the built-in roles:
+# https://www.elastic.co/guide/en/elasticsearch/reference/current/built-in-roles.html
+
+- name: Create Elasticsearch role
+  uri:
+    url: "{{ es_api_uri }}/_security/role/{{ item.name }}"
+    method: POST
+    body_format: json
+    body: "{{ item.permissions }}"
+    status_code: 200
+    user: "{{ elasticsearch_username }}"
+    password: "{{ elasticsearch_password }}"
+    force_basic_auth: yes
+    validate_certs: no
+  with_items: "{{ elasticsearch_create_roles }}"
+  when: elasticsearch_create_roles is defined
+
+- name: Create Elasticsearch user
+  uri:
+    url: "{{ es_api_uri }}/_security/user/{{ item.username }}"
+    method: POST
+    body_format: json
+    body:
+      password: "{{ item.password }}"
+      roles: "{{ item.roles }}"
+    status_code: 200
+    user: "{{ elasticsearch_username }}"
+    password: "{{ elasticsearch_password }}"
+    force_basic_auth: yes
+    validate_certs: no
+  with_items: "{{ elasticsearch_create_users }}"
+  when: elasticsearch_create_users is defined
+
+# Required because the above creation endpoint will not update passwords for existing users
+- name: Update password for Elasticsearch user
+  uri:
+    url: "{{ es_api_uri }}/_security/user/{{ item.username }}/_password"
+    method: POST
+    body_format: json
+    body:
+      password: "{{ item.password }}"
+    status_code: 200
+    user: "{{ elasticsearch_username }}"
+    password: "{{ elasticsearch_password }}"
+    force_basic_auth: yes
+    validate_certs: no
+  with_items: "{{ elasticsearch_create_users }}"
+  when: elasticsearch_create_users is defined

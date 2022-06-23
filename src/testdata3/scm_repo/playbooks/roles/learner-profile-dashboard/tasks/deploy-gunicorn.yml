@@ -1,0 +1,15 @@
+---
+
+- name: Ensure Gunicorn config directory exists
+  file:
+   path: /etc/gunicorn.d
+   recurse: yes
+   state: directory
+
+- name: prepare config
+  template:
+    src: lpd.gunicorn
+    dest: /etc/gunicorn.d/lpd
+
+- name: restart gunicorn
+  service: name=gunicorn state=restarted

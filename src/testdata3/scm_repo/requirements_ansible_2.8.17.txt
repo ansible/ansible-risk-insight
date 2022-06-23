@@ -1,0 +1,5 @@
+ansible==2.8.17
+netaddr==0.7.19
+cryptography
+jinja2==2.11.3
+Markupsafe==2.0.1  # jinja2 2.11.3 imports 'soft_unicode' from markup safe which was removed in 2.1.0

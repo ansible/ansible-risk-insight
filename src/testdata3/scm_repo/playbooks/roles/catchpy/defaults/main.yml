@@ -1,0 +1,25 @@
+# general
+
+catchpy_app_repository: https://github.com/nmaekawa/catchpy
+catchpy_app_path: /srv/catchpy
+catchpy_version: "1.4.3"
+
+# database
+
+catchpy_dbname: catchpy
+catchpy_dbuser: catchpy
+catchpy_dbpassword: catchpy
+
+# django settings
+
+catchpy_django_allowed_hosts:
+  - 'localhost'
+  - '127.0.0.1'
+  - '*'
+
+catchpy_django_secret: itsasecret
+
+# django admin superuser
+
+catchpy_super_user: super
+catchpy_super_pass: super

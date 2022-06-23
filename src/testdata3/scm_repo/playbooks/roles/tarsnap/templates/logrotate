@@ -1,0 +1,9 @@
+{{ TARSNAP_BACKUP_LOG_FILE }} {
+        daily
+        rotate 14
+        compress
+        delaycompress
+        missingok
+        notifempty
+        create 644 root root
+}

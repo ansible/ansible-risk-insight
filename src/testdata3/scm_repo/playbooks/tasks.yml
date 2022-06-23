@@ -1,0 +1,93 @@
+---
+- name: Set up the Jira instance
+  hosts: tasks
+  become: true
+  roles:
+    - role: common-server
+      tags: 'common-server'
+      vars:
+        NGINX_PROXY_EXTRA_CONFIG: ""
+
+    - role: geerlingguy.java
+      tags: 'geerlingguy.java'
+
+    - role: jira
+      tags: 'jira'
+
+    - role: nginx-proxy
+      tags: nginx
+      vars:
+        NGINX_PROXY_CONFIG_PATH: /etc/nginx/sites-available/tasks
+        NGINX_PROXY_INTERNAL_SCHEME: http
+        NGINX_PROXY_INTERNAL_DOMAIN: localhost
+        NGINX_PROXY_INTERNAL_PORT: 6002
+        NGINX_PROXY_EXTRA_CONFIG: |
+          client_max_body_size       100m;
+          client_body_buffer_size    128k;
+
+          proxy_connect_timeout      30;
+          proxy_send_timeout         600;
+          proxy_read_timeout         600;
+
+          proxy_buffer_size          4k;
+          proxy_buffers              4 32k;
+          proxy_busy_buffers_size    64k;
+          proxy_temp_file_write_size 64k;
+
+          # deny access to .htaccess files
+          location ~ /\.ht {
+            deny  all;
+          }
+
+          # Workaround issue where AgilePoker slows down the backlog page for everyone (MNG-179)
+          # Block AgilePoker except on its own pages
+          location /rest/pokerng/1.0/session/ {
+            # Only serve this file if the referring URL contains 'jiraplanningpoker'
+            # e.g. allow https://tasks.opencraft.com/projects/SE?selectedItem=com.spartez.jira.plugins.jiraplanningpoker:pokerng-project-side-panel-link
+            # e.g. block https://tasks.opencraft.com/secure/RapidBoard.jspa?projectKey=SE&rapidView=24&view=planning
+            valid_referers ~.*jiraplanningpoker.*;
+
+            if ($invalid_referer = '1'){
+              return 403;
+            }
+
+            proxy_pass http://localhost:6002;
+            proxy_redirect     off;
+            proxy_set_header   Host             $host;
+            proxy_set_header   X-Real-IP        $remote_addr;
+            proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
+          }
+
+- name: Set up Jira MySQL server
+  hosts: mysql-tasks
+  become: true
+  roles:
+    - role: common-server
+      tags: 'common-server'
+
+    - role: mysql
+      tags: 'mysql'
+      # This will fail if the /var/lib/mysql directory is not empty.
+      vars:
+        MYSQL_DEBIAN_SNAPSHOT_URL: http://snapshot.debian.org/archive/debian/20210214T202741Z/pool/main/m/mysql-5.7/
+        MYSQL_URLS:
+          # Ubuntu 20.04 needs these three first dependencies in order to install mysql-server-core
+          - name: insserv
+            url: http://cz.archive.ubuntu.com/ubuntu/pool/main/i/insserv/insserv_1.14.0-5ubuntu3_amd64.deb
+          - name: sysv-rc
+            url: http://cz.archive.ubuntu.com/ubuntu/pool/main/s/sysvinit/sysv-rc_2.88dsf-59.3ubuntu2_all.deb
+          - name: initscripts
+            url: http://cz.archive.ubuntu.com/ubuntu/pool/main/s/sysvinit/initscripts_2.88dsf-59.3ubuntu2_amd64.deb
+          - name: libmysqlclient
+            url: "{{ MYSQL_DEBIAN_SNAPSHOT_URL }}/libmysqlclient20_5.7.26-1+b1_amd64.deb"
+          - name: MySQL Client Core
+            url: "{{ MYSQL_DEBIAN_SNAPSHOT_URL }}/mysql-client-core-5.7_5.7.26-1+b1_amd64.deb"
+          - name: MySQL Client
+            url: "{{ MYSQL_DEBIAN_SNAPSHOT_URL }}/mysql-client-5.7_5.7.26-1+b1_amd64.deb"
+          - name: MySQL Server Core
+            url: "{{ MYSQL_DEBIAN_SNAPSHOT_URL }}/mysql-server-core-5.7_5.7.26-1+b1_amd64.deb"
+          - name: MySQL Server
+            url: "{{ MYSQL_DEBIAN_SNAPSHOT_URL }}/mysql-server-5.7_5.7.26-1+b1_amd64.deb"
+
+    - role: geerlingguy.mysql
+      tags: 'geerlingguy.mysql'

@@ -1,0 +1,11 @@
+[Unit]
+Description=New certificate watcher for haproxy
+Documentation=https://github.com/open-craft/ansible-load-balancer/README.md
+After=haproxy.service
+
+[Service]
+ExecStart=/usr/local/sbin/cert-watcher
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

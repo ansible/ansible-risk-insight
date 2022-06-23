@@ -1,0 +1,15 @@
+---
+# Playbook for setting up a Backup Pruner server.
+
+- name: Install and set up the backup-pruner server
+  hosts: backup-pruner
+  become: true
+  roles:
+    - role: common-server
+      tags: 'common-server'
+
+    - role: tarsnap
+      tags: 'tarsnap'
+
+    - role: backup-pruner
+      tags: 'backup-pruner'
