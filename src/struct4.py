@@ -559,6 +559,7 @@ class Repository(JSONSerializable, Resolvable):
     version: str = ""
 
     module_dict: dict = field(default_factory=dict) # make it easier to search a module
+    task_dict: dict = field(default_factory=dict) # make it easier to search a task
     role_dict: dict = field(default_factory=dict) # make it easier to search a role
 
     annotations: dict = field(default_factory=dict)
@@ -601,6 +602,7 @@ class Repository(JSONSerializable, Resolvable):
         for p in patterns:
              found_ones = glob.glob(p, recursive=True)
              candidates.extend(found_ones)
+        tasks = []
         playbooks = []
         for fpath in candidates:
             if self.could_be_playbook(fpath):
@@ -610,7 +612,9 @@ class Repository(JSONSerializable, Resolvable):
                 except:
                     logging.exception("error while loading the playbook at {}".format(fpath))
                 playbooks.append(p)
+                tasks.extend(p.tasks)
         self.playbooks = playbooks
+        self.update_task_dict(tasks)
 
     def load_roles(self, path):
         roles_dir_path = os.path.join(path, "roles")
@@ -618,6 +622,7 @@ class Repository(JSONSerializable, Resolvable):
             return
         dirs = os.listdir(roles_dir_path)
         modules = []
+        tasks = []
         roles = []
         for dir_name in dirs:
             role_dir = os.path.join(roles_dir_path, dir_name)
@@ -627,9 +632,11 @@ class Repository(JSONSerializable, Resolvable):
             except:
                 logging.exception("error while loading the role at {}".format(role_dir))
             roles.append(r)
+            tasks.extend(r.tasks)
             modules.extend(r.modules)
         self.roles = roles
         self.update_role_dict(roles)
+        self.update_task_dict(tasks)
         self.update_module_dict(modules)
 
     def load_installed_collections(self, installed_collections_path):
@@ -640,6 +647,7 @@ class Repository(JSONSerializable, Resolvable):
             search_path = os.path.join(search_path, "ansible_collections")
         dirs = os.listdir(search_path)
         modules = []
+        tasks = []
         roles = []
         collections = []
         for d in dirs:
@@ -658,10 +666,13 @@ class Repository(JSONSerializable, Resolvable):
                 collections.append(c)
                 modules.extend(c.modules)
                 roles.extend(c.roles)
+                for r in c.roles:
+                    tasks.extend(r.tasks)
         self.installed_collections = collections
         builtin = self.parepare_ansible_builtin_collection()
         modules.extend(builtin.modules)
         self.update_module_dict(modules)
+        self.update_task_dict(tasks)
         self.update_role_dict(roles)
 
     def load_installed_roles(self, installed_roles_path):
@@ -670,6 +681,7 @@ class Repository(JSONSerializable, Resolvable):
             return
         dirs = os.listdir(search_path)
         modules = []
+        tasks = []
         roles = []
         for d in dirs:
             role_path = os.path.join(installed_roles_path, d)
@@ -694,9 +706,11 @@ class Repository(JSONSerializable, Resolvable):
                 except:
                     logging.exception("error while loading the role at {}".format(role_dir_path))
                 roles.append(r)
+                tasks.extend(r.tasks)
                 modules.extend(r.modules)
         self.installed_roles = roles
         self.update_role_dict(roles)
+        self.update_task_dict(tasks)
         self.update_module_dict(modules)
 
     # modules defined in a SCM repo should be in `library` directory in the best practice case
@@ -779,6 +793,19 @@ class Repository(JSONSerializable, Resolvable):
         self.module_dict = module_dict
         return
 
+    def update_task_dict(self, tasks):
+        if tasks is None:
+            return
+        task_dict = self.task_dict
+        for t in tasks:
+            if t.id == "":
+                continue
+            if t.id in task_dict:
+                continue
+            task_dict[t.id] = t
+        self.task_dict = task_dict
+        return
+
     def update_role_dict(self, roles):
         if roles is None:
             return
@@ -808,6 +835,9 @@ class Repository(JSONSerializable, Resolvable):
                     m = module_dict[key]
                     break
         return m
+
+    def get_task_by_id(self, id):
+        return self.task_dict.get(id, None)
 
     def get_role_by_fqcn(self, fqcn):
         return self.role_dict.get(fqcn, None)
