@@ -112,6 +112,17 @@ class TestStruct3(unittest.TestCase):
         actual = len(r.role_dict)
         self.assertEqual(expected, actual)
 
+        data = r.dump()
+        with open("test2.json", "w") as file:
+            file.write(data)
+
+    # # testdata3
+    # def test_repository_3(self):
+    #     """test method for Repository
+    #     """
+    #     r = Repository()
+    #     r.load("testdata3/scm_repo/playbooks")
+
 
 if __name__ == "__main__":
     unittest.main()
