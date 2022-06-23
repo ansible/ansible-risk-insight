@@ -1,0 +1,10 @@
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    {{ COMMON_FLOATING_INTERFACE_NAME }}:
+      dhcp4: yes
+      dhcp6: yes
+      addresses:
+        # Setting the floating IP address + netmask (255.255.255.255)
+        - "{{ COMMON_FLOATING_IP }}/32"

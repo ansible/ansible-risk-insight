@@ -1,0 +1,15 @@
+---
+# Vault user
+vault_user_createhome: yes
+
+# Vault server
+vault_server_scheme: "http"
+vault_server_options: "-dev -dev-root-token-id testtoken"
+
+# Storage stanza
+vault_consul_storage: false
+
+# Firewall
+vault_ufw: false
+
+vault_token_root: testtoken

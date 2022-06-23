@@ -1,0 +1,8 @@
+collections:
+- name: community.general
+  version: 1.3.14
+- name: ansible.posix
+- name: community.rabbitmq
+- name: community.docker
+- name: community.mysql
+- name: community.postgresql

@@ -1,0 +1,17 @@
+---
+# The basic auth password to access the node exporter.
+NODE_EXPORTER_PASSWORD: null
+
+NODE_EXPORTER_NGINX_CONFIG_PATH: /etc/nginx/sites-available/node-exporter
+NODE_EXPORTER_HTPASSWD_PATH: /etc/nginx/htpasswd
+
+NODE_EXPORTER_USE_SSL: true
+
+NODE_EXPORTER_CONSUL_SERVICE:
+  service:
+    name: node-exporter
+    tags:
+      - node-exporter
+      - "{{ 'monitor-https' if NODE_EXPORTER_USE_SSL else 'monitor' }}"
+    port: 19100
+    enable_tag_override: true

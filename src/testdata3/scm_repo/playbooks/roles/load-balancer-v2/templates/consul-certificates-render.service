@@ -1,0 +1,11 @@
+[Unit]
+Description=Render SSL certificates from Consul
+After=haproxy.service
+
+[Service]
+ExecStart=/usr/local/sbin/consul-certificates-render.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

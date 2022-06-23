@@ -1,0 +1,24 @@
+---
+
+# Percentage of free disk space required on every partition
+SANITY_CHECK_DISK_SPACE_PERCENTAGE: 20
+
+SANITY_CHECK_LIVE_PORTS: []
+
+SANITY_CHECK_COMMANDS: []
+
+SANITY_CHECK_SCRIPT_LOCATION: /usr/local/sbin/sanity-check.py
+SANITY_CHECK_LOG_LOCATION: /root/sanity-check
+SANITY_CHECK_CONFIG: /root/sanity-check.json
+SANITY_CHECK_SNITCH: null
+
+SANITY_CHECK_SUBJECT: 'Some errors in {{ inventory_hostname }} server.'
+
+sanity_check_control_file:
+  free_percentage: "{{ SANITY_CHECK_DISK_SPACE_PERCENTAGE }}"
+  ports: "{{ SANITY_CHECK_LIVE_PORTS }}"
+  commands: "{{ SANITY_CHECK_COMMANDS }}"
+  snitch: "{{ SANITY_CHECK_SNITCH }}"
+  send_report_to: "root"
+  subject: "{{ SANITY_CHECK_SUBJECT }}"
+  report_file: "{{ SANITY_CHECK_LOG_LOCATION }}"

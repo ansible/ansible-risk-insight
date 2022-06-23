@@ -1,0 +1,27 @@
+dependencies:
+
+  - name: tarsnap
+    when: OPENCRAFT_BACKUP_SWIFT_ENABLED and www_user != 'vagrant'
+
+  - name: nginx-proxy
+    NGINX_PROXY_CONFIG_PATH: /etc/nginx/sites-available/ocim
+    NGINX_PROXY_INTERNAL_PORT: 5000
+    NGINX_PROXY_PUBLIC_PORT: 443
+    NGINX_PROXY_SERVER_NAME: "{{ OPENCRAFT_DOMAIN_NAME }}"
+    NGINX_PROXY_SEND_TIMEOUT: 600s
+    NGINX_PROXY_READ_TIMEOUT: 600s
+    NGINX_PROXY_ORIGIN_REGEX: '^(http|https)://.*\.opencraft\.com'
+    NGINX_PROXY_CORS_HEADERS_FOR_RESPONSE_CODES: [413]
+    NGINX_PROXY_EXTRA_CONFIG: "{{ opencraft_nginx_static_config + opencraft_nginx_websocket_config }}"
+    when: www_user != 'vagrant'
+
+  - name: pyenv
+    pyenv_home: "{{ www_data_home_dir }}"
+    pyenv_create_pyenv_home: true
+    pyenv_user: "{{ www_user }}"
+    pyenv_group: "{{ www_group }}"
+    pyenv_python_versions:
+      - "{{ ocim_python_version }}"
+    pyenv_virtualenv_environments:
+      - python_version: "{{ ocim_python_version }}"
+        virtualenv_name: "{{ opencraft_virtualenv_name }}"

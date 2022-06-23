@@ -1,0 +1,34 @@
+---
+
+# ANSIBLE #####################################################################
+
+ansible_python_interpreter: /usr/bin/python3
+
+# TARSNAP #####################################################################
+
+tarsnap_version: 1.0.39
+tarsnap_cache: /var/tarsnap/cache
+tarsnap_cron_hour: "*"
+
+# MAIL ########################################################################
+
+FORWARD_MAIL_RELAY_MAIL_TO: '{{ OPS_EMAIL }}'
+COMMON_SERVER_OPS_EMAIL: '{{ OPS_EMAIL }}'
+CERTBOT_OPS_EMAIL: '{{ OPS_EMAIL }}'
+security_autoupdate_mail_to: '{{ OPS_EMAIL }}'
+
+# CERTBOT #####################################################################
+
+certbot_auto_renew_user: root
+
+# SWAPFILE ####################################################################
+
+swapfile_size: '512MB'
+
+# CONSUL ######################################################################
+
+consul_ip: "{{ COMMON_FLOATING_IP if (COMMON_FLOATING_IP is defined and COMMON_FLOATING_IP) else ansible_default_ipv4.address }}"
+
+# PROMETHEUS ##################################################################
+
+prometheus_install_dir: /opt

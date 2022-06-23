@@ -1,0 +1,58 @@
+---
+
+# GENERAL #####################################################################
+
+MYSQL_SERVER_BACKUP_DIR: /var/lib/mysql/backup
+MYSQL_OPEN_FILES_LIMIT: 65536
+MYSQL_PROCESSES_LIMIT: 1024
+MYSQL_OPENSTACK_DB_DEVICE: ""
+MYSQL_PINNED_VERSION: ""
+
+# PROMETHEUS ##################################################################
+
+MYSQL_EXPORTER_ENABLED: true
+MYSQL_EXPORTER_VERSION: 0.12.1
+MYSQL_EXPORTER_BASENAME: "mysqld_exporter-{{ MYSQL_EXPORTER_VERSION }}.linux-amd64"
+MYSQL_EXPORTER_BINARY: "/opt/{{ MYSQL_EXPORTER_BASENAME }}/mysqld_exporter"
+MYSQL_EXPORTER_ARCHIVE: "{{ MYSQL_EXPORTER_BASENAME }}.tar.gz"
+MYSQL_EXPORTER_DOWNLOAD_URL: "https://github.com/prometheus/mysqld_exporter/releases/download/v{{ MYSQL_EXPORTER_VERSION }}/{{ MYSQL_EXPORTER_ARCHIVE }}"
+MYSQL_EXPORTER_PASSWORD: null
+
+# We use this by default because when you have a little too many databases,
+# the exporter takes ~40-50min to enter a listening state, and always times
+# out through the reverse proxy to actually retrieve these metrics.
+# It is uncertain whether this can actually be fixed in the exporter -- it
+# may just be a limitation of having too many databases in MySQL.
+MYSQL_EXPORTER_EXTRA_OPTS: "--no-collect.info_schema.tables --collect.info_schema.query_response_time"
+
+MYSQL_EXPORTER_MYSQL_PASSWORD: null
+MYSQL_EXPORTER_MYSQL_USERS:
+  - name: exporter
+    host: "127.0.0.1"
+    password: "{{ MYSQL_EXPORTER_MYSQL_PASSWORD }}"
+    priv: "*.*:PROCESS,REPLICATION CLIENT,SELECT"
+
+MYSQL_EXPORTER_CONSUL_SERVICE:
+  service:
+    name: mysqld-exporter
+    tags:
+      - mysqld-exporter
+      - monitor-https
+    port: 19104
+    enable_tag_override: true
+
+# MySQL Binaries for pinning to version 5.6.35 #########################################
+
+MYSQL_DEBIAN_SNAPSHOT_URL: http://snapshot.debian.org/archive/debian/20170120T212942Z/pool/main/m/mysql-5.6
+
+MYSQL_URLS:
+  - name: libmysqlclient
+    url: "{{ MYSQL_DEBIAN_SNAPSHOT_URL }}/libmysqlclient18_5.6.35-1_amd64.deb"
+  - name: MySQL Client Core
+    url: "{{ MYSQL_DEBIAN_SNAPSHOT_URL }}/mysql-client-core-5.6_5.6.35-1_amd64.deb"
+  - name: MySQL Client
+    url: "{{ MYSQL_DEBIAN_SNAPSHOT_URL }}/mysql-client-5.6_5.6.35-1_amd64.deb"
+  - name: MySQL Server Core
+    url: "{{ MYSQL_DEBIAN_SNAPSHOT_URL }}/mysql-server-core-5.6_5.6.35-1_amd64.deb"
+  - name: MySQL Server
+    url: "{{ MYSQL_DEBIAN_SNAPSHOT_URL }}/mysql-server-5.6_5.6.35-1_amd64.deb"

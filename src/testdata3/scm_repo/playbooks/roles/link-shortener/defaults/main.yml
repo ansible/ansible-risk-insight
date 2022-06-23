@@ -1,0 +1,7 @@
+---
+LINK_SHORTENER_DEPLOY_KEY: set-me-please
+LINK_SHORTENER_SSL_PRIVATE_KEY: set-me-please
+
+LINK_SHORTENER_REPO: git@gitlab.com:opencraft/dev/link-shortener.git
+LINK_SHORTENER_BRANCH: master
+LINK_SHORTENER_HOME: /home/link-shortener

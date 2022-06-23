@@ -1,0 +1,26 @@
+---
+# The hostname used to access the Matomo installation.
+MATOMO_APP_DOMAIN: 'matomo.example.com'
+
+# Matomo database settings
+MATOMO_DATABASE_HOST: 'mysql.example.com'
+MATOMO_DATABASE_ADAPTER: 'mysql'
+MATOMO_DATABASE_TABLES_PREFIX: 'matomo_'
+MATOMO_DATABASE_USERNAME: 'set-me-please'
+MATOMO_DATABASE_PASSWORD: 'set-me-please'
+MATOMO_DATABASE_DBNAME: 'set-me-please'
+
+# The directory under which the Matomo docker-compose file is stored.
+MATOMO_DOCKER_COMPOSE_DIR: '/srv/docker/matomo'
+MATOMO_CONFIG_DIR: "{{ MATOMO_DOCKER_COMPOSE_DIR }}/config"
+MATOMO_DOCKER_COMPOSE_ENV_FILE: "{{ MATOMO_DOCKER_COMPOSE_DIR }}/matomo.env"
+
+# Volume mappings for the Matomo docker container.
+MATOMO_DOCKER_VOLUMES:
+   - "{{ MATOMO_CONFIG_DIR }}:/var/www/html"
+
+# The host port to map to the Matomo container port.
+MATOMO_DOCKER_HOST_HTTP_PORT: 8080
+
+# The nginx configuration file used by Matomo.
+MATOMO_NGINX_CONFIG_PATH: /etc/nginx/sites-available/matomo

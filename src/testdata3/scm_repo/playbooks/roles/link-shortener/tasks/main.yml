@@ -1,0 +1,60 @@
+- name: create link-shortener group
+  group:
+    name: link-shortener
+
+- name: create link-shortener user
+  user:
+    name: link-shortener
+    group: link-shortener
+    home: "{{ LINK_SHORTENER_HOME }}"
+
+- name: create ~/.ssh directory
+  file:
+    path: "{{ LINK_SHORTENER_HOME }}/.ssh"
+    state: directory
+    owner: link-shortener
+    group: link-shortener
+
+- name: copy the deploy key for accessing the link shortener repository
+  copy:
+    content: "{{ LINK_SHORTENER_DEPLOY_KEY }}"
+    dest: "{{ LINK_SHORTENER_HOME }}/.ssh/id_rsa"
+    owner: link-shortener
+    group: link-shortener
+    mode: 0600
+
+- name: check out the link shortener git repository
+  git:
+    repo: "{{ LINK_SHORTENER_REPO }}"
+    version: "{{ LINK_SHORTENER_BRANCH }}"
+    dest: "{{ LINK_SHORTENER_HOME }}/link-shortener"
+    ssh_opts: -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o CheckHostIP=no
+  become_user: link-shortener
+
+- name: create symlink to the nginx config
+  file:
+    src: "{{ LINK_SHORTENER_HOME }}/link-shortener/nginx-configuration"
+    dest: /etc/nginx/sites-available/link-shortener
+    state: link
+  notify:
+    - reload nginx
+
+- name: create symlink to SSL certificate
+  file:
+    src: "{{ LINK_SHORTENER_HOME }}/link-shortener/link-shortener-cert.pem"
+    dest: /etc/ssl/certs/link-shortener-cert.pem
+    state: link
+
+- name: copy SSL private key
+  copy:
+    content: "{{ LINK_SHORTENER_SSL_PRIVATE_KEY }}"
+    dest: /etc/ssl/private/link-shortener-key.pem
+    mode: 0640
+
+- name: enable nginx site configuration
+  file:
+    src: /etc/nginx/sites-available/link-shortener
+    dest: /etc/nginx/sites-enabled/link-shortener
+    state: link
+  notify:
+    - reload nginx

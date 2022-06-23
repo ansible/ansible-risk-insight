@@ -1,0 +1,6 @@
+# {{ ansible_managed }}
+# Config docs: https://gitlab.com/mailman/mailman-hyperkitty/blob/master/mailman-hyperkitty.cfg
+
+[general]
+base_url: https://{{ MAILMAN_WEB_DOMAIN }}/hyperkitty/
+api_key: {{ MAILMAN_ARCHIVER_KEY }}

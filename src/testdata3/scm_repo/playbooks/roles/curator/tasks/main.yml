@@ -1,0 +1,105 @@
+---
+
+- name: Add Elastic's apt key
+  apt_key:
+    url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+
+- name: Add Elastic's apt repository
+  apt_repository:
+    repo: 'deb [arch=amd64] https://packages.elastic.co/curator/5/debian stable main'
+
+- name: Install Curator
+  apt:
+    name: elasticsearch-curator
+
+- name: Create Curator config directory
+  file:
+    path: "{{ curator_config_dir }}"
+    state: directory
+    mode: 0750
+
+- name: Create Curator system group
+  group:
+    name: "{{ curator_group }}"
+    state: present
+
+- name: Create Curator system user
+  user:
+    name: "{{ curator_user }}"
+    group: "{{ curator_group }}"
+    home: "{{ curator_config_dir }}"
+    system: yes
+    state: present
+
+- name: Install Elasticsearch Certificates
+  copy:
+    content: "{{ elasticsearch_ca }}"
+    dest: "{{ curator_config_dir }}/elasticsearch-ca.pem"
+    owner: "{{ curator_user }}"
+    group: "{{ curator_group }}"
+    mode: 0640
+  when: elasticsearch_ca is defined
+
+- name: Install Curator configuration files
+  template:
+    src: "{{ item }}.j2"
+    dest: "{{ curator_config_dir }}/{{ item }}"
+    owner: "{{ curator_user }}"
+    group: "{{ curator_group }}"
+  with_items:
+    - action.yml
+    - config.yml
+
+- name: Change Curator home owner
+  file:
+    path: "{{ curator_config_dir }}"
+    owner: "{{ curator_user }}"
+    group: "{{ curator_group }}"
+    state: directory
+
+- name: Add curator elasticsearch role and user
+  include_tasks: roles/elasticsearch/tasks/create_user_roles.yml
+  vars:
+    elasticsearch_create_roles:
+    - name: curator_writer
+      permissions: |-
+        {
+          "cluster" : [
+            "monitor",
+          ],
+          "indices" : [
+            {
+              "names" : [
+                "{{ curator_delete_indices_prefix }}*"
+              ],
+              "privileges" : [
+                "manage",
+                "delete_index",
+                "delete",
+                "write",
+                "read"
+              ],
+              "allow_restricted_indices" : false
+            }
+          ],
+          "applications" : [],
+          "run_as" : [],
+          "metadata" : {
+            "version" : 1
+          },
+          "transient_metadata" : {
+            "enabled" : true
+          }
+        }
+    elasticsearch_create_users:
+    - username: "{{ curator_elasticsearch_username }}"
+      password: "{{ curator_elasticsearch_password }}"
+      roles:
+      - curator_writer
+
+- name: Install Curator cron job
+  cron:
+    name: "Delete {{ curator_delete_indices_prefix }}* indices older than {{ curator_delete_indices_days }} days"
+    job: "curator --config {{ curator_config_dir }}/config.yml {{ curator_config_dir }}/action.yml"
+    special_time: daily
+    user: "{{ curator_user }}"

@@ -1,0 +1,6 @@
+[program:{{ service_name }}]
+command = {{ service_bin_dir }}/start_gunicorn
+user = {{ service_name }}
+stdout_logfile = syslog
+redirect_stderr = true
+environment = {{ service_name | upper }}_DOTENV_PATH="{{ service_dotenv_path }}"

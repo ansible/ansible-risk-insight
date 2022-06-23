@@ -1,0 +1,7 @@
+template {
+  source           = "/etc/consul-template/templates/haproxy.cfg.ctmpl"
+  destination      = "/etc/haproxy/haproxy.cfg"
+  create_dest_dirs = false
+  backup           = true
+  command          = "flock -n -E 0 /tmp/haproxy-reload-lock service haproxy reload"
+}

@@ -1,0 +1,30 @@
+---
+
+# Directories
+vault_bin_dir: "/usr/local/bin"
+vault_log_dir: "/var/log/vault"
+vault_config_dir: "/etc/vault"
+vault_policy_dir: "{{ vault_config_dir }}/policies"
+vault_tls_dir: "{{ vault_config_dir }}/tls"
+
+# Vault server
+vault_server_scheme: "https"
+
+# Listener stanza
+vault_tcp_address: "0.0.0.0:8200"
+vault_tcp_cluster_address: "0.0.0.0:8201"
+vault_tcp_tls_cert_file: "{{ vault_tls_dir }}/cert.pem"
+vault_tcp_tls_key_file: "{{ vault_tls_dir }}/key.pem"
+vault_tcp_tls_client_ca_file: "{{ vault_tls_dir }}/ca.pem"
+
+# Env
+vault_env_base:
+  VAULT_LOG_LEVEL: debug
+  VAULT_ADDR: "{{ vault_server_scheme }}://127.0.0.1:8200"
+  VAULT_CACERT: "{{ vault_tcp_tls_client_ca_file }}"
+  VAULT_CLIENT_CERT: "{{ vault_tcp_tls_cert_file }}"
+  VAULT_CLIENT_KEY: "{{ vault_tcp_tls_key_file }}"
+
+vault_env_token_root:
+  VAULT_TOKEN: "{{ vault_token_root }}"
+vault_env_root: "{{ vault_env_base | combine(vault_env_token_root) }}"

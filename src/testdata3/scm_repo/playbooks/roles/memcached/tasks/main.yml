@@ -1,0 +1,7 @@
+---
+
+- name: Open memcached port on the firewall
+  ufw:
+    rule: allow
+    port: "{{ memcached_port }}"
+    proto: tcp

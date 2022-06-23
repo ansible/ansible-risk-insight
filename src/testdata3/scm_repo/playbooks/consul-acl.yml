@@ -1,0 +1,9 @@
+---
+# Playbook for setting up Consul ACL.
+
+- name: Set up Consul ACL
+  hosts: consul-acl
+  become: true
+  roles:
+    - role: consul-acl
+      tags: 'consul-acl'

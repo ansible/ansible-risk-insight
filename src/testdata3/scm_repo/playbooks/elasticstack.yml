@@ -1,0 +1,23 @@
+---
+# Playbook for setting up an Elastic Stack server.
+
+- name: Set up Elastic Stack servers
+  hosts: elasticstack
+  become: true
+  roles:
+    - role: common-server
+      tags: 'common-server'
+
+    - role: elastic.elasticsearch
+      tags: 'elasticstack'
+
+    - role: nginx-proxy
+      vars:
+        NGINX_PROXY_CONFIG_PATH: /etc/nginx/sites-available/elasticsearch
+
+        NGINX_PROXY_AUTH_DOMAIN: Elasticsearch
+        NGINX_PROXY_INTERNAL_PORT: 9200
+        NGINX_PROXY_PUBLIC_PORT: 19200
+
+        NGINX_PROXY_USERNAME: "{{ ELASTICSEARCH_USERNAME }}"
+        NGINX_PROXY_PASSWORD: "{{ ELASTICSEARCH_PASSWORD }}"

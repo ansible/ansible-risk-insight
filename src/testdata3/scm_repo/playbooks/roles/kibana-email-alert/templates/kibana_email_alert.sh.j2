@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+SERVER_LOG_REGEX="{{ kibana_email_alert_regex }}"
+
+journalctl -u kibana.service -f --since "10sec ago" | while read line
+do
+    if [[ $line =~ $SERVER_LOG_REGEX ]];
+    then
+        echo "$line" | mail -s "{{ kibana_email_alert_subject }}" {{ kibana_email_alert_to }}
+        echo "Sent email alert"
+    fi
+done

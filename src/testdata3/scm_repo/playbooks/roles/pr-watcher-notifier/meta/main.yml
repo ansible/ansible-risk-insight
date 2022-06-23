@@ -1,0 +1,6 @@
+dependencies:
+  - name: wsgi-app
+    app_name: pr_watcher_notifier
+    app_repo: http://github.com/open-craft/pr_watcher_notifier
+    app_env_vars: "{{ PR_WATCHER_NOTIFIER_ENV }}"
+    app_module: "run:app"

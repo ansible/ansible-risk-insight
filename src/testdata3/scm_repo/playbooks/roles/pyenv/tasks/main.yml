@@ -1,0 +1,56 @@
+- name: Install prerequisites
+  apt:
+    name: "{{ pyenv_prerequisite_packages }}"
+    state: present
+
+- name: Ensure that the "{{ pyenv_home }}" directory is present and has the right permissions
+  file:
+    path: "{{ pyenv_home }}"
+    owner: "{{ pyenv_user }}"
+    group: "{{ pyenv_group }}"
+    mode: 0750
+    state: directory
+  when: pyenv_create_pyenv_home
+
+- name: Install and setup pyenv and pyenv-virtualenv
+  become_user: "{{ www_user }}"
+  block:
+    - name: Clone pyenv
+      git:
+        repo: https://github.com/pyenv/pyenv.git
+        dest: "{{ pyenv_root }}"
+        version: "{{ pyenv_version }}"
+
+    - name: Clone pyenv-virtualenv
+      git:
+        repo: https://github.com/pyenv/pyenv-virtualenv.git
+        dest: "{{ pyenv_root }}/plugins/pyenv-virtualenv"
+        version: "{{ pyenv_virtualenv_version }}"
+
+    - name: Create shell configuration for pyenv
+      blockinfile:
+        path: "{{ pyenv_root }}/.pyenvrc"
+        create: yes
+        block: |
+          export PYENV_ROOT="{{ pyenv_root }}"
+          export PATH="$PYENV_ROOT/bin:$PATH"
+          if command -v pyenv 1>/dev/null 2>&1; then
+          eval "$(pyenv init -)"
+          fi
+    - name: Add code to load pyenv configuration in ~/.bashrc
+      blockinfile:
+        create: yes
+        path: "{{ pyenv_home }}/.bashrc"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK load_pyenv_configuration"
+        block: |
+          source "{{ pyenv_root }}/.pyenvrc"
+
+    - name: Install the requested python versions
+      shell: "{{ pyenv_root }}/bin/pyenv install -s {{ item }}"
+      with_items: "{{ pyenv_python_versions }}"
+
+    - name: Create a virtualenv environment
+      shell: |
+        . {{ pyenv_root }}/.pyenvrc
+        pyenv virtualenv -f {{ item.python_version }} {{ item.virtualenv_name }}
+      with_items: "{{ pyenv_virtualenv_environments }}"

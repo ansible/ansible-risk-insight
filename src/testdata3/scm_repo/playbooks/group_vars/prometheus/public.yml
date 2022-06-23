@@ -1,0 +1,270 @@
+---
+
+# GENERAL #####################################################################
+
+COMMON_SERVER_NO_BACKUPS: true
+
+SANITY_CHECK_LIVE_PORTS:
+  - host: localhost
+    port: 9090
+    message: "Cannot connect to Prometheus web port."
+
+# PROMETHEUS ##################################################################
+
+prometheus_web__listen_address: 127.0.0.1:9090
+
+prometheus_config_global_scrape_interval: 30s
+prometheus_config_global_evaluation_interval: 30s
+prometheus_config_global_scrape_timeout: 10s
+
+prometheus_storage__tsdb__retention: 30d
+
+# without this, alertmanger won't start
+prometheus_alert_manager_cluster__advertise_address: "127.0.0.1:9093"
+
+# The defaults weren't working, though they actually should.  We are not using the Prometheus
+# consoles for now, but leaving these settings here ensures that we don't have to debug the
+# problem again once we start using them.
+prometheus_web__console__templates: "{{ prometheus_install_dir }}/prometheus-{{ prometheus_version }}.{{ prometheus_platform_architecture }}/consoles"
+prometheus_web__console__libraries: "{{ prometheus_install_dir }}/prometheus-{{ prometheus_version }}.{{ prometheus_platform_architecture }}/console_libraries"
+
+PROMETHEUS_ALERT_CPU_THRESHOLD: 90
+PROMETHEUS_ALERT_MEMORY_THRESHOLD: 90
+PROMETHEUS_ALERT_DISK_SPACE_THRESHOLD: 80
+
+PROMETHEUS_ALERT_HTTP_RESPONSE_TIME_THRESHOLD: 1
+PROMETHEUS_ALERT_HTTP_RESPONSE_TIME_MIN_RESPONSES: 50
+PROMETHEUS_ALERT_HTTP_RESPONSE_FRONTEND_ERROR_THRESHOLD: 50
+
+OCIM_QUEUE_REDIS_KEY: null
+PROMETHEUS_ALERT_OCIM_QUEUE_SIZE_THRESHOLD: null
+
+prometheus_rules:
+  - name: NodeRules
+    rules:
+    - alert: "instance_down"
+      # https://www.robustperception.io/alerting-on-gauges-in-prometheus-2-0/
+      expr: "avg_over_time(up[5m]) < 0.91"
+      for: "0s"
+      labels:
+        severity: "critical"
+        environment: "[[ $labels.environment ]]"
+      annotations:
+        summary: "Instance [[ $labels.node ]] ([[ $labels.instance ]]) down."
+        description: "[[ $labels.node ]] ([[ $labels.instance ]]) of job [[ $labels.job ]] is down."
+    - alert: "cpu_usage_high"
+      expr: "(100 * (1 - (rate(node_cpu{mode='idle'}[5m])))) > {{ PROMETHEUS_ALERT_CPU_THRESHOLD }}"
+      for: "5m"
+      labels:
+        severity: "warning"
+        environment: "[[ $labels.environment ]]"
+      annotations:
+        summary: "Instance [[ $labels.node ]] ([[ $labels.instance ]]) CPU usage high."
+        description: "CPU usage of [[ $labels.node ]] ([[ $labels.instance ]]) of job [[ $labels.job ]] has been above {{ PROMETHEUS_ALERT_CPU_THRESHOLD }} for 5 minutes."
+    - alert: "low_memory"
+      expr: "(100 * (1 - (node_memory_MemAvailable / node_memory_MemTotal))) > {{ PROMETHEUS_ALERT_MEMORY_THRESHOLD }}"
+      for: "5m"
+      labels:
+        severity: "warning"
+        environment: "[[ $labels.environment ]]"
+      annotations:
+        summary: "Instance [[ $labels.node ]] ([[ $labels.instance ]]) memory usage high."
+        description: "[[ $labels.node ]] ([[ $labels.instance ]]) of job [[ $labels.job ]] memory usage has been above {{ PROMETHEUS_ALERT_MEMORY_THRESHOLD }}% for 5 minutes."
+    - alert: "low_disk_space"
+      expr: "(100 * (1 - (node_filesystem_free{mountpoint!~\"/snap.*\"} / node_filesystem_size{mountpoint!~\"/snap.*\"}))) > {{ PROMETHEUS_ALERT_DISK_SPACE_THRESHOLD }}"
+      for: "5m"
+      labels:
+        severity: "warning"
+        environment: "[[ $labels.environment ]]"
+      annotations:
+        summary: "Instance [[ $labels.node ]] ([[ $labels.instance ]]) disk usage high."
+        description: "Instance disk is more than {{ PROMETHEUS_ALERT_DISK_SPACE_THRESHOLD }}% full."
+    - alert: "disk_will_fill_in_4_hours"
+      # https://www.robustperception.io/reduce-noise-from-disk-space-alerts/
+      expr: "(100 * (1 - (predict_linear(node_filesystem_free{fstype='ext4'}[1h], 4 * 3600)/node_filesystem_size{fstype='ext4'}))) > {{ PROMETHEUS_ALERT_DISK_SPACE_THRESHOLD }}"
+      for: "5m"
+      labels:
+        severity: "warning"
+        environment: "[[ $labels.environment ]]"
+      annotations:
+        summary: "Instance [[ $labels.node ]] ([[ $labels.instance ]]) disk is filling up."
+        description: "Instance disk may fill up {{ PROMETHEUS_ALERT_DISK_SPACE_THRESHOLD }}% in 4 hours."
+  - name: NodeRules_v2
+    # We created this to support alerts for nodes that have node exporter version > 0.15 
+    rules:
+    - alert: "cpu_usage_high_v2"
+      expr: "(100 * (1 - (rate(node_cpu_seconds_total{mode='idle'}[5m])))) > {{ PROMETHEUS_ALERT_CPU_THRESHOLD }}"
+      for: "5m"
+      labels:
+        severity: "warning"
+        environment: "[[ $labels.environment ]]"
+      annotations:
+        summary: "Instance [[ $labels.node ]] ([[ $labels.instance ]]) CPU usage high."
+        description: "CPU usage of [[ $labels.node ]] ([[ $labels.instance ]]) of job [[ $labels.job ]] has been above {{ PROMETHEUS_ALERT_CPU_THRESHOLD }} for 5 minutes."
+    - alert: "low_memory_v2"
+      expr: "(100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))) > {{ PROMETHEUS_ALERT_MEMORY_THRESHOLD }}"
+      for: "5m"
+      labels:
+        severity: "warning"
+        environment: "[[ $labels.environment ]]"
+      annotations:
+        summary: "Instance [[ $labels.node ]] ([[ $labels.instance ]]) memory usage high."
+        description: "[[ $labels.node ]] ([[ $labels.instance ]]) of job [[ $labels.job ]] memory usage has been above {{ PROMETHEUS_ALERT_MEMORY_THRESHOLD }}% for 5 minutes."
+    - alert: "low_disk_space_v2"
+      expr: "(100 * (1 - (node_filesystem_free_bytes{mountpoint!~\"/snap.*\"} / node_filesystem_size_bytes{mountpoint!~\"/snap.*\"}))) > {{ PROMETHEUS_ALERT_DISK_SPACE_THRESHOLD }}"
+      for: "5m"
+      labels:
+        severity: "warning"
+        environment: "[[ $labels.environment ]]"
+      annotations:
+        summary: "Instance [[ $labels.node ]] ([[ $labels.instance ]]) disk usage high."
+        description: "Instance disk is more than {{ PROMETHEUS_ALERT_DISK_SPACE_THRESHOLD }}% full."
+    - alert: "disk_will_fill_in_4_hours_v2"
+      # https://www.robustperception.io/reduce-noise-from-disk-space-alerts/
+      expr: "(100 * (1 - (predict_linear(node_filesystem_free_bytes{fstype='ext4'}[1h], 4 * 3600)/node_filesystem_free_bytes{fstype='ext4'}))) > {{ PROMETHEUS_ALERT_DISK_SPACE_THRESHOLD }}"
+      for: "5m"
+      labels:
+        severity: "warning"
+        environment: "[[ $labels.environment ]]"
+      annotations:
+        summary: "Instance [[ $labels.node ]] ([[ $labels.instance ]]) disk is filling up."
+        description: "Instance disk may fill up {{ PROMETHEUS_ALERT_DISK_SPACE_THRESHOLD }}% in 4 hours."
+  - name: "HAProxyRules"
+    rules:
+    - alert: "haproxy_down"
+      expr: "avg_over_time(haproxy_up [5m]) < 0.91"
+      for: "0s"
+      labels:
+        severity: "critical"
+        environment: "[[ $labels.environment ]]"
+      annotations:
+        summary: "HAProxy [[ $labels.node ]] ([[ $labels.instance ]]) down."
+        description: "[[ $labels.node ]] ([[ $labels.instance ]]) of job [[ $labels.job ]] is down."
+    - alert: "haproxy_backend_response_time_high"
+      expr: "avg(haproxy_backend_http_response_time_average_seconds) by (backend) > {{ PROMETHEUS_ALERT_HTTP_RESPONSE_TIME_THRESHOLD }} and sum(increase(haproxy_backend_http_responses_total[10m])) by (backend) > {{ PROMETHEUS_ALERT_HTTP_RESPONSE_TIME_MIN_RESPONSES }}"
+      for: "10m"
+      labels:
+        severity: "warning"
+        environment: "[[ $labels.environment ]]"
+      annotations:
+        summary: "Backend [[ $labels.backend ]] HTTP response time high."
+        description: "HTTP response time of [[ $labels.backend ]] of job [[ $labels.job ]] has been above {{ PROMETHEUS_ALERT_HTTP_RESPONSE_TIME_THRESHOLD }} for 10 minutes."
+    - alert: "haproxy_frontend_request_errors_high"
+      expr: "(100 * (rate(haproxy_frontend_request_errors_total{frontend='fe_https'}[5m])/rate(haproxy_frontend_http_requests_total{frontend='fe_https'}[5m]))) > {{ PROMETHEUS_ALERT_HTTP_RESPONSE_FRONTEND_ERROR_THRESHOLD }}"
+      for: "5m"
+      labels:
+        severity: "warning"
+        environment: "[[ $labels.environment ]]"
+      annotations:
+        summary: "Instance [[ $labels.node ]] ([[ $labels.instance ]]) http errors high."
+        description: "HTTP error ratio on [[ $labels.node ]] ([[ $labels.instance ]]) of job [[ $labels.job ]] has been above {{ PROMETHEUS_ALERT_HTTP_RESPONSE_FRONTEND_ERROR_THRESHOLD }} for 5 minutes."
+  - name: "MySQLRules"
+    rules:
+    - alert: "mysql_down"
+      expr: "avg_over_time(mysql_up[5m]) < 0.91"
+      for: "0s"
+      labels:
+        severity: "critical"
+        environment: "[[ $labels.environment ]]"
+      annotations:
+        summary: "MySQL instance [[ $labels.node ]] ([[ $labels.instance ]]) down."
+        description: "[[ $labels.node ]] ([[ $labels.instance ]]) of job [[ $labels.job ]] is down."
+    - alert: "mysql_replica_down"
+      expr: "mysql_slave_status_slave_io_running == 0 or mysql_slave_status_slave_sql_running == 0"
+      for: "10m"
+      labels:
+        severity: "critical"
+        environment: "[[ $labels.environment ]]"
+      annotations:
+        summary: "MySQL replica [[ $labels.node ]] ([[ $labels.instance ]]) replication is not running"
+        description: "[[ $labels.node ]] ([[ $labels.instance ]]) replication has been down for more than 10 minutes."
+    - alert: "mysql_replication_lag"
+      expr: "(mysql_slave_lag_seconds > 30) and on(instance) (predict_linear(mysql_slave_lag_seconds[5m], 60 * 10) > 0)"
+      for: "30m"
+      labels:
+        severity: "critical"
+      annotations:
+        summary: "MySQL replica [[ $labels.node ]] ([[ $labels.instance ]]) is lagging"
+        description: "[[ $labels.node ]] ([[ $labels.instance ]]) replication has fallen behind for 30 minutes and is not recovering."
+    - alert: "mysql_replication_lag"
+      expr: "(mysql_heartbeat_lag_seconds > 30) and on(instance) (predict_linear(mysql_heartbeat_lag_seconds[5m], 60 * 10) > 0)"
+      for: "30m"
+      labels:
+        severity: "critical"
+      annotations:
+        summary: "MySQL replica [[ $labels.node ]] ([[ $labels.instance ]]) is lagging"
+        description: "[[ $labels.node ]] ([[ $labels.instance ]]) replication has fallen behind for 30 minutes and is not recovering."
+  - name: "MongoDBRules"
+    rules:
+    - alert: "mongodb_down"
+      expr: "avg_over_time(mongodb_replset_member_health[5m]) < 0.91"
+      for: "0s"
+      labels:
+        severity: "critical"
+        environment: "[[ $labels.environment ]]"
+      annotations:
+        summary: "MongoDB instance [[ $labels.node ]] ([[ $labels.instance ]]) down."
+        description: "[[ $labels.node ]] ([[ $labels.instance ]]) of job [[ $labels.job ]] is down."
+  - name: "OcimQueueSizeRule"
+    rules:
+    - alert: "ocim_queue_too_big"
+      expr: 'redis_key_size{key="{{ OCIM_QUEUE_REDIS_KEY }}"} > {{ PROMETHEUS_ALERT_OCIM_QUEUE_SIZE_THRESHOLD }}'
+      for: "0s"
+      labels:
+        severity: "critical"
+        environment: "[[ $labels.environment ]]"
+      annotations:
+        summary: "Ocim queue overloaded."
+        description: "Ocim queue overloaded."
+# ALERT MANAGER ################################################################
+
+prometheus_alert_manager_web__listen_address: "127.0.0.1:9093"
+
+prometheus_alert_manager_data__retention: "300h0m0s"
+
+prometheus_alert_manager_config_global:
+  smtp_smarthost: "{{ PROMETHEUS_ALERT_MANAGER_SMTP_SMARTHOST }}"
+  smtp_from: "{{ PROMETHEUS_ALERT_MANAGER_SMTP_FROM }}"
+  smtp_require_tls: false
+
+prometheus_alert_manager_config_receivers:
+  - name: "default"
+    email_configs:
+    - send_resolved: true
+      to: "{{ PROMETHEUS_ALERT_MANAGER_SMTP_TO }}"
+  - name: "pager"
+    pagerduty_configs:
+    - send_resolved: true
+      service_key: "{{ PROMETHEUS_ALERT_MANAGER_PAGERDUTY_SERVICE_KEY }}"
+
+prometheus_alert_manager_config_route:
+  receiver: "default"
+  group_by: ["alertname"]
+  group_wait: "30s"
+  group_interval: "5m"
+  repeat_interval: "4h"
+  routes:
+    - receiver: "{{ PROMETHEUS_ALERT_MANAGER_CRITICAL_RECEIVER }}"
+      group_wait: "0s"
+      group_interval: "1m"
+      repeat_interval: "5m"
+      match:
+        environment: "prod"
+        severity: "critical"
+
+# CONSUL ######################################################################
+
+consul_service_config:
+  service:
+    name: prometheus
+    tags: ["prometheus"]
+    port: 9090
+    enable_tag_override: true
+
+# FILEBEAT ####################################################################
+
+filebeat_prospectors:
+  - fields:
+      type: prometheus
+    paths:
+      - /var/log/prometheus.log*

@@ -1,0 +1,106 @@
+---
+
+- name: Install apt package dependencies.
+  apt:
+    name: openjdk-8-jdk
+
+- name: Add Elasticsearch apt key
+  apt_key:
+    url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+
+- name: Add Elasticsearch repository
+  apt_repository:
+    repo: "{{ elasticsearch_repo }}"
+
+- name: Install Elasticsearch
+  apt:
+    name: "{{ elasticsearch_package }}"
+    force: true
+
+- name: Create Elasticsearch directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: elasticsearch
+    group: elasticsearch
+  with_items:
+    - "{{ elasticsearch_data_dir }}"
+    - "{{ elasticsearch_log_dir }}"
+    - "{{ elasticsearch_cfg_dir }}"
+
+- name: Install Elasticsearch certificates 1
+  template:
+    src: "http.p12.b64.j2"
+    dest: "{{ elasticsearch_cfg_dir }}/http.p12.b64"
+  when: elasticsearch_keystore|length > 0
+
+- name: Install Elasticsearch certificates 2
+  shell: "base64 -d {{ elasticsearch_cfg_dir }}/http.p12.b64 > {{ elasticsearch_cfg_dir }}/http.p12"
+  args:
+    creates: "{{ elasticsearch_cfg_dir }}/http.p12"
+  when: elasticsearch_keystore|length > 0
+
+- name: Install Elasticsearch certificates 3
+  file:
+    path: "{{ elasticsearch_cfg_dir }}/http.p12"
+    owner: elasticsearch
+    group: elasticsearch
+    mode: 0640
+  when: elasticsearch_keystore|length > 0
+
+- name: Install Elasticsearch certificates 4
+  file:
+    path: "{{ elasticsearch_cfg_dir }}/http.p12.b64"
+    state: absent
+  when: elasticsearch_keystore|length > 0
+
+- name: Configure Elasticsearch
+  template:
+    src: elasticsearch.yml.j2
+    dest: /etc/elasticsearch/elasticsearch.yml
+    group: elasticsearch
+    mode: 0640
+  notify: restart elasticsearch
+
+# void creating the file if there is no extra jvm options
+# old es versions (v1.5) doesn't use this file
+- name: Elasticsearch extra jvm options
+  template:
+    src: 50-extra-jvm.options.j2
+    dest: /etc/elasticsearch/jvm.options.d/50-extra-jvm.options
+    group: elasticsearch
+    mode: 0640
+  notify: restart elasticsearch
+  when: elasticsearch_extra_jvm_options|length > 0
+
+- name: Set bootstrap password
+  shell: echo "{{ elasticsearch_password }}" | {{ elasticsearch_bin_dir }}/elasticsearch-keystore add -f -x 'bootstrap.password'
+  when: elasticsearch_password|length > 0
+
+- name: Start Elasticsearch
+  service:
+    name: elasticsearch
+    state: started
+    enabled: yes
+
+# we can only set this up if we also set up the elasticsearch keystore
+- name: Setup password for user kibana_system
+  uri:
+    url: "{{ es_api_uri }}/_security/user/kibana_system/_password"
+    method: POST
+    body_format: json
+    body: "{ \"password\":\"{{ kibana_elasticsearch_password }}\" }"
+    status_code: 200
+    user: "elastic"
+    password: "{{ elasticsearch_password }}"
+    force_basic_auth: yes
+    validate_certs: no
+  when: elasticsearch_keystore|length > 0
+
+- name: Open Elasticsearch ports on the firewall
+  ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  with_items:
+    - "{{ elasticsearch_http_port }}"

@@ -1,0 +1,19 @@
+---
+unbound_config_dir: /etc/unbound/unbound.conf.d
+
+# Set the zone forwarding configuration in the 'forward_zones' list. Each entry will require a 'name' key and
+# a 'forward-addr'/'forward-host' key with appropriate values
+#
+# Example:
+#
+# forward_zones:
+#   - name: ".integration.plebia.net"
+#     forward-addr: "a.ns.gandi.net"
+#   - name: "opencraft.hosting"
+#     forward-addr:
+#       - "8.8.8.8"
+#       - "8.8.4.4"
+forward_zones: []
+
+# Negative cache ttl in seconds
+negative_cache_ttl: 600

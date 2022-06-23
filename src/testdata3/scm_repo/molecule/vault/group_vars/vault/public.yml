@@ -1,0 +1,111 @@
+---
+
+#
+# self signed certificate generated as follows for test purposes
+#
+# cat /tmp/l
+#
+#        [ req ]
+#        default_bits           = 2048
+#        default_keyfile        = keyfile.pem
+#        distinguished_name     = req_distinguished_name
+#        attributes             = req_attributes
+#        prompt                 = no
+#        output_password        = mypass
+#
+#        [ req_distinguished_name ]
+#        C                      = GB
+#        ST                     = Test State or Province
+#        L                      = Test Locality
+#        O                      = Organization Name
+#        OU                     = Organizational Unit Name
+#        CN                     = 127.0.0.1
+#        emailAddress           = test@email.address
+#
+#        [ req_attributes ]
+#        challengePassword              = A challenge password
+#
+# openssl req -config /tmp/l '-nodes' '-new' '-x509' '-keyout' 'server.key' '-out' 'server.crt'
+#
+
+vault_tls_cert: |
+  -----BEGIN CERTIFICATE-----
+  MIID9jCCAt4CCQCo+eNakRVzEjANBgkqhkiG9w0BAQsFADCBvDELMAkGA1UEBhMC
+  R0IxHzAdBgNVBAgMFlRlc3QgU3RhdGUgb3IgUHJvdmluY2UxFjAUBgNVBAcMDVRl
+  c3QgTG9jYWxpdHkxGjAYBgNVBAoMEU9yZ2FuaXphdGlvbiBOYW1lMSEwHwYDVQQL
+  DBhPcmdhbml6YXRpb25hbCBVbml0IE5hbWUxEjAQBgNVBAMMCTEyNy4wLjAuMTEh
+  MB8GCSqGSIb3DQEJARYSdGVzdEBlbWFpbC5hZGRyZXNzMB4XDTE5MDIxNDE0NTIw
+  NVoXDTE5MDMxNjE0NTIwNVowgbwxCzAJBgNVBAYTAkdCMR8wHQYDVQQIDBZUZXN0
+  IFN0YXRlIG9yIFByb3ZpbmNlMRYwFAYDVQQHDA1UZXN0IExvY2FsaXR5MRowGAYD
+  VQQKDBFPcmdhbml6YXRpb24gTmFtZTEhMB8GA1UECwwYT3JnYW5pemF0aW9uYWwg
+  VW5pdCBOYW1lMRIwEAYDVQQDDAkxMjcuMC4wLjExITAfBgkqhkiG9w0BCQEWEnRl
+  c3RAZW1haWwuYWRkcmVzczCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
+  ALPHc0pJAXCHdnDg89mjK/lsCw/1vz0qWixj4cORKkz9ynb/ONSd1pUU8psPui03
+  YD2oMMyA2fqsneuVZJ64+SGiD0j+oH/jMBKyhA854co/w2KhmbTjJEGgplPbgaz2
+  NW+0KrBRIID3Wk5/QUq+42Ygb3cbizYZ+Mqrke2phrdNgyMLqSS2DhOuh8eMo+B7
+  EkstcW1MQTqcSXd3JZbOpzRkc/aanjCwvuV4rJViiBU6lX7UZiw08gvkuV1IMZ/R
+  LgLxlHvhjA0ib+dUuAOCTF19wfB7BWDRQCLuddgayJGSTOAd2wny8gFjsDAlgahv
+  K2jg4uRc7/w9eEtdZe4w1p0CAwEAATANBgkqhkiG9w0BAQsFAAOCAQEAbCE6NXPH
+  F5wCuR4q8eV2en2ZKDGKbZ3gDUOZmoT9XBelCYISUIkj9VfUl4f2TQY76WKQqgxV
+  UI5/tjqmBPYl/5S8ytoT5ZeD0f6i6eYyyXUQNWlRb1UAH4i1KwSYwPCwHdRrCn5W
+  DuXtH6h7hKelTDAKnLDQtih3DAHZamJHCAHvfDZ7fPuBedZy9XrUrq7Jfl+J+yOq
+  L1uVEl2EGFCKFROvjjaPHBkqPJ3CSpC2GhHyf+FNBOIRSB3aRSErwKRvxOYnp6B/
+  5G1xOyOUmFHfPLEEVrBRqEFljiTaEPlvgwtoggbWjjFCLjrKmL9c6otqXmQP7/IN
+  cHKOcwllzp4lLw==
+  -----END CERTIFICATE-----
+
+vault_tls_key: |
+  -----BEGIN PRIVATE KEY-----
+  MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCzx3NKSQFwh3Zw
+  4PPZoyv5bAsP9b89KlosY+HDkSpM/cp2/zjUndaVFPKbD7otN2A9qDDMgNn6rJ3r
+  lWSeuPkhog9I/qB/4zASsoQPOeHKP8NioZm04yRBoKZT24Gs9jVvtCqwUSCA91pO
+  f0FKvuNmIG93G4s2GfjKq5HtqYa3TYMjC6kktg4TrofHjKPgexJLLXFtTEE6nEl3
+  dyWWzqc0ZHP2mp4wsL7leKyVYogVOpV+1GYsNPIL5LldSDGf0S4C8ZR74YwNIm/n
+  VLgDgkxdfcHwewVg0UAi7nXYGsiRkkzgHdsJ8vIBY7AwJYGobyto4OLkXO/8PXhL
+  XWXuMNadAgMBAAECggEAN6iuVvdXTMGDt9rNZDoSaTw8CIrq1EMCe+/Ie8W7tO51
+  +nV14M2lG67KlZs+5rTYRP6HbSkPU36RvdgYuNNHvlPwK4c5pZ5uybsfC5+9+eHX
+  2fdyIQCZvv+/vwKcmTH4xUagWMolKAhsmxTm3/9NY9by64tJhExyLD0GBvCPVrxR
+  4NMrscx+KQ4BGk8IFHhaUCsQX18qtKyx4lCkW+fP+Stmpr6dTpPOW08UBTa8ArBN
+  zr6rLxqRUyYh+jYop5MSLZaHxtFX7vXZFQMHlL9ZS5Ay+obZH8l8Iq1FF3/ECw+0
+  cQH18gwWwbiTLrNiseJc9l846a2iWqKCP53Y4OXGwQKBgQDWjBVyc5tjuScrUT8n
+  mDNjldy4RyQ5RbGOGqU8E9MXXLfZr2+fTALQwUtux+x7GxEjLU+BtA0nRZOAGIMJ
+  3ublXQOMrw9fhUOKuC+Scb7N+0ERiTPzZVGg7kMIrlKwKB7h8wOUdGXm0kZhsxS1
+  sLfuP4wmO3Ml+Y5U8+n5Lg1lGQKBgQDWg6twPRNML4cbWqttWZxB3fM5W6iSmEpC
+  22M6E8YXo9ns5IMJbRS44h73pejmoO4dauyBLQ/W6nWY2eByme6TordUuMvUqWjZ
+  fWt98Sl9SYOXDymM/ZxJ8ApVtgWfM7sJ0PydFiszb1GHoLBihgXVHKlBR2bZUv5P
+  wIZEuEhKJQKBgFaG0pOBGndCkhB/SOgwEvGj3AuZ7XsHp483IdKz8Bto8mDhxzPI
+  lQ4aFtEL4kzX4rZ8LKeTtQZUoiM0P4z4j8iLFcZkR9/vQAkvNUhrhVdPcLOg0Qnl
+  n+E2lmRm4cRXufTIbHYv53UK8wWuErkgF14H1P8KVOtI1WVfpcowD4jpAoGBANIK
+  NtE9XCna16WXEAeQGIn98uuUrehsKTpxaiUxu2LmUrm7vfp6zjGBZuUBlJxNsxkm
+  2tBY+Qtsoxy5KSXNR2dTicLw9tQR1NIwFhJJEmDUnH5KoFqm8GMNIHFwOuz5UAh6
+  kv6U+FPyiZgNZOfzZr6Ww7thWHku5EfesRmUf2PpAoGBAKdsoiAaxOB9XouZcmFD
+  PosRqmWZO/J/dCM2NebPuy+EdUY/NhkwNikmka85qr6nB61iAM6Gh1ctNlgfVk+t
+  pXkwX0B3gPm3kslXCGh2ZuiYliMOu0pySn/KMklTtl40ynhlYq6xS5uc/aqOHfbb
+  f2ZTCf2t0sBB81UEdp/kyHkR
+  -----END PRIVATE KEY-----
+
+vault_tls_ca: |
+  -----BEGIN CERTIFICATE-----
+  MIID9jCCAt4CCQCo+eNakRVzEjANBgkqhkiG9w0BAQsFADCBvDELMAkGA1UEBhMC
+  R0IxHzAdBgNVBAgMFlRlc3QgU3RhdGUgb3IgUHJvdmluY2UxFjAUBgNVBAcMDVRl
+  c3QgTG9jYWxpdHkxGjAYBgNVBAoMEU9yZ2FuaXphdGlvbiBOYW1lMSEwHwYDVQQL
+  DBhPcmdhbml6YXRpb25hbCBVbml0IE5hbWUxEjAQBgNVBAMMCTEyNy4wLjAuMTEh
+  MB8GCSqGSIb3DQEJARYSdGVzdEBlbWFpbC5hZGRyZXNzMB4XDTE5MDIxNDE0NTIw
+  NVoXDTE5MDMxNjE0NTIwNVowgbwxCzAJBgNVBAYTAkdCMR8wHQYDVQQIDBZUZXN0
+  IFN0YXRlIG9yIFByb3ZpbmNlMRYwFAYDVQQHDA1UZXN0IExvY2FsaXR5MRowGAYD
+  VQQKDBFPcmdhbml6YXRpb24gTmFtZTEhMB8GA1UECwwYT3JnYW5pemF0aW9uYWwg
+  VW5pdCBOYW1lMRIwEAYDVQQDDAkxMjcuMC4wLjExITAfBgkqhkiG9w0BCQEWEnRl
+  c3RAZW1haWwuYWRkcmVzczCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
+  ALPHc0pJAXCHdnDg89mjK/lsCw/1vz0qWixj4cORKkz9ynb/ONSd1pUU8psPui03
+  YD2oMMyA2fqsneuVZJ64+SGiD0j+oH/jMBKyhA854co/w2KhmbTjJEGgplPbgaz2
+  NW+0KrBRIID3Wk5/QUq+42Ygb3cbizYZ+Mqrke2phrdNgyMLqSS2DhOuh8eMo+B7
+  EkstcW1MQTqcSXd3JZbOpzRkc/aanjCwvuV4rJViiBU6lX7UZiw08gvkuV1IMZ/R
+  LgLxlHvhjA0ib+dUuAOCTF19wfB7BWDRQCLuddgayJGSTOAd2wny8gFjsDAlgahv
+  K2jg4uRc7/w9eEtdZe4w1p0CAwEAATANBgkqhkiG9w0BAQsFAAOCAQEAbCE6NXPH
+  F5wCuR4q8eV2en2ZKDGKbZ3gDUOZmoT9XBelCYISUIkj9VfUl4f2TQY76WKQqgxV
+  UI5/tjqmBPYl/5S8ytoT5ZeD0f6i6eYyyXUQNWlRb1UAH4i1KwSYwPCwHdRrCn5W
+  DuXtH6h7hKelTDAKnLDQtih3DAHZamJHCAHvfDZ7fPuBedZy9XrUrq7Jfl+J+yOq
+  L1uVEl2EGFCKFROvjjaPHBkqPJ3CSpC2GhHyf+FNBOIRSB3aRSErwKRvxOYnp6B/
+  5G1xOyOUmFHfPLEEVrBRqEFljiTaEPlvgwtoggbWjjFCLjrKmL9c6otqXmQP7/IN
+  cHKOcwllzp4lLw==
+  -----END CERTIFICATE-----

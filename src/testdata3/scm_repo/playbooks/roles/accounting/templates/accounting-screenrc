@@ -1,0 +1,13 @@
+screen -t Server
+stuff "sudo -s -H -u www-data\n"
+stuff "cd {{ accounting_root_dir }}\n"
+stuff "make run\n"
+
+screen -t Shell
+stuff "sudo -s -H -u www-data\n"
+stuff "cd {{ accounting_root_dir }}\n"
+stuff "make shell\n"
+
+screen -t Accounting
+stuff "sudo -s -H -u www-data\n"
+stuff "cd {{ accounting_root_dir }}\n"

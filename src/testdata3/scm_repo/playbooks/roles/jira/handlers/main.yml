@@ -1,0 +1,5 @@
+- name: restart jira
+  service:
+    name: jira
+    state: restarted
+

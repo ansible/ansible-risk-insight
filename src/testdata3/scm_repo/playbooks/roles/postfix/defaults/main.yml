@@ -1,0 +1,48 @@
+---
+
+POSTFIX_HOSTNAME: "{{ inventory_hostname }}"
+POSTFIX_OPS_EMAIL: ops@example.com
+
+# TLS certificate and private key must be set in the configuration when running this role.
+# A self-signed certificate can be generated using a command similar to this one:
+#
+# openssl req -x509 -newkey rsa:4096 -nodes -keyout postfix.key -out postfix-cert.pem -days 3650 \
+#     -subj "/C=DE/ST=Berlin/L=Berlin/O=OpenCraft GmbH/OU=Org/CN=relay.net.opencraft.hosting"
+POSTFIX_TLS_CERT_CONTENT: ""
+POSTFIX_TLS_KEY_CONTENT: ""
+
+# The domain name of mail originating from the mail server (e.g. monitoring emails)
+POSTFIX_MAILNAME: example.com
+
+# Default outgoing mail server, specified in the format accepted by the Postfix SMTP client
+POSTFIX_RELAY_DEFAULT_HOST: "[smtp.external-provider.com]:587"
+
+# List of senders for the relay, the below will relay
+# all senders from @opencraft.com through Gmail.
+# Example:
+# POSTFIX_RELAY_SENDER_MAP:
+#    - "@opencraft.com      [smtp-relay.gmail.com]:587"
+POSTFIX_RELAY_SENDER_MAP: []
+
+# The list of configured SMTP clients in the format
+# servername:port  username:password
+# Example:
+# POSTFIX_SASL_CLIENT_PASSWORDS:
+#    - "mail.example.com user:securepass"
+POSTFIX_SASL_CLIENT_PASSWORDS: []
+
+# Users who can authenticate against Postfix
+# Example:
+# POSTFIX_SASL_USERS:
+#   - user: jane
+#     password: skVMVk1Fbt3DaJbu
+#   - user: joe
+#     password: hunter2
+POSTFIX_SASL_USERS: []
+
+# Some configuration file paths; paths that shouldn't be changed have been hard-coded.
+POSTFIX_TLS_CERT: /etc/ssl/certs/postfix-cert.pem
+POSTFIX_TLS_KEY: /etc/ssl/private/postfix.key
+POSTFIX_SASL_CLIENT_PASSWORD_FILE: /etc/postfix/sasl/client-passwd
+POSTFIX_SASL_SERVER_PASSWORD_FILE: /etc/dovecot/private/users
+POSTFIX_RELAY_MAPS_FILE: /etc/postfix/relay_maps

@@ -1,0 +1,14 @@
+---
+
+dependencies:
+  - name: nginx-proxy
+    when: MYSQL_EXPORTER_ENABLED
+    # The username is a bit misleading – should actually be "prometheus", since it's the server
+    # authenticating, and the same username is used for scraping other exporters, but it's not worth
+    # the hassle to change it.
+    NGINX_PROXY_USERNAME: node-exporter
+    NGINX_PROXY_PASSWORD: "{{ MYSQL_EXPORTER_PASSWORD }}"
+    NGINX_PROXY_AUTH_DOMAIN: Prometheus MySQL Exporter
+    NGINX_PROXY_CONFIG_PATH: /etc/nginx/sites-available/mysql-exporter
+    NGINX_PROXY_PUBLIC_PORT: 19104
+    NGINX_PROXY_INTERNAL_PORT: 9104

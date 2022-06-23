@@ -1,0 +1,22 @@
+---
+
+# GENERAL #####################################################################
+
+LOAD_BALANCER_SERVER_IP: "{{ COMMON_FLOATING_IP or ansible_host }}"
+
+COMMON_SERVER_INSTALL_CERTBOT: true
+COMMON_SERVER_INSTALL_NODE_EXPORTER: false
+COMMON_SERVER_INSTALL_POSTFIX: false
+COMMON_SERVER_INSTALL_FILEBEAT: false
+COMMON_SERVER_INSTALL_SANITY_CHECKER: false
+
+COMMON_SERVER_NO_BACKUPS: true
+
+# MAIL ########################################################################
+
+LOAD_BALANCER_OPS_EMAIL: "{{ OPS_EMAIL }}"
+
+# CONSUL ######################################################################
+
+consul_servers:
+  - haproxy-integration.net.opencraft.hosting

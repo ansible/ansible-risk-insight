@@ -1,0 +1,17 @@
+---
+
+- name: Deploy the OpenCraft Instance Manager
+  hosts: ocim
+  become: true
+  roles:
+    - role: common-server
+      tags: 'common-server'
+
+    - role: ocim
+      tags: 'ocim'
+
+    - role: redis-exporter
+      tags: 'redis-exporter'
+      REDIS_EXPORTER_CHECK_KEYS: "{{ OCIM_QUEUE_REDIS_KEY }}"
+      REDIS_EXPORTER_REDIS_ADDR: "{{ OCIM_REDIS_ADDRESS }}"
+      when: REDIS_EXPORTER_PASSWORD is not none

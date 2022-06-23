@@ -1,0 +1,48 @@
+---
+# Playbook to bootstrap the SoYouStart dedicated servers.  These servers don't have a non-root user
+# account when freshly installed.  Running our playbooks as the root user is not an option, since
+# geerlingguy.security role disables root login, so we would lock ourselves out.  This playbook
+# creates the ubuntu user, gives it the required permissions and disables the password of the root
+# user.  The ubuntu user is made accessible with the SSH private key used to run this playbook.
+#
+# Usage:
+#    ansible-playbook bootstrap-dedicated.yml -i <IP address or hostname>, \
+#        --private-key=/path/to/ssh/private/key
+#
+# Note that the comma after the IP address needs to be included.
+# The host must also be a part of a group called 'dedicated' in the inventory.
+
+- name: prepare dedicated servers
+  hosts: dedicated
+  vars:
+    ansible_user: root
+  become: false
+  tasks:
+    - name: create ubuntu user
+      user:
+        name: ubuntu
+        groups: adm,sudo
+        shell: /bin/bash
+
+    - name: give passwordless sudo privileges to ubuntu user
+      copy:
+        content: |
+          ubuntu ALL=(ALL) NOPASSWD:ALL
+        dest: /etc/sudoers.d/ubuntu_user
+        mode: 0440
+
+    - name: generate SSH public key
+      local_action: >
+        command ssh-keygen -y -f {{ ansible_ssh_private_key_file }}
+      register: common_public_ssh_key
+
+    - name: add SSH authorized key for user ubuntu
+      authorized_key:
+        user: ubuntu
+        key: "{{ common_public_ssh_key.stdout }}"
+
+    - name: disable root password
+      user:
+        name: root
+        password: "*"
+        update_password: always

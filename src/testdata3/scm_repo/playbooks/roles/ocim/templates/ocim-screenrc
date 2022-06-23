@@ -1,0 +1,13 @@
+screen -t web
+stuff "sudo -s -H -u {{ www_user }}\n"
+stuff "cd {{ opencraft_root_dir }}\n"
+stuff "make run\n"
+
+screen -t ipython
+stuff "sudo -s -H -u {{ www_user }}\n"
+stuff "cd {{ opencraft_root_dir }}\n"
+stuff "make shell\n"
+
+screen
+stuff "sudo -s -H -u {{ www_user }}\n"
+stuff "cd {{ opencraft_root_dir }}\n"

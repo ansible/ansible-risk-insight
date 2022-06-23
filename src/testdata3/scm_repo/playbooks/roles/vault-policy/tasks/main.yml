@@ -1,0 +1,16 @@
+---
+
+- name: Copy Vault policies to the server
+  copy:
+    content: "{{ item.policy }}"
+    dest: "{{ vault_policy_dir }}/{{ item.name }}.json"
+  with_items: "{{ vault_policies }}"
+
+- name: Write Vault policies
+  shell: |
+    vault policy write \
+      {{ item.name }} \
+      {{ vault_policy_dir }}/{{ item.name }}.json
+  with_items: "{{ vault_policies }}"
+  changed_when: false  # policy write does not provide any information about the change
+  environment: "{{ vault_env_policy }}"

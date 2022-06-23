@@ -1,0 +1,19 @@
+---
+
+# ELASTICSTACK ###############################################################
+
+es_instance_name: "node1"
+
+es_api_port: 9200
+es_enable_xpack: false
+es_heap_size: 4g
+es_java_install: true
+es_version: "6.5.1"
+es_version_lock: true
+
+es_config:
+  node.data: true
+  node.master: true
+  node.name: ${HOSTNAME}
+  cluster.name: "{{ ELASTICSEARCH_CLUSTER_NAME }}"
+  http.port: 9200

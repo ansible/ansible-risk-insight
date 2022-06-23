@@ -1,0 +1,23 @@
+---
+
+consul_acl_mgmt_token: null
+
+# A list of token IDs and rules defining the set of policies associated with each token.
+# Ensure that the token you choose is unique (e.g. by generating a random UUID).
+# Each rule must match the format specified in https://docs.ansible.com/ansible/2.5/modules/consul_acl_module.html.
+# There can be multiple rules per token.
+#
+# Example:
+#
+# consul_acl_tokens:
+#   - id: anonymous
+#     rules:
+#       - key: "certs"
+#         policy: deny
+#   - id: 10649034-cc56-4bfc-899f-f08427f326e8
+#     name: "Optional Name"
+#     rules:
+#       - key: ""
+#         policy: write
+#
+consul_acl_tokens: []

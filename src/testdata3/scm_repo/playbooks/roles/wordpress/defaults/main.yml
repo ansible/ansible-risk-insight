@@ -1,0 +1,8 @@
+---
+
+WORDPRESS_INSTALL_PLUGINS: []
+
+# Default values for optional htpasswd authentication
+NGINX_WP_AUTH_USERNAME: null
+NGINX_WP_AUTH_PASSWORD: null
+NGINX_WP_AUTH_HTPASSWD_PATH: /etc/nginx/htpasswd_opencraftstaff

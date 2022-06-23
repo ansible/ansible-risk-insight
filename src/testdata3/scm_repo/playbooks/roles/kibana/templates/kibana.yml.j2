@@ -1,0 +1,11 @@
+server:
+  name: {{ kibana_server_name }}
+
+elasticsearch.username: "kibana_system"
+elasticsearch.password: "{{ kibana_elasticsearch_password }}"
+xpack.security.encryptionKey: "{{ kibana_encryption_key }}"
+xpack.encryptedSavedObjects.encryptionKey: "{{ kibana_encryption_key }}"
+
+elasticsearch.ssl.certificateAuthorities: ["{{ kibana_config_dir }}/elasticsearch-ca.pem"]
+elasticsearch.hosts: ["{{ es_api_uri }}"]
+elasticsearch.ssl.verificationMode: none

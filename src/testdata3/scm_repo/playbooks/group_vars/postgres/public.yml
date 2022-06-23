@@ -1,0 +1,66 @@
+---
+
+# GENERAL #####################################################################
+
+POSTGRES_SERVER_DOMAIN: "{{ inventory_hostname }}"
+
+# TARSNAP #####################################################################
+
+TARSNAP_BACKUP_PRE_SCRIPT: "/usr/local/sbin/backup-pre.sh"
+TARSNAP_BACKUP_POST_SCRIPT: "/usr/local/sbin/backup-post.sh"
+TARSNAP_BACKUP_FOLDERS: "{{ POSTGRES_SERVER_BACKUP_DIR }}"
+TARSNAP_ARCHIVE_NAME: "{{ POSTGRES_SERVER_DOMAIN }}"
+
+# POSTGRES ####################################################################
+
+postgresql_version: 10
+postgresql_data_dir: "/var/lib/postgresql/{{ postgresql_version }}/main"
+postgresql_bin_path: "/usr/lib/postgresql/{{ postgresql_version }}/bin"
+postgresql_config_path: "/etc/postgresql/{{ postgresql_version }}/main"
+postgresql_packages: []
+postgresql_global_config_options:
+  - option: listen_addresses
+    value: '*'
+  - option: ssl
+    value: 'on'
+postgresql_hba_entries:
+  - { type: local, database: all, user: postgres, auth_method: trust }
+  - { type: local, database: all, user: all, auth_method: trust }
+  - { type: host, database: all, user: all, address: '127.0.0.1/32', auth_method: trust }
+  - { type: host, database: all, user: all, address: '::1/128', auth_method: trust }
+  - { type: host, database: all, user: all, address: '0.0.0.0/0', auth_method: password }
+
+# MAIL ########################################################################
+
+FORWARD_MAIL_MYDOMAIN: "{{ POSTGRES_SERVER_DOMAIN }}"
+UNATTENED_UPGRADES_ERRORS_RELAY_TO: "{{ POSTGRES_SERVER_DOMAIN }}"
+
+# SANITY ######################################################################
+
+SANITY_CHECK_LIVE_PORTS:
+  - host: localhost
+    port: 5432
+    message: "Can't connect to PostgreSQL"
+
+SANITY_CHECK_COMMANDS: []
+
+# CONSUL ######################################################################
+
+consul_service_config:
+  service:
+    name: "postgres"
+    tags: ["postgres"]
+    port: 5432
+    enable_tag_override: true
+    checks:
+      - name: "Connect to PostgreSQL"
+        tcp: "{{ POSTGRES_SERVER_DOMAIN }}:5432"
+        interval: "10m"
+
+# FILEBEAT ####################################################################
+
+filebeat_prospectors:
+  - fields:
+      type: "postgres"
+    paths:
+      - /var/log/postgresql/*.log

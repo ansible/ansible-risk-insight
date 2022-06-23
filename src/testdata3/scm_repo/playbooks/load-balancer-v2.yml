@@ -1,0 +1,15 @@
+---
+# Playbook for setting up a HAProxy load balancing server (v2).
+
+- name: Set up load-balancing servers
+  hosts: load-balancer-v2
+  become: true
+  roles:
+    - role: common-server
+      tags: 'common-server'
+
+    - role: load-balancer-v2
+      tags: 'load-balancer-v2'
+
+    - role: node-exporter
+      tags: 'node-exporter'

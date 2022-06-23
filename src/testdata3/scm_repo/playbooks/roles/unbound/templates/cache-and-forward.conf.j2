@@ -1,0 +1,26 @@
+#jinja2: lstrip_blocks: "True"
+server:
+    cache-max-negative-ttl: {{ negative_cache_ttl }} ## this is in seconds
+
+{% for zone in forward_zones %}
+forward-zone:
+    name: {{ zone.name }}
+    {% if zone.forward_addr is defined %}
+      {% if zone.forward_addr is string %}
+    forward-addr: {{ zone.forward_addr }}
+      {% else %}
+        {% for addr in zone.forward_addr %}
+    forward-addr: {{ addr }}
+        {% endfor %}
+      {% endif %} ## if zone.forward_addr is string
+    {% elif zone.forward_host is defined %}
+      {% if zone.forward_host is string %}
+    forward-host: {{ zone.forward_host }}
+      {% else %}
+        {% for host in zone.forward_host %}
+    forward-host: {{ host }}
+        {% endfor %}
+      {% endif %} ## if zone.forward_host is string
+    {% endif %} ## if zone.forward_addr is defined
+
+{% endfor %}

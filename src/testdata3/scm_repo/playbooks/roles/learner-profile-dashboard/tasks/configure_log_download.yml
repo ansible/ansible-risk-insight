@@ -1,0 +1,51 @@
+---
+- name: create log download user
+  user:
+    name: "{{ LPD_LOG_DOWNLOAD_USER }}"
+    home: "{{ LPD_LOG_DOWNLOAD_USER_HOME }}"
+    shell: /bin/bash
+
+- name: create ssh dir
+  file:
+    state: directory
+    name: "{{ LPD_LOG_DOWNLOAD_USER_HOME }}/.ssh"
+    owner: "{{ LPD_LOG_DOWNLOAD_USER }}"
+    group: "{{ LPD_LOG_DOWNLOAD_USER }}"
+    mode: 0700
+
+- name: create authorized keys
+  file:
+    state: touch
+    name: "{{ LPD_LOG_DOWNLOAD_USER_HOME }}/.ssh/authorized_keys"
+    owner: "{{ LPD_LOG_DOWNLOAD_USER }}"
+    group: "{{ LPD_LOG_DOWNLOAD_USER }}"
+    mode: 0600
+
+- name: add authorized keys
+  lineinfile:
+    dest: "{{ LPD_LOG_DOWNLOAD_USER_HOME }}/.ssh/authorized_keys"
+    line: "{{ item }}"
+    state: present
+  with_items:
+    - "{{ LPD_LOG_DOWNLOAD_AUTHORIZED_KEYS }}"
+
+- name: create directory for the logs
+  file:
+    name: "{{ item }}"
+    owner: "{{ LPD_LOG_DOWNLOAD_USER }}"
+    group: "{{LPD_LOG_DOWNLOAD_USER}}"
+    state: directory
+  with_items:
+    - "{{ LPD_LOG_DOWNLOAD_DB_DIR }}"
+    - "{{ LPD_LOG_DOWNLOAD_LOG_DIR }}"
+
+- name: copy pre backup script
+  template:
+    src: lpd-pre-backup.sh
+    dest: /usr/local/sbin/lpd-pre-backup.sh
+    owner: root
+    group: root
+    mode: 0700
+
+- name: copy logrotate
+  template: src=logrotate.d dest=/etc/logrotate.d/lpd

@@ -1,0 +1,5 @@
+jsonschema==3.2.0
+textfsm
+ttp
+xmltodict
+netaddr

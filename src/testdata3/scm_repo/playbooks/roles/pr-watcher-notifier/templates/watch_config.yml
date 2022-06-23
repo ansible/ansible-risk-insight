@@ -1,0 +1,16 @@
+#jinja2: lstrip_blocks: "True"
+---
+{% for repo, config in PR_WATCHER_NOTIFIER_WATCH_CONFIG.items() %}
+{{ repo }}:
+  patterns:
+  {% for pattern in config['patterns'] %}
+   - "{{ pattern }}"
+  {% endfor %}
+  recipients:
+  {% for recipient in config['recipients'] %}
+   - "{{ recipient }}"
+  {% endfor %}
+  {% if "subject" in config %}
+  subject: "{{ config['subject'] }}"
+  {% endif %}
+{% endfor %}

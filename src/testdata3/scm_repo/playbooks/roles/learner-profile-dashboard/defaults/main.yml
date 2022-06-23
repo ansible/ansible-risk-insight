@@ -1,0 +1,43 @@
+---
+
+LPD_HOSTNAME: "{{ inventory_hostname }}"
+LPD_USER_NAME: "lpd"
+LPD_USER_HOME: "/home/{{ LPD_USER_NAME }}"
+LPD_APP_LOCATION: "{{ LPD_USER_HOME }}/repository"
+LPD_VENV: "{{ LPD_USER_HOME }}/venv"
+LPD_PYTHON: "{{ LPD_VENV }}/bin/python"
+LPD_MANAGE_PY: "{{ LPD_PYTHON }} {{ LPD_APP_LOCATION }}/manage.py "
+
+LPD_LOG_DOWNLOAD_USER: logs-download
+LPD_LOG_DOWNLOAD_AUTHORIZED_KEYS: []
+LPD_LOG_DOWNLOAD_USER_HOME: "/home/{{ LPD_LOG_DOWNLOAD_USER }}"
+LPD_LOG_DOWNLOAD_LOG_DIR: "{{ LPD_LOG_DOWNLOAD_USER_HOME }}/logs"
+LPD_LOG_DOWNLOAD_DB_DIR: "{{ LPD_LOG_DOWNLOAD_USER_HOME }}/db"
+LPD_LOG_TARSNAP_ARCHIVE: lpd-logs
+
+LPD_LOG_DOWNLOAD_VOLUME_DEVICE_ID: /dev/xvdf
+LPD_LOG_DOWNLOAD_VOLUME_FILESYSTEM: ext4
+
+# Note: when overriding these leave DJANGO_SETTINGS_MODULE inside LPD_ENV.
+LPD_ENV:
+  DJANGO_SETTINGS_MODULE: 'app.settings'
+
+LPD_LOG_DIR: "/var/log/lpd"
+
+LPD_STATICFILES_ROOT: "{{ LPD_USER_HOME }}/static"
+LPD_MEDIA_ROOT: "{{ LPD_USER_HOME }}/media"
+
+LPD_REPOSITORY: https://github.com/open-craft/learner-profile-dashboard.git
+LPD_REPOSITORY_VERSION: "master"
+
+LPD_REQUIREMENTS:
+  - python-virtualenv
+  - gunicorn
+  - nginx
+
+PYTHON_BUILD_DEP_REQIREMENTS:
+  - python-mysqldb
+  - mysql-client
+
+LPD_SSL_KEY: null
+LPD_SSL_CERT: null

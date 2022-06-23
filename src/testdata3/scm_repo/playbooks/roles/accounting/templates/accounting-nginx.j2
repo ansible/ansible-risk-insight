@@ -1,0 +1,78 @@
+server {
+    listen 443 ssl;
+
+    server_name {{ ACCOUNTING_DOMAIN_NAME }} www.{{ ACCOUNTING_DOMAIN_NAME }};
+
+    if ($host = www.{{ ACCOUNTING_DOMAIN_NAME }}) {
+        rewrite ^(.*)$ https://{{ ACCOUNTING_DOMAIN_NAME }}$1 permanent;
+    }
+
+    ssl on;
+    ssl_certificate /etc/letsencrypt/live/{{ ACCOUNTING_DOMAIN_NAME }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ ACCOUNTING_DOMAIN_NAME }}/privkey.pem;
+
+    add_header Strict-Transport-Security "max-age=31536000";
+
+    access_log /var/log/nginx/{{ ACCOUNTING_DOMAIN_NAME }}_access.log;
+    error_log /var/log/nginx/{{ ACCOUNTING_DOMAIN_NAME }}_error.log error;
+
+    # temporary: while we don't have a real front-end, redirect `/` to `/admin`.
+    location = / {
+        return 301 https://$host/admin;
+    }
+
+    # serve static files
+    location /static {
+        alias {{ accounting_static_files_dir }};
+        try_files $uri =404;
+        autoindex off;
+        gzip on;
+        gzip_min_length 1000;
+        gzip_types
+          text/css
+          text/html
+          text/javascript
+          image/svg+xml
+          application/javascript;
+    }
+
+    location /media {
+        alias {{ accounting_media_files_dir }};
+        try_files $uri =404;
+        autoindex off;
+        gzip on;
+        gzip_min_length 1000;
+        gzip_types
+          text/css
+          text/html
+          text/javascript
+          image/svg+xml
+          application/javascript;
+    }
+
+    location / {
+        proxy_pass http://localhost:1786/;
+
+        proxy_set_header Host             $host;
+        proxy_set_header X-Real-IP        $remote_addr;
+        proxy_set_header X-Forwarded-For  $proxy_add_x_forwarded_for;
+        proxy_max_temp_file_size 0;
+
+        client_max_body_size       50m;
+        client_body_buffer_size    128k;
+
+        proxy_connect_timeout      600s;
+        proxy_send_timeout         600s;
+        proxy_read_timeout         600s;
+
+        proxy_buffer_size          4k;
+        proxy_buffers              4 32k;
+        proxy_busy_buffers_size    64k;
+        proxy_temp_file_write_size 64k;
+    }
+
+    # deny access to .htaccess files
+    location ~ /\.ht {
+        deny all;
+    }
+}

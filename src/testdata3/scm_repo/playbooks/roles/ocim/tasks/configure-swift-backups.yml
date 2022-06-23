@@ -1,0 +1,42 @@
+---
+
+- name: Print SWIFT deprecation warning
+  fail:
+    msg: 'SWIFT Backup module is deprecated and will be removed in a future version.'
+  ignore_errors: yes
+
+- name: upload tarsnap key
+  template:
+    src: "tarsnap.key.j2"
+    dest: "{{ OPENCRAFT_BACKUP_SWIFT_TARSNAP_KEY_LOCATION }}"
+    owner: "{{ www_user }}"
+    group: "root"
+
+- name: create backup folders
+  file:
+    name: "{{ item }}"
+    owner: "{{ www_user }}"
+    group: "root"
+    state: "directory"
+  with_items:
+    - "{{ OPENCRAFT_BACKUP_SWIFT_TARGET }}"
+    - "{{ OPENCRAFT_BACKUP_SWIFT_TARSNAP_CACHE_LOCATION }}"
+
+# NOTE: These two tasks are optional:
+
+- name: mount volume
+  mount:
+    fstype: "ext4"
+    state: "mounted"
+    name: "{{ OPENCRAFT_BACKUP_SWIFT_TARGET }}"
+    src:  "{{ OPENCRAFT_BACKUP_SWIFT_MOUNT_DEVICE }}"
+  when: OPENCRAFT_BACKUP_SWIFT_MOUNT_DEVICE
+
+- name: chmod volume
+  file:
+    path: "{{ OPENCRAFT_BACKUP_SWIFT_TARGET }}"
+    owner: "{{ www_user }}"
+    group: "root"
+    recurse: "yes"
+    state: "directory"
+  when: OPENCRAFT_BACKUP_SWIFT_MOUNT_DEVICE

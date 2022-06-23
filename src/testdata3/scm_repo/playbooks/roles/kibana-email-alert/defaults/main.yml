@@ -1,0 +1,10 @@
+---
+
+# what to match in journald log, need to add \\ to stop escaping \
+kibana_email_alert_regex: '\\"type\\":\\"log\\".+\\"tags\\".+\\"actions\\".+Server log:'
+
+# which email to send alert
+kibana_email_alert_to: null
+
+kibana_email_alert_subject: "Kibana Error Log"
+

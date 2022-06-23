@@ -1,0 +1,12 @@
+---
+  - name: create Consul config directory
+    file:
+      path: /etc/consul
+      state: directory
+
+  - name: create Consul service definition file
+    copy:
+      content: "{{ REDIS_EXPORTER_CONSUL_SERVICE | to_nice_json }}"
+      dest: /etc/consul/redis-exporter.json
+    notify:
+      - reload consul

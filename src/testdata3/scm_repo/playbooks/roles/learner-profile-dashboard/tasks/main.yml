@@ -1,0 +1,37 @@
+
+- name: install deps
+  apt:
+    name: "{{ LPD_REQUIREMENTS }}"
+    state: present
+
+- name: install build deps
+  apt:
+    name: "{{ PYTHON_BUILD_DEP_REQIREMENTS }}"
+    state: build-dep
+
+- name: Create lpd user
+  user:
+    name: "{{ LPD_USER_NAME }}"
+    home: "{{ LPD_USER_HOME }}"
+    shell: "/bin/bash"
+
+- name: Create log dir
+  file:
+    name: "{{ LPD_LOG_DIR }}"
+    state: directory
+    owner: "{{ LPD_USER_NAME }}"
+
+- include: deploy-app.yml
+- include: deploy-gunicorn.yml
+- include: configure_nginx.yml
+- include: log_volume.yml
+- include: configure_log_download.yml
+
+- name: Allow required ports
+  ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  with_items:
+    - 80
+    - 443

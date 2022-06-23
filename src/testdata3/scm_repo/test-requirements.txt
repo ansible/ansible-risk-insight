@@ -1,0 +1,3 @@
+-r requirements.txt
+molecule==2.19.0
+docker==3.7.0

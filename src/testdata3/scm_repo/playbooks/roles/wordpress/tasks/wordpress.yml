@@ -1,0 +1,79 @@
+---
+
+- name: Install dependencies
+  apt:
+    name: "{{ item }}"
+    update_cache: yes
+  with_items:
+    - unzip
+    - mysql-client
+    - build-essential
+    - python3-dev
+    - libmysqlclient-dev
+    - python3-mysqldb
+    - python3-pip
+
+- name: Install the Python MySQL module
+  pip:
+    name: mysqlclient
+
+- name: Ensure .ssh directory exists for www-data user
+  file:
+    path: "/var/www/.ssh/"
+    state: directory
+    owner: www-data
+    group: www-data
+
+- name: Create key file
+  no_log: True
+  copy:
+    dest: "/var/www/.ssh/id_rsa"
+    content: "{{ WORDPRESS_THEME_DEPLOY_KEY }}"
+    owner: www-data
+    group: www-data
+    mode: '0600'
+
+- name: Evaluating the authentication agent & adding the key...
+  shell: |
+    eval "$(ssh-agent)"
+    ssh-add /var/www/.ssh/id_rsa
+
+- name: Copy database dump
+  command: cp {{ WORDPRESS_DATABASE_RESTORE_BACKUP_PATH }} /tmp/db_dump.sql
+  when: WORDPRESS_DATABASE_RESTORE
+
+- name: Restore database backup
+  mysql_db:
+    name: "{{ WORDPRESS_DATABASE_NAME }}"
+    login_user: "{{ WORDPRESS_DATABASE_USER }}"
+    login_password: "{{ WORDPRESS_DATABASE_PASSWORD }}"
+    login_host: "{{ WORDPRESS_DATABASE_HOST }}"
+    state: import
+    target: /tmp/db_dump.sql
+  when: WORDPRESS_DATABASE_RESTORE
+
+- import_tasks: deploy.yml
+  when: WORDPRESS_DEPLOY
+  notify:
+    - reload nginx
+
+- name: restore content backup
+  when: WORDPRESS_RESTORE_CONTENT
+  block:
+
+    - name: Copy content backup
+      command: cp {{ WORDPRESS_UPLOADS_RESTORE_BACKUP_PATH }} /tmp/uploads.zip
+
+    - name: Extract content backup
+      unarchive:
+        src: /tmp/uploads.zip
+        dest: "/var/www/{{ LANDING_SITE_HOSTNAME }}/wp-content/"
+        owner: www-data
+        group: www-data
+        remote_src: yes
+
+
+- import_tasks: restore.yml
+  when: WORDPRESS_FULL_RESTORE
+  notify:
+    - reload nginx

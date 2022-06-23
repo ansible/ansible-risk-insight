@@ -1,0 +1,12 @@
+---
+- name: ensure nginx config directory exists
+  file:
+   path: /etc/nginx/sites-enabled
+   recurse: yes
+   state: directory
+
+- name: prepare nginx site
+  template: src=lpd.site dest=/etc/nginx/sites-enabled/lpd
+
+- name: restart nginx
+  service: name=nginx state=restarted

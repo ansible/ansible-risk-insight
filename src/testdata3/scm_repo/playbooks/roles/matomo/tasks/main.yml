@@ -1,0 +1,52 @@
+---
+- name: Allow web ports on the firewall
+  ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  with_items:
+    - 80
+    - 443
+
+- name: Create the Matomo deployment and configuration directories
+  file:
+    path: "{{ item }}"
+    state: directory
+  with_items:
+    - "{{ MATOMO_DOCKER_COMPOSE_DIR }}"
+    - "{{ MATOMO_CONFIG_DIR }}"
+
+- name: Install the docker-compose file
+  template:
+    src: "docker-compose.yml.j2"
+    dest: "{{ MATOMO_DOCKER_COMPOSE_DIR }}/docker-compose.yml"
+    mode: 0600
+    backup: yes
+
+- name: Install the docker-compose environment configuration file
+  template:
+    src: "matomo.env.j2"
+    dest: "{{ MATOMO_DOCKER_COMPOSE_ENV_FILE }}"
+    mode: 0600
+    backup: yes
+
+- name: Install the Matomo archive reports script to use in the cron job
+  template:
+    src: "matomo_archive_reports.sh.j2"
+    dest: "{{ MATOMO_DOCKER_COMPOSE_DIR }}/matomo_archive_reports.sh"
+    mode: 0755
+    backup: yes
+
+- name: Start the app with docker-compose
+  docker_service:
+    project_src: "{{ MATOMO_DOCKER_COMPOSE_DIR }}"
+    pull: yes
+    debug: yes
+
+- name: Install the Matomo archive script cron job
+  cron:
+    name: "Run the Matomo archive script"
+    job: "{{ MATOMO_DOCKER_COMPOSE_DIR }}/matomo_archive_reports.sh"
+    special_time: hourly
+    user: root
+    cron_file: matomo_archive_reports

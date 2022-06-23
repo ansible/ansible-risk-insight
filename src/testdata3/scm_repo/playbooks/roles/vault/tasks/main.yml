@@ -1,0 +1,109 @@
+---
+
+- name: Create vault group
+  group:
+    name: vault
+    system: yes
+
+- name: Create vault user
+  user:
+    name: vault
+    group: vault
+    createhome: "{{ vault_user_createhome }}"
+    system: yes
+
+- name: Create vault directories
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: vault
+    mode: 0755
+  with_items:
+    - { path: "{{ vault_bin_dir }}", owner: root }
+    - { path: "{{ vault_log_dir }}", owner: vault }
+    - { path: "{{ vault_config_dir }}", owner: vault }
+    - { path: "{{ vault_policy_dir }}", owner: vault }
+    - { path: "{{ vault_tls_dir }}", owner: vault }
+
+- name: Copy over Vault private TLS content
+  copy:
+    content: "{{ item.content }}"
+    dest: "{{ item.dest }}"
+  with_items:
+    - { content: "{{ vault_tls_cert }}", dest: "{{ vault_tcp_tls_cert_file }}" }
+    - { content: "{{ vault_tls_key }}", dest: "{{ vault_tcp_tls_key_file }}" }
+    - { content: "{{ vault_tls_ca }}", dest: "{{ vault_tcp_tls_client_ca_file }}" }
+  no_log: true
+  notify: restart vault
+
+- name: Determine current Vault version
+  shell: vault version | cut -d" " -f 2 - | cut -b 2- -
+  register: vault_current_version
+  changed_when: false
+
+- name: Download and unarchive the Vault binary
+  unarchive:
+    src: "{{ vault_url }}"
+    dest: "{{ vault_bin_dir }}"
+    owner: vault
+    group: vault
+    remote_src: yes
+  when: vault_current_version.rc != 0 or vault_current_version.stdout != vault_version
+  register: vault_binary
+  notify: restart vault
+
+- name: Configure `vault` autocomplete
+  become: no
+  shell: "vault -autocomplete-install"
+  when: vault_binary.changed
+  ignore_errors: yes
+
+- name: Install Vault environment variables
+  become: no
+  template:
+    src: vault-env.j2
+    dest: "/home/{{ ansible_ssh_user }}/.vault-env"
+
+- name: Source Vault environment variables
+  become: no
+  lineinfile:
+    path: "/home/{{ ansible_ssh_user }}/.bashrc"
+    line: "source $HOME/.vault-env"
+
+- name: Create Vault configuration file
+  template:
+    src: config.hcl.j2
+    dest: "{{ vault_config_dir }}/config.hcl"
+    group: vault
+  notify: restart vault
+
+- name: Create Vault systemd service file
+  template:
+    src: vault.service.j2
+    dest: /etc/systemd/system/vault.service
+
+- name: Enable and start systemd service to start on boot automatically
+  systemd:
+    name: vault.service
+    enabled: yes
+    state: started
+    daemon_reload: yes
+
+- name: Open TCP port on firewall needed for Vault server-to-server communication
+  ufw:
+    rule: allow
+    port: "8200:8201"
+    proto: "tcp"
+  when: vault_ufw
+
+- name: Allow the mlock syscall to be used by the Vault binary
+  shell: |
+    if getcap $(readlink -f {{ vault_bin_dir }}/vault) | grep -q '= cap_ipc_lock+ep' ; then
+      echo already set
+    else
+      setcap cap_ipc_lock=+ep $(readlink -f {{ vault_bin_dir }}/vault)
+      echo cap_ipc_lock set
+    fi
+  register: result
+  changed_when: "'cap_ipc_lock set' in result.stdout"

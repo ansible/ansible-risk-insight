@@ -1,0 +1,35 @@
+---
+# This set of tasks is meant to be run like so:
+# ansible-playbook -v deploy/playbooks/load-balancer-v2.yml \
+#   -l load-balancer-v2-stage \
+#   --tags "site-is-up" \
+#   -e "maintenance_base_domain='a.domain.opencraft.hosting'" \
+
+- name: Fetch maintenance map from the load balancer
+  slurp:
+    src: /etc/haproxy/maint.map
+  register: maint_map
+
+- name: Parse maintenance map for matching domains
+  set_fact:
+    # fact's value explained:
+    # (maint_map['content'] | b64decode) -- slurp base64 encodes the file
+    # .split("\n") -- get array of lines
+    # map("regex_replace", '^(\S+)\s+\S+$', "\1") -- extract the domain
+    # select('search', maintenance_base_domain) -- filter out non-matching domains
+    # list -- convert the previous generator into a list
+    maint_matched_domains: "{{ (maint_map['content'] | b64decode).split('\n') | map('regex_replace', '^(\\S+)\\s+\\S+$', '\\1') | select('search', maintenance_base_domain) | list }}"
+
+- name: Remove entries from the HAProxy maintenance map
+  # This removes mappings created by site-is-down.yml.
+  # HAProxy returns to serving its usual configuration.
+  lineinfile:
+    path: /etc/haproxy/maint.map
+    state: absent
+    regexp: "^{{ item }}"
+  loop: "{{ maint_matched_domains }}"
+  when: maint_matched_domains
+  notify: reload haproxy
+
+- name: These domains were removed from maintenance mode
+  debug: msg="{{ maint_matched_domains }}"

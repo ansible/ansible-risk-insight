@@ -1,0 +1,100 @@
+---
+# https://stackoverflow.com/questions/25193161/chfn-pam-system-error-intermittently-in-docker-hub-builds/25267015
+- name: Disable chfn
+  file:
+    path: /usr/bin/chfn
+    src: /bin/true
+    state: link
+    force: yes
+
+# https://www.rabbitmq.com/install-debian.html#apt-pinning
+- name: Install Essential Dependencies
+  apt:
+    name:
+      - gnupg
+      - debian-keyring
+      - debian-archive-keyring
+      - apt-transport-https
+      - python3-apt
+      # Required by the rabbitmq modules that uses the management API
+      - python3-requests
+    state: present
+    force: yes
+
+- name: Add RabbitMQ main release signing key
+  apt_key:
+    keyserver: "keyserver.ubuntu.com"
+    id: "0x0A9AF2115F4687BD29803A206B73A36E6026DFCA"
+    state: present
+  # The key for RPM release signing is different than this one.
+  # These URIs each have the same *RPM* signing key:
+  #   "https://github.com/rabbitmq/signing-keys/releases/download/2.0/rabbitmq-release-signing-key.asc"
+  #   "https://ansible-ci-files.s3.amazonaws.com/test/integration/targets/setup_rabbitmq/rabbitmq-release-signing-key.asc"
+
+- name: Add RabbitMQ repository signing key
+  apt_key:
+    url: "{{ item }}"
+    state: present
+  loop:
+    # Cloudsmith: modern Erlang repository
+    - "https://dl.cloudsmith.io/public/rabbitmq/rabbitmq-erlang/gpg.E495BB49CC4BBE5B.key"
+    # Cloudsmith: RabbitMQ repository
+    - "https://dl.cloudsmith.io/public/rabbitmq/rabbitmq-server/gpg.9F4587F226208342.key"
+
+- name: Add RabbitMQ Erlang repository
+  apt_repository:
+    repo: "deb https://dl.cloudsmith.io/public/rabbitmq/rabbitmq-erlang/deb/ubuntu {{ ansible_facts.distribution_release }} main"
+    filename: 'rabbitmq-erlang'
+    state: present
+    update_cache: yes
+
+- name: Add RabbitMQ Server repository
+  apt_repository:
+    repo: "deb https://dl.cloudsmith.io/public/rabbitmq/rabbitmq-server/deb/ubuntu {{ ansible_facts.distribution_release }} main"
+    filename: 'rabbitmq-server'
+    state: present
+    update_cache: yes
+
+- name: Install RabbitMQ Erlang dependencies
+  apt:
+    name:
+      # Make sure libcrypto new enough for erlang
+      - libssl1.1
+      # Base
+      - erlang-base
+      # TLS
+      - erlang-asn1
+      - erlang-crypto
+      - erlang-public-key
+      - erlang-ssl
+      # etc (maybe not needed?)
+      - erlang-mnesia
+      - erlang-os-mon
+      - erlang-parsetools
+      - erlang-runtime-tools
+      - erlang-snmp
+      - erlang-syntax-tools
+      - erlang-tftp
+      - erlang-tools
+      - erlang-xmerl
+    state: latest
+
+- name: Install RabbitMQ Server
+  apt:
+    name: rabbitmq-server
+    state: fixed
+    # policy.rc.d => do not start the service yet
+    policy_rc_d: 101
+
+- name: Ensure TLS config
+  copy:
+    src: rabbitmq.conf
+    dest: /etc/rabbitmq/rabbitmq.conf
+
+- name: Start RabbitMQ service
+  service:
+    name: rabbitmq-server
+    state: started
+
+- name: Enable management
+  command: rabbitmq-plugins enable --online rabbitmq_management

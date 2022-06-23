@@ -1,0 +1,24 @@
+---
+vault_policy_mgmt_token: "testtoken"
+
+vault_policies:
+  - name: ssh-signer-management
+    policy:
+      path:
+        "sys/mounts":
+          capabilities:
+            - read
+        "sys/mounts/*":
+          capabilities:
+            - create
+            - read
+            - list
+            - update
+        "ssh-signer-*":
+          capabilities:
+            - create
+            - read
+            - list
+            - update
+            - delete
+

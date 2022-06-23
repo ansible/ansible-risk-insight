@@ -1,0 +1,106 @@
+---
+
+- name: copy nginx default configuration
+  template:
+    src: nginx-default-server.j2
+    dest: /etc/nginx/sites-available/common-server
+  notify:
+    - reload nginx
+
+# We only copy the default configuration if we set up Certbot.  The default configuration makes
+# nginx listen on port 80, which may not be desired in some cases (e.g. for the load balancer),
+# but it is required if we want to reply to ACME challenges (which the load balancer does in a
+# different way, configured in the HAProxy configuration).
+- name: enable nginx site configuration
+  file:
+    src: /etc/nginx/sites-available/common-server
+    dest: /etc/nginx/sites-enabled/common-server
+    state: link
+  notify:
+    - reload nginx
+
+# Activate the nginx config so Certbot can authenticate cert requests.
+- name: reload nginx if required
+  meta: flush_handlers
+
+- name: open HTTP port on the firewall
+  ufw:
+    rule: allow
+    port: 80
+    proto: tcp
+
+# Certbot apt packages are outdated and no longer officially supported by certbot.
+# The oficially supported installation method is via snap.
+- name: Remove certbot apt package if installed
+  apt:
+    name: "{{ item }}"
+    state: absent
+  with_items:
+    - python-certbot-nginx
+    - certbot
+
+- name: Install snapd
+  apt:
+    name: snapd
+
+# TODO: We should switch to the snap ansible module after we upgrade to Ansible 2.8 or newer.
+- name: Install certbot snap
+  command: snap install certbot --classic
+
+- name: Create Certbot webroot directory
+  file:
+    path: /var/www/certbot
+    state: directory
+
+- name: Create Certbot deploy hooks directory
+  file:
+    path: /etc/letsencrypt/renewal-hooks/deploy
+    state: directory
+
+- name: Copy the Certbot deploy hook to restart nginx on renewal
+  copy:
+    src: restart-nginx.sh
+    dest: /etc/letsencrypt/renewal-hooks/deploy/restart-nginx.sh
+    mode: 0755
+
+# The systemtd certbot renew timer that's included in the certbot snap package does not send an email on failure.
+# For this reason we disable the timer and use a custom cronfile with a MAILTO instead.
+- name: Disable systemd timer
+  systemd:
+    name: snap.certbot.renew.timer
+    state: stopped
+    enabled: no
+
+# Custom cron job for renewing certificates. The only difference from the official snap systemd timer is
+# that this cron job will send an email to ops if any of the certificates fail to renew.
+- name: Create cron job to periodically renew certificates
+  cron:
+    name: certbot renew
+    user: root
+    job: "perl -e 'sleep int(rand(43200))' && /snap/bin/certbot -q renew"
+    minute: '0'
+    hour: '*/12'
+    cron_file: certbot-renew
+
+- name: Set MAILTO variable for certbot renew cron job
+  cron:
+    name: MAILTO
+    env: yes
+    job: '{{ CERTBOT_RENEW_OPS_EMAIL }}'
+    user: root
+    cron_file: certbot-renew
+
+- name: generate SSL certificate with certbot
+  shell: >-
+    certbot certonly
+    --webroot
+    --webroot-path /var/www/certbot
+    --domain {{ CERTBOT_DOMAIN_NAME }}
+    {% for domain in CERTBOT_ADDITIONAL_DOMAINS %}
+    --domain {{ domain }}
+    {% endfor %}
+    --email {{ CERTBOT_OPS_EMAIL }}
+    --non-interactive
+    --agree-tos
+  args:
+    creates: "/etc/letsencrypt/live/{{ CERTBOT_DOMAIN_NAME }}/fullchain.pem"

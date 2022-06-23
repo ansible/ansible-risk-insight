@@ -1,0 +1,21 @@
+---
+# tasks file for kibana-email-alert
+
+- name: Copy alert script
+  template:
+    src: "kibana_email_alert.sh.j2"
+    dest: "/usr/local/sbin/kibana_email_alert.sh"
+    mode: 0755
+
+- name: Copy systemd service file
+  template:
+    src: "kibana_email_alert.service.j2"
+    dest: "/etc/systemd/system/kibana_email_alert.service"
+
+- name: Enable and start the systemd service to start on boot automatically
+  systemd:
+    name: kibana_email_alert.service
+    enabled: yes
+    state: started
+    daemon_reload: yes
+

@@ -1,0 +1,14 @@
+---
+- name: Copy the watch configuration file
+  template:
+    src: watch_config.yml
+    dest: "{{ PR_WATCHER_NOTIFIER_ENV['WATCH_CONFIG_FILE'] }}"
+    mode: 0755
+    backup: yes
+  become_user: www-data
+  tags: pr-watcher-notifier-watch-config
+
+- name: Restart gunicorn via supervisor
+  supervisorctl:
+    name: pr_watcher_notifier
+    state: restarted

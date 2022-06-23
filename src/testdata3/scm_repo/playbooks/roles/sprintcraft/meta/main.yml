@@ -1,0 +1,23 @@
+---
+dependencies:
+  - name: nginx-proxy
+    NGINX_PROXY_CONFIG_PATH: "{{ SPRINTCRAFT_NGINX_CONFIG_PATH }}"
+    NGINX_PROXY_PUBLIC_PORT: 443
+    NGINX_PROXY_INTERNAL_PORT: 5000
+    NGINX_PROXY_USE_SSL: "{{ USE_SSL }}"
+    NGINX_PROXY_SERVER_NAME: "{{ API_HOSTNAME }}"
+    NGINX_PROXY_EXTRA_CONFIG: |
+      location /flower/ {
+          rewrite ^/flower/(.*)$ /$1 break;
+          proxy_pass http://localhost:5555/;
+          proxy_http_version 1.1;
+          proxy_buffering off;
+          proxy_request_buffering off;
+          proxy_send_timeout 60s;
+          proxy_read_timeout 60s;
+
+          proxy_set_header Host $http_host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+      }

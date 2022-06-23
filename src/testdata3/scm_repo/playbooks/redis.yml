@@ -1,0 +1,46 @@
+---
+# Playbook for setting up a Redis cluster.
+
+- name: configure the primary redis server
+  hosts: redis-primary
+  become: true
+  roles:
+    - role: common-server
+      tags: 'common-server'
+
+    - role: redis
+      tags: 'install-redis'
+
+    - role: davidwittman.redis
+      tags: 'davidwittman.redis'
+
+- name: configure redis secondary replicas
+  hosts: redis-replica
+  become: true
+  vars:
+    # Set redis_slaveof in host_vars, e.g. "redis.opencraft.hosting {{ redis_port }}"
+    redis_slave_read_only: "yes"
+  roles:
+    - role: common-server
+      tags: 'common-server'
+
+    - role: redis
+      tags: 'install-redis'
+
+    - role: davidwittman.redis
+      tags: 'davidwittman.redis'
+
+- name: configure redis sentinel
+  hosts: redis-sentinel
+  become: true
+  vars:
+    redis_sentinel: true
+  roles:
+    - role: common-server
+      tags: 'common-server'
+
+    - role: redis
+      tags: 'install-redis'
+
+    - role: davidwittman.redis
+      tags: 'davidwittman.redis'

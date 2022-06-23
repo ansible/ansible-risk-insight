@@ -1,0 +1,19 @@
+---
+# Playbook for installing an nginx proxy
+
+- name: Install nginx proxy
+  hosts: custom-nginx-proxy
+  become: true
+  roles:
+    - role: nginx-proxy
+      tags: 'nginx-proxy'
+      vars:
+        NGINX_PROXY_CONFIG_PATH: "{{ CUSTOM_NGINX_PROXY_CONFIG_PATH }}"
+        NGINX_PROXY_INTERNAL_SCHEME: "{{ CUSTOM_NGINX_PROXY_INTERNAL_SCHEME }}"
+        NGINX_PROXY_INTERNAL_DOMAIN: "{{ CUSTOM_NGINX_PROXY_INTERNAL_DOMAIN }}"
+        NGINX_PROXY_INTERNAL_PORT: "{{ CUSTOM_NGINX_PROXY_INTERNAL_PORT }}"
+        NGINX_PROXY_PUBLIC_PORT: "{{ CUSTOM_NGINX_PROXY_PUBLIC_PORT }}"
+        NGINX_PROXY_SERVER_NAME: "{{ CUSTOM_NGINX_PROXY_SERVER_NAME }}"
+        NGINX_PROXY_SET_HEADER_HOST: "{{ CUSTOM_NGINX_PROXY_SET_HEADER_HOST }}"
+        NGINX_PROXY_USE_SSL: "{{ CUSTOM_NGINX_PROXY_USE_SSL }}"
+        NGINX_PROXY_EXTRA_CONFIG: "{{ CUSTOM_NGINX_PROXY_EXTRA_CONFIG | default('') }}"

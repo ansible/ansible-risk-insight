@@ -1,0 +1,68 @@
+---
+
+# ANSIBLE #####################################################################
+
+ansible_python_interpreter: /usr/bin/python
+
+# MONGODB #####################################################################
+
+mongodb_version: "4.0"
+mongodb_daemon_name: "mongodb"
+mongodb_net_bindip: "0.0.0.0"
+mongodb_security_authorization: "enabled"
+mongodb_storage_dbpath: "/var/lib/mongodb"
+# We do not enable the quota, but noticed that it gets enforced at least in some
+# contexts anyway.  Setting this to 36 results in a quota of 64 GB per database,
+# which ought to be enough for anybody.  (Currently, our by far biggest instance
+# is using 14 GB for the module store.)
+mongodb_storage_quota_maxfiles: 36
+mongodb_systemlog_path: "{{ mongodb_storage_dbpath }}/log/{{ mongodb_daemon_name }}.log"
+mongodb_pymongo_from_pip: true
+
+MONGODB_SERVER_DOMAIN: "{{ inventory_hostname }}"
+
+MONGODB_SERVER_BACKUP_DIR: '/var/lib/mongodb/backup'
+
+MONGODB_EXPORTER_PASSWORD: "{{ NODE_EXPORTER_PASSWORD }}"
+
+# TARSNAP #####################################################################
+
+TARSNAP_BACKUP_PRE_SCRIPT: "/usr/local/sbin/backup-pre.sh"
+TARSNAP_BACKUP_POST_SCRIPT: "/usr/local/sbin/backup-post.sh"
+TARSNAP_BACKUP_FOLDERS: "{{ MONGODB_SERVER_BACKUP_DIR }}"
+TARSNAP_ARCHIVE_NAME: "{{ MONGODB_SERVER_DOMAIN }}"
+
+# MAIL ########################################################################
+
+FORWARD_MAIL_MYDOMAIN: "{{ MONGODB_SERVER_DOMAIN }}"
+UNATTENED_UPGRADES_ERRORS_RELAY_TO: "{{ MONGODB_SERVER_DOMAIN }}"
+
+# SANITY ######################################################################
+
+SANITY_CHECK_LIVE_PORTS:
+  - host: localhost
+    port: 27017
+    message: "Can't connect to MongoDB"
+
+SANITY_CHECK_COMMANDS: []
+
+# CONSUL ######################################################################
+
+consul_service_config:
+  service:
+    name: "mongodb"
+    tags: ["mongodb"]
+    port: 27017
+    enable_tag_override: true
+    checks:
+      - name: "Connect to MongoDB"
+        tcp: "{{ MONGODB_SERVER_DOMAIN }}:27017"
+        interval: "10m"
+
+# FILEBEAT ####################################################################
+
+filebeat_prospectors:
+  - fields:
+      type: "mongodb"
+    paths:
+      - "{{ mongodb_systemlog_path | dirname }}/*.log"

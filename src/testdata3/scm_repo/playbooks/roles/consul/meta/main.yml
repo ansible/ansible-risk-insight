@@ -1,0 +1,11 @@
+---
+
+dependencies:
+  - name: nginx-proxy
+    when: consul_http_password is not none
+    NGINX_PROXY_CONFIG_PATH: /etc/nginx/sites-available/consul-http
+    NGINX_PROXY_USERNAME: consul
+    NGINX_PROXY_PASSWORD: "{{ consul_http_password }}"
+    NGINX_PROXY_AUTH_DOMAIN: Consul HTTP API
+    NGINX_PROXY_PUBLIC_PORT: "{{ consul_http_public_port }}"
+    NGINX_PROXY_INTERNAL_PORT: 8500

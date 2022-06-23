@@ -1,0 +1,20 @@
+path.data: {{ elasticsearch_data_dir }}
+path.logs: {{ elasticsearch_log_dir }}
+
+network.host: {{ elasticsearch_network_host }}
+
+http.port: {{ elasticsearch_http_port }}
+
+{% if elasticsearch_package == 'elasticsearch=1.5.2' %}
+# Older versions of Elasticsearch use this but not newer ones.
+script.inline: {{ elasticsearch_script_inline }}
+script.indexed: {{ elasticsearch_script_indexed }}
+{% endif %}
+
+{% if elasticsearch_keystore|length > 0 %}
+xpack.security.enabled: true
+xpack.security.http.ssl.enabled: true
+xpack.security.http.ssl.keystore.path: "{{ elasticsearch_cfg_dir }}/http.p12"
+{% endif %}
+
+{{ elasticsearch_cfg_extra }}

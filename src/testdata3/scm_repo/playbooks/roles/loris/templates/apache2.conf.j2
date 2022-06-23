@@ -1,0 +1,14 @@
+ExpiresActive On
+ExpiresDefault "access plus 5184000 seconds"
+
+AllowEncodedSlashes On
+
+WSGIDaemonProcess loris2 user={{ loris_user }} group={{ loris_group }} processes=10 threads=15 maximum-requests=10000
+WSGIScriptAlias /loris /var/www/loris2/loris2.wsgi
+WSGIProcessGroup loris2
+
+<Directory /var/www/loris2/>
+    <Files loris2.wsgi>
+    Require all granted
+    </Files>
+</Directory>

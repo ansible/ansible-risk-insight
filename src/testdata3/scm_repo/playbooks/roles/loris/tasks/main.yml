@@ -1,0 +1,90 @@
+---
+# This role contains tasks specific to loris nodes.
+
+- name: Install packages for loris
+  become: yes
+  apt:
+    name: "{{ packages }}"
+  vars:
+    packages:
+    - libapache2-mod-wsgi
+    - libjpeg-turbo8-dev
+    - libfreetype6-dev
+    - liblcms2-dev
+    - liblcms2-utils
+    - libssl-dev
+    - libtiff5-dev
+    - libwebp-dev
+    - zlib1g-dev
+
+# loris user and group
+
+- name: Ensure group "{{ loris_group }}" exists
+  become: yes
+  group:
+    name: "{{ loris_group }}"
+    state: present
+
+- name: Ensure user "{{ loris_user }}" exists
+  become: yes
+  user:
+    name: "{{ loris_user }}"
+    state: present
+
+# loris code
+
+- stat: path={{ loris_app_path }}
+  register: app_path
+
+- name: clone repository and checkout correct version
+  become: yes
+  git:
+    repo: "{{ loris_app_repository }}"
+    dest: "{{ loris_app_path }}"
+    version: "{{ loris_version }}"
+  when: app_path.stat.exists == False
+
+- name: install configobj
+  become: yes
+  pip:
+    name: configobj
+
+- name: install loris
+  become: yes
+  shell: python setup.py install
+  args:
+    chdir: "{{ loris_app_path }}"
+    creates: /etc/loris2/loris2.conf
+
+# Apache deployment
+
+- name: disable default site
+  become: yes
+  file:
+    state: absent
+    path: /etc/apache2/sites-enabled/000-default.conf
+
+- name: make sure mod_expires is present
+  become: yes
+  apache2_module:
+    state: present
+    name: expires
+
+- name: make sure mod_wsgi is present
+  become: yes
+  apache2_module:
+    state: present
+    name: wsgi
+
+- name: get apache conf from template
+  become: yes
+  template:
+    src: apache2.conf.j2
+    dest: /etc/apache2/conf-available/loris.conf
+    mode: 0644
+
+- name: ensure apache reload its configuration
+  become: yes
+  service:
+    name: apache2
+    state: reloaded

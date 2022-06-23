@@ -1,0 +1,25 @@
+---
+
+BACKUP_PRUNER_JOB_LOG: /var/log/backup-pruner-summary.log
+BACKUP_PRUNER_LOG_DIR: /var/log/backup-pruner
+BACKUP_PRUNER_SCRIPT: /usr/local/sbin/backup-pruner.sh
+BACKUP_PRUNER_SNITCH: null
+
+# Whether to ensure GNU Parallel only schedules jobs if swapping in and out is not taking place.
+BACKUP_PRUNER_JOB_NOSWAP: true
+# How many jobs to spawn at once. Making this number too high on a small server may spell issues.
+BACKUP_PRUNER_JOB_PARALLELISM: 2
+# How many times to retry a job if it fails.
+BACKUP_PRUNER_JOB_RETRIES: 3
+# The Linux nice value to give to processes kicked off by GNU Parallel.
+BACKUP_PRUNER_JOB_NICENESS: -20
+
+# Example:
+# BACKUP_PRUNER_TARSNAPPER_JOBS:
+#   - name: "mysql-backup"
+#     keypath: "/etc/keyfile"
+#     key: "{{ VARIABLE_CONTAINING_TARSNAP_KEY }}"
+#     cache: "/var/cache/tarsnap"
+#     target: mysql-$date
+#     deltas: 1h 1d 7d 30d 360d 18000d
+BACKUP_PRUNER_TARSNAPPER_JOBS: []

@@ -1,0 +1,17 @@
+#jinja2:lstrip_blocks: True
+---
+version: "2"
+services:
+  matomo:
+    container_name: matomo
+    # We use the apache image as it allows us to reuse the existing nginx-proxy role as-is.
+    image: matomo:4.2-apache
+    restart: unless-stopped
+    volumes:
+      {% for volume_mapping in MATOMO_DOCKER_VOLUMES %}
+      - {{ volume_mapping }}
+      {% endfor %}
+    env_file:
+      - {{ MATOMO_DOCKER_COMPOSE_ENV_FILE }}
+    ports:
+      - {{ MATOMO_DOCKER_HOST_HTTP_PORT }}:80

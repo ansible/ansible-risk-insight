@@ -1,0 +1,53 @@
+---
+
+# The domain of the server.
+# This is used to configure the nginx proxy and reading certbot letsencrypt cert paths.
+MAILMAN_WEB_DOMAIN: "mailman.example.com"
+
+# The domain that mailman will serve mailing lists at.
+MAILMAN_INCOMING_MAIL_DOMAIN: "example.com"
+
+# This key is used for the mailman-web.py SECRET_KEY
+# Because of templating, this value should not contain quote characters.
+HYPERKITTY_SECRET_KEY: "SET-ME-PLEASE"
+
+# This key is used for securing the connection between mailman3 core and the hyperkitty archiver plugin.
+# Because of templating, this value should not contain quote characters.
+MAILMAN_ARCHIVER_KEY: "SET-ME-PLEASE"
+
+# This is the password for the `restadmin` rest api admin user.
+# Because of templating, this value should not contain quote characters.
+MAILMAN_REST_API_PASS: "SET-ME-PLEASE"
+
+# This address is the "site owner" address.  Certain messages which must be
+# delivered to a human, but which can't be delivered to a list owner (e.g. a
+# bounce from a list owner), will be sent to this address.  It should point to
+# a human.
+MAILMAN_SITE_OWNER: "changeme@example.com"
+
+# This address is used to send error reports to.
+MAILMAN_ERROR_REPORTING_EMAIL: "changeme@example.com"
+
+# This address will be used as the FROM email for emails sent from mailman services.
+# (eg. password reset mail, confirmations, etc.)
+MAILMAN_FROM_EMAIL: "changeme@example.com"
+
+# Postgres database config, used by mailman core and web frontend.
+MAILMAN_POSTGRES_HOST: "localhost"
+MAILMAN_POSTGRES_PORT: "5432"
+MAILMAN_POSTGRES_DB_NAME: "mailman"
+MAILMAN_POSTGRES_USER: "mailman"
+MAILMAN_POSTGRES_PASS: "SET-ME-PLEASE"
+
+# This is templated out as the contents of the postfix transport file.
+# See http://www.postfix.org/transport.5.html for syntax.
+POSTFIX_TRANSPORT_CONTENT: ""
+
+# This is templated out as the contents of the postfix aliases file.
+# See http://www.postfix.org/aliases.5.html for syntax.
+POSTFIX_ALIASES_CONTENT: ""
+
+# This is used for the X-opencraft header to confirm
+# that the email was sent from an OpenCraft Gmail account.
+# Can be configured via: https://admin.google.com/ac/apps/gmail/defaultrouting
+OPENCRAFT_HEADER_TOKEN: null

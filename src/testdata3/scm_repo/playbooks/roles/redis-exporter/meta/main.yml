@@ -1,0 +1,17 @@
+---
+  dependencies:
+    - name: prometheus_redis_exporter_role
+      redis_exporter_redis_addr: "{{ REDIS_EXPORTER_REDIS_ADDR }}"
+      redis_exporter_check_keys: "{{ REDIS_EXPORTER_CHECK_KEYS }}"
+    - name: nginx-proxy
+      NGINX_PROXY_HTPASSWD_PATH: "{{ REDIS_EXPORTER_HTPASSWD_PATH }}"
+      # The username is a bit misleading – should actually be "prometheus", since it's the server
+      # authenticating, and the same username is used for scraping other exporters, but it's not worth
+      # the hassle to change it.
+      NGINX_PROXY_USERNAME: node-exporter
+      NGINX_PROXY_PASSWORD: "{{ REDIS_EXPORTER_PASSWORD }}"
+      NGINX_PROXY_AUTH_DOMAIN: Prometheus Redis Exporter
+      NGINX_PROXY_CONFIG_PATH: "{{ REDIS_EXPORTER_NGINX_CONFIG_PATH }}"
+      NGINX_PROXY_PUBLIC_PORT: 19103
+      NGINX_PROXY_INTERNAL_PORT: 9121
+      NGINX_PROXY_USE_SSL: "{{ REDIS_EXPORTER_USE_SSL }}"

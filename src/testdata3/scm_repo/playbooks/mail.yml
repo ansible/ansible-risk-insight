@@ -1,0 +1,9 @@
+---
+- name: Set up the mail server instance with mail and mailing-list
+  hosts: mail
+  become: true
+  roles:
+    - role: common-server
+      tags: 'common-server'
+    - role: 'mail'
+      tags: 'mail'

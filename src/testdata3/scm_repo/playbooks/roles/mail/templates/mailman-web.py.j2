@@ -1,0 +1,74 @@
+# {{ ansible_managed }}
+# Config docs: https://mailman-web.readthedocs.io/en/latest/settings.html
+
+SECRET_KEY = '{{ HYPERKITTY_SECRET_KEY }}'
+
+ADMINS = (
+     ('Mailman Suite Error Reporting', '{{ MAILMAN_ERROR_REPORTING_EMAIL }}'),
+)
+
+DEBUG = False
+
+# All hosts allowed, because this is behind a reverse proxy anyway.
+ALLOWED_HOSTS = ['*']
+
+# Mailman API credentials
+MAILMAN_REST_API_URL = 'http://localhost:8001'
+MAILMAN_REST_API_USER = 'restadmin'
+MAILMAN_REST_API_PASS = '{{ MAILMAN_REST_API_PASS }}'
+MAILMAN_ARCHIVER_KEY = '{{ MAILMAN_ARCHIVER_KEY }}'
+MAILMAN_ARCHIVER_FROM = ('127.0.0.1', '::1')
+
+INSTALLED_APPS = (
+    'hyperkitty',
+    'postorius',
+    'django_mailman3',
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.sites',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    'rest_framework',
+    'django_gravatar',
+    'compressor',
+    'haystack',
+    'django_extensions',
+    'django_q',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+)
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': '{{ MAILMAN_POSTGRES_DB_NAME }}',
+        'USER': '{{ MAILMAN_POSTGRES_USER }}',
+        'PASSWORD': '{{ MAILMAN_POSTGRES_PASS }}',
+        'HOST': '{{ MAILMAN_POSTGRES_HOST }}',
+        'PORT': '{{ MAILMAN_POSTGRES_PORT }}',
+    }
+}
+
+
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SESSION_COOKIE_SECURE = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_BROWSER_XSS_FILTER = True
+CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_HTTPONLY = True
+X_FRAME_OPTIONS = 'DENY'
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'https'
+
+LANGUAGE_CODE = 'en-us'
+TIME_ZONE = 'UTC'
+USE_I18N = True
+USE_L10N = True
+USE_TZ = True
+
+DEFAULT_FROM_EMAIL = '{{ MAILMAN_FROM_EMAIL }}'
+SERVER_EMAIL = '{{ MAILMAN_FROM_EMAIL }}'
+POSTORIUS_TEMPLATE_BASE_URL = 'https://{{ MAILMAN_WEB_DOMAIN }}'

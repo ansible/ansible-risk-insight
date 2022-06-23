@@ -1,0 +1,226 @@
+---
+
+- name: Install system packages
+  become: yes
+  apt:
+    update_cache: yes
+    cache_valid_time: 43200
+    name: "{{ required_system_packages }}"
+    state: present
+
+- name: "Ensure {{ servce_group }} service group exists"
+  group:
+    name: "{{ service_group }}"
+    state: present
+
+- name: "Ensure {{ service_user }} service user"
+  user:
+    name: "{{ service_user }}"
+    comment: "{{ service_name }} service user"
+    group: "{{ service_group }}"
+    shell: /bin/bash
+
+- name: Create service directories
+  become: yes
+  file:
+    path: "{{ item }}"
+    owner: "{{ service_user }}"
+    group: "{{ service_group }}"
+    mode: 0755
+    state: directory
+  with_items: "{{ service_directories }}"
+
+- name: Create pre-backup script
+  become: yes
+  template:
+    src: pre_backup.sh.j2
+    dest: "{{ service_bin_dir }}/pre_backup"
+    owner: "{{ service_user }}"
+    group: "{{ service_group }}"
+    mode: 0744
+    backup: yes
+
+- name: Create service initialization script
+  become: yes
+  template:
+    src: init_service.py.j2
+    dest: "{{ service_bin_dir }}/init_service.py"
+    owner: "{{ service_user }}"
+    group: "{{ service_group }}"
+    mode: 0644
+    backup: yes
+
+- name: "Clone {{ service_name }} repository"
+  become: yes
+  become_user: "{{ service_user }}"
+  git:
+    repo: "{{ service_git_repo }}"
+    version: "{{ service_git_revision }}"
+    dest: "{{ service_install_dir }}"
+
+- name: "Create virtualenv for {{ service_name }}"
+  become_user: "{{ service_user }}"
+  pip:
+    chdir: "{{ service_install_dir }}"
+    virtualenv: "{{ service_virtualenv_dir }}"
+    requirements: "{{ service_install_dir }}/requirements.txt"
+    state: present
+
+- name: "Install {{ service_name }} service"
+  become_user: "{{ service_user }}"
+  pip:
+    chdir: "{{ service_install_dir }}"
+    virtualenv: "{{ service_virtualenv_dir }}"
+    name: "."
+    editable: yes
+
+- name: "Create dotenv file for {{ service_name }}"
+  become_user: "{{ service_user }}"
+  template:
+    src: dotenv.j2
+    dest: "{{ service_dotenv_path }}"
+    owner: "{{ service_user }}"
+    group: "{{ service_group }}"
+    mode: 0640
+    backup: yes
+
+- name: "Ensure .bashrc set for {{ service_name }}"
+  become_user: "{{ service_user }}"
+  blockinfile:
+    dest: "/home/{{ service_user }}/.bashrc"
+    block: |
+      export {{ service_name | upper }}_DOTENV_PATH={{ service_dotenv_path }}
+      source {{ service_virtualenv_dir }}/bin/activate
+      cd {{ service_install_dir }}
+    backup: yes
+    state: present
+
+- name: "Collect static assets for {{ service_name }}"
+  become: yes
+  become_user: "{{ service_user }}"
+  environment: "{{ service_environment_settings }}"
+  django_manage:
+    app_path: "{{ service_install_dir }}"
+    virtualenv: "{{ service_virtualenv_dir }}"
+    command: collectstatic
+
+- name: "Run migrations for {{ service_name }}"
+  become: yes
+  become_user: "{{ service_user }}"
+  environment: "{{ service_environment_settings }}"
+  django_manage:
+    app_path: "{{ service_install_dir }}"
+    virtualenv: "{{ service_virtualenv_dir }}"
+    command: migrate
+
+- name: "Initialize service for {{ service_name }}"
+  become_user: "{{ service_user }}"
+  environment: "{{ service_environment_settings }}"
+  shell: |
+    . {{ service_virtualenv_dir }}/bin/activate
+    cd {{ service_install_dir }}
+    python manage.py shell < {{ service_bin_dir }}/init_service.py
+
+- name: Create LTI consumer pair
+  become_user: "{{ service_user }}"
+  environment: "{{ service_environment_settings }}"
+  django_manage:
+    app_path: "{{ service_install_dir }}"
+    virtualenv: "{{ service_virtualenv_dir }}"
+    command: "create_consumer_pair --consumer '{{ annotation_db_key }}' --secret '{{ annotation_db_secret }}' --expire_in_weeks 260"
+  when: lti_create_consumer_key_pair is defined and lti_create_consumer_key_pair
+
+- name: Ensure cronjob exists to clear sessions
+  cron:
+    name: "clear Django sessions"
+    user: "{{ service_user }}"
+    hour: "7"
+    minute: "0"
+    state: present
+    job: |
+      {{ service_name | upper }}_DOTENV_PATH={{ service_dotenv_path }} {{ service_virtualenv_dir }}/bin/python {{ service_install_dir }}/manage.py clearsessions >> {{ service_data_dir }}/clearsessions.log 2>&1
+
+- name: "Install gunicorn in {{ service_name }} virtualenv"
+  become_user: "{{ service_user }}"
+  pip:
+    chdir: "{{ service_install_dir }}"
+    virtualenv: "{{ service_virtualenv_dir }}"
+    name: "gunicorn==20.1.0"
+    state: present
+
+- name: Create gunicorn configuration
+  become_user: "{{ service_user }}"
+  template:
+    src: start_gunicorn.j2
+    dest: "{{ service_bin_dir }}/start_gunicorn"
+    owner: "{{ service_user }}"
+    group: "{{ service_group }}"
+    mode: 0755
+    backup: yes
+
+- name: Ensure supervisor service is running
+  service:
+    name: supervisor
+    state: started
+    enabled: yes
+
+- name: "Create supervisor config for {{ service_name }} service"
+  template:
+    src: "{{ 'supervisor.conf.asgi.j2' if websockets is defined and websockets.service_daphne is defined else 'supervisor.conf.wsgi.j2' }}"
+    dest: "/etc/supervisor/conf.d/{{ service_name }}.conf"
+    backup: yes
+
+- name: Create socket direcotry
+  file:
+    path: "{{ websockets.service_daphne.socket_dir }}"
+    owner: "{{ service_user }}"
+    group: "{{ service_group }}"
+    mode: 0755
+    state: directory
+  when: websockets is defined and websockets.service_daphne is defined
+
+- name: Restart supervisor service
+  service:
+    name: supervisor
+    state: restarted
+    enabled: yes
+
+- name: Set worker_connection in /etc/nginx/nginx.conf
+  lineinfile:
+    path: /etc/nginx/nginx.conf
+    regexp: 'worker_connections.*'
+    line: 'worker_connections {{ websockets.nginx.worker_connections }};'
+    backup: yes
+  when: websockets.nginx is defined
+
+- name: Set worker_rlimit_nofile in /etc/nginx/nginx.conf
+  lineinfile:
+    path: /etc/nginx/nginx.conf
+    regexp: 'worker_rlimit_nofile.*'
+    line: 'worker_rlimit_nofile {{ websockets.nginx.worker_rlimit_nofile }};'
+    backup: yes
+  when: websockets.nginx is defined
+
+- name: Ensure soft nproc is set in /etc/security/limits.conf
+  lineinfile:
+    path: /etc/security/limits.conf
+    regexp: '^\*[ \t]+soft[ \t]+nproc[ \t]+{{ websockets.system_limits_conf.soft_nproc }}'
+    line: '* soft nproc {{ websockets.system_limits_conf.soft_nproc }}'
+    backup: yes
+  when: websockets.system_limits_conf is defined
+
+- name: Ensure soft nofile is set in /etc/security/limits.conf
+  lineinfile:
+    path: /etc/security/limits.conf
+    regexp: '^\*[ \t]+soft[ \t]+nofile[ \t]+{{ websockets.system_limits_conf.soft_nofile }}'
+    line: '* soft nofile {{ websockets.system_limits_conf.soft_nofile }}'
+    backup: yes
+  when: websockets.system_limits_conf is defined
+
+- name: Ensure /etc/pam.d/common-session is configured
+  lineinfile:
+    path: /etc/pam.d/common-session
+    regexp: 'session[ \t]+required[ \t]+pam_limits.so'
+    line: 'session required pam_limits.so'
+    backup: yes
+  when: websockets.system_limits_conf is defined

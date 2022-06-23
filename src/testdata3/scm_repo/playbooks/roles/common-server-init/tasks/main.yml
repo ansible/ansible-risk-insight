@@ -1,0 +1,11 @@
+---
+# This file should only contain imports.  If you need to add one-off tasks, add them to misc.yml.
+
+- import_tasks: misc.yml
+- import_tasks: networking.yml
+- import_tasks: nginx.yml
+- import_tasks: etckeeper.yml
+- import_tasks: chkrootkit.yml
+
+- import_tasks: sftp.yml
+  when: COMMON_SERVER_INSTALL_SFTP

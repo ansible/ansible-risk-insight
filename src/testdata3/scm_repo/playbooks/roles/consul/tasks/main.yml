@@ -1,0 +1,118 @@
+---
+- name: Ensure that unzip is installed
+  apt:
+    name: unzip
+    state: present
+
+- name: Create consul group
+  group:
+    name: consul
+    system: yes
+
+- name: Create consul user
+  user:
+    name: consul
+    group: consul
+    createhome: no
+    system: yes
+
+- name: Mount "{{ consul_data_dir }}"
+  mount:
+    name: "{{ consul_data_dir }}"
+    src: "{{ consul_openstack_data_device }}"
+    fstype: ext4
+    state: mounted
+  when: consul_server
+
+- name: Create consul directories
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: consul
+    recurse: yes
+    mode: 0750
+  with_items:
+    - { path: "{{ consul_config_dir }}", owner: root }
+    - { path: "{{ consul_data_dir }}", owner: consul }
+
+- name: Determine current Consul version
+  shell: consul version | sed -n 's/Consul v\(.*\)/\1/p'
+  register: consul_current_version
+  changed_when: false
+
+- name: Download and unarchive the Consul binary
+  unarchive:
+    src: "{{ consul_url }}"
+    dest: "{{ consul_bin_dir }}"
+    owner: consul
+    group: consul
+    remote_src: yes
+  when: consul_current_version.rc != 0 or consul_current_version.stdout != consul_version
+  notify: restart consul
+
+- name: Create Consul configuration file
+  template:
+    src: config.json.j2
+    dest: "{{ consul_config_dir }}/config.json"
+    group: consul
+  notify: restart consul
+
+- name: Create Consul service definition file
+  copy:
+    content: "{{ consul_service_config | to_nice_json }}"
+    dest: "{{ consul_config_dir }}/service.json"
+    group: consul
+  when: consul_service_config != ""
+  notify: restart consul
+
+- name: Set up consul automatic configuration generation
+  block:
+    - name: Copy the wrapper script files
+      template:
+        src: "{{ item }}.j2"
+        dest: "/usr/local/sbin/{{ item }}"
+        owner: root
+        group: root
+        mode: '755'
+      with_items:
+        - run_consul.sh
+        - update_consul_config.py
+
+    - name: Ensure that the consul configuration file is group-writeable
+      file:
+        path: "{{ consul_config_dir }}/config.json"
+        mode: g+w
+
+  when: consul_auto_generate_config
+
+- name: Create Consul systemd service file
+  template:
+    src: consul.service.j2
+    dest: /etc/systemd/system/consul.service
+
+- name: Enable and start systemd service to start on boot automatically
+  systemd:
+    name: consul.service
+    enabled: yes
+    state: started
+    daemon_reload: yes
+
+- name: Open TCP/UDP ports on firewall needed for Consul RPC/gossip
+  ufw:
+    rule: allow
+    port: '8300:8302'
+    proto: "{{ item }}"
+  with_items:
+    - tcp
+    - udp
+
+- name: Copy pre- and post-backup scripts
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: 0500
+  with_items:
+  - { src: backup-pre-consul.sh, dest: /usr/local/sbin/backup-pre-consul.sh }
+  - { src: backup-post-consul.sh, dest: /usr/local/sbin/backup-post-consul.sh }
+  when: consul_backup

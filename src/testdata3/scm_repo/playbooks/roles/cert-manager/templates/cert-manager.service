@@ -1,0 +1,12 @@
+[Unit]
+Description=Cert Manager
+Requires=network-online.target
+After=network-online.target
+
+[Service]
+ExecStart=/usr/local/sbin/cert-manager.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

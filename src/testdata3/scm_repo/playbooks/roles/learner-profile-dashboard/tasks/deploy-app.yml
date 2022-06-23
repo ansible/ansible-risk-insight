@@ -1,0 +1,52 @@
+---
+
+- name: checkout repository
+  git:
+    repo: "{{ LPD_REPOSITORY }}"
+    version: "{{ LPD_REPOSITORY_VERSION }}"
+    dest: "{{ LPD_APP_LOCATION }}"
+
+- name: install dependencies
+  pip:
+    virtualenv: "{{ LPD_VENV }}"
+    state: present
+    requirements: "{{ LPD_APP_LOCATION }}/requirements/base.txt"
+    virtualenv_python: "/usr/bin/python2.7"
+
+# This is a hack: Gunicorn v.19.4.5 is installed via apt-get system wide,
+# so we need to assure that virtualenv and system version match.
+# Possibly this should be solved in a cleaner way.
+- name: install gunicorn
+  pip:
+    virtualenv: "{{ LPD_VENV }}"
+    state: present
+    name: "Gunicorn==19.4.5"
+    virtualenv_python: "/usr/bin/python2.7"
+
+- name: install mysql client
+  pip:
+    virtualenv: "{{ LPD_VENV }}"
+    state: present
+    name: "mysqlclient"
+    virtualenv_python: "/usr/bin/python2.7"
+
+- name: create settings
+  template:
+    src: lpd_settings.py
+    dest: "{{ LPD_APP_LOCATION }}/app/local_settings.py"
+
+- name: create static root
+  file:
+    name: "{{ LPD_STATICFILES_ROOT }}"
+    state: directory
+
+- name: create media root
+  file:
+    name: "{{ LPD_MEDIA_ROOT }}"
+    state: directory
+
+- name: collectstatic
+  shell: "{{ LPD_MANAGE_PY }} collectstatic --noinput"
+
+- name: migrate
+  shell: "{{ LPD_MANAGE_PY }} migrate --noinput"

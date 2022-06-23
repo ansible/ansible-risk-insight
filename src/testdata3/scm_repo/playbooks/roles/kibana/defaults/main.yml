@@ -1,0 +1,11 @@
+---
+
+kibana_server_name: ""
+
+kibana_config_dir: /etc/kibana
+kibana_data_dir: /var/lib/kibana
+
+kibana_elasticsearch_password: null
+kibana_encryption_key: null
+
+elasticsearch_ca: null

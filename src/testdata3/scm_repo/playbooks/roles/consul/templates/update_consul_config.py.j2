@@ -1,0 +1,76 @@
+#!/usr/bin/python3
+
+import json
+import logging
+import os
+import urllib.request
+
+
+logging.basicConfig(
+    level='INFO',
+    format='%(asctime)s %(message)s',
+    handlers=[logging.StreamHandler()],
+)
+
+
+def get_private_ip_address():
+    """
+    Return the EC2 instance's private IP address from the metadata service.
+    """
+    return urllib.request.urlopen('http://169.254.169.254/latest/meta-data/local-ipv4').read().decode()
+
+
+def get_public_ip_address():
+    """
+    Return the EC2 instance's public IP address from the metadata service.
+    """
+    return urllib.request.urlopen('http://169.254.169.254/latest/meta-data/public-ipv4').read().decode()
+
+
+def main():
+    """
+    Check the current configuration file and generate a new configuration file if needed.
+    """
+    generate_new_config = False
+    with open('{{ consul_config_dir }}/config.json') as consul_config_file:
+        consul_config = json.load(consul_config_file)
+        advertise_address = consul_config['advertise_addr']
+        node_name = consul_config['node_name']
+        data_dir = consul_config['data_dir']
+        private_ip_address = get_private_ip_address()
+        public_ip_address = get_public_ip_address()
+        node_name_prefix = "{{ consul_nodename }}"
+        generated_node_name = '{}-{}-{}'.format(
+            node_name_prefix,
+            private_ip_address.replace('.', '-'),
+            public_ip_address.replace('.', '-'),
+        )
+        if (public_ip_address != advertise_address or
+                generated_node_name != node_name):
+            logging.info(
+                'Detected changes. Generating a new config file.'
+            )
+            generate_new_config = True
+
+    if generate_new_config:
+        consul_config.update(
+            {
+                'advertise_addr': public_ip_address,
+                'node_name': generated_node_name,
+            }
+        )
+        with open('{{ consul_config_dir }}/config.json', 'w') as new_consul_config_file:
+                    json.dump(consul_config, new_consul_config_file)
+
+        node_id_file = os.path.join(data_dir, 'node-id')
+        if (os.path.exists(node_id_file) and os.path.isfile(node_id_file)):
+            # Removing the existing node-id file is necessary when the node name changes. Otherwise
+            # consul complains about a duplicate node id.
+            logging.info('Existing node-id file found. Removing it')
+            os.remove(node_id_file)
+    else:
+        logging.info('No changes detected. Using the existing config file.')
+
+
+if __name__ == '__main__':
+    main()

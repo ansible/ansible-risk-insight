@@ -1,0 +1,40 @@
+pyenv_home: "{{ ansible_env.HOME }}"
+pyenv_root: "{{ pyenv_home }}/.pyenv"
+
+pyenv_version: 'v1.2.16'
+pyenv_virtualenv_version: 'v1.1.5'
+
+
+# Takes a list of python versions to install
+pyenv_python_versions: []
+
+# Takes a list of key-value pairs of the form
+# pyenv_virtualenv_environments:
+#   - python_version: '3.6.10'
+#     virtualenv_name: 'venv'
+pyenv_virtualenv_environments: []
+
+pyenv_prerequisite_packages:
+  - make
+  - build-essential
+  - libssl-dev
+  - zlib1g-dev
+  - libbz2-dev
+  - libreadline-dev
+  - libsqlite3-dev
+  - wget
+  - curl
+  - llvm
+  - libncurses5-dev
+  - libncursesw5-dev
+  - xz-utils
+  - tk-dev
+  - libffi-dev
+  - liblzma-dev
+  - python-openssl
+  - git
+
+pyenv_user: 'root'
+pyenv_group: 'root'
+
+pyenv_create_pyenv_home: false
