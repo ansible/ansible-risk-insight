@@ -1,0 +1,32 @@
+{
+ "collection_info": {
+  "namespace": "community",
+  "name": "postgresql",
+  "version": "2.1.5",
+  "authors": [
+   "Ansible PostgreSQL community"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "database",
+   "postgres",
+   "postgresql"
+  ],
+  "description": null,
+  "license": [],
+  "license_file": "COPYING",
+  "dependencies": {},
+  "repository": "https://github.com/ansible-collections/community.postgresql",
+  "documentation": "https://docs.ansible.com/ansible/latest/collections/community/postgresql",
+  "homepage": "https://github.com/ansible-collections/community.postgresql",
+  "issues": "https://github.com/ansible-collections/community.postgresql/issues"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "0f487e10d4ccc8dcd48bfcb4c86f3d5aa5521cfa13bc09f2dc998d36618107d8",
+  "format": 1
+ },
+ "format": 1
+}

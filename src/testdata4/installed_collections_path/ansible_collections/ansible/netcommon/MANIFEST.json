@@ -1,0 +1,38 @@
+{
+ "collection_info": {
+  "namespace": "ansible",
+  "name": "netcommon",
+  "version": "3.0.1",
+  "authors": [
+   "Ansible Network Community (ansible-network)"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "networking",
+   "security",
+   "cloud",
+   "network_cli",
+   "netconf",
+   "httpapi",
+   "grpc"
+  ],
+  "description": "Ansible Collection with common content to help automate the management of network, security, and cloud devices.",
+  "license": [],
+  "license_file": "LICENSE",
+  "dependencies": {
+   "ansible.utils": ">=2.5.2"
+  },
+  "repository": "https://github.com/ansible-collections/ansible.netcommon",
+  "documentation": null,
+  "homepage": null,
+  "issues": "https://github.com/ansible-collections/ansible.netcommon/issues"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "9b95e86dc4127e7dc732eb40bad77f8419cd6fc484a75893545ec4181486ae1e",
+  "format": 1
+ },
+ "format": 1
+}

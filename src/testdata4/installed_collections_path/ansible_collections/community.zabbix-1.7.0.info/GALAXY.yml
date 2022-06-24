@@ -1,0 +1,8 @@
+download_url: https://galaxy.ansible.com/download/community-zabbix-1.7.0.tar.gz
+format_version: 1.0.0
+name: zabbix
+namespace: community
+server: https://galaxy.ansible.com/api/
+signatures: []
+version: 1.7.0
+version_url: https://galaxy.ansible.com/api/v2/collections/community/zabbix/versions/1.7.0/
