@@ -45,10 +45,6 @@ class TestResolver(unittest.TestCase):
         fqcn_resolver = FQCNResolver(repo_obj=repo)
         repo.resolve(fqcn_resolver)
 
-        json_str = repo.dump()
-        with open("test2.json", "w") as file:
-            file.write(json_str)
-
         # resolve `used_in` of Module / Task / Role
         used_in_resolver = UsedInResolver(repo_obj=repo)
         repo.resolve(used_in_resolver)
@@ -72,10 +68,6 @@ class TestResolver(unittest.TestCase):
         # resolve `fqcn` of Task and `role_path` of RoleInPlay
         fqcn_resolver = FQCNResolver(repo_obj=repo)
         repo.resolve(fqcn_resolver)
-
-        json_str = repo.dump()
-        with open("test3.json", "w") as file:
-            file.write(json_str)
 
         # resolve `used_in` of Module / Task / Role
         used_in_resolver = UsedInResolver(repo_obj=repo)

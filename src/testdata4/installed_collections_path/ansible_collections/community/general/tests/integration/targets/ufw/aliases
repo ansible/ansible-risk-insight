@@ -1,0 +1,11 @@
+shippable/posix/group2
+skip/aix
+skip/osx
+skip/macos
+skip/freebsd
+skip/rhel8.0  # FIXME
+skip/rhel9.0  # FIXME
+skip/docker
+needs/root
+needs/target/setup_epel
+destructive

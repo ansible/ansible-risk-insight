@@ -1,0 +1,8 @@
+download_url: https://galaxy.ansible.com/download/community-mysql-3.3.0.tar.gz
+format_version: 1.0.0
+name: mysql
+namespace: community
+server: https://galaxy.ansible.com/api/
+signatures: []
+version: 3.3.0
+version_url: https://galaxy.ansible.com/api/v2/collections/community/mysql/versions/3.3.0/

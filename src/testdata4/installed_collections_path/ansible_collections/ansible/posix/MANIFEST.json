@@ -1,0 +1,33 @@
+{
+ "collection_info": {
+  "namespace": "ansible",
+  "name": "posix",
+  "version": "1.4.0",
+  "authors": [
+   "Ansible (github.com/ansible)"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "posix",
+   "networking",
+   "shell",
+   "unix"
+  ],
+  "description": "Ansible Collection targeting POSIX and POSIX-ish platforms.",
+  "license": [],
+  "license_file": "COPYING",
+  "dependencies": {},
+  "repository": "https://github.com/ansible-collections/ansible.posix",
+  "documentation": "https://github.com/ansible-collections/ansible.posix/tree/main/docs",
+  "homepage": "https://github.com/ansible-collections/ansible.posix",
+  "issues": "https://github.com/ansible-collections/ansible.posix"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "bc2362ca7d8c1cfe624335166d651e9c8487828c7a5ff81c493a4c19a2423088",
+  "format": 1
+ },
+ "format": 1
+}

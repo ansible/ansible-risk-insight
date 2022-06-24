@@ -1,0 +1,3400 @@
+{
+ "files": [
+  {
+   "name": ".",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".github",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".github/ISSUE_TEMPLATE",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".github/ISSUE_TEMPLATE/bug_report.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2198c3a25f580fb743064df8a8fc34fe8a6bbc9a1ad4466b37d1857d53746a88",
+   "format": 1
+  },
+  {
+   "name": ".github/ISSUE_TEMPLATE/feature_request.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d07bd877d38e16657c68cbd89c1c79eeda6debe008cb82745de6a705f984e442",
+   "format": 1
+  },
+  {
+   "name": ".github/workflows",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".github/workflows/agent.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8360dccd79966318b65e79acf70c47dc6670074c86cf555bb259905441412968",
+   "format": 1
+  },
+  {
+   "name": ".github/workflows/javagateway.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "043bdc33f5151043d43721423255e3d3bfe951b619ecc26e95deb9d7e2d93ada",
+   "format": 1
+  },
+  {
+   "name": ".github/workflows/plugins-integration.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1a7dce121ca17b7ae5559cbae7fdd92caa5e159f23690a4415a2821eebe815f0",
+   "format": 1
+  },
+  {
+   "name": ".github/workflows/proxy.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "66adcc26dc9c9b07106a6b933d338463724087cbc08cb73ff1a2ae1ef4d70e85",
+   "format": 1
+  },
+  {
+   "name": ".github/workflows/repo-sanity.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0172f40223942aea21f69bbd03f1be528a452192e1547818f0a162ecc0768ef8",
+   "format": 1
+  },
+  {
+   "name": ".github/workflows/server.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4d3bab2961358df7c3eff3a86d0f9fcc4664f1562f7c4ce9ca8b9b218c761502",
+   "format": 1
+  },
+  {
+   "name": ".github/workflows/web.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b4f00ccd6774e3e1fd8caee041d3a25a0437c89641ec2991e88a7a62ac071673",
+   "format": 1
+  },
+  {
+   "name": "changelogs",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/.gitkeep",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": 1
+  },
+  {
+   "name": "changelogs/.plugin-cache.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "231527062f1a2a9410475f19a8acb974fb9d0567a5f6e4cb5494e6d7e62f6012",
+   "format": 1
+  },
+  {
+   "name": "changelogs/changelog.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "744347a41a421985c21bf359f69b78100976a1a16153f8ff47e28c83667c3a53",
+   "format": 1
+  },
+  {
+   "name": "changelogs/config.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1f5044955801b7dabf74a5e011cb53a4b207444c7ca08d22a94121a42183b478",
+   "format": 1
+  },
+  {
+   "name": "docs",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "docs/PUBLISHING_TO_GALAXY.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c07ee2f57209bde4c62062b0e1e8f96ac3481e35ffa72d785fb29d4f02b75046",
+   "format": 1
+  },
+  {
+   "name": "docs/RELEASE.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e6e82418946c80ed2d063090f5444132de3973d16116bc1c7a484b92ac9fb15a",
+   "format": 1
+  },
+  {
+   "name": "docs/UPGRADE.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e4e1d4fa54395501c71f8c70b369c16aa4b4edf15b5a65a1746cb727d98f51f0",
+   "format": 1
+  },
+  {
+   "name": "docs/ZABBIX_AGENT_ROLE.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "43cc4e2cbe83b7ccfa4e552dc3c3f9fb965d98f6eb16e92fe8b4414f5bb28041",
+   "format": 1
+  },
+  {
+   "name": "docs/ZABBIX_JAVAGATEWAY_ROLE.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2c1a9e5d5b14fb6bae50996317564fabdee92f1b2412cea4633edc7b6bfc2c6e",
+   "format": 1
+  },
+  {
+   "name": "docs/ZABBIX_PROXY_ROLE.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eb08fc4569aa638198f68e9f134830f61931701155be8a9c8f6f42c33f0cbbfb",
+   "format": 1
+  },
+  {
+   "name": "docs/ZABBIX_SERVER_ROLE.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dfde33db3b65ff37c5251d68f7d1c586be875873737ecd60f5dd7236df1b1cc0",
+   "format": 1
+  },
+  {
+   "name": "docs/ZABBIX_WEB_ROLE.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f4e65de5113124e41989e0b047572905287c415fc6d2ea24212f5815181ea5b9",
+   "format": 1
+  },
+  {
+   "name": "meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "meta/runtime.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "df18179bb2f5447a56ac92261a911649b96821c0b2c08eea62d5cc6b0195203f",
+   "format": 1
+  },
+  {
+   "name": "molecule",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/common",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/common/playbooks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/common/playbooks/converge.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6081b72ff03c46e191faea23fbda8f7709be3c7c12f40efac22fb72c4c159b28",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/common/playbooks/prepare.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d81f3fde3392989300df614996861e6494b6b35daf3f4b42c49d33331d5effb3",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/common/tests",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/common/tests/agent2_common",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/common/tests/agent2_common/test_agent2.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e7642af39f5baa9d06a8ee65daa6282801738665f107c959583e783cf20ae8f5",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/common/tests/autopsk",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/common/tests/autopsk/test_auto_psk.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "124bf032a9b6aeafa8baedd5e68902e1c003735170d2e5441cf7b2e90b5ac63a",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/common/tests/common",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/common/tests/common/test_agent.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7583578c499184163bcd83ed3e03237032f1bb57e264e7c328ac43fd3a8a929b",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/common/tests/no_auto_psk",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/common/tests/no_auto_psk/test_no_auto_psk.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eca308952f132c7c5d2945a15ff6f83b61ae69b74316b264158adfb234b1ff8f",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/common/tests/test_docker.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bcfe5cda25b569e30dccb5352166739890e87fd38e5400e3302e660bc31a678c",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/common/molecule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2e9bf77259593522020af1a6b70b85ecd0d1f02b0c8807801b4bb63ab2f886ef",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/molecule",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/molecule/agent2",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/molecule/agent2/tests",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/molecule/agent2/tests/agent2_common",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/molecule/agent2/tests/common",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/molecule/agent2/tests/no_auto_psk",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/molecule/agent2/tests/conftest.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a3e823c5509147bedb9518d7b2eff0923c32aa39802fad461fdeba2d697f78f4",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/molecule/agent2/molecule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "54630476f85b1859cf8f37f43b64631c0b6b87b1d1a151ae9f0ab8baaa7ce7ad",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/molecule/agent2autopsk",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/molecule/agent2autopsk/tests",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/molecule/agent2autopsk/tests/agent2_common",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/molecule/agent2autopsk/tests/autopsk",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/molecule/agent2autopsk/tests/common",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/molecule/agent2autopsk/tests/conftest.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a3e823c5509147bedb9518d7b2eff0923c32aa39802fad461fdeba2d697f78f4",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/molecule/agent2autopsk/molecule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2cf2499517fdea3d8ec5cd7897eb22fb81d8142251ed2f554383c5fe3bbaed34",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/molecule/autopsk",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/molecule/autopsk/tests",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/molecule/autopsk/tests/autopsk",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/molecule/autopsk/tests/common",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/molecule/autopsk/tests/conftest.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a2a2830d334a90ed4a678feb60bcc7db603433c4a8078e99a22e878079f7a99d",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/molecule/autopsk/molecule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b0a7ef16797c0d9fd964d7e1e57ebc3fe0c4d1a93cc7d0c6407ece5a1edd304a",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/molecule/default",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/molecule/default/tests",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/molecule/default/tests/common",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/molecule/default/tests/no_auto_psk",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/molecule/default/tests/conftest.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a2a2830d334a90ed4a678feb60bcc7db603433c4a8078e99a22e878079f7a99d",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_agent_tests/molecule/default/molecule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "406858bb7a26281e2f49664b1978e14d17442b8cb6bd7cbd96a8f0cfe6915047",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_javagateway",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_javagateway/tests",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_javagateway/tests/test_default.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "42216040435b108d772efea497ef5f03e13d6d9c36358df9959d587902ed4140",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_javagateway/converge.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c41ec5d85027442c2d6eb2ad88245e313a507cdb669f1b89ec3c7eb98d6d0d6b",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_javagateway/molecule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "403c27814ef8c997cd3c483c48337f5e2ce6384a799bb1cdab54c3ac01b1016c",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_javagateway/prepare.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d37d4c8655911a58ed67aaf61b3c463e91b4387ab1525773212a5047fe56cc17",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_proxy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_proxy/tests",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_proxy/tests/test_default.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b0e4b5cba9e53e48ff11ed2945da59d8b246476264832691b57922151a99cf10",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_proxy/converge.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "82b284a5ec5707b2a2ea3bb7c7e41fb8f2f583eb255b60e25b61935de3e09236",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_proxy/destroy.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "99cb34a22f36b18227686720c750aa70745fdd22227d5aeb08a42891998ac09a",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_proxy/molecule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "780d05e996542297e40e112566587ba18cbea58becb58c298a94a6c65a7c2c18",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_proxy/prepare.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "92b3e599413c462936bda25a5c145f2d5fa23f19c9f118e79a9df222e506fc42",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_server",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_server/tests",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_server/tests/test_default.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "937f24517e2a888885a2949a97d4f292a232731298821fff83fb657091926751",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_server/converge.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "81898048b5c3fae5ee132d104e2b47303e3e1746d10f8b61ad8b8c3e91fbf9a1",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_server/destroy.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "99cb34a22f36b18227686720c750aa70745fdd22227d5aeb08a42891998ac09a",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_server/molecule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "25b8acf6faf7dffa24083bae88ae7b9b4044741e8cd85083ce48cdd5c6a1b39c",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_server/prepare.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "19c3e143dac3c5d46e2ce9c0a660698161ad3d655f2227591a45be58a2a9b135",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_web",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_web/tests",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_web/tests/test_default.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "be61bd9f1e88eca04081c0ebf05333186b720c9efb57b7df0d36b382886077ce",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_web/converge.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "342a9bd906308c1ad2b4c68efbe16ba8e66ad0658fc7e1f584947f3d817fbdd3",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_web/destroy.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "99cb34a22f36b18227686720c750aa70745fdd22227d5aeb08a42891998ac09a",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_web/molecule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "34b5714e378c12b1a4f1f420a2bc4235aecd9584a719aec7692a1a3fd52bb7ec",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_web/prepare.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "40dea583de653becb638ea4bf1763ddf570eeade1cf587c7656e69cb0be90a8a",
+   "format": 1
+  },
+  {
+   "name": "molecule/zabbix_web/requirements.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "595b39f9e746996afa76a18b9fdc4bed710cd7e016e76cffc5b8587dc7501542",
+   "format": 1
+  },
+  {
+   "name": "molecule/requirements.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f935d8e613aa04be75be9db338029cee811ded575d9f2d9fa062f2eb8a47940f",
+   "format": 1
+  },
+  {
+   "name": "plugins",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/connection",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/connection/httpapi.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8661d47fe11da92cec153858b4019ead2b363b8765e91d354ef8c4c3716c5157",
+   "format": 1
+  },
+  {
+   "name": "plugins/doc_fragments",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/doc_fragments/connection_persistent.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b3d6dc35fc7752bd61b55722c5ae88ae02170b93fb85960b7b1430c2bb7146df",
+   "format": 1
+  },
+  {
+   "name": "plugins/doc_fragments/zabbix.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b8dfbc65721dd2ae5b88a082f0e0507fda14066a434ad740a996a20f67a59159",
+   "format": 1
+  },
+  {
+   "name": "plugins/httpapi",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/httpapi/jsonrpc.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8d44b69460cdbaf6ed1b8b3dea3987bb8b135c6f7ea8f4f49ab7b8faef7c73a8",
+   "format": 1
+  },
+  {
+   "name": "plugins/inventory",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/inventory/zabbix_inventory.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bc0ec92bd5b83af4f840d8dfc0c6ec1da5f88093a75a57ad0456cc3fc7690959",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/__init__.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/_version.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1bdef9acb4f7b98135dee7366e5b26df32c52664175039b877a604b2865dadb5",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/api_request.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0bca65406f77d58e3bd1ec8a58452638f165707178af75817919b9a9454033af",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/base.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "77f2fd7a7327b5f256afb99eb4c9f44f7dbfd38432b1ccb0a3be393f8aa8e06d",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/helpers.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e39d45bf3744923b820c9a62c03ff1d9c389416f4a1b92c2768ebea13b2c6c87",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/version.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6f8a9655670ac2b2c3e2aae452324c5f283721bfe5bc971957ac5836bebad61b",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/wrappers.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5b745f8f3f3a86b6e990a8b92e66087ad1a1f2a0e563a0a6c0a26bdfa0b4f9e3",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_group_facts.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2668ee55e1b7486949420e779317c762f6459c9af7b7e98772f06bd074a5d01b",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_host_facts.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e294dbed261ce474e03bf20280139455352f68c4b8a7e866ff588f7fb0122741",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/__init__.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_action.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4dbae4cc7879595e5032f34f43b25d7abac80b2fd281a74249e9240ff72dcf1f",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_authentication.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6cd7c13f807840996850f3a0c3d1b4136ee45b09e9b386a18a83f83d59b830aa",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_autoregister.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "40e40d3c761e4eddb9cddac0a8f3b6b454f86a07c74f52535d02a21b669060c2",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_discovery_rule.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2c8ed15f6d1ccaace95a89c2dfc82de1c82a94d3c5f3c28a9711e1c4db5cc3a0",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_globalmacro.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "784d0370e81e902f6cb48a9703101e9c3ee50b5903286ed43d7b9d676ce313f8",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_group.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1e39ba43984fb6486813f3c4a0450c626e574a0ea459b1380e9013769cdd4b7f",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_group_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2668ee55e1b7486949420e779317c762f6459c9af7b7e98772f06bd074a5d01b",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_host.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1c9e391716fde19bd849af024156efa7ca4bfbbeded3e390e6b92a9c238f24a4",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_host_events_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7b6fb94a8a90fea208f914119f168fa7629a0b08277f44566296287080e14fc5",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_host_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e294dbed261ce474e03bf20280139455352f68c4b8a7e866ff588f7fb0122741",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_hostmacro.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "399e4a4fd6cbe72ab092baf48883516c4f5e9cd06441e8539ab7bacab11c9e7c",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_housekeeping.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "88f528c48a8474b5c56556d195a9321406e60f93c842f15aa7fa13804b137d5d",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_maintenance.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8b24b2b472d944f63b9d14b94d92a15aadca4e39f06770355ff03b9cf6c29a6b",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_map.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3cbfea197c15413a378ec89201e7d0ddd08073f03ed06b622275aa6ce9796b89",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_mediatype.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b426114d1b257185ec47eea77f0a4a2dcfc64b9313d687b1acf71a830553f7ab",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_proxy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eac7d7f13364eb6858d4340e6a8fd7f64544e1b6663ba6cabb0429a4393f86d0",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_proxy_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bb260260acc94b498d278a05be380767aee795307206d5883d06a76c175b86a3",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_screen.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6b0da30c270c1f22cfb1424424d4a8165d3d0285ca476b10e6b060697b1c9ba3",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_script.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "df94506c8f44025dd4034c4b8bd95a62cd3baf2b5b8c511c05c71ee18ba11a22",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_service.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ea22f51471c6952e7fca61978b839cacbab94071710460aabf40076eefadf6e6",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_template.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ccb5de7cb88a844cd70c1fb5e3e22dac78906a8fa4092bf25d073a59a8738fb5",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_template_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "348e45512ded77b0f1f2eb6632cf94426eca20293767861f4fe975fd3d87c47e",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_user.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5b505d1ddc98d64e7bcf71611ebe91d249d6d8f9717841422d565edd32c197b7",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_user_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1638c2e881ff756255e9772333c4c3185b1a1ee94cf46428ed087a6788b68a43",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_usergroup.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e1ee36b469d6400a9e932140bc8eb33b480f9a2ef0b31800df87097837997aa9",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/zabbix_valuemap.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6cbee4de8084d6bd3db832e67863433c927c3956478431ba2e7777c4edd9bdc2",
+   "format": 1
+  },
+  {
+   "name": "roles",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "43cc4e2cbe83b7ccfa4e552dc3c3f9fb965d98f6eb16e92fe8b4414f5bb28041",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b2ab66f3e5abcfa83fe4153ecd3bfb2fa1c266342a43540f504642148b5d7cca",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/files",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/files/win_sample",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/files/win_sample/doSomething.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/files/sample.conf",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3aa3b604a215baf40d9d4318ba4f7197a1c58df7277fa349fbafd7666ed2d941",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/handlers",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/handlers/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "acad5ae4f8591346fcea52d1682ab85ffbd5b9f43595da6f68003755eddf81c5",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "711e51291c34046ab48ab02e04d12dc475a366574d3a9a74b766087e94a5833b",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/molecule",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/molecule/with-server",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/molecule/with-server/tests",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/molecule/with-server/tests/test_agent.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "12fbdb469e65f0db8195e61c0dad1bf924bcda267e14d2bbb6006392e2df52db",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/molecule/with-server/tests/test_default.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c7cc3d29745b0c8bc7730858de639184b8125d481511130023ed1c5dcc64c32b",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/molecule/with-server/Dockerfile.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "45fcdc65bf0c38188ae34f4db3ddf66a0fc572ffb1c3fe66055edab399d53f09",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/molecule/with-server/INSTALL.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "61ec9005b35344df43db785d54f69a5fe87cc1783014e404e068497f6773f924",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/molecule/with-server/molecule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3c886d4bca694a6b19e3d15909f5738b771e6ef9eab31987ef6e63eb480d62e5",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/molecule/with-server/playbook.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7acb20ce65dd661f2a8f2ff1492cd385a7d603d7e946f2331e3be0f64f7c2c60",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/molecule/with-server/prepare.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "03966cfb5f1589ae0177403025b7cf62bb94bc8e4a551e14fbb87c2a73f8c208",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/molecule/with-server/requirements.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7cb18ed88555380f82e4f37d4cfae43303cf2071ac8b407aaa32d37aec0be804",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/tasks/Darwin.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f2fabd419d54e58abf22698194848e06c8bbeea0e9d5f5773f3e7e91ae07065e",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/tasks/Debian.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ce111c2383094a930dfde317f7898fe7aeb047a07b30e29ea86be0c84f8458a7",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/tasks/Docker.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7406219975281823e907acb14e0cfebef02496bc5b85e89380b0c446f9e95ec4",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/tasks/Linux.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8fb1ef8e1d012ce6cff30e937393a11bba74889c6a1dba0dc4fda463b8d868e9",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/tasks/RedHat.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8b63cc736bac4725ac29d0840c4bc0cf533f41dbc6662e7dce2afc013dbacd6b",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/tasks/Suse.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "71a60660c5dc62b42d22a8798464af1533f364ed28a2fa0bd14cf8fc33f0c66c",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/tasks/Windows.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "aad6decbe114ee420c5b1216d3bc83e9d5bac0172448ec7e6453ca29d7d4c707",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/tasks/Windows_conf.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cb3341f0672ad6a38a3f01777737a398c6a777389d63d428bd6a270c20e16e19",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/tasks/api.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6b92e4a2a97e4b43d79dee6e759706239844c46a78c8168a3efb8a7a38dd04af",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/tasks/firewall.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "32fa02a8834b2a0fce40f827715abad8aaadb5c95bf96e552c97478ba132d7ac",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/tasks/macOS.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "07214cf9e01f2d1b382dee5fa8af5a592f91b64a327d10379c5f50e977bf771b",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cd5ac7c847ff53c52b1220229c1aeac876dd38f5a65d900f09348ba975888b2b",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/tasks/remove.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1a19cc7cd1fca702c9d88b573bf8ecdf062396aaf45ad6f6abd4fe4bb1a57d9a",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/tasks/selinux.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a22d30b558ddcbf9251868fe7accd96208bb813a9fe3878536184f68be55cd19",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/tasks/tlspsk_auto.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "107052aaa9b9e206e09a0991f160996b2b390101f71e06ab3f3a8ba7afee5dea",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/tasks/tlspsk_auto_agent2.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "db9d50614a7bc0247fd8aeefb53cc94fb083f4af5780c9b349acd05b0a9d7ae7",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/tasks/tlspsk_auto_agent2_common.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "89a391fe07d61221c3d1fad2b217c3ce917d929d0c93a6872febb4b38fc9ed16",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/tasks/tlspsk_auto_agent2_linux.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6887ed6b41bbb92b719848be16779655fee4a6bcd4b09d6acca293c25801e24a",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/tasks/tlspsk_auto_agent2_windows.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c2d7c59ef98c62873349927d0ca6856375bab84f3b80f5c77365d8599a64d4e3",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/tasks/tlspsk_auto_common.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4f214f550557b61a8dd48d05a10a6b507e6ad66b6f40665d6eee762929e7e1d3",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/tasks/tlspsk_auto_linux.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "238105b3e8d92db2f70ed8a724c8e317e943138b52c1d98e169614589563ec0d",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/tasks/tlspsk_auto_windows.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d6ef817e770cc8b55b174aa9f02196f68084856945d2bbf9edc79fb4adaa98d8",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/tasks/userparameter.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eb96d45277305e0ce2e5b3bfe264614791ffd4ff9fbaa61f88bc780ac18ea86a",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/templates",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/templates/userparameters",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/templates/userparameters/mysql.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3aa3b604a215baf40d9d4318ba4f7197a1c58df7277fa349fbafd7666ed2d941",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/templates/userparameters/win_sample.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "97f7f02ba1bdf4c130838aea75f1246232b2b4cc00a36cea4bfc9123df1698c0",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/templates/zabbix_agent2.conf.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "81d6c070c5dd881017e98421a3c3e4859b35fed4a74b90f127918bc229f31679",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/templates/zabbix_agentd.conf.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3d3e89bf09e3ad39b36c15c2594803cf782e30a7538d4b842906af47b2fa156d",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/vars",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/vars/Darwin.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "db7f6b6b2dd80ddaf2e8d281c78f350a4849b74deda63ef63338b7699527fa20",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/vars/Debian.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bce21e0287a3bd70d43f96c325abc1a184f20a2430c3c744bc9cfb8d2ad6d373",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/vars/RedHat.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "866af2b99a50f04df9a076fb589faa6fbf9fe9d3478bb5f2ffa6b8da514d9dd8",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/vars/Sangoma.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6b0b76e02ac840a2cb89b691d4ae0e6a55e441fa81bd0cc6a9487b0f1bc02019",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/vars/Suse.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a0cc3ac65514ccdbd0f6035eb823aa916d7ea8dda1d0b3d9c4a7f783529bc290",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/vars/Windows.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "af541365edb39dd0d046a3ae36770b01f6f7881001587f68c707e2d171662f6b",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_agent/vars/zabbix.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7e4af244176971ffe5ee77987d0a53233b25a2e0680929d3f648599a0a8752a3",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_javagateway",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_javagateway/README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2c1a9e5d5b14fb6bae50996317564fabdee92f1b2412cea4633edc7b6bfc2c6e",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_javagateway/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_javagateway/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c963c1674db273a76f42ca7c6a7ee93afa6f3621c34bf0b3e621959778c4aa73",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_javagateway/files",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_javagateway/files/systemd.service",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "df08ce5450891ea88a7fec5a1c56c5d4c243e1b3ef128dcb26e37714b48e88c9",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_javagateway/handlers",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_javagateway/handlers/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9ad072b7d35f1d0e200857c59e5cc8b3c6417427c313bbbdff78fedd95354310",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_javagateway/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_javagateway/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eefd2527d9e1e50e0dbf2905a46dc29eb8fe677b54ffed00d8f6f4260480df30",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_javagateway/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_javagateway/tasks/Debian.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cf47a37619f9b6665ee00315c0855d6a1ec9b5840caf651808f66d6c9bf3a099",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_javagateway/tasks/RedHat.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "190c621d0d5ab55a31295961d34b184639cc80dc44957060f6048feb1ef2c4af",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_javagateway/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0ac78ade9de2b6f979842d4fe036b1cb9d1cfa6d0e5e17fc666a76aef467d976",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_javagateway/templates",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_javagateway/templates/zabbix_java_gateway.conf.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "36432a6d2a07ac10daefd1af7fc9bfe50b21fcb6a04e1cad1ce0cd74eae9deea",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_javagateway/vars",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_javagateway/vars/Debian.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f4eb8a4a848b0eae37caae62c36ae4d1e35dabe5aab2357203f1427b5ad55491",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_javagateway/vars/RedHat.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ee454bd3e000b6cb6bf752ecbd4a29f6a10a2773a148f945220ea91076450493",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_javagateway/vars/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a66f3b3709565944ed24f42a65761b62325279bc54222f3200bff2ab96616944",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_javagateway/vars/zabbix.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "462ed903f1c6b56c39de8902e6e8881afea156c501ca14fedf6afa3268ae302d",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_proxy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_proxy/README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eb08fc4569aa638198f68e9f134830f61931701155be8a9c8f6f42c33f0cbbfb",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_proxy/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_proxy/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "99a9acff61aca8beac60279a54f11ece28ca58e453941b90fb837473512595e2",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_proxy/files",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_proxy/files/install_semodule.bsx",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "729d5b564427618c3acad7c499736930070ed3c7cbd542dedf341722db68cfa0",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_proxy/handlers",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_proxy/handlers/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "02effc86ecae774f9c4e208da774604bc32a1aa263225d77b817a501d2d3df7d",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_proxy/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_proxy/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1b6248de4d50ab09df5f595799aa31a4f9b10ff17a7e2a45a96fe799e41bd52a",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_proxy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_proxy/tasks/Debian.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "755fc3cee07b6032527b5df04e1bc492156ae7b5d4c07445bd1609933a6f00ce",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_proxy/tasks/RedHat.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8c93b80a021c9641993841d137f1a118ef6948947d0cb0461143a956403ece61",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_proxy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4520835ed9851615e940b57fb503dd82aa6060097cde887ecddef6632967e49e",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_proxy/tasks/mysql.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3f3d72cc83e4c5cbe9cedd034359ead81c09567126b75240e4ebe284c45d44a4",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_proxy/tasks/postgresql.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dab366bf7cf710241092d7b9f803563747d95abba2453d8dd6491eb1b20bb31d",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_proxy/tasks/selinux.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dcb68892775cab1160efcaaee1081ae34c970287e601f9d9a0063ff38e4de4f9",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_proxy/tasks/sqlite3.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "62e88f189a7a692fffcfc5fe245d725c6c5685778e7b83155abaae89727ce737",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_proxy/templates",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_proxy/templates/zabbix_proxy.conf.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "474f29dabfe02c77221188927bcc42b4fdc99e2e0a1824116deba99073c32019",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_proxy/vars",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_proxy/vars/Amazon.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7d87cd61d18e6d90032bfe0a42d18cb1bf651001280e06ac60a7850e7be5e733",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_proxy/vars/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2a54870b52848a1bdf2dcbcd7e86f46509f868c02c51ca4f315457282b5a9c78",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_proxy/vars/zabbix.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "df4200c31fb1f7e51a54484222aa07921521a6ea1ec44501d2e64cd63de0b155",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_proxy/requirements.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f669210dc6814ed6c193a746cd8bfd1eb13448269b3d8f6b2d209f9418b907cb",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_server",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_server/README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dfde33db3b65ff37c5251d68f7d1c586be875873737ecd60f5dd7236df1b1cc0",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_server/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_server/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "731a377345d5cc33ba2d5570d9556f473795befbdfc90b4a96ae85931ff28930",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_server/files",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_server/files/install_semodule.bsx",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "729d5b564427618c3acad7c499736930070ed3c7cbd542dedf341722db68cfa0",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_server/handlers",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_server/handlers/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ffb85ad6d8b0d9e5b40d855e11940f1b1907ed58c8345f1d8121d02f4472a70a",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_server/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_server/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0487f93463794453a72406f64a054fefeec900959fc97293b38282fd3c59a201",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_server/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_server/tasks/Debian.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "aa6c8a908cb721270fdb0b308093d441881cde8817bdcabc08d77eb8a0aaaee6",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_server/tasks/RedHat.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0b1dd0c28f6a9bb0ddf4ddf4c787cecc8852e03fb2fc5cb38042375f8251381b",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_server/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f0d21cdd7c2c77fdc8609e3441aa3bfd7eb90c07dfc1a5628afd2ebdfb5597ba",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_server/tasks/mysql.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "30d3851cc7001fa99fdd14a81562701a6959def9b1a33797734abe97871e80e2",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_server/tasks/postgresql.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a4cf44dd001d08a28b1356b26b7973bdc2b195738bb380f495cf405526b76fcd",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_server/tasks/scripts.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ae57630fcbe0bbb4c702a2a173bc0e8f746c5d2ab5ff107074ee86c8329b56d2",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_server/tasks/selinux.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c206f09472cdf4288374fa528ae3ce6e0d4d6b2e6d949abd52b2087ffdfa8675",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_server/templates",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_server/templates/zabbix_server.conf.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1bdac5c9c262d350d013c9bbd50a642ed379a11d6718921bfccf12f86511ed04",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_server/vars",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_server/vars/Debian.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f4eb8a4a848b0eae37caae62c36ae4d1e35dabe5aab2357203f1427b5ad55491",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_server/vars/RedHat.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ee454bd3e000b6cb6bf752ecbd4a29f6a10a2773a148f945220ea91076450493",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_server/vars/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6c2f64c03ed593623b3d2dab34ac73df7d929a29f65827eef39ad083ce73a364",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_server/vars/zabbix.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "033b7ff41ea8aff404954b9630b6985491ab58afe4897f52d810599c27775837",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_server/requirements.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a29c610f03bc687057abf37a69f05afea72484890a5ef3d0f0127bd6ab96598f",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f4e65de5113124e41989e0b047572905287c415fc6d2ea24212f5815181ea5b9",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "25910833d90ecfc7c19c12f31bd1f6b93c58fce00a8579e2f514e6585e05ff48",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/handlers",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/handlers/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "17914993fcbae9e8c40f256e0ab37de2f9f858161d578d5aea092fa655491581",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a4323c1de12142fd1f613a272f51a471e0f94aee30035cc554bf6fdc2bff13fc",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/tasks/Debian.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d0dff49baef489aaa03d61870e41280cb2f21f656ddefc7b6dec3a0c1cb5b31c",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/tasks/RedHat.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "26e346959b9bc3f976e08fdae7471858b9e4d6abb00c2ea886107585475c9fe6",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/tasks/access.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7949a75447930d99585497abe2dd063b8b309bd1d1215d95458fd8fe7842d491",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/tasks/apache.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8d7c2f668004c83b3244f819a9fe152d2f76cc232719f4b2dc0ab8ba0ae22c2d",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/tasks/apache_Debian.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fb94333d3a7055e24d6bf7fb9da89dbc294160e8025e7ec902c7168be47b3346",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/tasks/apache_RedHat.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dae8aa03b819ae47f82db8805c1c4e47c29db5e8f2dba1aead94e74899e231c6",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9ec1dbc545bb60274957a95d2da98c874490e13c3e111cf9f2a2b8b7c55b0e1f",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/tasks/nginx.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b7de6c00cae54176d63d8d21dab85070b22a95cb919dcca711a3588a733054d6",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/tasks/php_Debian.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "070748c332d79d485417d358e944ba530fe11cea3dd46429120aec2df1cecbd0",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/tasks/selinux.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8bf19254a82bd0266a265959d7418c984ec90f6f429562568163c612ff343040",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/templates",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/templates/apache_vhost.conf.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d5f2824024f3dce38bf3d23d42f9575c7301d6bf62c9212cca72e125f88ec2a1",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/templates/nginx_vhost.conf.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bc02f95677b2d1fce3f74bf8bd778a73a2702256743595551976711333ab0c3e",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/templates/php-fpm.conf.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "908ec55fb71d004f7745b4cd1788e005a32c96b0f46cb8295ad8bfa4eb247cc3",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/templates/zabbix.conf.php.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5cf7a3042220dd33ebc0593d0a2a55d035419768db41fc33b02b0f4226f62715",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/vars",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/vars/Debian-10.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b22f4fb2ddd44a45a5196bfdc2eb488aa0f20fc50182dad5801fcb7d9100373b",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/vars/Debian-11.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a80f687d7a145445cc9d3ece5f075047ad0b8419c162dee68d4d7e1d64c97b7c",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/vars/Debian-8.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "329443560941bda266833e38ba4139ac070b477db817db61728ed18817b8131d",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/vars/Debian-9.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a80f687d7a145445cc9d3ece5f075047ad0b8419c162dee68d4d7e1d64c97b7c",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/vars/Debian.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "76b26052bf10e4ad94388272f3e8af9aa2bdc34257b12af6c471139407b595be",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/vars/RedHat-7.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a0083ec5ca4323c00334ef0591d67d036630bc3cbdc6e0301bc8c351eda6e2d0",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/vars/RedHat-8.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "87c0942832efd38895ea0e111ee14b59c16f2599ba5a1ad18f9d0b186d382dcb",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/vars/RedHat.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3962e72fb4a421c31827b41ba4a505af9585f53c1c188d980f413629254fa42c",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/vars/Ubuntu-18.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b22f4fb2ddd44a45a5196bfdc2eb488aa0f20fc50182dad5801fcb7d9100373b",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/vars/Ubuntu-20.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a80f687d7a145445cc9d3ece5f075047ad0b8419c162dee68d4d7e1d64c97b7c",
+   "format": 1
+  },
+  {
+   "name": "roles/zabbix_web/vars/zabbix.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "462ed903f1c6b56c39de8902e6e8881afea156c501ca14fedf6afa3268ae302d",
+   "format": 1
+  },
+  {
+   "name": "scripts",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "scripts/inventory",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "scripts/inventory/zabbix.ini",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "be08243c8bdc7c88f8fef16108e10face4d04d03764cb569718a241c181c5515",
+   "format": 1
+  },
+  {
+   "name": "scripts/inventory/zabbix.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ec4257fd991f789e540373445c4f607cb7dc631bc4868d83d104540d248a78c5",
+   "format": 1
+  },
+  {
+   "name": "tests",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_zabbix",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_zabbix/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_zabbix/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "50d2a9c75fbc340fd30b17b29030573a415ff2c56e41d1a2d5c1c2e2e7148ee7",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_zabbix/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_zabbix/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6257298d86732437698c98ef6841babd0860ade4dafe65d3162ab99a7b0feef7",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_action",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_action/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_action/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "63ae23343a8854777c0e014be5fdd33db6a6b78f96d22a889ad78556dc0ffa81",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_action/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_action/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "78b75c28866fe728912ea83ee033f4fc4903e5e647eb5146c72f92c0a92e16e5",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_authentication",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_authentication/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_authentication/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "63ae23343a8854777c0e014be5fdd33db6a6b78f96d22a889ad78556dc0ffa81",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_authentication/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_authentication/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "af424d7a2093139a57ba193d38a305a324d496ac7616eb3f213b3e60a89332f8",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_autoregister",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_autoregister/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_autoregister/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "63ae23343a8854777c0e014be5fdd33db6a6b78f96d22a889ad78556dc0ffa81",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_autoregister/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_autoregister/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9d30fe4f7f47c9b557650f8f3c342adc0b362e85bcf4db3c80471a59545b9212",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_discovery_rule",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_discovery_rule/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_discovery_rule/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "63ae23343a8854777c0e014be5fdd33db6a6b78f96d22a889ad78556dc0ffa81",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_discovery_rule/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_discovery_rule/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dceacf4e8c4065547d144660b53a2e11ff840321572e79f0a471f208d99e1b24",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_globalmacro",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_globalmacro/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_globalmacro/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "63ae23343a8854777c0e014be5fdd33db6a6b78f96d22a889ad78556dc0ffa81",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_globalmacro/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_globalmacro/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c084906dff35d819a8516812c653e260ead92dca016a3c8f825348704bc4ef57",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_group",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_group/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_group/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "63ae23343a8854777c0e014be5fdd33db6a6b78f96d22a889ad78556dc0ffa81",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_group/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_group/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0af2ce7f50cd5907bd96b9dc23ed63fcc73ce9cf974d07bee32d59cdaf961d5a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_group_info",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_group_info/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_group_info/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "63ae23343a8854777c0e014be5fdd33db6a6b78f96d22a889ad78556dc0ffa81",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_group_info/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_group_info/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a01424c60a97d14ad0eb147e6e4bc65c32371f5cd63e88af56e0d491f50e9f00",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_host",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_host/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_host/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "63ae23343a8854777c0e014be5fdd33db6a6b78f96d22a889ad78556dc0ffa81",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_host/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_host/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ebc601f7057afb0ed19b11864fe819abf13b1909515e5512421b9082441980c8",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_host/tasks/zabbix_host_doc.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "94399b00d8b89e036fdfd695258c6dab81575fdb545d2055dcf9c8fdea9e8b83",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_host/tasks/zabbix_host_setup.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "21c2424fef46b538b2b78da106f9f5704f9b1e5a19c4bb5ab2c38406fab8e3c9",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_host/tasks/zabbix_host_teardown.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c78c749b2fad14d84ddec6889d9ea908dd5903717c696880317cc4acf3dffe57",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_host/tasks/zabbix_host_tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ffeb457d65da39654974cd8b0abdf6390de1d8668f9b1fd56723adfaaf0847bd",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_host_info",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_host_info/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_host_info/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "63ae23343a8854777c0e014be5fdd33db6a6b78f96d22a889ad78556dc0ffa81",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_host_info/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_host_info/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "372ec3ea717f8979a0cafff2eb6ea90a7e6250f7aa6120dd91a7afca81dd7c64",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_hostmacro",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_hostmacro/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_hostmacro/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "63ae23343a8854777c0e014be5fdd33db6a6b78f96d22a889ad78556dc0ffa81",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_hostmacro/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_hostmacro/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d0a6ef97547385d4fdbeb03d9c779099e52cbc60aed797dddd59fd6d4234ef06",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_housekeeping",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_housekeeping/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_housekeeping/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "63ae23343a8854777c0e014be5fdd33db6a6b78f96d22a889ad78556dc0ffa81",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_housekeeping/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_housekeeping/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3571f7dfe12eeb70cba45465ad1ff3fdfcb76175572c91c86ebc1f079d3960bf",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_maintenance",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_maintenance/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_maintenance/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "63ae23343a8854777c0e014be5fdd33db6a6b78f96d22a889ad78556dc0ffa81",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_maintenance/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_maintenance/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d131ce6b7ccb0dbbf31ffb6c66a213c1ff60d8ea447f5c8ceb6f25b3137e8b10",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_mediatype",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_mediatype/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_mediatype/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "63ae23343a8854777c0e014be5fdd33db6a6b78f96d22a889ad78556dc0ffa81",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_mediatype/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_mediatype/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3c30a64d40fe13795d8524afc3b0f9dafdca780080f29199b7eba40e6427fea6",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_proxy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_proxy/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_proxy/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "63ae23343a8854777c0e014be5fdd33db6a6b78f96d22a889ad78556dc0ffa81",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_proxy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_proxy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9a84bd9b51168f5aabc703b20e32ed6b53790fa46c91bfaaa1f6d77146becf51",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_proxy_info",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_proxy_info/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_proxy_info/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "63ae23343a8854777c0e014be5fdd33db6a6b78f96d22a889ad78556dc0ffa81",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_proxy_info/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_proxy_info/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cdbd2906e07793e86bdab91df85d3386c853d3a048a2ad8dc3dcd1d300ae8d8a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_screen",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_screen/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_screen/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "63ae23343a8854777c0e014be5fdd33db6a6b78f96d22a889ad78556dc0ffa81",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_screen/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_screen/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6c0ac99e9445e31dfb0929ee72f0c8942b354229284a99861622268ed9aa12e9",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_script",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_script/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_script/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "63ae23343a8854777c0e014be5fdd33db6a6b78f96d22a889ad78556dc0ffa81",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_script/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_script/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1528afee5fbbfd9c14dbe604a4036c3402d9edac2f767f556ceb5e77950932b4",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_service",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_service/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_service/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "235ca09962f973a0c15fee386c5f795d2e9957dd733276c8f685211d4fd1750c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_service/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_service/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "63ae23343a8854777c0e014be5fdd33db6a6b78f96d22a889ad78556dc0ffa81",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_service/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_service/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b6f846e272f24013b49209bad69144556d1fcad9fbdd2a3cd4e228c55c20387d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_template",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_template/files",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_template/files/template1-changed_50_lower.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b36c50bed75503fd6bf60504e6ab82495f175638e9e766b16f09ec02f88a7a03",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_template/files/template1_50_higher_decode_unicode.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "32d3a07c35f3556fc8c18bb9efcd798f1118da32eafaef20fdd0d19f3c926c28",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_template/files/template1_50_lower.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "50f73e7b67dbfae0172e8d6e5eb247bd233f2806f0cb06c315862e3969183990",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_template/files/template2_50_lower.xml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "13449759abe3ea35ff1c046f21a03961d1e64c76482bda4d7a17df2a93e5d828",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_template/files/template3-changed_54_higher.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cd57ccf99cb588162d01596bb52580b98ae604ecf9aa3c4fad0ac68cb4faf432",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_template/files/template3_54_higher.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ef9bff1831a08e6b618d6b0d6e1e6bba49696d4d1197c5ef7de35fbb2258f0a5",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_template/files/template3_54_higher.xml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6c268d251104e7768523a3e508a38c5b58cf3ad96df17669ee4480176eb35b40",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_template/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_template/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "63ae23343a8854777c0e014be5fdd33db6a6b78f96d22a889ad78556dc0ffa81",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_template/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_template/tasks/import_54_higher.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2a7572cd5b5a0948be65b8adb31a569b23f9d8745243c4bac210b275f11eeb7f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_template/tasks/import_54_lower.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "55416421d725fca4503ebd643b0eadd5f95efee3dab0fb3eaf126e25d26b3b61",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_template/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "94cf65931202315d169342d379acdb7b1ebe6327ba76cacbc20585f744c251f7",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_template_info",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_template_info/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_template_info/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "63ae23343a8854777c0e014be5fdd33db6a6b78f96d22a889ad78556dc0ffa81",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_template_info/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_template_info/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fede9a2955019545257041da92a63852576b6ff62d9cfbb3829656f8ae17b26f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_user",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_user/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_user/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "63ae23343a8854777c0e014be5fdd33db6a6b78f96d22a889ad78556dc0ffa81",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_user/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_user/tasks/for_zabbix_50_lower.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "639d20dc4e6afda7d930883489304ae9eb52749abfdd4144c5757a106b011aee",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_user/tasks/for_zabbix_54_higher.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0b59643dcffe43a966697e710b0f688730cbfeb45b52c39f196cc6d5d8a75ab8",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_user/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4d358b1fcd45a8d856b9cc09907e6b9067be79fd28b06d0b5f405858b8d50432",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_user_info",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_user_info/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_user_info/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "63ae23343a8854777c0e014be5fdd33db6a6b78f96d22a889ad78556dc0ffa81",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_user_info/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_user_info/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "320219f7dcb5ffe2606fab5c422ebc4c381d5a46d0c6613efaee76c0a870ea71",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_usergroup",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_usergroup/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_usergroup/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "63ae23343a8854777c0e014be5fdd33db6a6b78f96d22a889ad78556dc0ffa81",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_usergroup/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_zabbix_usergroup/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "19da28f9fd6485def49bbec233a4c5c34e5027b59211e233c60b4d5b7537177c",
+   "format": 1
+  },
+  {
+   "name": "tests/sanity",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/sanity/ignore-2.10.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3fc63c84b6cef2e284d1e5aaa1c4f564e6b27d7ed7961626cbbb8495bdc105b3",
+   "format": 1
+  },
+  {
+   "name": "tests/sanity/ignore-2.11.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3fc63c84b6cef2e284d1e5aaa1c4f564e6b27d7ed7961626cbbb8495bdc105b3",
+   "format": 1
+  },
+  {
+   "name": "tests/sanity/ignore-2.12.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4ba3e638c5c97cf697071ccf1c64d3e1f44ca092e9c3a25f85e9af032edd679d",
+   "format": 1
+  },
+  {
+   "name": "tests/sanity/ignore-2.13.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4ba3e638c5c97cf697071ccf1c64d3e1f44ca092e9c3a25f85e9af032edd679d",
+   "format": 1
+  },
+  {
+   "name": "tests/sanity/ignore-2.14.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4ba3e638c5c97cf697071ccf1c64d3e1f44ca092e9c3a25f85e9af032edd679d",
+   "format": 1
+  },
+  {
+   "name": "tests/sanity/ignore-2.9.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b4e32eab851387385a480a7d46bf2d81335209f52cf1c671b2ea98a452a4f3d2",
+   "format": 1
+  },
+  {
+   "name": ".ansible-lint",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bc980970679479078eecb1ca1dc5d9f87a3e4d2d5ae21e5417dd59e0357d57e2",
+   "format": 1
+  },
+  {
+   "name": ".gitignore",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dfc61091662b8d231266822938624c742287b3a3959854e793c338c777eaedf1",
+   "format": 1
+  },
+  {
+   "name": ".yamllint",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "12ef94e479c99c6e5e633d702a4043d1a9702c714fea28480bcd56117c5fa369",
+   "format": 1
+  },
+  {
+   "name": "CHANGELOG.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ed52b1c63a63fede2601be8a8859167e9e2523f59b16736cd2e6a8743ac385b5",
+   "format": 1
+  },
+  {
+   "name": "CODE_OF_CONDUCT.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5c18a80f7f461c2fb2ed69961a1c918eb3653f86ecf0506e79ef74200836f38a",
+   "format": 1
+  },
+  {
+   "name": "CONTRIBUTING.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5f3ffa0214dfe5407caa03a951bf939c320c403dde1df3671926dc2d4940e718",
+   "format": 1
+  },
+  {
+   "name": "LICENSE",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+   "format": 1
+  },
+  {
+   "name": "PSF-license.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "83b042fc7d6aca0f10d68e45efa56b9bc0a1496608e7e7728fe09d1a534a054a",
+   "format": 1
+  },
+  {
+   "name": "README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3b0ea042591d8b0bb17e763d7c1c690f8cc3dc5abce490dd07d022ee5e6d3bfb",
+   "format": 1
+  },
+  {
+   "name": "docker-compose.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d8eb78609cb12e60dc6779d439f5effed1d4293c9ccfe9c59c6120788880dadf",
+   "format": 1
+  },
+  {
+   "name": "requirements.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1417287e0b2c1e03ca5a0eebc9d21d7ca73aa46e7e70557557f9f65085b9c673",
+   "format": 1
+  },
+  {
+   "name": "tox.ini",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2f0b2af9b832273ad8a626c937125bfd380f3fe8271922a0739f7e14806bc20e",
+   "format": 1
+  }
+ ],
+ "format": 1
+}

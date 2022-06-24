@@ -442,8 +442,6 @@ class Role(JSONSerializable, Resolvable):
         
         taskfiles = []
         for task_yaml_path in task_yaml_files:
-            if "/test/" in task_yaml_path or "/tests/" in task_yaml_path:
-                continue
             tf = TaskFile()
             try:
                 tf.load(task_yaml_path, role_name=role_name)
@@ -607,16 +605,23 @@ class Repository(JSONSerializable, Resolvable):
 
     annotations: dict = field(default_factory=dict)
 
-    def load(self, path, installed_collections_path="", installed_roles_path="", my_collection_name=""):
-        repo_path = self.find_best_root_path(path)
-        if repo_path == "":
-            repo_path = path
-            logging.warning("failed to find a root directory for ansible files; use \"{}\" but this may be wrong".format(path))
+    def load(self, path="", installed_collections_path="", installed_roles_path="", my_collection_name=""):
+        repo_path = ""
+        if path == "":
+            # if path is empty, just load installed collections / roles
+            repo_path = "" 
+        else:
+            # otherwise, find the root path by searching playbooks
+            repo_path = self.find_best_root_path(path)
+            if repo_path == "":
+                repo_path = path
+                logging.warning("failed to find a root directory for ansible files; use \"{}\" but this may be wrong".format(path))
 
-        if my_collection_name == "":
-            my_collection_name = self.find_my_collection_name(repo_path)
-        if my_collection_name != "":
-            self.my_collection_name = my_collection_name
+        if repo_path != "":
+            if my_collection_name == "":
+                my_collection_name = self.find_my_collection_name(repo_path)
+            if my_collection_name != "":
+                self.my_collection_name = my_collection_name
 
         logging.info("start loading the repo {}".format(repo_path))
         logging.info("start loading playbooks")
@@ -643,6 +648,8 @@ class Repository(JSONSerializable, Resolvable):
         logging.info("done")
 
     def load_playbooks(self, path):
+        if path == "":
+            return
         patterns = [
             path + "/*.yml",
             path + "/*.yaml",
@@ -659,10 +666,6 @@ class Repository(JSONSerializable, Resolvable):
             if could_be_playbook(fpath):
                 if "/roles/" in fpath:
                     continue
-                if "/test/" in fpath:
-                    continue
-                if "/tests/" in fpath:
-                    continue
                 p = Playbook()
                 try:
                     p.load(fpath)
@@ -676,6 +679,8 @@ class Repository(JSONSerializable, Resolvable):
         self.update_task_dict(tasks)
 
     def load_roles(self, path):
+        if path == "":
+            return
         roles_patterns = ["roles", "playbooks/roles", "playbook/roles"]
         roles_dir_path = ""
         for r_p in roles_patterns:
@@ -795,6 +800,8 @@ class Repository(JSONSerializable, Resolvable):
     # however, it is often defined in `plugins/modules` directory in a collection repository,
     # so we search both the directories
     def load_modules(self, path):
+        if path == "":
+            return
         if not os.path.exists(path):
             return
         

@@ -1,0 +1,8 @@
+download_url: https://galaxy.ansible.com/download/ansible-netcommon-3.0.1.tar.gz
+format_version: 1.0.0
+name: netcommon
+namespace: ansible
+server: https://galaxy.ansible.com/api/
+signatures: []
+version: 3.0.1
+version_url: https://galaxy.ansible.com/api/v2/collections/ansible/netcommon/versions/3.0.1/

@@ -1,0 +1,253 @@
+# test code for the template module
+# (c) 2014, Michael DeHaan <michael.dehaan@gmail.com>
+
+# This file is part of Ansible
+#
+# Ansible is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Ansible is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
+
+- name: set Unix and DOS expectations
+  set_fact:
+    expected_unix: "BEGIN\ntemplated_var_loaded\nEND\n"
+    expected_dos: "BEGIN\r\ntemplated_var_loaded\r\nEND\r\n"
+
+# DOS TEMPLATE
+- name: fill in a basic template (DOS)
+  win_template:
+    src: foo.j2
+    dest: '{{ remote_tmp_dir }}/foo.dos.templated'
+  register: template_result
+
+- name: get result of fill in a basic template (DOS)
+  slurp:
+    path: '{{ remote_tmp_dir }}\foo.dos.templated'
+  register: template_dos_actual
+
+- name: verify that the file was marked as changed (DOS)
+  assert:
+    that:
+      - 'template_result is changed'
+      - 'template_dos_actual.content|b64decode == expected_dos'
+
+- name: fill in a basic template again (DOS)
+  win_template:
+    src: foo.j2
+    dest: '{{ remote_tmp_dir }}/foo.dos.templated'
+  register: template_result2
+
+- name: verify that the template was not changed (DOS)
+  assert:
+    that:
+      - 'template_result2 is not changed'
+
+# UNIX TEMPLATE
+- name: fill in a basic template (Unix)
+  win_template:
+    src: foo.j2
+    dest: '{{ remote_tmp_dir }}/foo.unix.templated'
+    newline_sequence: '\n'
+  register: template_result
+
+- name: get result of fill in basic template (Unix)
+  slurp:
+    path: '{{ remote_tmp_dir }}\foo.unix.templated'
+  register: template_unix_actual
+
+- name: verify that the file was marked as changed (Unix)
+  assert:
+    that:
+      - 'template_result is changed'
+      - 'template_unix_actual.content|b64decode == expected_unix'
+
+- name: fill in a basic template again (Unix)
+  win_template:
+    src: foo.j2
+    dest: '{{ remote_tmp_dir }}/foo.unix.templated'
+    newline_sequence: '\n'
+  register: template_result2
+
+- name: verify that the template was not changed (Unix)
+  assert:
+    that:
+      - 'template_result2 is not changed'
+
+# TEST BACKUP
+- name: test backup (check_mode)
+  win_template:
+    src: foo.j2
+    dest: '{{ remote_tmp_dir }}/foo.unix.templated'
+    backup: yes
+  register: cm_backup_result
+  check_mode: yes
+
+- name: verify that a backup_file was returned
+  assert:
+    that:
+      - cm_backup_result is changed
+      - cm_backup_result.backup_file is not none
+
+- name: test backup (normal mode)
+  win_template:
+    src: foo.j2
+    dest: '{{ remote_tmp_dir }}/foo.unix.templated'
+    backup: yes
+  register: nm_backup_result
+
+- name: check backup_file
+  win_stat:
+    path: '{{ nm_backup_result.backup_file }}'
+  register: backup_file
+
+- name: verify that a backup_file was returned
+  assert:
+    that:
+    - nm_backup_result is changed
+    - backup_file.stat.exists == true
+
+- name: create template dest directory
+  win_file:
+    path: '{{ remote_tmp_dir }}\directory'
+    state: directory
+
+- name: template src file to directory with backslash (check mode)
+  win_template:
+    src: foo.j2
+    dest: '{{ remote_tmp_dir }}\directory\'
+  check_mode: yes
+  register: template_to_dir_backslash_check
+
+- name: get result of template src file to directory with backslash (check_mode)
+  win_stat:
+    path: '{{ remote_tmp_dir }}\directory\foo.j2'
+  register: template_to_dir_backslash_result_check
+
+- name: assert template src file to directory with backslash (check mode)
+  assert:
+    that:
+    - template_to_dir_backslash_check is changed
+    - not template_to_dir_backslash_result_check.stat.exists
+
+- name: template src file to directory with backslash
+  win_template:
+    src: foo.j2
+    dest: '{{ remote_tmp_dir }}\directory\'
+  register: template_to_dir_backslash
+
+- name: get result of template src file to directory with backslash
+  win_stat:
+    path: '{{ remote_tmp_dir }}\directory\foo.j2'
+  register: template_to_dir_backslash_result
+
+- name: assert template src file to directory with backslash
+  assert:
+    that:
+    - template_to_dir_backslash is changed
+    - template_to_dir_backslash_result.stat.exists
+    - template_to_dir_backslash_result.stat.checksum == 'ed4f166b2937875ecad39c06648551f5af0b56d3'
+
+- name: template src file to directory with backslash (idempotent)
+  win_template:
+    src: foo.j2
+    dest: '{{ remote_tmp_dir }}\directory\'
+  register: template_to_dir_backslash_again
+
+- name: assert template src file to directory with backslash (idempotent)
+  assert:
+    that:
+    - not template_to_dir_backslash_again is changed
+
+- name: template src file to directory (check mode)
+  win_template:
+    src: another_foo.j2
+    dest: '{{ remote_tmp_dir }}\directory'
+  check_mode: yes
+  register: template_to_dir_check
+
+- name: get result of template src file to directory (check_mode)
+  win_stat:
+    path: '{{ remote_tmp_dir }}\directory\another_foo.j2'
+  register: template_to_dir_result_check
+
+- name: assert template src file to directory (check mode)
+  assert:
+    that:
+    - template_to_dir_check is changed
+    - not template_to_dir_result_check.stat.exists
+
+- name: template src file to directory
+  win_template:
+    src: another_foo.j2
+    dest: '{{ remote_tmp_dir }}\directory'
+  register: template_to_dir
+
+- name: get result of template src file to directory
+  win_stat:
+    path: '{{ remote_tmp_dir }}\directory\another_foo.j2'
+  register: template_to_dir_result
+
+- name: assert template src file to directory with
+  assert:
+    that:
+    - template_to_dir is changed
+    - template_to_dir_result.stat.exists
+    - template_to_dir_result.stat.checksum == 'b10b6f27290d554a77da2457b2ccd7d6de86b920'
+
+- name: template src file to directory (idempotent)
+  win_template:
+    src: another_foo.j2
+    dest: '{{ remote_tmp_dir }}\directory'
+  register: template_to_dir_again
+
+- name: assert template src file to directory (idempotent)
+  assert:
+    that:
+    - not template_to_dir_again is changed
+
+- name: template a file with utf-8 encoding
+  win_template:
+    src: foo.utf-8.j2
+    dest: '{{ remote_tmp_dir }}\foo.encoding.txt'
+  register: template_utf8
+
+- name: slurp utf-8 templated file
+  slurp:
+    path: '{{ remote_tmp_dir }}\foo.encoding.txt'
+  register: template_utf8_actual
+
+- name: get expected templated contents
+  set_fact:
+    expected_content: '{{ lookup("template", "foo.utf-8.j2") | trim }}'
+
+- name: assert template a file with utf-8 encoding
+  assert:
+    that:
+    - template_utf8 is changed
+    - template_utf8_actual.content | b64decode(encoding='utf-8') == expected_content + "\r\n"
+
+- name: template a file with windows-1252 encoding
+  win_template:
+    src: foo.utf-8.j2
+    dest: '{{ remote_tmp_dir }}\foo.encoding.txt'
+    output_encoding: windows-1252
+  register: template_windows_1252
+
+- name: slurp windows-1252 encoding
+  slurp:
+    path: '{{ remote_tmp_dir }}\foo.encoding.txt'
+  register: template_windows_1252_actual
+
+- name: assert template a file with windows-1252 encoding
+  assert:
+    that:
+    - template_windows_1252 is changed
+    - template_windows_1252_actual.content | b64decode(encoding='windows-1252') == expected_content + "\r\n"
