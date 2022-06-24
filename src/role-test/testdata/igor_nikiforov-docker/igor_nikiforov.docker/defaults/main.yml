@@ -1,0 +1,39 @@
+---
+# List of Docker supported architectures
+docker_supported_architectures: ["x86_64", "arm64", "armhf", "s390x"]
+
+# If True, Docker will be installed
+docker_install: true
+
+# Docker version
+docker_version: "latest"
+
+# If True, Docker bash completion will be installed
+docker_bash_completion_install: true
+
+# Docker daemon configuration
+docker_daemon_config: {}
+
+# Whether Docker service should start on boot
+docker_service_enabled: true
+
+# State of Docker service
+docker_service_state: "started"
+
+# List of users to be added to docker group
+docker_users: []
+
+# If True, Docker SDK for Python will be installed
+docker_sdk_for_python_install: false
+
+# Docker SDK for Python version
+docker_sdk_for_python_version: "latest"
+
+# If True, Docker Compose will be installed
+docker_compose_install: false
+
+# Docker Compose version
+docker_compose_version: "latest"
+
+# If True, Docker Compose bash completion will be installed
+docker_compose_bash_completion_install: true

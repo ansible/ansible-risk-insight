@@ -1,0 +1,61 @@
+---
+- name: Ensure old versions of Docker are not installed.
+  yum:
+    name:
+      - docker
+      - docker-client
+      - docker-client-latest
+      - docker-common
+      - docker-latest
+      - docker-latest-logrotate
+      - docker-logrotate
+      - docker-engine
+    state: absent
+  when: ansible_distribution_major_version | int < 8
+
+- name: Ensure old versions of Docker are not installed.
+  dnf:
+    name:
+      - docker
+      - docker-client
+      - docker-client-latest
+      - docker-common
+      - docker-latest
+      - docker-latest-logrotate
+      - docker-logrotate
+      - docker-engine
+    state: absent
+  when: ansible_distribution_major_version | int >= 8
+
+- name: Add Docker GPG key.
+  rpm_key:
+    key: https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg
+    state: present
+
+- name: Configure Docker repository.
+  get_url:
+    url: https://download.docker.com/linux/{{ ansible_distribution | lower }}/docker-ce.repo
+    dest: /etc/yum.repos.d/docker-ce.repo
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Install Docker.
+  yum:
+    update_cache: true
+    name:
+      - "docker-ce{% if docker_version != 'latest' %}-{{ docker_version }}{% endif %}"
+      - "docker-ce-cli{% if docker_version != 'latest' %}-{{ docker_version }}{% endif %}"
+      - "containerd.io"
+    state: "{{ 'latest' if docker_version == 'latest' else 'present' }}"
+  when: ansible_distribution_major_version | int < 8
+
+- name: Install Docker.
+  dnf:
+    update_cache: true
+    name:
+      - "docker-ce{% if docker_version != 'latest' %}-{{ docker_version }}{% endif %}"
+      - "docker-ce-cli{% if docker_version != 'latest' %}-{{ docker_version }}{% endif %}"
+      - "containerd.io"
+    state: "{{ 'latest' if docker_version == 'latest' else 'present' }}"
+  when: ansible_distribution_major_version | int >= 8

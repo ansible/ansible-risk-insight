@@ -1,0 +1,45 @@
+---
+- name: (Handler) Systemd daemon-reload
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: (Handler) Start/reload NGINX
+  ansible.builtin.service:
+    name: nginx
+    state: reloaded
+    enabled: true
+  when:
+    - nginx_start | bool
+    - nginx_state != "absent"
+    - not ansible_check_mode | bool
+  listen: (Handler) Run NGINX
+
+- name: (Handler) Check NGINX
+  ansible.builtin.command: nginx -t
+  args:
+    chdir: "{{ ((ansible_facts['system'] | lower is not search('bsd')) | ternary('/etc/nginx', '/usr/local/sbin')) }}"
+  register: config_check
+  ignore_errors: true
+  check_mode: false
+  changed_when: false
+  when: nginx_state != "absent"
+  listen: (Handler) Run NGINX
+
+- name: (Handler) Print NGINX error if syntax check fails
+  ansible.builtin.debug:
+    var: config_check.stderr_lines
+  failed_when: config_check.rc != 0
+  when:
+    - config_check.stderr_lines is defined
+    - config_check.stderr_lines != []
+    - config_check.rc != 0
+    - nginx_state != "absent"
+  listen: (Handler) Run NGINX
+
+- name: (Handler) Start NGINX Amplify agent
+  ansible.builtin.service:
+    name: amplify-agent
+    state: started
+
+- name: (Handler) Run logrotate
+  ansible.builtin.command: logrotate -f /etc/logrotate.d/nginx

@@ -1,0 +1,56 @@
+---
+name: Molecule CI/CD
+"on":
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+    ignore-tags:
+      - "*"
+  schedule:
+    - cron: "0 0 1 * *"
+  workflow_dispatch:
+jobs:
+  molecule:
+    name: Molecule
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        scenario:
+          - default
+          - downgrade
+          - module
+          - plus
+          - source
+          - uninstall
+          - uninstall_plus
+          - upgrade
+    steps:
+      - name: Check out the codebase
+        if: "!(contains(matrix.scenario, 'plus') && github.event.pull_request.head.repo.full_name != github.repository)"
+        uses: actions/checkout@v3
+
+      - name: Set up Python 3
+        if: "!(contains(matrix.scenario, 'plus') && github.event.pull_request.head.repo.full_name != github.repository)"
+        uses: actions/setup-python@v3
+        with:
+          python-version: 3.x
+
+      - name: Install Molecule dependencies
+        if: "!(contains(matrix.scenario, 'plus') && github.event.pull_request.head.repo.full_name != github.repository)"
+        run: pip3 install -r .github/workflows/requirements/requirements_molecule.txt
+
+      - name: Install Ansible base dependencies
+        if: "!(contains(matrix.scenario, 'plus') && github.event.pull_request.head.repo.full_name != github.repository)"
+        run: ansible-galaxy install -r .github/workflows/requirements/requirements_ansible.yml
+
+      - name: Run Molecule tests
+        if: "!(contains(matrix.scenario, 'plus') && github.event.pull_request.head.repo.full_name != github.repository)"
+        run: molecule test -s ${{ matrix.scenario }}
+        env:
+          PY_COLORS: 1
+          ANSIBLE_FORCE_COLOR: 1
+          NGINX_CRT: ${{ secrets.NGINX_CRT }}
+          NGINX_KEY: ${{ secrets.NGINX_KEY }}

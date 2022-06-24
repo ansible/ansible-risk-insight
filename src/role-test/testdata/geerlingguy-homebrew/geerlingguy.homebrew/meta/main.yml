@@ -1,0 +1,23 @@
+---
+dependencies:
+  - elliotweiser.osx-command-line-tools
+
+galaxy_info:
+  role_name: homebrew
+  author: geerlingguy
+  description: Homebrew for macOS
+  company: "Midwestern Mac, LLC"
+  license: "license (BSD, MIT)"
+  min_ansible_version: 2.5
+  platforms:
+    - name: MacOSX
+      versions:
+        - all
+        - any
+  galaxy_tags:
+    - development
+    - system
+    - packaging
+    - homebrew
+    - brew
+    - cask

@@ -1,0 +1,76 @@
+---
+#
+# Ansible managed
+#
+
+name: Ansible Molecule
+
+on:
+  # Schedule updates (once daily)
+  schedule:
+    - cron: '3 2 * * *'
+  workflow_dispatch:
+  push: {branches: ["master", "main", "testing"]}
+
+concurrency:
+  group: ${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+        with:
+          path: "${{ github.repository }}"
+      - name: molecule
+        uses: buluma/molecule-action@v4.0.6
+        with:
+          command: lint
+  test:
+    needs:
+      - lint
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - image: "amazonlinux"
+            tag: "latest"
+          - image: "enterpriselinux"
+            tag: "7"
+          - image: "enterpriselinux"
+            tag: "latest"
+          - image: "debian-systemd"
+            tag: "latest"
+          - image: "debian-systemd"
+            tag: "bookworm"
+          - image: "fedora-systemd"
+            tag: "34"
+          - image: "fedora-systemd"
+            tag: "latest"
+          - image: "fedora-systemd"
+            tag: "rawhide"
+          - image: "opensuse"
+            tag: "latest"
+          - image: "docker-ubuntu-systemd"
+            tag: "latest"
+          - image: "docker-ubuntu-systemd"
+            tag: "bionic"
+          - image: "docker-ubuntu-systemd"
+            tag: "focal"
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+        with:
+          path: "${{ github.repository }}"
+      - name: disable apparmor for mysql
+        run: sudo ln -s /etc/apparmor.d/usr.sbin.mysqld /etc/apparmor.d/disable/
+      - name: parse apparmor for mysql
+        run: sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.mysqld
+      - name: molecule
+        uses: buluma/molecule-action@v4.0.6
+        with:
+          image: ${{ matrix.config.image }}
+          tag: ${{ matrix.config.tag }}

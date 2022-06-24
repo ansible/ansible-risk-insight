@@ -1,0 +1,25 @@
+---
+#
+# Ansible managed
+#
+
+name: "TODO 2 Issue"
+
+on:
+  push:
+
+concurrency:
+  group: ${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: "ubuntu-20.04"
+    steps:
+      - uses: "actions/checkout@v3"
+      - name: "TODO to Issue"
+        uses: "buluma/todo-to-issue-action@v1.0.1"
+        id: "todo"
+        with:
+          USER_PROJECTS: buluma/Ansible/To do
+          PROJECTS_SECRET: ${{ secrets.PROJECTS_SECRET }}

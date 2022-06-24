@@ -1,0 +1,30 @@
+---
+- name: Converge
+  hosts: all
+  tasks:
+    - name: Install NGINX Plus
+      ansible.builtin.include_role:
+        name: ansible-role-nginx
+      vars:
+        nginx_type: plus
+        nginx_license:
+          certificate: license/nginx-repo.crt
+          key: license/nginx-repo.key
+        nginx_remove_license: false
+        nginx_modules:
+          - auth-spnego
+          - brotli
+          - encrypted-session
+          - geoip
+          - geoip2
+          - headers-more
+          - image-filter
+          - lua
+          - njs
+          - opentracing
+          - passenger
+          - perl
+          - prometheus
+          - rtmp
+          - subs-filter
+          - xslt

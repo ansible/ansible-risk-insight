@@ -1,0 +1,12 @@
+---
+- name: Ensure docker group exists.
+  group:
+    name: docker
+    state: present
+
+- name: Add docker users to the docker group.
+  user:
+    name: "{{ item }}"
+    groups: docker
+    append: true
+  loop: "{{ docker_users }}"

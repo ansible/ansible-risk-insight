@@ -1,0 +1,69 @@
+---
+#
+# Ansible managed
+#
+
+name: Release Drafter
+
+on:
+  push:
+    # branches to consider in the event; optional, defaults to all
+    branches:
+      - master
+      - main
+      - testing
+  # pull_request event is required only for autolabeler
+  pull_request:
+    # Only following types are handled by the action, but one can default to all as well
+    types: [opened, reopened, synchronize]
+
+concurrency:
+  group: ${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  update_release_draft:
+    runs-on: ubuntu-latest
+    steps:
+
+      # Drafts your next Release notes as Pull Requests are merged into "master"
+      - uses: release-drafter/release-drafter@v5
+        # (Optional) specify config name to use, relative to .github/. Default: release-drafter.yml
+        # with:
+        #   config-name: my-config.yml
+        #   disable-autolabeler: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  changelog_draft:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout dj-wasabi-release repo
+        uses: actions/checkout@v2
+        with:
+          repository: dj-wasabi/dj-wasabi-release
+          path: dj-wasabi-release
+
+      - name: Checkout current repo
+        uses: actions/checkout@v2
+        with:
+          path: master
+
+      - name: Commit Changelog file
+        run: |
+          # We are cloned in the 'main' directory and the dj-wasabi-release
+          # repository is the 'dj-wasabi-release' next to 'main'
+          cd master
+          # Generate CHANGELOG.md file
+          ../dj-wasabi-release/release.sh -d
+          # Let commit the changes if there are any? (Well there should be!)
+          if [[ $(git status | grep -c 'CHANGELOG.md' || true) -gt 0 ]]
+            then  echo "Committing file"
+                  git config --global user.name 'Shadow Walker [GH bot]'
+                  git config --global user.email 'github@buluma.me.ke'
+                  git add CHANGELOG.md
+                  git commit -m "Updated CHANGELOG.md on \"$(date "+%Y-%m-%d %H:%M:%S")\"" CHANGELOG.md
+                  git push
+          fi
+        env:
+          CHANGELOG_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

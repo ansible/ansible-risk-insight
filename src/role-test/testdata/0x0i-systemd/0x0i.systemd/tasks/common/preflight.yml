@@ -1,0 +1,12 @@
+---
+- name: Check for uninstall signal
+  when: perform_uninstall|bool
+  block:
+    - name: Broadcast uninstall signal
+      command: /bin/true
+      notify: Uninstall units
+  always:
+    - name: Flush handlers
+      meta: flush_handlers
+  tags:
+    - preflight

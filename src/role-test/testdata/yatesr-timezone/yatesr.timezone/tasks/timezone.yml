@@ -1,0 +1,49 @@
+---
+- name: include platform vars
+  include_vars: "{{ item }}"
+  with_first_found:
+    - "../vars/{{ ansible_distribution }}.yml"
+    - "../vars/{{ ansible_os_family }}.yml"
+  tags: ['timezone']
+
+- name: Install tzdata for Debian based distros
+  apt:
+    name: "{{ timezone_package }}"
+    update_cache: true
+    cache_valid_time: 86400
+    state: present
+  when: ansible_os_family == 'Debian'
+  tags: ['timezone']
+  become: true
+
+- name: Install tzdata for RedHat based distros
+  yum:
+    name: "{{ timezone_package }}"
+    state: present
+  when: ansible_os_family == 'RedHat'
+  tags: ['timezone']
+  become: true
+
+- name: Install tzdata for Archlinux based distros
+  pacman:
+    name: "{{ timezone_package }}"
+    state: present
+  when: ansible_os_family == 'Archlinux' or ansible_os_family == 'Arch Linux'
+  tags: ['timezone']
+  become: true
+
+- name: Set timezone config
+  template:
+    src: "timezone-{{ ansible_os_family }}.j2"
+    dest: "{{ timezone_file }}"
+  tags: ['timezone']
+  become: true
+
+- name: Set link to localtime
+  file:
+    state: link
+    src: "{{ zoneinfo_dir }}{{ timezone }}"
+    dest: "{{ localtime_file }}"
+    force: true
+  tags: ['timezone']
+  become: true

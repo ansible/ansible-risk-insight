@@ -1,0 +1,44 @@
+---
+- name: Detect architecture.
+  include_tasks: detect-architecture.yml
+
+- name: Install Docker (RHEL).
+  include_tasks: install-docker-RHEL.yml
+  when: ansible_os_family == 'RedHat'
+
+- name: Install Docker (Debian).
+  include_tasks: install-docker-Debian.yml
+  when: ansible_os_family == 'Debian'
+
+- name: Install Docker bash completion.
+  include_tasks: install-docker-bash-completion.yml
+  when: docker_bash_completion_install
+
+- name: Ensure Docker service is {{ docker_service_state }} and {% if docker_service_enabled %}enabled{% else %}disabled{% endif %}.
+  systemd:
+    name: docker
+    enabled: "{{ docker_service_enabled }}"
+    state: "{{ docker_service_state }}"
+
+- name: Configure Docker daemon.
+  include_tasks: configure-docker-daemon.yml
+  when: docker_daemon_config | length > 0
+
+- name: Restart Docker.
+  meta: flush_handlers
+
+- name: Add users to docker group.
+  include_tasks: add-docker-users.yml
+  when: docker_users | length > 0
+
+- name: Install Docker SDK for Python.
+  include_tasks: install-docker-sdk-for-python.yml
+  when: docker_sdk_for_python_install
+
+- name: Install Docker Compose.
+  include_tasks: install-docker-compose.yml
+  when: docker_compose_install
+
+- name: Install Docker Compose bash completion.
+  include_tasks: install-docker-compose-bash-completion.yml
+  when: docker_compose_install and docker_compose_bash_completion_install
