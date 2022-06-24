@@ -1,0 +1,4 @@
+skip_list:
+  - 'yaml'
+  - 'risky-file-permissions'
+  - 'role-name'

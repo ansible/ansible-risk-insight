@@ -1,0 +1,30 @@
+---
+- name: (FreeBSD) {{ nginx_license_status is defined | ternary('Remove', 'Configure') }} NGINX Plus license verification
+  ansible.builtin.blockinfile:
+    path: /usr/local/etc/pkg.conf
+    block: |
+      PKG_ENV: { SSL_NO_VERIFY_PEER: "1",
+      SSL_CLIENT_CERT_FILE: "/etc/ssl/nginx/nginx-repo.crt",
+      SSL_CLIENT_KEY_FILE: "/etc/ssl/nginx/nginx-repo.key" }
+    state: "{{ nginx_license_status | default ('present') }}"
+
+- name: (FreeBSD) {{ nginx_license_status is defined | ternary('Remove', 'Configure') }} NGINX Plus repository
+  ansible.builtin.blockinfile:
+    path: /etc/pkg/nginx-plus.conf
+    create: true
+    block: |
+      nginx-plus: {
+      URL: {{ nginx_repository | default(nginx_plus_default_repository_freebsd) }}
+      ENABLED: yes
+      MIRROR_TYPE: SRV
+      }
+    state: "{{ nginx_license_status | default ('present') }}"
+    mode: 0644
+  when: nginx_manage_repo | bool
+
+- name: (FreeBSD) {{ nginx_setup | capitalize }} NGINX Plus
+  community.general.pkgng:
+    name: "nginx-plus{{ nginx_version | default('') }}"
+    state: "{{ nginx_state }}"
+  when: nginx_license_status is not defined
+  notify: (Handler) Run NGINX

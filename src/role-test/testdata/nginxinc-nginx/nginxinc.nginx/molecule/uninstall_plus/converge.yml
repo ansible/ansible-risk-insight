@@ -1,0 +1,11 @@
+---
+- name: Converge
+  hosts: all
+  tasks:
+    - name: Uninstall NGINX
+      ansible.builtin.include_role:
+        name: ansible-role-nginx
+      vars:
+        nginx_type: plus
+        nginx_setup_license: false
+        nginx_setup: uninstall

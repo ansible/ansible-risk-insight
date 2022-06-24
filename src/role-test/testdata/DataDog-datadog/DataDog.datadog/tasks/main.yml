@@ -1,0 +1,55 @@
+---
+- name: Include Gather Ansible Facts task on Ansible >= 2.10
+  include_tasks: facts-ansible10.yml
+  when: ansible_version.major >= 2 and ansible_version.minor >= 10
+
+- name: Include Gather Ansible Facts task on Ansible < 2.10
+  include_tasks: facts-ansible9.yml
+  when: ansible_version.major == 2 and ansible_version.minor < 10
+
+- name: Check if OS is supported
+  include_tasks: os-check.yml
+
+- name: Resolve datadog_tracked_checks later to defend against variable presidence issues arising from dynamically included null datadog_checks 
+  include_tasks: sanitize-checks.yml
+
+# Also sets datadog_skip_install
+- name: Set Facts for Datadog Agent Major Version
+  include_tasks: set-parse-version.yml
+
+- name: Debian Install Tasks
+  include_tasks: pkg-debian.yml
+  when: ansible_facts.os_family == "Debian" and not datadog_skip_install
+
+# Only Ansible >= 3.0 knows that AlmaLinux belongs to "RedHat" family
+# (and latest bugfix releases of some 2.X)
+# For Rocky it is some 4.X and >= 5.0
+- name: RedHat Install Tasks
+  include_tasks: pkg-redhat.yml
+  when: ansible_facts.os_family in ["RedHat", "Rocky", "AlmaLinux"] and not datadog_skip_install
+
+- name: Suse Install Tasks
+  include_tasks: pkg-suse.yml
+  when: ansible_facts.os_family == "Suse" and not datadog_skip_install
+
+# Note we don't check datadog_skip_install variable value for windows here,
+# because some tasks in pkg-windows.yml are carried out regardless of its value.
+- name: Windows Install Tasks
+  include_tasks: pkg-windows.yml
+  when: ansible_facts.os_family == "Windows"
+
+- name: Linux Configuration Tasks (Agent 5)
+  include_tasks: agent5-linux.yml
+  when: datadog_agent_major_version | int == 5 and ansible_facts.os_family != "Windows"
+
+- name: Linux Configuration Tasks
+  include_tasks: agent-linux.yml
+  when: datadog_agent_major_version | int > 5 and ansible_facts.os_family != "Windows"
+
+- name: Windows Configuration Tasks
+  include_tasks: agent-win.yml
+  when: datadog_agent_major_version | int > 5 and ansible_facts.os_family == "Windows"
+
+- name: Integrations Tasks
+  include_tasks: integration.yml
+  when: datadog_integration is defined

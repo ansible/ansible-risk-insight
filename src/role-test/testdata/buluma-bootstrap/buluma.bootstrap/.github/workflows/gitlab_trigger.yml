@@ -1,0 +1,39 @@
+---
+name: Mirror and run GitLab CI
+
+on: [push]
+
+concurrency:
+  group: ${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      SLACK_WEBHOOK_URL: "${{ secrets.SLACK_WEBHOOK_URL }}"
+    steps:
+      - uses: act10ns/slack@v1
+        with:
+          status: starting
+          channel: "#ansible"
+          message: Starting buluma.bootstrap GitLab Trigger...
+        if: always()
+      - uses: actions/checkout@v3
+      - name: Mirror + trigger CI
+        uses: buluma/gitlab-mirror-ci-action@1.0.6
+        with:
+          args: "buluma/ansible-role-bootstrap"
+        env:
+          GITLAB_HOSTNAME: "gitlab.com"
+          GITLAB_USERNAME: "buluma"
+          GITLAB_PASSWORD: ${{ secrets.GITLAB_PASSWORD }}
+          GITLAB_PROJECT_ID: "33434554"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Slack Notification
+        uses: act10ns/slack@v1
+        with:
+          status: "${{ job.status }}"
+          steps: "${{ toJson(steps) }}"
+          channel: "#ansible"
+        if: always()

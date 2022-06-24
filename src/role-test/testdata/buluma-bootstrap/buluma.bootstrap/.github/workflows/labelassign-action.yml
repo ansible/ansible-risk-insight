@@ -1,0 +1,23 @@
+---
+#
+# Ansible managed
+#
+
+name: "Set Label and Assignee"
+
+on:
+  issues:
+    types: [opened]
+  pull_request:
+    types: [opened]
+
+jobs:
+  build:
+    runs-on: "ubuntu-20.04"
+    steps:
+      - name: "Label and Assign Issue/PR"
+        uses: "Naturalclar/issue-action@v2.0.2"
+        with:
+          title-or-body: "both"
+          parameters: '[ {"keywords": ["bug", "error"], "labels": ["BUG"], "assignees": ["buluma"]}, {"keywords": ["help", "guidance"], "labels": ["help-wanted"], "assignees": ["buluma"]}, {"keywords": ["feature", "request"], "labels": ["enhancement"], "assignees": ["buluma"]}]'
+          github-token: ${{ secrets.GITHUB_TOKEN }}

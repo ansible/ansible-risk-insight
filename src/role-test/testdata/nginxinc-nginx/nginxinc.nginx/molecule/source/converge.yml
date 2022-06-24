@@ -1,0 +1,15 @@
+---
+- name: Converge
+  hosts: all
+  tasks:
+    - name: Install NGINX from source
+      ansible.builtin.include_role:
+        name: ansible-role-nginx
+      vars:
+        nginx_install_from: source
+        nginx_branch: stable
+        nginx_static_modules: ['http_ssl_module']
+        nginx_install_source_build_tools: true
+        nginx_install_source_pcre: true
+        nginx_install_source_openssl: true
+        nginx_install_source_zlib: true

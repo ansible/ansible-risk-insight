@@ -1,0 +1,13 @@
+*.retry
+.venv
+
+# Vagrant
+.vagrant
+
+# pre and post tasks folders (user defined)
+pre_tasks/
+post_tasks/
+
+# OSX github datastore
+**/.DS_Store
+

@@ -1,0 +1,18 @@
+---
+
+- name: Force the reload of the modified systemd units
+  meta: flush_handlers
+
+- name: Activate configured Systemd units
+  become: true
+  when: unit_config is defined and unit_config|length > 0 and (unit_item.type is not defined or unit_item.type != 'conf')
+  systemd:
+    name: "{{ unit_item.name }}.{{ unit_item.type | default(_default_unit_type) }}"
+    state: "{{ unit_item.state | default(_default_unit_state) }}"
+    enabled: "{{ unit_item.enabled | default(_default_unit_enabled) }}"
+  loop: "{{ unit_config }}"
+  loop_control:
+    loop_var: unit_item
+    label: "{{ unit_item.name }}.{{ unit_item.type|default(_default_unit_type) }}"
+  tags:
+    - launch

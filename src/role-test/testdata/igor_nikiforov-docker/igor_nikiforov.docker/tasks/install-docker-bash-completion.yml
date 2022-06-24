@@ -1,0 +1,8 @@
+---
+- name: Install Docker bash completion.
+  get_url:
+    url: https://raw.githubusercontent.com/docker/cli/{{ 'master' if docker_version == 'latest' else 'v'+docker_version }}/contrib/completion/bash/docker
+    dest: /etc/bash_completion.d/docker
+    owner: root
+    group: root
+    mode: 0644

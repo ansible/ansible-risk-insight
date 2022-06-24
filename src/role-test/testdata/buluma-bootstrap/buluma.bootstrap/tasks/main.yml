@@ -1,0 +1,95 @@
+---
+# tasks file for bootstrap
+
+- name: import assert.yml
+  ansible.builtin.import_tasks: assert.yml
+  run_once: yes
+  delegate_to: localhost
+
+- name: wait for port to be available
+  ansible.builtin.wait_for:
+    port: "{{ ansible_port | default('22') }}"
+    timeout: "{{ bootstrap_timeout }}"
+  become: no
+  when:
+    - ansible_connection is defined
+    - ansible_connection not in [ "container", "docker", "community.docker.docker" ]
+    - bootstrap_wait_for_host | bool
+
+- name: prepare system
+  block:
+    - name: test connection
+      ansible.builtin.wait_for_connection:
+        timeout: "{{ bootstrap_timeout }}"
+      register: bootstrap_connect
+      changed_when: no
+  rescue:
+    - name: gather bootstrap facts
+      ansible.builtin.include_tasks:
+        file: gather_facts.yml
+
+    - name: install bootstrap packages (raw)
+      ansible.builtin.raw: "{{ bootstrap_install.raw }}"
+      register: bootstrap_install_packages
+      changed_when:
+        - (bootstrap_install.stdout_regex in bootstrap_install_packages.stdout and
+           bootstrap_os_family in [ "Alpine", "Archlinux", "FreeBSD", "Gentoo" ]) or
+          (bootstrap_install.stdout_regex not in bootstrap_install_packages.stdout and
+           bootstrap_os_family in [ "Debian", "RedHat", "Rocky", "Suse" ])
+  become: no
+
+
+- name: ensure system is prepared
+  block:
+    - name: gather ansible facts
+      ansible.builtin.setup:
+
+    - name: install bootstrap packages (apt)
+      ansible.builtin.apt:
+        name: "{{ bootstrap_facts_packages.split() }}"
+        update_cache: yes
+      changed_when: no
+      when: ansible_pkg_mgr == "apt"
+
+    - name: install bootstrap packages (yum)
+      ansible.builtin.yum:
+        name: "{{ bootstrap_facts_packages.split() }}"
+        update_cache: yes
+      changed_when: no
+      when: ansible_pkg_mgr == "yum"
+
+    - name: install bootstrap packages (apk)
+      community.general.apk:
+        name: "{{ bootstrap_facts_packages.split() }}"
+        update_cache: yes
+      changed_when: no
+      when: ansible_pkg_mgr == "apk"
+
+    - name: install bootstrap packages (dnf)
+      ansible.builtin.dnf:
+        name: "{{ bootstrap_facts_packages.split() }}"
+        update_cache: yes
+      changed_when: no
+      when: ansible_pkg_mgr == "dnf"
+
+    - name: install bootstrap packages (zypper)
+      community.general.zypper:
+        name: "{{ bootstrap_facts_packages.split() }}"
+        update_cache: yes
+      changed_when: no
+      when: ansible_pkg_mgr == "zypper"
+
+    - name: install bootstrap packages (pacman)
+      community.general.pacman:
+        name: "{{ bootstrap_facts_packages.split() }}"
+        update_cache: yes
+      changed_when: no
+      when: ansible_pkg_mgr == "pacman"
+
+    - name: install bootstrap packages (portage)
+      community.general.portage:
+        package: "{{ bootstrap_facts_packages.split() }}"
+        sync: yes
+      changed_when: no
+      when: ansible_pkg_mgr == "portage"
+  become: no

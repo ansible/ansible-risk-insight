@@ -1,0 +1,25 @@
+---
+- name: Check if architecture is supported.
+  fail:
+    msg: "{{ ansible_architecture }} is not supported by Docker!"
+  when: ansible_architecture not in docker_supported_architectures
+
+- name: Set system architecture for x86_64/AMD64.
+  set_fact:
+    arch: "amd64"
+  when: ansible_architecture == "x86_64"
+
+- name: Set system architecture for ARM64.
+  set_fact:
+    arch: "arm64"
+  when: ansible_architecture == "arm64"
+
+- name: Set system architecture for armhf.
+  set_fact:
+    arch: "armhf"
+  when: ansible_architecture == "armhf"
+
+- name: Set system architecture for s390x
+  set_fact:
+    arch: "s390x"
+  when: ansible_architecture == "s390x"

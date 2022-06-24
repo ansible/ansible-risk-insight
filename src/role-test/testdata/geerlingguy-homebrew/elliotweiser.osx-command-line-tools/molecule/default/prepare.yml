@@ -1,0 +1,9 @@
+---
+- name: Prepare
+  hosts: all
+  tasks:
+    - name: Remove existing Command Line Tools installation
+      file:
+        path: /Library/Developer/CommandLineTools
+        state: absent
+      become: yes

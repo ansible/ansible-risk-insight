@@ -1,0 +1,127 @@
+---
+image: "buluma/github-action-molecule:4.0.6"
+
+services:
+  - docker:dind
+
+variables:
+  DOCKER_HOST: "tcp://docker:2375"
+  PY_COLORS: 1
+
+molecule:
+  stage: build
+  script:
+    - image=${image} tag=${tag} molecule test
+  artifacts:
+    name: "$CI_JOB_STAGE-$CI_COMMIT_REF_NAME"
+    paths:
+      - /
+    expire_in: 1 day
+  retry: 1
+  parallel:
+    matrix:
+      - image: "amazonlinux"
+        tag: "latest"
+      - image: "enterpriselinux"
+        tag: "7"
+      - image: "enterpriselinux"
+        tag: "latest"
+      - image: "debian-systemd"
+        tag: "latest"
+      - image: "debian-systemd"
+        tag: "bookworm"
+      - image: "fedora-systemd"
+        tag: "34"
+      - image: "fedora-systemd"
+        tag: "latest"
+      - image: "docker-opensuse-systemd"
+        tag: "latest"
+      - image: "docker-ubuntu-systemd"
+        tag: "latest"
+      - image: "docker-ubuntu-systemd"
+        tag: "bionic"
+      - image: "docker-ubuntu-systemd"
+        tag: "focal"
+
+testing:
+  stage: test
+  needs: []
+  script:
+    - image=${image} tag=${tag} molecule test
+  rules:
+    - if: $CI_COMMIT_REF_NAME == "testing"
+  retry: 1
+  parallel:
+    matrix:
+      - image: "amazonlinux"
+        tag: "latest"
+      - image: "enterpriselinux"
+        tag: "7"
+      - image: "enterpriselinux"
+        tag: "latest"
+      - image: "debian-systemd"
+        tag: "latest"
+      - image: "debian-systemd"
+        tag: "bookworm"
+      - image: "fedora-systemd"
+        tag: "34"
+      - image: "fedora-systemd"
+        tag: "latest"
+      - image: "docker-opensuse-systemd"
+        tag: "latest"
+      - image: "docker-ubuntu-systemd"
+        tag: "latest"
+      - image: "docker-ubuntu-systemd"
+        tag: "bionic"
+      - image: "docker-ubuntu-systemd"
+        tag: "focal"
+
+galaxy:
+  stage: deploy
+  needs: []
+  script:
+    - ansible-galaxy role info buluma.bootstrap
+
+role_testing:
+  stage: test
+  needs: []
+  script:
+    - image=${image} tag=${tag} ansible-galaxy install buluma.bootstrap
+  retry: 1
+  parallel:
+    matrix:
+      - image: "amazonlinux"
+        tag: "latest"
+      - image: "enterpriselinux"
+        tag: "7"
+      - image: "enterpriselinux"
+        tag: "latest"
+      - image: "debian-systemd"
+        tag: "latest"
+      - image: "debian-systemd"
+        tag: "bookworm"
+      - image: "fedora-systemd"
+        tag: "34"
+      - image: "fedora-systemd"
+        tag: "latest"
+      - image: "docker-opensuse-systemd"
+        tag: "latest"
+      - image: "docker-ubuntu-systemd"
+        tag: "latest"
+      - image: "docker-ubuntu-systemd"
+        tag: "bionic"
+      - image: "docker-ubuntu-systemd"
+        tag: "focal"
+
+release_job:
+  stage: .post
+  needs: [molecule]
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - echo "Running the release job."
+  release:
+    tag_name: $CI_COMMIT_TAG
+    name: 'Release $CI_COMMIT_TAG'
+    description: 'Release created using the release-cli.'

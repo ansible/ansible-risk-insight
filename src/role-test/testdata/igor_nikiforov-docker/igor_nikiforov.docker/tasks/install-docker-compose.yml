@@ -1,0 +1,6 @@
+---
+- name: Install Docker Compose.
+  pip:
+    name: docker-compose
+    state: "{{ 'latest' if docker_compose_version == 'latest' else 'present' }}"
+    version: "{{ docker_compose_version if docker_compose_version != 'latest' else omit }}"

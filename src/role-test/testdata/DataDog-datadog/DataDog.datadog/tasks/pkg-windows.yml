@@ -1,0 +1,87 @@
+---
+- name: Fail if Agent 5
+  fail:
+    msg: "The Datadog ansible role does not currently support Agent 5"
+  when: datadog_agent_major_version|int == 5
+
+- name: Download windows datadog agent 614 fix script
+  win_get_url:
+    url: "{{ datadog_windows_614_fix_script_url }}"
+    dest: '%TEMP%\fix_6_14.ps1'
+  when: not datadog_skip_install and datadog_apply_windows_614_fix
+
+- name: Run 6.14.0/1 PowerShell fix
+  win_shell: |
+    Set-ExecutionPolicy Bypass -Scope Process -Force
+    &$env:temp\fix_6_14.ps1
+  when: not datadog_skip_install and datadog_apply_windows_614_fix
+
+- include_tasks: win_agent_latest.yml
+  when: (not datadog_skip_install) and (datadog_agent_windows_version is not defined)
+
+- include_tasks: win_agent_version.yml
+  when: (not datadog_skip_install) and (datadog_agent_windows_version is defined)
+
+- name: show URL var
+  debug:
+    var: dd_download_url
+  when: not datadog_skip_install
+
+## must be prior to `pkg-windows-opts.yml`, because the variable is used inside
+- name: Set windows NPM installed
+  set_fact:
+    datadog_sysprobe_enabled: "{{ network_config is defined and 'enabled' in (network_config | default({}, true)) and network_config['enabled'] }}"
+- include_tasks: pkg-windows-opts.yml
+
+- name: pre-Delete temporary msi
+  win_file:
+    path: '%TEMP%\ddagent.msi'
+    state: absent
+  when: not datadog_skip_install
+
+- name: Download windows datadog agent
+  win_get_url:
+    url: "{{ dd_download_url }}"
+    dest: '%TEMP%\ddagent.msi'
+  register: download_msi_result
+  when: (not datadog_skip_install) and (not ansible_check_mode)
+
+- name: Create Binary directory root (if not default)
+  win_file:
+    path: "{{ datadog_windows_program_files_dir }}"
+    state: directory
+  when: datadog_windows_program_files_dir | length > 0
+
+- name: Set default permissions on binary directory root (if not default)
+  win_acl:
+    path: "{{ datadog_windows_program_files_dir }}"
+    inherit: ContainerInherit,ObjectInherit
+    user: "BUILTIN\\USERS"
+    rights: ReadAndExecute
+    type: allow
+    state: present
+    propagation: None
+  when: datadog_windows_program_files_dir | length > 0
+
+- name: Show installation flags
+  debug:
+    msg: "{{ win_install_args }}{% if datadog_windows_ddagentuser_password | default('', true) | length > 0 %} DDAGENTUSER_PASSWORD=<REDACTED>{% endif %}"
+
+# We set DD Password Arg here to prevent it from being printed in any kind of debug logs/messages prior usage
+- name: Set DD Password Arg
+  set_fact:
+    win_install_args: "{{ win_install_args }} DDAGENTUSER_PASSWORD={{ datadog_windows_ddagentuser_password }}"
+  when: datadog_windows_ddagentuser_password | default('', true) | length > 0
+
+- name: Install downloaded agent
+  win_package:
+    path: "{{ download_msi_result.dest }}"
+    arguments: "{{ win_install_args }}"
+  register: datadog_agent_install
+  when: (not datadog_skip_install) and (not ansible_check_mode)
+
+- name: Delete temporary msi
+  win_file:
+    path: "{{ download_msi_result.dest }}"
+    state: absent
+  when: (not datadog_skip_install) and (not ansible_check_mode) and (download_msi_result.status_code == 200)

@@ -1,0 +1,16 @@
+---
+- name: Converge
+  hosts: all
+  tasks:
+    - name: Install NGINX modules
+      ansible.builtin.include_role:
+        name: ansible-role-nginx
+      vars:
+        nginx_modules:
+          - brotli
+          - geoip
+          - image-filter
+          - name: njs
+            state: present
+          - perl
+          - xslt
