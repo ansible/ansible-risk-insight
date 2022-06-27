@@ -466,6 +466,17 @@ class RoleInPlay(JSONSerializable, Resolvable):
 
     annotations: dict = field(default_factory=dict)
 
+    def load(self, name, options, defined_in, role_index, play_index):
+        if name == "":
+            if "name" in options:
+                name = options["name"]
+                options.pop("name", None)
+        self.name = name
+        self.options = options
+        self.defined_in = defined_in
+        self.role_index = role_index
+        self.play_index = play_index
+
     @property
     def resolver_targets(self):
         return None
@@ -512,8 +523,12 @@ class Playbook(JSONSerializable, Resolvable):
                             role_options[k] = v
                     elif isinstance(r_block, str):
                         r_name = r_block
-                    r = RoleInPlay(name=r_name, options=role_options, defined_in=path, role_index=j, play_index=i)
-                    roles.append(r)
+                    rip = RoleInPlay()
+                    try:
+                        rip.load(name=r_name, options=role_options, defined_in=path, role_index=j, play_index=i)
+                    except:
+                        logging.exception("error while loading the role in playbook at {} (play_index={}, role_index={})".format(path, i, j))
+                    roles.append(rip)
             if "import_playbook" in play_dict:
                 playbook_dir = os.path.dirname(self.defined_in)
                 playbook_path = os.path.join(playbook_dir, play_dict["import_playbook"])
