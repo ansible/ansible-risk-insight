@@ -8,6 +8,7 @@ from urllib.robotparser import RobotFileParser
 import yaml
 import glob
 import json
+import pathlib
 import jsonpickle
 import logging
 
@@ -149,6 +150,7 @@ class Collection(JSONSerializable, Resolvable):
                 self.metadata = json.load(file)
         
         playbook_files = glob.glob(collection_dir + "/playbooks/**/*.yml", recursive=True)
+        playbook_files = remove_duplicates_from_glob_result(playbook_files)
         playbooks = []
         for f in playbook_files:
             p = Playbook()
@@ -159,6 +161,7 @@ class Collection(JSONSerializable, Resolvable):
             playbooks.append(p)
 
         role_tasks_files = glob.glob(collection_dir + "/roles/*/tasks/main.yml", recursive=True)
+        role_tasks_files = remove_duplicates_from_glob_result(role_tasks_files)
         roles = []
         for f in role_tasks_files:
             role_dir_path = f.replace("/tasks/main.yml", "")
@@ -422,7 +425,8 @@ class Role(JSONSerializable, Resolvable):
         task_yaml_files = []
         task_yaml_files += glob.glob(tasks_dir_path + "/**/*.yml", recursive=True)
         task_yaml_files += glob.glob(tasks_dir_path + "/**/*.yaml", recursive=True)
-        
+        task_yaml_files = remove_duplicates_from_glob_result(task_yaml_files)
+
         taskfiles = []
         for task_yaml_path in task_yaml_files:
             tf = TaskFile()
@@ -659,6 +663,7 @@ class Repository(JSONSerializable, Resolvable):
         for p in patterns:
              found_ones = glob.glob(p, recursive=True)
              candidates.extend(found_ones)
+        candidates = remove_duplicates_from_glob_result(candidates)
         tasks = []
         playbooks = []
         for fpath in candidates:
@@ -764,6 +769,7 @@ class Repository(JSONSerializable, Resolvable):
         for d in dirs:
             role_path = os.path.join(installed_roles_path, d)
             role_meta_files = glob.glob(role_path + "/**/meta/main.yml", recursive=True)
+            role_meta_files = remove_duplicates_from_glob_result(role_meta_files)
 
             roles_root_dirs = set([f.split("/roles/")[-2] for f in role_meta_files if "/roles/" in f])
             module_dirs = []
@@ -1065,6 +1071,7 @@ def search_taskfiles_for_playbooks(path, taskfile_dir_paths=[]):
         found = []
         found += glob.glob(search_target + "/**/*.yml")
         found += glob.glob(search_target + "/**/*.yaml")
+        found = remove_duplicates_from_glob_result(found)
         for f in found:
             # taskfiles in role will be loaded when the role is loaded, so skip
             if "/roles/" in f:
@@ -1080,6 +1087,20 @@ def search_taskfiles_for_playbooks(path, taskfile_dir_paths=[]):
                 continue
             candidates.append(f)
     return candidates
+
+# glob.glob() may return duplicates when there is symlink loop
+# remove those duplicates by using pathlib.Path().resolve()
+def remove_duplicates_from_glob_result(path_list):
+    unique = []
+    unique_resolved = set()
+    for path in path_list:
+        resolved = pathlib.Path(path).resolve()
+        if resolved in unique_resolved:
+            continue
+        else:
+            unique_resolved.add(resolved)
+            unique.append(path)
+    return unique
 
 # this method is based on awx code https://github.com/ansible/awx/blob/devel/awx/main/utils/ansible.py#L42-L64
 def could_be_playbook(fpath):
