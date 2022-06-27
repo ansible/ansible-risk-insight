@@ -19,25 +19,25 @@ class FQCNResolver(Resolver):
         task = obj
         if task.module == "":
             return
-        if task.fqcn == "":
-            fqcn = ""
+        if task.resolved_name == "":
+            resolved_name = ""
             if task.executable_type == "Module":            
                 # if the module name is in fqcn format, just set it
                 if module_name_re.match(task.executable):
-                    fqcn = task.module
+                    resolved_name = task.module
                 else:
                     # otherwise, search fqcn from module dict
-                    fqcn = self.search_module_fqcn(task.module)
-                    if fqcn == "":
+                    resolved_name = self.search_module_fqcn(task.module)
+                    if resolved_name == "":
                         logging.warning("module \"{}\" not found for task \"{}\"".format(task.module, task.id))
             elif task.executable_type == "TaskFile":
                 # if the role name is in fqcn format, just set it
                 if role_name_re.match(task.executable):
-                    fqcn = task.executable
+                    resolved_name = task.executable
                 else:
                     # otherwise, search fqcn from module dict
-                    fqcn = self.search_taskfile_path(task.defined_in, task.executable)
-                    if fqcn == "":
+                    resolved_name = self.search_taskfile_path(task.defined_in, task.executable)
+                    if resolved_name == "":
                         # if "{{" is found in the target path for include_tasks/import_tasks, 
                         # task file reference is parameterized, so give up to get fqcn in the case.
                         if "{{" in task.executable:
@@ -49,19 +49,19 @@ class FQCNResolver(Resolver):
             elif task.executable_type == "Role":
                 # if the role name is in fqcn format, just set it
                 if role_name_re.match(task.executable):
-                    fqcn = task.executable
+                    resolved_name = task.executable
                 else:
                     # otherwise, search fqcn from module dict
-                    fqcn = self.search_role_fqcn(task.executable)
-                    if fqcn == "":
+                    resolved_name = self.search_role_fqcn(task.executable)
+                    if resolved_name == "":
                         logging.warning("role \"{}\" not found for task \"{}\"".format(task.executable, task.id))
             else:
                 if task.executable == "":
                     raise ValueError("the executable type is not set")
                 else:
                     raise ValueError("the executable type {} is not supported".format(task.executable))
-            task.fqcn = fqcn
-        if task.fqcn == "":
+            task.resolved_name = resolved_name
+        if task.resolved_name == "":
             task.annotations[self.failed_annotation_key] = True
         else:
             if self.failed_annotation_key in task.annotations:
@@ -71,14 +71,14 @@ class FQCNResolver(Resolver):
     def roleinplay(self, obj):
         super().roleinplay(obj)
         roleinplay = obj
-        if roleinplay.fqcn == "":
-            fqcn = ""
+        if roleinplay.resolved_name == "":
+            resolved_name = ""
             if role_name_re.match(roleinplay.name):
-                fqcn = roleinplay.name
+                resolved_name = roleinplay.name
             else:
-                fqcn = self.search_role_fqcn(roleinplay.name)
-            roleinplay.fqcn = fqcn
-        if roleinplay.fqcn == "":
+                resolved_name = self.search_role_fqcn(roleinplay.name)
+            roleinplay.resolved_name = resolved_name
+        if roleinplay.resolved_name == "":
             roleinplay.annotations[self.failed_annotation_key] = True
         else:
             if self.failed_annotation_key in roleinplay.annotations:

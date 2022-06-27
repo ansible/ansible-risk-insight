@@ -16,36 +16,6 @@ logging.basicConfig()
 logging.getLogger().setLevel(logging.INFO)
 
 
-#
-#  data structure and the relationship between objects
-# 
-# TODO: update
-#     Repository
-#     |-- Collection
-#     |   |-- Playbook
-#     |   |   
-#     |   |-- Role
-#     |   |
-#     |   `-- Module
-#     |
-#     |-- Playbook
-#     |   |-- RoleInPlay
-#     |   |   `-- "role_path": a resolved path to the corresponding Role
-#     |   |
-#     |   `-- Task
-#     |       |-- "fqcn": a resolved FQCN of the module for this Task
-#     |       `-- "used_in": a list of Playbooks/Roles that use this task
-#     `-- Role
-#         |-- Module
-#         |   `-- same as Collection.Module
-#         |
-#         |-- Task
-#         |   `-- same as Playbook.Task
-#         |
-#         `-- "used_in": a list of Playbooks that use this Role
-#
-
-
 valid_playbook_re = re.compile(r'^\s*?-?\s*?(?:hosts|include|import_playbook):\s*?.*?$')
 module_name_re = re.compile(r'^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$')
 collection_info_dir_re = re.compile(r'^[a-z0-9_]+\.[a-z0-9_]+-[0-9]+\.[0-9]+\.[0-9]\.info$')
@@ -158,6 +128,7 @@ class Module(JSONSerializable, Resolvable):
 class Collection(JSONSerializable, Resolvable):
     name: str = ""
     path: str = ""
+    metadata: dict = field(default_factory=dict)
     playbooks: list = field(default_factory=list)
     roles: list = field(default_factory=list)
     modules: list = field(default_factory=list)
@@ -171,6 +142,11 @@ class Collection(JSONSerializable, Resolvable):
         if len(parts) < 2:
             raise ValueError("collection directory path is wrong")
         collection_name = "{}.{}".format(parts[-2], parts[-1])
+
+        manifest_file_path = os.path.join(collection_dir, "MANIFEST.json")
+        if os.path.exists(manifest_file_path):
+            with open(manifest_file_path, "r") as file:
+                self.metadata = json.load(file)
         
         playbook_files = glob.glob(collection_dir + "/playbooks/**/*.yml", recursive=True)
         playbooks = []
@@ -222,7 +198,8 @@ class Task(JSONSerializable, Resolvable):
     module_options: dict = field(default_factory=dict)
     executable: str = ""
     executable_type: str = ""
-    fqcn: str = ""  # FQCN for Module and Role or file path for TaskFile; resolved later
+    resolved_name: str = ""  # FQCN for Module and Role. Or a file path for TaskFile.  resolved later
+    possible_candidates: list = field(default_factory=list) # candidates of resovled_name
 
     annotations: dict = field(default_factory=dict)
 
@@ -392,6 +369,7 @@ class Role(JSONSerializable, Resolvable):
     name: str = ""
     defined_in: str = ""
     fqcn: str = ""
+    metadata: dict = field(default_factory=dict)
     collection: str = ""
     taskfiles: list = field(default_factory=list)     # 1 role can have multiple task yamls
     modules: list = field(default_factory=list)     # roles/xxxx/library/zzzz.py can be called as module zzzz
@@ -403,11 +381,16 @@ class Role(JSONSerializable, Resolvable):
     def load(self, path, collection_name="", module_dir_paths=[]):
         if not os.path.exists(path):
             raise ValueError("directory not found")
-        
+        meta_file_path = ""
         tasks_dir_path = ""
         if path != "":
+            meta_file_path = os.path.join(path, "meta/main.yml")
             tasks_dir_path = os.path.join(path, "tasks")
         
+        if os.path.exists(meta_file_path):
+            with open(meta_file_path, "r") as file:
+                self.metadata = yaml.safe_load(file)
+
         parts = tasks_dir_path.split("/")
         if len(parts) < 2:
             raise ValueError("role path is wrong")
@@ -462,7 +445,8 @@ class RoleInPlay(JSONSerializable, Resolvable):
     role_index: int = -1
     play_index: int = -1
     
-    fqcn: str = "" # resolved later
+    resolved_name: str = "" # resolved later
+    possible_candidates: list = field(default_factory=list) # candidates of resovled_name
 
     annotations: dict = field(default_factory=dict)
 
@@ -1010,7 +994,7 @@ class Repository(JSONSerializable, Resolvable):
         modules = []
         for t in tasks:
             if t.executable_type == "Module":
-                m = self.get_module_by_fqcn(t.fqcn)
+                m = self.get_module_by_fqcn(t.resolved_name)
                 modules.append(m)
         return modules
 
@@ -1018,7 +1002,7 @@ class Repository(JSONSerializable, Resolvable):
         if not isinstance(obj, Task):
             raise ValueError("this function accepts only Task input, but got {}".format(type(obj).__name__))
         task = obj
-        if task.fqcn == "":
+        if task.resolved_name == "":
             if task.executable == "":
                 return []
             elif task.executable_type == "TaskFile" and "{{" in task.executable:
@@ -1029,7 +1013,7 @@ class Repository(JSONSerializable, Resolvable):
                 raise ValueError("FQCN for this task (executable: {} in {}) is empty; need to resolve FQCNs for all tasks first".format(task.executable, task.id))
         tasks = [task]
         if task.executable_type == "Role":
-            role_fqcn = task.fqcn
+            role_fqcn = task.resolved_name
             r = self.get_role_by_fqcn(role_fqcn)
             for tf in r.taskfiles:
                 # call this function recusively for the case like below
@@ -1038,7 +1022,7 @@ class Repository(JSONSerializable, Resolvable):
                     tasks_in_t = self.get_all_tasks_called_from_one_task(t)
                     tasks.extend(tasks_in_t)
         elif task.executable_type == "TaskFile":
-            taskfile_path = task.fqcn
+            taskfile_path = task.resolved_name
             if taskfile_path != "":
                 tf = self.get_taskfile_by_path(taskfile_path)
                 if tf is not None:

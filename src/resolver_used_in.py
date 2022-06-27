@@ -16,10 +16,10 @@ class UsedInResolver(Resolver):
     def playbook(self, obj):
         playbook = obj
         # recording used_in info for the roles in this playbook
-        for r in playbook.roles:
-            current = self.used_in_dict["role"].get(r.fqcn, set())
+        for rip in playbook.roles:
+            current = self.used_in_dict["role"].get(rip.resolved_name, set())
             current.add(playbook.defined_in)
-            self.used_in_dict["role"].update({r.fqcn: current})
+            self.used_in_dict["role"].update({rip.resolved_name: current})
         return
 
     def role(self, obj):
@@ -50,9 +50,9 @@ class UsedInResolver(Resolver):
             raise ValueError("the executable type is not set")
         elif exec_type not in self.used_in_dict:
             raise ValueError("the executable type {} is not supported".format(exec_type))
-        current = self.used_in_dict[exec_type].get(task.fqcn, set())
+        current = self.used_in_dict[exec_type].get(task.resolved_name, set())
         current.add(task.id)
-        self.used_in_dict[exec_type].update({task.fqcn: current})
+        self.used_in_dict[exec_type].update({task.resolved_name: current})
         return
 
     def module(self, obj):
