@@ -12,6 +12,7 @@ role_name_re = re.compile(r'^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$')
 class FQCNResolver(Resolver):
     def __init__(self, repo_obj):
         self.repo = repo_obj
+        self.failed_annotation_key = "fqcn-resolve-failed"
 
     def task(self, obj):
         super().task(obj)
@@ -60,6 +61,11 @@ class FQCNResolver(Resolver):
                 else:
                     raise ValueError("the executable type {} is not supported".format(task.executable))
             task.fqcn = fqcn
+        if task.fqcn == "":
+            task.annotations[self.failed_annotation_key] = True
+        else:
+            if self.failed_annotation_key in task.annotations:
+                task.annotations.pop(self.failed_annotation_key, None)
         return
 
     def roleinplay(self, obj):
@@ -72,6 +78,11 @@ class FQCNResolver(Resolver):
             else:
                 fqcn = self.search_role_fqcn(roleinplay.name)
             roleinplay.fqcn = fqcn
+        if roleinplay.fqcn == "":
+            roleinplay.annotations[self.failed_annotation_key] = True
+        else:
+            if self.failed_annotation_key in roleinplay.annotations:
+                roleinplay.annotations.pop(self.failed_annotation_key, None)
         return
 
     def search_module_fqcn(self, module_name):
