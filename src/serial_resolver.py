@@ -3,6 +3,7 @@ from struct4 import Repository
 from resolver_fqcn import FQCNResolver
 from resolver_used_in import UsedInResolver
 from resolver_sample_rule import NonBuiltinResolver
+from resolver_possible_candidates import PossibleCandidateResolver
 
 
 class SerialResolver():
@@ -27,6 +28,9 @@ class SerialResolver():
         # add `use-non-builtin-module: true` annotation to Task / Role / Playbook if it uses at least one non-builtin module
         non_builtin_resolver = NonBuiltinResolver(repo_obj=repo)
         repo.resolve(non_builtin_resolver)
+
+        possible_candidate_resolver = PossibleCandidateResolver(repo_obj=repo)
+        repo.resolve(possible_candidate_resolver)
 
         if self.output != "":
             # save the resolved repository data as a json file
