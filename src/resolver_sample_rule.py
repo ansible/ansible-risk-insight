@@ -17,13 +17,13 @@ class NonBuiltinResolver(Resolver):
             return
 
         if task.executable_type == "Module":
-            m = self.repo.get_module_by_fqcn(task.fqcn)
+            m = self.repo.get_module_by_fqcn(task.resolved_name)
             if m is None:
                 return
             if not m.builtin:
                 task.annotations[self.annotation_name] = True
         elif task.executable_type == "Role":
-            r = self.repo.get_role_by_fqcn(task.fqcn)
+            r = self.repo.get_role_by_fqcn(task.resolved_name)
             if r is None:
                 return
             use_non_builtin = False
@@ -83,11 +83,11 @@ class NonBuiltinResolver(Resolver):
                 break
         if not use_non_builtin:
             for r_in_play in playbook.roles:
-                if r_in_play.fqcn == "":
+                if r_in_play.resolved_name == "":
                     continue
-                r = self.repo.get_role_by_fqcn(r_in_play.fqcn)
+                r = self.repo.get_role_by_fqcn(r_in_play.resolved_name)
                 if r is None:
-                    logging.warning("role \"{}\" not found for playbook \"{}\"".format(r_in_play.fqcn, playbook.defined_in))
+                    logging.warning("role \"{}\" not found for playbook \"{}\"".format(r_in_play.resolved_name, playbook.defined_in))
                     continue
                 if r.annotations.get(self.annotation_name, False):
                     use_non_builtin = True
