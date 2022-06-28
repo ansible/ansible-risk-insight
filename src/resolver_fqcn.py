@@ -6,7 +6,8 @@ import logging
 
 
 module_name_re = re.compile(r'^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$')
-role_name_re = re.compile(r'^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$')
+role_name_re = re.compile(r'^[a-z0-9_]+\.[a-z0-9_]+$')
+role_in_collection_name_re = re.compile(r'^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$')
 
 # set fqcn to all Task and RoleInPlay
 class FQCNResolver(Resolver):
@@ -31,24 +32,21 @@ class FQCNResolver(Resolver):
                     if resolved_name == "":
                         logging.warning("module \"{}\" not found for task \"{}\"".format(task.module, task.id))
             elif task.executable_type == "TaskFile":
-                # if the role name is in fqcn format, just set it
-                if role_name_re.match(task.executable):
-                    resolved_name = task.executable
-                else:
-                    # otherwise, search fqcn from module dict
-                    resolved_name = self.search_taskfile_path(task.defined_in, task.executable)
-                    if resolved_name == "":
-                        # if "{{" is found in the target path for include_tasks/import_tasks, 
-                        # task file reference is parameterized, so give up to get fqcn in the case.
-                        if "{{" in task.executable:
-                            logging.debug("task file \"{}\" is including variable and we cannot resolve this for the task \"{}\"".format(task.executable, task.id))
-                            pass
-                        else:
-                            # otherwise, the path should be resolved but not found. warn it here.
-                            logging.warning("task file \"{}\" not found for task \"{}\"".format(task.executable, task.id))
+                resolved_name = self.search_taskfile_path(task.defined_in, task.executable)
+                if resolved_name == "":
+                    # if "{{" is found in the target path for include_tasks/import_tasks, 
+                    # task file reference is parameterized, so give up to get fqcn in the case.
+                    if "{{" in task.executable:
+                        logging.debug("task file \"{}\" is including variable and we cannot resolve this for the task \"{}\"".format(task.executable, task.id))
+                        pass
+                    else:
+                        # otherwise, the path should be resolved but not found. warn it here.
+                        logging.warning("task file \"{}\" not found for task \"{}\"".format(task.executable, task.id))
             elif task.executable_type == "Role":
                 # if the role name is in fqcn format, just set it
                 if role_name_re.match(task.executable):
+                    resolved_name = task.executable
+                elif role_in_collection_name_re.match(task.executable):
                     resolved_name = task.executable
                 else:
                     # otherwise, search fqcn from module dict

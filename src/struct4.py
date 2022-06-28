@@ -140,7 +140,7 @@ class Collection(JSONSerializable, Resolvable):
     playbooks: list = field(default_factory=list)
     roles: list = field(default_factory=list)
     modules: list = field(default_factory=list)
-    dependencies: dict = field(default_factory=dict)    # dependency collections & roles; resolved later
+    dependency: dict = field(default_factory=dict)    # dependency collections & roles; resolved later
 
     annotations: dict = field(default_factory=dict)
 
@@ -415,7 +415,7 @@ class Role(JSONSerializable, Resolvable):
     collection: str = ""
     taskfiles: list = field(default_factory=list)     # 1 role can have multiple task yamls
     modules: list = field(default_factory=list)     # roles/xxxx/library/zzzz.py can be called as module zzzz
-    dependencies: dict = field(default_factory=dict)    # dependency collections & roles; resolved later
+    dependency: dict = field(default_factory=dict)    # dependency collections & roles; resolved later
 
     source: str = "" # collection/scm repo/galaxy
 
@@ -1088,12 +1088,13 @@ class Repository(JSONSerializable, Resolvable):
         if task.executable_type == "Role":
             role_fqcn = task.resolved_name
             r = self.get_role_by_fqcn(role_fqcn)
-            for tf in r.taskfiles:
-                # call this function recusively for the case like below
-                # Task A --import_role--> Role B --run--> Task B2 --include_role--> Role C --run--> Task C1 ...
-                for t in tf.tasks:
-                    tasks_in_t = self.get_all_tasks_called_from_one_task(t)
-                    tasks.extend(tasks_in_t)
+            if r is not None:
+                for tf in r.taskfiles:
+                    # call this function recusively for the case like below
+                    # Task A --import_role--> Role B --run--> Task B2 --include_role--> Role C --run--> Task C1 ...
+                    for t in tf.tasks:
+                        tasks_in_t = self.get_all_tasks_called_from_one_task(t)
+                        tasks.extend(tasks_in_t)
         elif task.executable_type == "TaskFile":
             taskfile_path = task.resolved_name
             if taskfile_path != "":
