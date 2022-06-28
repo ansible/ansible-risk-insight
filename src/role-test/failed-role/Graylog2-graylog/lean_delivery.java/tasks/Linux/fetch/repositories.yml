@@ -1,4 +1,0 @@
----
-- name: 'Install {{ java_distribution }} from repositories'
-  debug:
-    msg: 'Install {{ java_distribution }} from repositories'
