@@ -1,0 +1,11 @@
+---
+extends: default
+
+rules:
+  line-length: disable
+
+ignore: |
+  .travis.yml
+  .tox
+  meta/
+  automation.yaml

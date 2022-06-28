@@ -1,0 +1,5 @@
+distros:
+  - fc30
+  - el8
+release_branches:
+  master: [ "ovirt-master" ]
