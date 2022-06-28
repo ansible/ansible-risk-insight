@@ -52,9 +52,11 @@ class Results2Tasks():
         d = {}
         d["defined_in"] = task.defined_in
         d["module"] = task.module
+        d["name"] = task.name
         d["executable_type"] = task.executable_type
         d["executable"] = task.executable
         d["resolved_name"] = task.resolved_name
+        d["possible_candidates"] = task.possible_candidates
         return d
 
 

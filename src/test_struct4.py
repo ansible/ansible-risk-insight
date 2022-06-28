@@ -84,7 +84,7 @@ class TestStruct4(unittest.TestCase):
         actual = len(r.module_dict)
         self.assertEqual(expected, actual)
         
-        expected = "testdata/installed_collections_path/ansible_collections/community/general/plugins/modules/files/archive.py"
+        expected = "installed_collections_path/ansible_collections/community/general/plugins/modules/files/archive.py"
         m = r.get_module_by_fqcn("community.general.archive")
         actual = m.defined_in
         self.assertEqual(expected, actual)
