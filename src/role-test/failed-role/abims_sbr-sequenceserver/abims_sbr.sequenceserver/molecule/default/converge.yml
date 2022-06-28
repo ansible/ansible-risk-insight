@@ -1,0 +1,14 @@
+---
+- name: Converge
+  hosts: all
+  become: true
+  roles:
+    - abims_sbr.sequenceserver
+  vars:
+    sequenceserver_blast_binaries: /usr/local/anaconda/envs/blast/bin
+    sequenceserver_blast_db:
+      # yamllint disable-line rule:braces
+      - { name: 'my_db', port: '4567', path: '/tmp/test-data' }
+    sequenceserver_top_web_page_html_path: "/tmp/top_web_page.html"
+    sequenceserver_home_url: "http://myfavoritewebsite.com"
+    sequenceserver_support_email: "mailto:amazingsupport@myfavoritewebsite.com"

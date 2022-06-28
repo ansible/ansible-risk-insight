@@ -1,0 +1,32 @@
+---
+- name: "(Setup: NGINX Open Source) Enable NGINX Open Source Status"
+  blockinfile:
+    path: "{{ (nginx_http_template_enable) | ternary('/etc/nginx/conf.d/http/stub_status.conf','/etc/nginx/conf.d/stub_status.conf') }}"
+    create: yes
+    block: |
+      server {
+          listen 127.0.0.1:{{ nginx_status_port | default('8080') }};
+          location /nginx_status {
+              stub_status on;
+              allow 127.0.0.1;
+              deny all;
+          }
+      }
+  when: nginx_type == "opensource"
+  notify: "(Handler: All OSs) Reload NGINX"
+
+- name: "(Setup: NGINX Plus) Enable NGINX Plus Status"
+  blockinfile:
+    path: "{{ (nginx_http_template_enable) | ternary('/etc/nginx/conf.d/http/status.conf','/etc/nginx/conf.d/status.conf') }}"
+    create: yes
+    block: |
+      server {
+          listen 127.0.0.1:{{ nginx_status_port | default('8080') }};
+          location /status {
+              status;
+              allow 127.0.0.1;
+              deny all;
+          }
+      }
+  when: nginx_type == "plus"
+  notify: "(Handler: All OSs) Reload NGINX"

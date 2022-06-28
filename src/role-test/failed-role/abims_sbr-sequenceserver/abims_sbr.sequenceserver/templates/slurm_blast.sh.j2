@@ -1,0 +1,8 @@
+#!/bin/bash
+
+blast=$1
+shift 1
+param=`echo "$@" | sed "s/\-db\ /\-db\ \'/" | sed "s/\ \-query\ /\'\ \-query\ /" | sed "s/\-outfmt\ /\-outfmt\ \'/" | sed "s/\ \-num_threads\ /\'\ \-num_threads\ /"`
+
+module load blast/{{ sequenceserver_blast_version }}
+eval "$blast $param"
