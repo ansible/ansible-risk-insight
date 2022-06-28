@@ -1,0 +1,60 @@
+---
+- name: 'Fetch root page {{ openjdk_root_page }}'
+  win_uri:
+    url: '{{ openjdk_root_page }}'
+    return_content: true
+  register: root_page
+
+- name: Find GA release version
+  set_fact:
+    java_major_version: >-
+      {{ root_page['content']
+        | regex_findall('Ready for use:.*>JDK ([\d]+)<')
+        | first
+      }}
+
+- name: Out java_major_version
+  debug:
+    var: java_major_version
+
+- name: Fetch GA release page
+  win_uri:
+    url: '{{ openjdk_root_page }}/{{ java_major_version }}/'
+    return_content: true
+    follow_redirects: all
+  register: ga_release_page
+
+- name: Find release url
+  set_fact:
+    release_url: >-
+      {{ ga_release_page['content'] |
+      regex_findall('(https://download[\.\w]+/java/GA/jdk' +
+      java_major_version|string +
+      '[.\d]*/[\d\w]+/' +
+      '[.\d]+/GPL/openjdk-' +
+      java_major_version|string +
+      '[\d._]+windows-x64_bin[\w\d.]+)')
+      }}
+
+- name: Exit if OpenJDK version is not General-Availability Release
+  fail:
+    msg: 'OpenJDK version {{ java_major_version }} not GA Release, or maybe something wrong with java.net'
+  when: release_url[1] is not defined
+
+- name: 'Get artifact checksum {{ release_url[1] }}'
+  win_uri:
+    url: '{{ release_url[1] }}'
+    return_content: true
+  register: artifact_checksum
+
+- name: 'Download artifact from {{ release_url[0] }}'
+  win_get_url:
+    url: '{{ release_url[0] }}'
+    dest: '{{ java_download_path }}\{{ (release_url[0]|urlsplit).path|basename }}'
+    force: true
+    checksum: '{{ artifact_checksum.content }}'
+    checksum_algorithm: sha256
+  register: file_downloaded
+  retries: 20
+  delay: 5
+  until: file_downloaded is succeeded

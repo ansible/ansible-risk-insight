@@ -1,0 +1,48 @@
+---
+galaxy_info:
+  role_name: "java"
+  author: "Lean Delivery team <team@lean-delivery.com>"
+  description: "Lean Delivery Java install"
+  company: "Epam Systems"
+  license: "Apache"
+  min_ansible_version: "2.8"
+  issue_tracker_url: "https://github.com/lean-delivery/ansible-role-java/issues"
+  platforms:
+    - name: "Ubuntu"
+      versions:
+        - "xenial"
+        - "bionic"
+    - name: "Debian"
+      versions:
+        - "stretch"
+        - "buster"
+    - name: "EL"
+      versions:
+        - "6"
+        - "7"
+        - "8"
+    - name: "Amazon"
+      versions:
+        - "2017.12"
+        - "Candidate"
+    - name: "Windows"
+      versions:
+        - "2016"
+        - "2019"
+
+  galaxy_tags:
+    - "development"
+    - "system"
+    - "packaging"
+    - "java"
+    - "oracle"
+    - "jdk"
+    - "jre"
+    - "openjdk"
+    - "adoptopenjdk"
+    - "sapmachine"
+    - "zulu"
+    - "sapjvm"
+    - "windows"
+
+dependencies: []
