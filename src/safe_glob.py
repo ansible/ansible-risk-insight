@@ -2,7 +2,6 @@ import os
 import sys
 import re
 
-
 # glob.glob() may cause infinite loop when there is symlink loop
 # safe_glob() support the case by `followlink=False` option as default
 def safe_glob(patterns, root_dir="", recursive=True, followlinks=False):
@@ -58,7 +57,6 @@ def safe_glob(patterns, root_dir="", recursive=True, followlinks=False):
                 if pattern_match(pattern, fpath):
                     matched_files.append(fpath)
     return matched_files
-
 
 def pattern_match(pattern, fpath):
     pattern = pattern.replace("**/", "<ANY>")
