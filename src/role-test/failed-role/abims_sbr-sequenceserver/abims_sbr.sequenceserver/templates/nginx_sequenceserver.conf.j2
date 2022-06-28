@@ -1,0 +1,56 @@
+#
+# Ansible managed
+#
+
+{% for item in sequenceserver_blast_db %}
+{% if (item.users is defined and item.users) or (item.ldap_businesscategory is defined and item.ldap_businesscategory) %}
+ldap_server {{ item.name }}ldap {
+{# if only users are defined #}
+{% if item.users is defined and item.users %}
+    url {{ sequenceserver_ldap_url }}(&(objectClass=person)(|{% for user in item.users %}(uid={{ user }}){% endfor %}));
+{% endif %}
+{# if only a business category is defined #}
+{% if item.ldap_businesscategory is defined and item.ldap_businesscategory %}
+    url {{ sequenceserver_ldap_url }}(&(objectClass=person)(businessCategory={{ item.ldap_businesscategory }}));
+{% endif %}
+{# if both users and a business category are defined #}
+{% if (item.users is defined and item.users) and (item.ldap_businesscategory is defined and item.ldap_businesscategory) %}
+    url {{ sequenceserver_ldap_url }}(&(objectClass=person)(|{% for user in item.users %}(uid={{ user }}){% endfor %}(businessCategory={{ item.ldap_businesscategory }})));
+{% endif %}
+    require valid_user;
+    satisfy all;
+}
+{% endif %}
+{% endfor %}
+
+server {
+    listen 80;
+    server_name {{ sequenceserver_server_name }};
+
+{% for item in sequenceserver_blast_db %}
+    location /{{ item.name }}/ {
+        proxy_pass http://localhost:{{ item.port }}/;
+{% if sequenceserver_proxy_connect_timeout is defined and sequenceserver_proxy_connect_timeout %}
+        proxy_connect_timeout {{ sequenceserver_proxy_connect_timeout }};
+{% endif %}
+{% if sequenceserver_proxy_read_timeout is defined and sequenceserver_proxy_read_timeout %}
+        proxy_read_timeout {{ sequenceserver_proxy_read_timeout }};
+{% endif %}
+{% if sequenceserver_proxy_intercept_errors is defined and sequenceserver_proxy_intercept_errors %}
+        proxy_intercept_errors {{ sequenceserver_proxy_intercept_errors }};
+{% endif %}
+{% if (item.users is defined and item.users) or (item.ldap_businesscategory is defined and item.ldap_businesscategory) %}
+        auth_ldap "Restricted access";
+        auth_ldap_servers {{ item.name }}ldap;
+{% endif %}
+    }
+{% endfor %}
+
+    # redirect server error pages to the static page /50x.html
+    #
+    error_page   500 502 503 504  /50x.html;
+    location = /50x.html {
+        root   /usr/share/nginx/html;
+    }
+}
+

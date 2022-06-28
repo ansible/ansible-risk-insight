@@ -1,0 +1,6 @@
+---
+- name: "(Install: Debian/Ubuntu) Add NGINX Repository"
+  apt_repository:
+    repo: "{{ item }}"
+  with_items:
+    - "{{ nginx_repository.debian }}"

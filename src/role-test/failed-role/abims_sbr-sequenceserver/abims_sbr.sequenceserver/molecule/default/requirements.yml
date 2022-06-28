@@ -1,0 +1,8 @@
+---
+- name: robertdebock.rsyslog
+- name: andrewrothstein.miniconda
+- name: andrewrothstein.conda-env
+- name: nginxinc.nginx
+  version: 0.12.0
+- name: geerlingguy.git
+  version: 2.1.0

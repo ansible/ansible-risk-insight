@@ -1,0 +1,172 @@
+---
+
+- name: Include os specific vars
+  include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_distribution }}-{{ ansible_distribution_major_version }}.yml"
+    - "{{ ansible_distribution }}.yml"
+
+- name: Include main vars
+  include_vars: main.yml
+
+- name: Install Dependencies
+  include_tasks: install.dependencies.yml
+
+- name: CentOS 7 | Add repository
+  yum_repository:
+    name: centos-sclo-rh
+    description: CentOS-7 - SCLo rh
+    baseurl: http://centos.crazyfrogs.org/7/sclo/x86_64/rh/
+    gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-SIG-SCLo
+  when: (ansible_distribution == "CentOS" or ansible_distribution == "RedHat") and ansible_distribution_major_version == "7"
+
+- name: Install packages
+  package:
+    state: present
+    name: "{{ sequenceserver_ruby_base }}"
+  when: sequenceserver_ruby_base is defined
+
+- name: Include os specific tasks
+  include_tasks: "{{ item }}"
+  with_first_found:
+    - "setup_{{ ansible_distribution }}-{{ ansible_distribution_major_version }}.yml"
+    - "setup_{{ ansible_distribution }}.yml"
+
+- name: Install Ruby gems
+  gem:
+    state: present
+    repository: "https://rubygems.org/"
+    user_install: no
+    name: sequenceserver
+    version: "{{ sequenceserver_version }}"
+    executable: "{{ sequenceserver_gem_executable_path }}"
+    install_dir: "{{ sequenceserver_gem_install_dir }}"
+  notify: Restart all sequenceserver services
+
+- name: Create sequenceserver home directories if it does not exist
+  file:
+    path: "{{ sequenceserver_home_path }}/{{ item }}"
+    state: directory
+    mode: '0755'
+  with_items:
+    - "{{ sequenceserver_config_dir }}"
+    - "{{ sequenceserver_extension_dir }}"
+    - "{{ sequenceserver_hpc_dir }}"
+
+- name: Get my logo from url
+  get_url:
+    url: "{{ sequenceserver_logo_url }}"
+    dest: "{{ sequenceserver_web_public_repository }}/my_logo.png"
+    mode: '0755'
+  when: sequenceserver_logo_url is defined and sequenceserver_logo_url
+
+- name: Copy my logo from local file
+  copy:
+    src: "{{ sequenceserver_logo_path }}"
+    dest: "{{ sequenceserver_web_public_repository }}/my_logo.png"
+    mode: '0755'
+  when: sequenceserver_logo_path is defined and sequenceserver_logo_path
+
+- name: Set sequenceserver_logo variable if sequenceserver_logo_url or sequenceserver_logo_path exists
+  set_fact:
+    sequenceserver_logo: my_logo.png
+  when: (sequenceserver_logo_url is defined and sequenceserver_logo_url) or (sequenceserver_logo_path is defined and sequenceserver_logo_path)
+
+- name: Modify source erb file for custom web page title | Customize logo, title, support email
+  replace:
+    path: "{{ sequenceserver_file_to_modify_for_custom_web_page }}"
+    regexp: "{{ item.regexp }}"
+    replace: "{{ item.replace }}"
+    backup: yes
+  with_items:
+    - {regexp: '\s+<a\n\s+class="navbar-brand"\n\s+href="https://sequenceserver.com" target="_blank">\n\s+<img class="logo" src="SequenceServer_logo.png" alt="sequenceserver_logo">\n\s+<small>\n\s+<%= SequenceServer::VERSION %>\n\s+</small>\n\s+</a>', replace: '      <a\n        class="navbar-left"\n        href="{{ sequenceserver_home_url }}" target="_blank">\n        <img src="{{ sequenceserver_logo }}" alt="logo" height="40px" style="margin-top:5px;margin-right:30px;">\n      </a>\n      <div\n        class="navbar-brand" style="margin-top:10px;">\n        <%= SequenceServer::WEB_PAGE_TITLE %>\n      </div>'} # noqa 204
+    - {regexp: 'http://www.sequenceserver.com/#license-and-support', replace: '{{ sequenceserver_support_email }}'}
+
+- name: Modify source erb file for custom web page title | Insert supplementary HTML code on the top of the web page | Check if the file exists
+  stat:
+    path: "{{ sequenceserver_top_web_page_html_path }}"
+  register: top_web_page_html_path
+
+- name: Modify source erb file for custom web page title | Insert supplementary HTML code on the top of the web page | Get the file content
+  slurp:
+    src: "{{ sequenceserver_top_web_page_html_path }}"
+  register: top_web_page_html_file
+  when: top_web_page_html_path.stat.exists
+
+- name: Modify source erb file for custom web page title | Insert supplementary HTML code on the top of the web page | Insert or update with file content
+  blockinfile:
+    path: "{{ sequenceserver_file_to_modify_for_custom_web_page }}"
+    block: "{{ top_web_page_html_file['content'] | b64decode }}"
+    insertafter: "<body>"
+    marker: "<!-- {mark} ANSIBLE MANAGED BLOCK -->"
+    backup: yes
+  when: top_web_page_html_path.stat.exists
+  notify: Restart all sequenceserver services
+
+- name: Add slurm_sbatch.sh for HPC integration (https://sequenceserver.com/doc/#hpc)
+  template:
+    src: slurm_sbatch.sh.j2
+    dest: "{{ sequenceserver_home_path }}/{{ sequenceserver_hpc_dir }}/slurm_sbatch.sh"
+    mode: '0755'
+
+- name: Add slurm_blast.sh for HPC integration
+  template:
+    src: slurm_blast.sh.j2
+    dest: "{{ sequenceserver_home_path }}/{{ sequenceserver_hpc_dir }}/slurm_blast.sh"
+    mode: '0755'
+
+- name: Modify source lib for HPC integration (https://sequenceserver.com/doc/#hpc)
+  replace:
+    path: "{{ sequenceserver_lib_to_modify_for_hpc_integration }}"
+    regexp: '(      def command\n.+\n.+\n      end\n)(\n(?:      #.*\n){4}      def raise!\n)'
+    replace: '\1\n      # Added by ansible for HPC integration\n      def run\n        system("{{ sequenceserver_home_path }}/{{ sequenceserver_hpc_dir }}/slurm_sbatch.sh #{stdout} #{stderr} #{command}")\n        done!\n      rescue CommandFailed => e\n        done! e.exitstatus\n      end\n\2' # noqa 204
+    backup: yes
+
+- name: Generate syslog file
+  template:
+    src: syslog.j2
+    dest: "/etc/rsyslog.d/sequenceserver.conf"
+    mode: 0644
+  notify: Restart syslog service
+
+- name: Generate logrotate file
+  template:
+    src: logrotate.j2
+    dest: "/etc/logrotate.d/sequenceserver"
+    mode: 0644
+
+- name: Generate sequenceserver.service (systemd) for each database
+  template:
+    src: service.j2
+    dest: "/etc/systemd/system/sequenceserver-{{ item.name }}.service"
+    mode: 0644
+  with_items: "{{ sequenceserver_blast_db }}"
+  register: service
+  notify:
+    - Reload systemd
+    - Restart changed sequenceserver services
+
+- name: Generate sequenceserver configuration file for each database
+  template:
+    src: sequenceserver.conf.j2
+    dest: "{{ sequenceserver_home_path }}/{{ sequenceserver_config_dir }}/sequenceserver.{{ item.name }}.conf"
+    mode: 0644
+  with_items: "{{ sequenceserver_blast_db }}"
+  register: config
+  notify: Restart changed sequenceserver services
+
+- name: Generate sequenceserver extension file for each database
+  template:
+    src: sequenceserver.rb.j2
+    dest: "{{ sequenceserver_home_path }}/{{ sequenceserver_extension_dir }}/sequenceserver.{{ item.name }}.rb"
+    mode: 0644
+  with_items: "{{ sequenceserver_blast_db }}"
+  register: extension
+  notify: Restart changed sequenceserver services
+
+- name: Generate nginx conf
+  template:
+    src: nginx_sequenceserver.conf.j2
+    dest: /etc/nginx/conf.d/sequenceserver.conf
+    mode: 0644
+  notify: "(Handler: All OSs) Reload NGINX"

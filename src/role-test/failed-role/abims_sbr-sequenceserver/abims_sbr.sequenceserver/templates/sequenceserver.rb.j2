@@ -1,0 +1,7 @@
+module SequenceServer
+{% if item.web_page_title is defined and item.web_page_title %}
+  WEB_PAGE_TITLE = '{{ item.web_page_title }}'
+{% else %}
+  WEB_PAGE_TITLE = 'BLAST server for {{ item.name }}'
+{% endif %}
+end

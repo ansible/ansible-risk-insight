@@ -1,0 +1,41 @@
+---
+- name: Prepare
+  hosts: all
+  become: true
+  tasks:
+    - name: Update apt cache.
+      apt: update_cache=true cache_valid_time=600
+      when: ansible_os_family == 'Debian'
+    - name: Install rsyslog
+      include_role:
+        name: robertdebock.rsyslog
+      when: (ansible_distribution == "CentOS" or ansible_distribution == "RedHat") and ansible_distribution_major_version == "7"
+    - name: Add user sequenceserver
+      user:
+        name: sequenceserver
+    - name: Install miniconda
+      include_role:
+        name: andrewrothstein.miniconda
+      vars:
+        miniconda_parent_dir: /usr/local
+    - name: Install conda env with blast conda package
+      include_role:
+        name: andrewrothstein.conda-env
+      vars:
+        conda_env_name: blast
+        conda_env_environment: tests/env.yml
+        conda_env_conda_dir: /usr/local/anaconda
+    - name: Copy my_db
+      copy:
+        src: "{{ item }}"
+        dest: /tmp/test-data/
+        owner: root
+        mode: 0644
+      with_fileglob:
+        - tests/test-data/my_db.*
+    - name: Copy top_web_page.html
+      copy:
+        src: tests/top_web_page.html
+        dest: /tmp/
+        owner: root
+        mode: 0644

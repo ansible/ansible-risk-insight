@@ -1,0 +1,16 @@
+#!/bin/bash
+
+## For HPC integration
+## To launch blast jobs on slurm
+
+
+rfile=$1
+efile=$2
+
+shift 2
+
+blast_cmd="$@"
+
+sbatch_cmd="sbatch --export=NONE --wait --cpus-per-task={{ sequenceserver_blast_threads }} --mem={{ sequenceserver_blast_mem }} --output=$rfile --error=$efile {{ sequenceserver_home_path }}/{{ sequenceserver_hpc_dir }}/slurm_blast.sh $blast_cmd"
+echo $sbatch_cmd
+$sbatch_cmd

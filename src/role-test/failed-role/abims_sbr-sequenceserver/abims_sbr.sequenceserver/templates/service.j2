@@ -1,0 +1,26 @@
+[Unit]
+Description=SequenceServer server daemon for {{ item.name }}
+Documentation="file://sequenceserver --help" "http://sequenceserver.com/doc"
+After=network.target
+
+[Service]
+Type=simple
+User={{ sequenceserver_user }}
+{# if RedHat or CentOS 7 distribution #}
+{% if (ansible_distribution == "CentOS" or ansible_distribution == "RedHat") and ansible_distribution_major_version == "7" %}
+# To enable RedHat Software Collection (scl) for RedHat or CentOS distributions:
+EnvironmentFile=-/opt/rh/rh-ruby25/service-environment
+{% endif %}
+Environment="GEM_PATH={{ sequenceserver_gem_install_dir }}"
+ExecStart={{ sequenceserver_exec }}/sequenceserver -b {{ sequenceserver_blast_binaries }} -n {{ sequenceserver_blast_threads }} -c {{ sequenceserver_home_path }}/{{ sequenceserver_config_dir }}/sequenceserver.{{ item.name }}.conf -r {{ sequenceserver_home_path }}/{{ sequenceserver_extension_dir }}/sequenceserver.{{ item.name }}.rb
+KillMode={{ sequenceserver_systemd_killmode }}
+Restart=on-failure
+RestartSec=42s
+RestartPreventExitStatus=255
+StandardOutput=syslog
+StandardError=syslog
+LimitNOFILE=8192
+
+[Install]
+WantedBy=multi-user.target
+

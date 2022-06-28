@@ -1,0 +1,33 @@
+---
+
+# Service (systemd)
+#
+# KillMode value used in the service configuration
+sequenceserver_systemd_killmode: process
+
+# NGINX
+#
+# Packages required for compiling the nginx-ldap-auth module
+sequenceserver_nginx_base:
+  - libpcre3-dev
+  - zlib1g-dev
+  - libldap2-dev
+  - libssl-dev
+
+# Ruby gem
+#
+# Packages required for sequenceserver
+sequenceserver_ruby_base:
+  - ruby-full
+  - ruby-dev
+# Absolute gem root path
+sequenceserver_gem_root_path: ""
+# Absolute gem executable path
+sequenceserver_gem_executable_path: "{{ sequenceserver_gem_root_path }}/usr/bin/gem"
+# Absolute sequenceserver bin path
+sequenceserver_sequenceserver_bin_path: "{{ sequenceserver_gem_root_path }}/usr/local/share/gems/bin"
+
+# Sequenceserver configuration
+#
+# Sequenceserver executable
+sequenceserver_exec: "{{ sequenceserver_sequenceserver_bin_path }}"

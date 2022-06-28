@@ -1,0 +1,9 @@
+---
+
+# Ubuntu specific tasks
+
+- name: Ubuntu | Add rubygems bin dir to system-wide $PATH
+  copy:
+    dest: "/etc/profile.d/ruby.sh"
+    content: 'PATH=$PATH:{{ sequenceserver_sequenceserver_bin_path }}'
+    mode: '0755'
