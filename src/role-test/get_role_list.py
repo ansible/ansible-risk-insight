@@ -3,34 +3,6 @@ import os
 import requests
 import json
 
-# def collection_install_requirements(self, requirements, collection_dir):
-#     # requirements.yml
-#     # r_file = os.path.join(self._project_dir, 'requirements.yml')
-#     print("installing ", requirements)
-#     if os.path.exists(requirements):
-#         galaxy_args = ['ansible-galaxy', 'collection', 'install', '-r', requirements,
-#             '-p', collection_dir]
-#         gcli = GalaxyCLI(args=galaxy_args)
-#         gcli.run()
-#     return
-
-# def role_install(name, tmp_dir):
-#     # ansible-galaxy install geerlingguy.java
-#     print("install role", name)
-#     galaxy_args = ['ansible-galaxy', 'install', name,
-#     '-p', tmp_dir]
-#     gcli = GalaxyCLI(args=galaxy_args)
-#     gcli.run()
-#     return
-
-# def collection_install(collection, collection_dir):
-#     print("install collection", collection)
-#     galaxy_args = ['ansible-galaxy', 'collection', 'install', collection,
-#     '-p', collection_dir]
-#     gcli = GalaxyCLI(args=galaxy_args)
-#     gcli.run()
-#     return
-
 def list_role():
     finish = False
     count = 0
