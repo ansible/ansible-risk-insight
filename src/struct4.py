@@ -109,7 +109,7 @@ class Module(JSONSerializable, Resolvable):
 
     annotations: dict = field(default_factory=dict)
 
-    def load(self, module_file_path, collection_name="", role_name=""):
+    def load(self, module_file_path, collection_name="", role_name="", basedir=""):
         if module_file_path == "":
             raise ValueError("require module file path to load a Module")
         file_name = os.path.basename(module_file_path)
@@ -121,7 +121,13 @@ class Module(JSONSerializable, Resolvable):
         if role_name != "":
             self.role = role_name
             self.fqcn = module_name # if module is defined in a role, it does not have fqcn and just called in the role
-        self.defined_in = module_file_path
+        defined_in = module_file_path
+        if basedir != "":
+            if defined_in.startswith(basedir):
+                defined_in = defined_in[len(basedir):]
+                if defined_in.startswith("/"):
+                    defined_in = defined_in[1:]
+        self.defined_in = defined_in
 
     @property
     def resolver_targets(self):
@@ -134,54 +140,64 @@ class Collection(JSONSerializable, Resolvable):
     playbooks: list = field(default_factory=list)
     roles: list = field(default_factory=list)
     modules: list = field(default_factory=list)
+    dependencies: dict = field(default_factory=dict)    # dependency collections & roles; resolved later
 
     annotations: dict = field(default_factory=dict)
 
-    def load(self, collection_dir):
-        if not os.path.exists(collection_dir):
+    def load(self, collection_dir, basedir=""):
+        fullpath = ""
+        if os.path.exists(collection_dir):
+            fullpath = collection_dir
+        if os.path.exists(os.path.join(basedir, collection_dir)):
+            fullpath = os.path.join(basedir, collection_dir)
+        if fullpath == "":
             raise ValueError("directory not found")
-        parts = collection_dir.split("/")
+        parts = fullpath.split("/")
         if len(parts) < 2:
             raise ValueError("collection directory path is wrong")
         collection_name = "{}.{}".format(parts[-2], parts[-1])
 
-        manifest_file_path = os.path.join(collection_dir, "MANIFEST.json")
+        manifest_file_path = os.path.join(fullpath, "MANIFEST.json")
         if os.path.exists(manifest_file_path):
             with open(manifest_file_path, "r") as file:
                 self.metadata = json.load(file)
         
-        playbook_files = safe_glob(collection_dir + "/playbooks/**/*.yml", recursive=True)
+        playbook_files = safe_glob(fullpath + "/playbooks/**/*.yml", recursive=True)
         playbooks = []
         for f in playbook_files:
             p = Playbook()
             try:
-                p.load(f)
+                p.load(f, basedir=basedir)
             except:
                 logging.exception("error while loading the playbook at {}".format(f))
             playbooks.append(p)
 
-        role_tasks_files = safe_glob(collection_dir + "/roles/*/tasks/main.yml", recursive=True)
+        role_tasks_files = safe_glob(fullpath + "/roles/*/tasks/main.yml", recursive=True)
         roles = []
         for f in role_tasks_files:
             role_dir_path = f.replace("/tasks/main.yml", "")
             r = Role()
             try:
-                r.load(role_dir_path, collection_name=collection_name)
+                r.load(role_dir_path, collection_name=collection_name, basedir=basedir)
             except:
                 logging.exception("error while loading the role at {}".format(f))
             roles.append(r)
 
-        module_files = search_module_files(collection_dir)
+        module_files = search_module_files(fullpath)
         modules = []
         for f in module_files:
             m = Module()
             try:
-                m.load(f, collection_name=collection_name)
+                m.load(f, collection_name=collection_name, basedir=basedir)
             except:
                 logging.exception("error while loading the module at {}".format(f))
             modules.append(m)
         self.name = collection_name
-        self.path = collection_dir
+        path = collection_dir
+        if basedir != "":
+            if path.startswith(basedir):
+                path = path[len(basedir):]
+        self.path = path
         self.playbooks = playbooks
         self.roles = roles
         self.modules = modules
@@ -205,10 +221,15 @@ class Task(JSONSerializable, Resolvable):
 
     annotations: dict = field(default_factory=dict)
 
-    def load(self, path, index, task_block_dict):
-        if not os.path.exists(path):
+    def load(self, path, index, task_block_dict, basedir=""):
+        fullpath = ""
+        if os.path.exists(path):
+            fullpath = path
+        if os.path.exists(os.path.join(basedir, path)):
+            fullpath = os.path.join(basedir, path)
+        if fullpath == "":
             raise ValueError("file not found")
-        if not path.endswith(".yml") and not path.endswith(".yaml"):
+        if not fullpath.endswith(".yml") and not fullpath.endswith(".yaml"):
             raise ValueError("task yaml file must be \".yml\" or \".yaml\"")
         if task_block_dict is None:
             raise ValueError("task block dict is required to load Task")
@@ -264,7 +285,13 @@ class Task(JSONSerializable, Resolvable):
         self.options = task_options
         self.module = module_name
         self.module_options = module_options
-        self.defined_in = path 
+        defined_in = fullpath
+        if basedir != "":
+            if defined_in.startswith(basedir):
+                defined_in = defined_in[len(basedir):]
+                if defined_in.startswith("/"):
+                    defined_in = defined_in[1:]
+        self.defined_in = defined_in 
         self.index = index
         self.executable = executable
         self.executable_type = executable_type
@@ -303,25 +330,36 @@ class TaskFile(JSONSerializable, Resolvable):
 
     annotations: dict = field(default_factory=dict)
 
-    def load(self, path, role_name=""):
-        if not os.path.exists(path):
+    def load(self, path, role_name="", basedir=""):
+        fullpath = ""
+        if os.path.exists(path):
+            fullpath = path
+        if os.path.exists(os.path.join(basedir, path)):
+            fullpath = os.path.join(basedir, path)
+        if fullpath == "":
             raise ValueError("file not found")
-        if not path.endswith(".yml") and not path.endswith(".yaml"):
+        if not fullpath.endswith(".yml") and not fullpath.endswith(".yaml"):
             raise ValueError("task yaml file must be \".yml\" or \".yaml\"")
-        self.name = os.path.basename(path)
-        self.defined_in = path
+        self.name = os.path.basename(fullpath)
+        defined_in = fullpath
+        if basedir != "":
+            if defined_in.startswith(basedir):
+                defined_in = defined_in[len(basedir):]
+                if defined_in.startswith("/"):
+                    defined_in = defined_in[1:]
+        self.defined_in = defined_in
         if role_name != "":
             self.role = role_name
-        task_dicts = self.get_task_blocks(path)
+        task_dicts = self.get_task_blocks(fullpath)
         if task_dicts is None:
             return
         tasks = []
         for i, t_dict in enumerate(task_dicts):
             t = Task()
             try:
-                t.load(path, i, t_dict)
+                t.load(fullpath, i, t_dict, basedir=basedir)
             except:
-                logging.exception("error while loading the task file at {}".format(path))
+                logging.exception("error while loading the task file at {}".format(fullpath))
             tasks.append(t)
         self.tasks = tasks
 
@@ -377,19 +415,25 @@ class Role(JSONSerializable, Resolvable):
     collection: str = ""
     taskfiles: list = field(default_factory=list)     # 1 role can have multiple task yamls
     modules: list = field(default_factory=list)     # roles/xxxx/library/zzzz.py can be called as module zzzz
+    dependencies: dict = field(default_factory=dict)    # dependency collections & roles; resolved later
 
     source: str = "" # collection/scm repo/galaxy
 
     annotations: dict = field(default_factory=dict)
 
-    def load(self, path, collection_name="", module_dir_paths=[]):
-        if not os.path.exists(path):
+    def load(self, path, collection_name="", module_dir_paths=[], basedir=""):
+        fullpath = ""
+        if os.path.exists(path):
+            fullpath = path
+        if os.path.exists(os.path.join(basedir, path)):
+            fullpath = os.path.join(basedir, path)
+        if fullpath == "":
             raise ValueError("directory not found")
         meta_file_path = ""
         tasks_dir_path = ""
         if path != "":
-            meta_file_path = os.path.join(path, "meta/main.yml")
-            tasks_dir_path = os.path.join(path, "tasks")
+            meta_file_path = os.path.join(fullpath, "meta/main.yml")
+            tasks_dir_path = os.path.join(fullpath, "tasks")
         
         if os.path.exists(meta_file_path):
             with open(meta_file_path, "r") as file:
@@ -400,7 +444,13 @@ class Role(JSONSerializable, Resolvable):
             raise ValueError("role path is wrong")
         role_name = parts[-2]
         self.name = role_name
-        self.defined_in = path
+        defined_in = fullpath
+        if basedir != "":
+            if defined_in.startswith(basedir):
+                defined_in = defined_in[len(basedir):]
+                if defined_in.startswith("/"):
+                    defined_in = defined_in[1:]
+        self.defined_in = defined_in
         collection = ""
         fqcn = role_name
         if collection_name != "":
@@ -413,11 +463,11 @@ class Role(JSONSerializable, Resolvable):
             return
 
         modules = []
-        module_files = search_module_files(path, module_dir_paths)
+        module_files = search_module_files(fullpath, module_dir_paths)
         for module_file_path in module_files:
             m = Module()
             try:
-                m.load(module_file_path, role_name=role_name)
+                m.load(module_file_path, role_name=role_name, basedir=basedir)
             except:
                 logging.exception("error while loading the module at {}".format(module_file_path))
             modules.append(m)
@@ -433,7 +483,7 @@ class Role(JSONSerializable, Resolvable):
         for task_yaml_path in task_yaml_files:
             tf = TaskFile()
             try:
-                tf.load(task_yaml_path, role_name=role_name)
+                tf.load(task_yaml_path, role_name=role_name, basedir=basedir)
             except:
                 logging.exception("error while loading the task file at {}".format(task_yaml_path))
             taskfiles.append(tf)
@@ -456,13 +506,18 @@ class RoleInPlay(JSONSerializable, Resolvable):
 
     annotations: dict = field(default_factory=dict)
 
-    def load(self, name, options, defined_in, role_index, play_index):
+    def load(self, name, options, defined_in, role_index, play_index, basedir=""):
         if name == "":
             if "name" in options:
                 name = options["name"]
                 options.pop("name", None)
         self.name = name
         self.options = options
+        if basedir != "":
+            if defined_in.startswith(basedir):
+                defined_in = defined_in[len(basedir):]
+                if defined_in.startswith("/"):
+                    defined_in = defined_in[1:]
         self.defined_in = defined_in
         self.role_index = role_index
         self.play_index = play_index
@@ -485,14 +540,25 @@ class Playbook(JSONSerializable, Resolvable):
 
     annotations: dict = field(default_factory=dict)
 
-    def load(self, path):
-        if not os.path.exists(path):
+    def load(self, path, basedir=""):
+        fullpath = ""
+        if os.path.exists(path):
+            fullpath = path
+        if os.path.exists(os.path.join(basedir, path)):
+            fullpath = os.path.join(basedir, path)
+        if fullpath == "":
             raise ValueError("file not found")
-        self.defined_in = path
-        self.name = os.path.basename(path)
+        defined_in = fullpath
+        if basedir != "":
+            if defined_in.startswith(basedir):
+                defined_in = defined_in[len(basedir):]
+                if defined_in.startswith("/"):
+                    defined_in = defined_in[1:]
+        self.defined_in = defined_in
+        self.name = os.path.basename(fullpath)
         data = None
-        if path != "":
-            with open(path , "r") as file:
+        if fullpath != "":
+            with open(fullpath , "r") as file:
                 data = yaml.safe_load(file)
         if data is None:
             return
@@ -515,22 +581,22 @@ class Playbook(JSONSerializable, Resolvable):
                         r_name = r_block
                     rip = RoleInPlay()
                     try:
-                        rip.load(name=r_name, options=role_options, defined_in=path, role_index=j, play_index=i)
+                        rip.load(name=r_name, options=role_options, defined_in=fullpath, role_index=j, play_index=i, basedir=basedir)
                     except:
                         logging.exception("error while loading the role in playbook at {} (play_index={}, role_index={})".format(path, i, j))
                     roles.append(rip)
             if "import_playbook" in play_dict:
-                playbook_dir = os.path.dirname(self.defined_in)
+                playbook_dir = os.path.dirname(fullpath)
                 playbook_path = os.path.join(playbook_dir, play_dict["import_playbook"])
                 import_playbooks.append(playbook_path)
         tasks = []
-        loaded_tasks = self.get_task_blocks(self.defined_in)
+        loaded_tasks = self.get_task_blocks(fullpath)
         for index, t_block in enumerate(loaded_tasks):
             t = Task()
             try:
-                t.load(path=self.defined_in, index=index, task_block_dict=t_block)
+                t.load(path=fullpath, index=index, task_block_dict=t_block, basedir=basedir)
             except:
-                logging.exception("error while loading the task at {} (index={})".format(self.defined_in, index))
+                logging.exception("error while loading the task at {} (index={})".format(fullpath, index))
             tasks.append(t)
 
         self.tasks = tasks
@@ -630,16 +696,16 @@ class Repository(JSONSerializable, Resolvable):
 
         logging.info("start loading the repo {}".format(repo_path))
         logging.info("start loading playbooks")
-        self.load_playbooks(repo_path)
+        self.load_playbooks(repo_path, basedir=path)
         logging.info("done ... {} playbooks loaded".format(len(self.playbooks)))
         logging.info("start loading roles")
-        self.load_roles(repo_path)
+        self.load_roles(repo_path, basedir=path)
         logging.info("done ... {} roles loaded".format(len(self.roles)))
         logging.info("start loading modules (that are defined in this repository)")
-        self.load_modules(repo_path)
+        self.load_modules(repo_path, basedir=path)
         logging.info("done ... {} modules loaded".format(len(self.modules)))
         logging.info("start loading taskfiles (that are defined for playbooks in this repository)")
-        self.load_taskfiles(repo_path)
+        self.load_taskfiles(repo_path, basedir=path)
         logging.info("done ... {} task files loaded".format(len(self.taskfiles)))
         logging.info("start loading installed collections")
         self.load_installed_collections(installed_collections_path)
@@ -652,7 +718,7 @@ class Repository(JSONSerializable, Resolvable):
         self.installed_roles_path = installed_roles_path
         logging.info("done")
 
-    def load_playbooks(self, path):
+    def load_playbooks(self, path, basedir=""):
         if path == "":
             return
         patterns = [
@@ -670,7 +736,7 @@ class Repository(JSONSerializable, Resolvable):
                     continue
                 p = Playbook()
                 try:
-                    p.load(fpath)
+                    p.load(fpath, basedir=basedir)
                 except PlaybookFormatError as e:
                     logging.debug("this file is not in the playbook format, maybe not a playbook file: {}".format(e.args[0]))
                 except:
@@ -680,7 +746,7 @@ class Repository(JSONSerializable, Resolvable):
         self.playbooks = playbooks
         self.update_task_dict(tasks)
 
-    def load_roles(self, path):
+    def load_roles(self, path, basedir=""):
         if path == "":
             return
         roles_patterns = ["roles", "playbooks/roles", "playbook/roles"]
@@ -701,7 +767,7 @@ class Repository(JSONSerializable, Resolvable):
             role_dir = os.path.join(roles_dir_path, dir_name)
             r = Role()
             try:
-                r.load(role_dir)
+                r.load(role_dir, basedir=basedir)
             except:
                 logging.exception("error while loading the role at {}".format(role_dir))
             roles.append(r)
@@ -727,6 +793,7 @@ class Repository(JSONSerializable, Resolvable):
         taskfiles = []
         roles = []
         collections = []
+        basedir = os.path.dirname(os.path.normpath(installed_collections_path))
         for d in dirs:
             if collection_info_dir_re.match(d):
                 continue
@@ -737,7 +804,7 @@ class Repository(JSONSerializable, Resolvable):
                 collection_path = os.path.join(search_path, d, sd)
                 c = Collection()
                 try:
-                    c.load(collection_dir=collection_path)
+                    c.load(collection_dir=collection_path, basedir=basedir)
                 except:
                     logging.exception("error while loading the collection at {}".format(collection_path))
                 collections.append(c)
@@ -764,6 +831,7 @@ class Repository(JSONSerializable, Resolvable):
         tasks = []
         taskfiles = []
         roles = []
+        basedir = os.path.dirname(os.path.normpath(installed_roles_path))
         for d in dirs:
             role_path = os.path.join(installed_roles_path, d)
             role_meta_files = safe_glob(role_path + "/**/meta/main.yml", recursive=True)
@@ -783,7 +851,7 @@ class Repository(JSONSerializable, Resolvable):
                     module_dir_paths = module_dirs
                 r = Role()
                 try:
-                    r.load(role_dir_path, module_dir_paths=module_dir_paths)
+                    r.load(role_dir_path, module_dir_paths=module_dir_paths, basedir=basedir)
                 except:
                     logging.exception("error while loading the role at {}".format(role_dir_path))
                 roles.append(r)
@@ -801,7 +869,7 @@ class Repository(JSONSerializable, Resolvable):
     # https://docs.ansible.com/ansible/2.8/user_guide/playbooks_best_practices.html
     # however, it is often defined in `plugins/modules` directory in a collection repository,
     # so we search both the directories
-    def load_modules(self, path):
+    def load_modules(self, path, basedir=""):
         if path == "":
             return
         if not os.path.exists(path):
@@ -813,7 +881,7 @@ class Repository(JSONSerializable, Resolvable):
             for module_file_path in module_files:
                 m = Module()
                 try:
-                    m.load(module_file_path, collection_name=self.my_collection_name)
+                    m.load(module_file_path, collection_name=self.my_collection_name, basedir=basedir)
                 except:
                     logging.exception("error while loading the module at {}".format(module_file_path))
                 modules.append(m)
@@ -822,7 +890,7 @@ class Repository(JSONSerializable, Resolvable):
 
     # playbooks possibly include/import task files around the playbook file
     # we search this type of isolated taskfile (means not in a role) in `playbooks` and `tasks` dir
-    def load_taskfiles(self, path):
+    def load_taskfiles(self, path, basedir=""):
         if not os.path.exists(path):
             return
         
@@ -832,7 +900,7 @@ class Repository(JSONSerializable, Resolvable):
             for taskfile_path in taskfile_paths:
                 tf = TaskFile()
                 try:
-                    tf.load(taskfile_path)
+                    tf.load(taskfile_path, basedir=basedir)
                 except:
                     logging.exception("error while loading the task file at {}".format(taskfile_path))
                 taskfiles.append(tf)
@@ -1037,6 +1105,47 @@ class Repository(JSONSerializable, Resolvable):
                         tasks_in_t = self.get_all_tasks_called_from_one_task(t)
                         tasks.extend(tasks_in_t)
         return tasks
+
+    def get_all_tasks_called_from_one_role(self, obj):
+        if not isinstance(obj, Role):
+            raise ValueError("this function accepts only Role input, but got {}".format(type(obj).__name__))
+        role = obj
+        all_tasks = []
+        for tf in role.taskfiles:
+            for t in tf.tasks:
+                tasks = self.get_all_tasks_called_from_one_task(t)
+                all_tasks.extend(tasks)
+        return all_tasks
+
+    def get_all_tasks_called_from_one_playbook(self, obj):
+        if not isinstance(obj, Playbook):
+            raise ValueError("this function accepts only Playbook input, but got {}".format(type(obj).__name__))
+        playbook = obj
+        all_tasks = []
+        for t in playbook.tasks:
+            tasks = self.get_all_tasks_called_from_one_task(t)
+            all_tasks.extend(tasks)
+        for rip in playbook.roles:
+            role_fqcn = rip.resolved_name
+            r = self.get_role_by_fqcn(role_fqcn)
+            if r is None:
+                continue
+            tasks = self.get_all_tasks_called_from_one_role(r)
+            all_tasks.extend(tasks)
+        return all_tasks
+
+    def get_all_tasks_called_from_one_collection(self, obj):
+        if not isinstance(obj, Collection):
+            raise ValueError("this function accepts only Collection input, but got {}".format(type(obj).__name__))
+        collection = obj
+        all_tasks = []
+        for p in collection.playbooks:
+            tasks = self.get_all_tasks_called_from_one_playbook(p)
+            all_tasks.extend(tasks)
+        for r in collection.roles:
+            tasks = self.get_all_tasks_called_from_one_role(r)
+            all_tasks.extend(tasks)
+        return all_tasks
 
     @property
     def resolver_targets(self):
