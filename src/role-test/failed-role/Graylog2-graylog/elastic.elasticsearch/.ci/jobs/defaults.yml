@@ -1,0 +1,59 @@
+---
+
+##### GLOBAL METADATA
+
+- meta:
+    cluster: devops-ci
+
+##### JOB DEFAULTS
+
+- job:
+    project-type: matrix
+    logrotate:
+      daysToKeep: 30
+      numToKeep: 100
+    properties:
+    - github:
+        url: https://github.com/elastic/ansible-elasticsearch/
+    - inject:
+        properties-content: HOME=$JENKINS_HOME
+    concurrent: true
+    node: master
+    scm:
+    - git:
+        name: origin
+        credentials-id: f6c7695a-671e-4f4f-a331-acdce44ff9ba
+        reference-repo: /var/lib/jenkins/.git-references/ansible-elasticsearch.git
+        branches:
+        - ${branch_specifier}
+        url: git@github.com:elastic/ansible-elasticsearch.git
+        basedir: elasticsearch
+        wipe-workspace: 'False'
+    vault:
+      role_id: cff5d4e0-61bf-2497-645f-fcf019d10c13
+    builders:
+    - shell: |-
+        #!/usr/local/bin/runbld
+        set -euo pipefail
+
+        export RBENV_VERSION='2.5.7'
+        export PATH="$HOME/.rbenv/bin:$PATH"
+        eval "$(rbenv init -)"
+        rbenv local $RBENV_VERSION
+
+        export ES_XPACK_LICENSE_FILE="$(pwd)/license.json"
+        echo "Getting xpack_license from secrets service"
+        set +x
+        VAULT_TOKEN=$( curl -s -X POST -H "Content-Type: application/json" -L -d "{\"role_id\":\"$VAULT_ROLE_ID\",\"secret_id\":\"$VAULT_SECRET_ID\"}" $VAULT_ADDR/v1/auth/approle/login | jq -r '.auth.client_token' )
+        curl -s -L -H "X-Vault-Token:$VAULT_TOKEN" $VAULT_ADDR/v1/secret/devops-ci/ansible-elasticsearch/xpack_license | jq -r '.data.value' > ${ES_XPACK_LICENSE_FILE}
+        set -x
+        echo "Finished getting xpack_license from secrets service"
+        make setup
+        make verify VERSION=$VERSION PATTERN=$TEST_TYPE-$OS
+    wrappers:
+    - ansicolor
+    - timeout:
+        type: absolute
+        timeout: 360
+        fail: true
+    - timestamps
