@@ -33,6 +33,8 @@ class NonBuiltinResolver(Resolver):
             except:
                 logging.exception("error while getting all modules in the task \"{}\", executable: \"{}\"".format(task.id, task.executable))
             for m in all_modules_in_the_task:
+                if m is None:
+                    continue
                 if not m.builtin:
                     use_non_builtin = True
                     break

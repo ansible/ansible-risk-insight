@@ -30,12 +30,11 @@ class Results2Tasks():
                 json_str = file.read()
             repo = Repository()
             repo.from_json(json_str)
-            if repo.path != "":
-                loaded_file_count += 1
-                for t in repo.task_dict.values():
-                    simple_task = self.make_simple_task_dict(t)
-                    simple_tasks.append(simple_task)
-                    loaded_task_count += 1
+            loaded_file_count += 1
+            for t in repo.task_dict.values():
+                simple_task = self.make_simple_task_dict(t)
+                simple_tasks.append(simple_task)
+                loaded_task_count += 1
 
         logging.info("{} result files loaded.".format(loaded_file_count))
         logging.info("{} tasks found.".format(loaded_task_count))

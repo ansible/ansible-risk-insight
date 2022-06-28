@@ -11,6 +11,7 @@ import json
 import pathlib
 import jsonpickle
 import logging
+from safe_glob import safe_glob
 
 
 logging.basicConfig()
@@ -149,8 +150,7 @@ class Collection(JSONSerializable, Resolvable):
             with open(manifest_file_path, "r") as file:
                 self.metadata = json.load(file)
         
-        playbook_files = glob.glob(collection_dir + "/playbooks/**/*.yml", recursive=True)
-        playbook_files = remove_duplicates_from_glob_result(playbook_files)
+        playbook_files = safe_glob(collection_dir + "/playbooks/**/*.yml", recursive=True)
         playbooks = []
         for f in playbook_files:
             p = Playbook()
@@ -160,8 +160,7 @@ class Collection(JSONSerializable, Resolvable):
                 logging.exception("error while loading the playbook at {}".format(f))
             playbooks.append(p)
 
-        role_tasks_files = glob.glob(collection_dir + "/roles/*/tasks/main.yml", recursive=True)
-        role_tasks_files = remove_duplicates_from_glob_result(role_tasks_files)
+        role_tasks_files = safe_glob(collection_dir + "/roles/*/tasks/main.yml", recursive=True)
         roles = []
         for f in role_tasks_files:
             role_dir_path = f.replace("/tasks/main.yml", "")
@@ -337,6 +336,8 @@ class TaskFile(JSONSerializable, Resolvable):
                 d = yaml.safe_load(file)
         if d is None:
             return None
+        if not isinstance(d, list):
+            return None
         tasks = []
         for task_dict in d:
             task_dict_loop = self.flatten_block_tasks(task_dict)
@@ -422,10 +423,11 @@ class Role(JSONSerializable, Resolvable):
             modules.append(m)
         self.modules = modules
 
-        task_yaml_files = []
-        task_yaml_files += glob.glob(tasks_dir_path + "/**/*.yml", recursive=True)
-        task_yaml_files += glob.glob(tasks_dir_path + "/**/*.yaml", recursive=True)
-        task_yaml_files = remove_duplicates_from_glob_result(task_yaml_files)
+        patterns = [
+            tasks_dir_path + "/**/*.yml",
+            tasks_dir_path + "/**/*.yaml"
+        ]
+        task_yaml_files = safe_glob(patterns, recursive=True)
 
         taskfiles = []
         for task_yaml_path in task_yaml_files:
@@ -659,11 +661,7 @@ class Repository(JSONSerializable, Resolvable):
             path + "/playbooks/**/*.yml",
             path + "/playbooks/**/*.yaml",
         ]
-        candidates = []
-        for p in patterns:
-             found_ones = glob.glob(p, recursive=True)
-             candidates.extend(found_ones)
-        candidates = remove_duplicates_from_glob_result(candidates)
+        candidates = safe_glob(patterns, recursive=True)
         tasks = []
         playbooks = []
         for fpath in candidates:
@@ -768,8 +766,7 @@ class Repository(JSONSerializable, Resolvable):
         roles = []
         for d in dirs:
             role_path = os.path.join(installed_roles_path, d)
-            role_meta_files = glob.glob(role_path + "/**/meta/main.yml", recursive=True)
-            role_meta_files = remove_duplicates_from_glob_result(role_meta_files)
+            role_meta_files = safe_glob(role_path + "/**/meta/main.yml", recursive=True)
 
             roles_root_dirs = set([f.split("/roles/")[-2] for f in role_meta_files if "/roles/" in f])
             module_dirs = []
@@ -843,7 +840,7 @@ class Repository(JSONSerializable, Resolvable):
             self.update_taskfile_dict(taskfiles)
 
     def find_my_collection_name(self, path):
-        found_galaxy_ymls = glob.glob(path + "/**/galaxy.yml", recursive=True)
+        found_galaxy_ymls = safe_glob(path + "/**/galaxy.yml", recursive=True)
         my_collection_name = ""
         if len(found_galaxy_ymls) > 0:
             galaxy_yml = found_galaxy_ymls[0]
@@ -1016,7 +1013,9 @@ class Repository(JSONSerializable, Resolvable):
                 # so just return empty
                 return []
             else:
-                raise ValueError("FQCN for this task (executable: {} in {}) is empty; need to resolve FQCNs for all tasks first".format(task.executable, task.id))
+                # roles in ansible-galaxy often does not have collection dependency information, so just warning it instead of raising an exception
+                logging.warning("FQCN for this task (executable: {} in {}) is empty; need to resolve FQCNs for all tasks first".format(task.executable, task.id))
+                return []
         tasks = [task]
         if task.executable_type == "Role":
             role_fqcn = task.resolved_name
@@ -1068,10 +1067,11 @@ def search_taskfiles_for_playbooks(path, taskfile_dir_paths=[]):
         search_targets.append(os.path.join(path, playbook_taskfile_dir_pattern))
     candidates = []
     for search_target in search_targets:
-        found = []
-        found += glob.glob(search_target + "/**/*.yml")
-        found += glob.glob(search_target + "/**/*.yaml")
-        found = remove_duplicates_from_glob_result(found)
+        patterns = [
+            search_target + "/**/*.yml",
+            search_target + "/**/*.yaml"
+        ]
+        found = safe_glob(patterns, recursive=True)
         for f in found:
             # taskfiles in role will be loaded when the role is loaded, so skip
             if "/roles/" in f:
@@ -1087,20 +1087,6 @@ def search_taskfiles_for_playbooks(path, taskfile_dir_paths=[]):
                 continue
             candidates.append(f)
     return candidates
-
-# glob.glob() may return duplicates when there is symlink loop
-# remove those duplicates by using pathlib.Path().resolve()
-def remove_duplicates_from_glob_result(path_list):
-    unique = []
-    unique_resolved = set()
-    for path in path_list:
-        resolved = pathlib.Path(path).resolve()
-        if resolved in unique_resolved:
-            continue
-        else:
-            unique_resolved.add(resolved)
-            unique.append(path)
-    return unique
 
 # this method is based on awx code https://github.com/ansible/awx/blob/devel/awx/main/utils/ansible.py#L42-L64
 def could_be_playbook(fpath):
