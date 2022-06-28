@@ -1,0 +1,125 @@
+%global rolename cluster-upgrade
+%global roleprefix ovirt.
+%global roleprefix_legacy ovirt-
+%global roleprefix_legacy_uppercase oVirt.
+%global ansible_roles_dir ansible/roles
+
+Name: @PACKAGE_NAME@
+Summary: Ansible role to upgrade cluster of hosts in oVirt
+Version: @RPM_VERSION@
+Release: @RPM_RELEASE@%{?release_suffix}%{?dist}
+Source0: http://resources.ovirt.org/pub/src/@PACKAGE_NAME@/@PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz
+License: ASL 2.0
+Group:          Virtualization/Management
+BuildArch:      noarch
+Url:            http://www.ovirt.org
+
+Requires: ansible >= 2.9.0
+
+%description
+This Ansible role provide funtionality to upgrade cluster of hosts in oVirt engine,
+using oVirt engine API.
+
+%pretrans -p <lua>
+-- Remove the legacy directory before installing the symlink. This is known issue in RPM:
+-- https://fedoraproject.org/wiki/Packaging:Directory_Replacement
+path_dash = "%{_datadir}/%{ansible_roles_dir}/%{roleprefix_legacy}%{rolename}"
+path_uppercase = "%{_datadir}/%{ansible_roles_dir}/%{roleprefix_legacy_uppercase}%{rolename}"
+
+st = posix.stat(path_dash)
+if st and st.type == "directory" then
+  os.execute('rm -rf "'..path_dash..'"')
+end
+
+st = posix.stat(path_uppercase)
+if st and st.type == "directory" then
+  os.execute('rm -rf "'..path_uppercase..'"')
+end
+
+%prep
+%setup -c -q
+
+%build
+
+%install
+export PKG_DATA_DIR_ORIG=%{_datadir}/%{ansible_roles_dir}/%{roleprefix}%{rolename}
+export PKG_DATA_DIR=%{buildroot}$PKG_DATA_DIR_ORIG
+export PKG_DOC_DIR=%{buildroot}%{_pkgdocdir}
+export ROLENAME_LEGACY=%{buildroot}%{_datadir}/%{ansible_roles_dir}/%{roleprefix_legacy}%{rolename}
+export ROLENAME_LEGACY_UPPERCASE=%{buildroot}%{_datadir}/%{ansible_roles_dir}/%{roleprefix_legacy_uppercase}%{rolename}
+sh build.sh install
+
+%files
+%{_datadir}/%{ansible_roles_dir}/%{roleprefix}%{rolename}
+%{_datadir}/%{ansible_roles_dir}/%{roleprefix_legacy}%{rolename}
+%{_datadir}/%{ansible_roles_dir}/%{roleprefix_legacy_uppercase}%{rolename}
+
+%doc README.md
+%doc examples/
+
+%license LICENSE
+
+%changelog
+* Fri May 1 2020 Martin Necas <mnecas@redhat.com> - 1.2.3-1
+- Fix ssh connection for remote host
+
+* Fri May 1 2020 Martin Necas <mnecas@redhat.com> - 1.2.2-1
+- Add job fail when cluster upgrade fails.
+- Add gluster healing check.
+
+* Mon Dec 2 2019 Martin Necas <mnecas@redhat.com> - 1.2.1-1
+- Add build for el8.
+
+* Mon Nov 25 2019 Martin Necas <mnecas@redhat.com> - 1.2.0-1
+- Bump ansible to version 2.9.0.
+
+* Thu Sep 5 2019 Ondra Machacek <omachace@redhat.com> - 1.1.14-1
+- Add jobs to notify about cluster upgrade status.
+- Migrate user migratable vms.
+
+* Wed Mar 27 2019 Ondra Machacek <omachace@redhat.com> - 1.1.13-1
+- Set cluster in upgrade proccess.
+
+* Tue Mar 12 2019 Ondra Machacek <omachace@redhat.com> - 1.1.12-1
+- Log status about upgrade to events.
+
+* Mon Jan 21 2019 Ondra Machacek <omachace@redhat.com> - 1.1.11-1
+- Improve checking of failed upgrade.
+- Skip ovirt_auth logout if the engine_token matches the ovirt_auth token.
+
+* Fri Nov 30 2018 Ondra Machacek <omachace@redhat.com> - 1.1.10-1
+- Bump requirement to Ansible 2.7.2.
+
+* Fri Nov 30 2018 Ondra Machacek <omachace@redhat.com> - 1.1.9-1
+- Require Ansible 2.7.2.
+- Support ovirt.cluster-upgrade name.
+- Remember scheduling policy properties.
+
+* Thu Oct 4 2018 Ondra Machacek <omachace@redhat.com> - 1.1.8-1
+- Fix issue in starting the stopped VMs (#27).
+- Increase timeout for the host upgrade (#24).
+- Add engine_fqdn support for login.
+- Add support to pass token (#23).
+
+* Tue Apr 10 2018 Ondra Machacek <omachace@redhat.com> - 1.1.7-1
+- Require Ansible 2.5.
+
+* Thu Mar 15 2018 Ondra Machacek <omachace@redhat.com> - 1.1.6-1
+- Fail the role if any host fail to upgrade rhbz#1539776.
+
+* Wed Feb 14 2018 Ondra Machacek <omachace@redhat.com> - 1.1.5-1
+- Add use_maintenance_policy parameter rhbz#1539761.
+- Add new reboot_after_upgrade parameter rhbz#1539774.
+- Fail the role if any host fail to upgrade rhbz#1539776.
+
+* Wed Jan 17 2018 Ondra Machacek <omachace@redhat.com> - 1.1.4-1
+- Support ovirt_auth with env params.
+
+* Wed Jan 17 2018 Ondra Machacek <omachace@redhat.com> - 1.1.3-1
+- Add %pretrans scriplet to remove legacy role name.
+
+* Wed Jan 17 2018 Ondra Machacek <omachace@redhat.com> - 1.1.2-1
+- Rename ovirt. to oVirt. to sync with galaxy.
+
+* Mon Nov 27 2017 Ondra Machacek <omachace@redhat.com> - 1.1.0-1
+- Initial release
