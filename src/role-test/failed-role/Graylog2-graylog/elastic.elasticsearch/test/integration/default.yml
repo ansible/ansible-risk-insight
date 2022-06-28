@@ -1,7 +1,0 @@
----
-- name: Setup Elasticsearch using default configuration
-  hosts: localhost
-  post_tasks:
-    - include: elasticsearch/test/integration/debug.yml
-  roles:
-    - elasticsearch

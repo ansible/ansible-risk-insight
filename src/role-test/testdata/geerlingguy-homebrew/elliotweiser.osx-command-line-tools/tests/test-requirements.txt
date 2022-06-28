@@ -1,6 +1,0 @@
-ansible
-ansible-lint
-molecule
-python-vagrant
-requests
-testinfra

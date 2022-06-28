@@ -1,8 +1,0 @@
----
-- name: Install Docker Compose bash completion.
-  get_url:
-    url: https://raw.githubusercontent.com/docker/compose/{{ 'master' if docker_compose_version == 'latest' else 'v'+docker_compose_version }}/contrib/completion/bash/docker-compose
-    dest: /etc/bash_completion.d/docker-compose
-    owner: root
-    group: root
-    mode: 0644

@@ -1,9 +1,0 @@
----
-- name: remove default vhost
-  command: rabbitmqctl delete_vhost /
-  when:
-    - rabbitmq_vhost is defined
-
-- name: remove guest user
-  command: rabbitmqctl delete_user guest
-  when: "'guest' in rabbitmq_users.stdout"
