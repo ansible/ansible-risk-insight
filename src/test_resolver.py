@@ -3,6 +3,8 @@ from struct4 import Repository
 from resolver_fqcn import FQCNResolver
 from resolver_used_in import UsedInResolver
 from resolver_sample_rule import NonBuiltinResolver
+from resolver_possible_candidates import PossibleCandidateResolver
+from resolver_dependency import DependencyResolver
 
 
 class TestResolver(unittest.TestCase):
@@ -27,6 +29,14 @@ class TestResolver(unittest.TestCase):
         # add `use-non-builtin-module: true` annotation to Task / Role / Playbook if it uses at least one non-builtin module
         non_builtin_resolver = NonBuiltinResolver(repo_obj=repo)
         repo.resolve(non_builtin_resolver)
+
+        # add `possible_candidates` to Tasks that do not have fqcn
+        possible_candidate_resolver = PossibleCandidateResolver(repo_obj=repo)
+        repo.resolve(possible_candidate_resolver)
+
+        # add `dependency` to Roles and Collections
+        dependency_resolver = DependencyResolver(repo_obj=repo)
+        repo.resolve(dependency_resolver)
 
         # save the resolved repository data as a json file
         json_str = repo.dump()
@@ -53,6 +63,14 @@ class TestResolver(unittest.TestCase):
         non_builtin_resolver = NonBuiltinResolver(repo_obj=repo)
         repo.resolve(non_builtin_resolver)
 
+        # add `possible_candidates` to Tasks that do not have fqcn
+        possible_candidate_resolver = PossibleCandidateResolver(repo_obj=repo)
+        repo.resolve(possible_candidate_resolver)
+
+        # add `dependency` to Roles and Collections
+        dependency_resolver = DependencyResolver(repo_obj=repo)
+        repo.resolve(dependency_resolver)
+
         # save the resolved repository data as a json file
         json_str = repo.dump()
         with open("test2.json", "w") as file:
@@ -76,6 +94,14 @@ class TestResolver(unittest.TestCase):
         # add `use-non-builtin-module: true` annotation to Task / Role / Playbook if it uses at least one non-builtin module
         non_builtin_resolver = NonBuiltinResolver(repo_obj=repo)
         repo.resolve(non_builtin_resolver)
+
+        # add `possible_candidates` to Tasks that do not have fqcn
+        possible_candidate_resolver = PossibleCandidateResolver(repo_obj=repo)
+        repo.resolve(possible_candidate_resolver)
+
+        # add `dependency` to Roles and Collections
+        dependency_resolver = DependencyResolver(repo_obj=repo)
+        repo.resolve(dependency_resolver)
 
         # save the resolved repository data as a json file
         json_str = repo.dump()
