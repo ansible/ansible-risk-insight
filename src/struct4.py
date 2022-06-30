@@ -20,7 +20,9 @@ logging.getLogger().setLevel(logging.INFO)
 
 valid_playbook_re = re.compile(r'^\s*?-?\s*?(?:hosts|include|import_playbook):\s*?.*?$')
 module_name_re = re.compile(r'^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$')
-collection_info_dir_re = re.compile(r'^[a-z0-9_]+\.[a-z0-9_]+-[0-9]+\.[0-9]+\.[0-9]\.info$')
+
+# collection info direcotry is something line "brightcomputing.bcm-9.1.11+41615.gitfab9053.info"
+collection_info_dir_re = re.compile(r'^[a-z0-9_]+\.[a-z0-9_]+-[0-9]+\.[0-9]+\.[0-9]+.*\.info$')
 
 module_dir_patterns = [
     "library",
@@ -38,6 +40,13 @@ class PlaybookFormatError(Exception):
 
 class TaskFileFormatError(Exception):
     pass
+
+class TaskFormatError(Exception):
+    pass
+
+class TaskTraverseLoopError(Exception):
+    pass
+
 
 class Singleton(type):
     _instances = {}
@@ -132,6 +141,7 @@ class Module(JSONSerializable, Resolvable):
     @property
     def resolver_targets(self):
         return None
+
 @dataclass
 class Collection(JSONSerializable, Resolvable):
     name: str = ""
@@ -168,6 +178,9 @@ class Collection(JSONSerializable, Resolvable):
             p = Playbook()
             try:
                 p.load(f, basedir=basedir)
+            except PlaybookFormatError as e:
+                    logging.warning("this file is not in a playbook format, maybe not a playbook file: {}".format(e.args[0]))
+                    continue
             except:
                 logging.exception("error while loading the playbook at {}".format(f))
             playbooks.append(p)
@@ -233,6 +246,8 @@ class Task(JSONSerializable, Resolvable):
             raise ValueError("task yaml file must be \".yml\" or \".yaml\"")
         if task_block_dict is None:
             raise ValueError("task block dict is required to load Task")
+        if not isinstance(task_block_dict, dict):
+            raise TaskFormatError("this task block is not loaded as dict; maybe this is not a task")
         data_block = task_block_dict
         task_name = ""
         module_name = self.find_module_name([k for k in data_block.keys()])
@@ -358,8 +373,11 @@ class TaskFile(JSONSerializable, Resolvable):
             t = Task()
             try:
                 t.load(fullpath, i, t_dict, basedir=basedir)
+            except TaskFormatError:
+                logging.warning("this task is wrong format; skip the task in {}, index: {}".format(fullpath, i))
+                continue
             except:
-                logging.exception("error while loading the task file at {}".format(fullpath))
+                logging.exception("error while loading the task at {}, index: {}".format(fullpath, i))
             tasks.append(t)
         self.tasks = tasks
 
@@ -371,7 +389,11 @@ class TaskFile(JSONSerializable, Resolvable):
             if not os.path.exists(fpath):
                 return None
             with open(fpath , "r") as file:
-                d = yaml.safe_load(file)
+                try:
+                    d = yaml.safe_load(file)
+                except Exception as e:
+                    logging.error("failed to load this yaml file to get task blocks; {}".format(e.args[0]))
+                    return None
         if d is None:
             return None
         if not isinstance(d, list):
@@ -395,9 +417,12 @@ class TaskFile(JSONSerializable, Resolvable):
         tasks = []
         if "block" in task_dict:
             tasks_in_block = task_dict.get("block", [])
-            for t_dict in tasks_in_block:
-                tasks_in_item = self.flatten_block_tasks(t_dict)
-                tasks.extend(tasks_in_item)
+            if isinstance(tasks_in_block, list):
+                for t_dict in tasks_in_block:
+                    tasks_in_item = self.flatten_block_tasks(t_dict)
+                    tasks.extend(tasks_in_item)
+            else:
+                tasks = [task_dict]
         else:
             tasks = [task_dict]
         return tasks
@@ -437,7 +462,10 @@ class Role(JSONSerializable, Resolvable):
         
         if os.path.exists(meta_file_path):
             with open(meta_file_path, "r") as file:
-                self.metadata = yaml.safe_load(file)
+                try:
+                    self.metadata = yaml.safe_load(file)
+                except Exception as e:
+                    logging.error("failed to load this yaml file to raed metadata; {}".format(e.args[0]))
 
         parts = tasks_dir_path.split("/")
         if len(parts) < 2:
@@ -559,7 +587,10 @@ class Playbook(JSONSerializable, Resolvable):
         data = None
         if fullpath != "":
             with open(fullpath , "r") as file:
-                data = yaml.safe_load(file)
+                try:
+                    data = yaml.safe_load(file)
+                except Exception as e:
+                    logging.error("failed to load this yaml file to load playbook; {}".format(e.args[0]))
         if data is None:
             return
         if not isinstance(data, list):
@@ -611,7 +642,11 @@ class Playbook(JSONSerializable, Resolvable):
             if not os.path.exists(fpath):
                 return None
             with open(fpath , "r") as file:
-                d = yaml.safe_load(file)
+                try:
+                    d = yaml.safe_load(file)
+                except Exception as e:
+                    logging.error("failed to load this yaml file to get task blocks in playbook; {}".format(e.args[0]))
+                    return None
         if d is None:
             return None
         tasks = []
@@ -635,12 +670,16 @@ class Playbook(JSONSerializable, Resolvable):
             for task_dict in tmp_tasks:
                 task_dict_loop = [task_dict]
                 if "block" in task_dict:    # tasks defined in a "block" are flattened
-                    task_dict_loop = task_dict.get("block", [])
+                    tmp_task_dict_loop = task_dict.get("block", [])
+                    if isinstance(tmp_task_dict_loop, list):
+                        task_dict_loop = tmp_task_dict_loop
                 tasks_in_play.extend(task_dict_loop)
             for task_dict in tmp_pre_tasks:
                 task_dict_loop = [task_dict]
                 if "block" in task_dict:    # tasks defined in a "block" are flattened
-                    task_dict_loop = task_dict.get("block", [])
+                    tmp_task_dict_loop = task_dict.get("block", [])
+                    if isinstance(tmp_task_dict_loop, list):
+                        task_dict_loop = tmp_task_dict_loop
                 tasks_in_play.extend(task_dict_loop)
             tasks.extend(tasks_in_play)
         return tasks
@@ -738,7 +777,8 @@ class Repository(JSONSerializable, Resolvable):
                 try:
                     p.load(fpath, basedir=basedir)
                 except PlaybookFormatError as e:
-                    logging.debug("this file is not in the playbook format, maybe not a playbook file: {}".format(e.args[0]))
+                    logging.warning("this file is not in a playbook format, maybe not a playbook file: {}".format(e.args[0]))
+                    continue
                 except:
                     logging.exception("error while loading the playbook at {}".format(fpath))
                 playbooks.append(p)
@@ -914,9 +954,12 @@ class Repository(JSONSerializable, Resolvable):
             galaxy_yml = found_galaxy_ymls[0]
             my_collection_info = None
             with open(galaxy_yml, "r") as file:
-                my_collection_info = yaml.safe_load(file)
+                try:
+                    my_collection_info = yaml.safe_load(file)
+                except Exception as e:
+                    logging.error("failed to load this yaml file to read galaxy.yml; {}".format(e.args[0]))
             if my_collection_info is None:
-                raise ValueError("failed to read galaxy.yml")
+                return ""
             namespace = my_collection_info.get("namespace", "")
             name = my_collection_info.get("name", "")
             my_collection_name = "{}.{}".format(namespace, name)
@@ -1069,10 +1112,15 @@ class Repository(JSONSerializable, Resolvable):
                 modules.append(m)
         return modules
 
-    def get_all_tasks_called_from_one_task(self, obj):
+    def get_all_tasks_called_from_one_task(self, obj, parent_obj_list=[]):
         if not isinstance(obj, Task):
             raise ValueError("this function accepts only Task input, but got {}".format(type(obj).__name__))
         task = obj
+        if len(parent_obj_list) > 0:
+            for parent_obj in parent_obj_list:
+                if isinstance(parent_obj, Task):
+                    if obj.id == parent_obj.id:
+                        raise TaskTraverseLoopError("task execution loop found. stop traversing the task tree here.")
         if task.resolved_name == "":
             if task.executable == "":
                 return []
@@ -1082,9 +1130,11 @@ class Repository(JSONSerializable, Resolvable):
                 return []
             else:
                 # roles in ansible-galaxy often does not have collection dependency information, so just warning it instead of raising an exception
-                logging.warning("FQCN for this task (executable: {} in {}) is empty; need to resolve FQCNs for all tasks first".format(task.executable, task.id))
+                logging.debug("FQCN for this task (executable: {} in {}) is empty; need to resolve FQCNs for all tasks first".format(task.executable, task.id))
                 return []
         tasks = [task]
+        parents = [p for p in parent_obj_list]
+        parents.append(task)
         if task.executable_type == "Role":
             role_fqcn = task.resolved_name
             r = self.get_role_by_fqcn(role_fqcn)
@@ -1093,7 +1143,7 @@ class Repository(JSONSerializable, Resolvable):
                     # call this function recusively for the case like below
                     # Task A --import_role--> Role B --run--> Task B2 --include_role--> Role C --run--> Task C1 ...
                     for t in tf.tasks:
-                        tasks_in_t = self.get_all_tasks_called_from_one_task(t)
+                        tasks_in_t = self.get_all_tasks_called_from_one_task(t, parent_obj_list=parents)
                         tasks.extend(tasks_in_t)
         elif task.executable_type == "TaskFile":
             taskfile_path = task.resolved_name
@@ -1103,7 +1153,7 @@ class Repository(JSONSerializable, Resolvable):
                     # call this function recusively for the case like below
                     # Task A --import_tasks--> TaskFile B --run--> Task B2 --include_tasks--> TaskFile C --run--> Task C1 ...
                     for t in tf.tasks:
-                        tasks_in_t = self.get_all_tasks_called_from_one_task(t)
+                        tasks_in_t = self.get_all_tasks_called_from_one_task(t, parent_obj_list=parents)
                         tasks.extend(tasks_in_t)
         return tasks
 
@@ -1191,7 +1241,10 @@ def search_taskfiles_for_playbooks(path, taskfile_dir_paths=[]):
                 continue
             d = None
             with open(f, "r") as file:
-                d = yaml.safe_load(file)
+                try:
+                    d = yaml.safe_load(file)
+                except Exception as e:
+                    logging.error("failed to load this yaml file to search task files; {}".format(e.args[0]))
             # if d cannot be loaded as tasks yaml file, skip it
             if d is None or not isinstance(d, list):
                 continue

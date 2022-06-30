@@ -4,7 +4,7 @@ dir=$1
 outdir=$2
 resume_role_name=$3
 
-echo "execute serial_loader.py for all roles in \"$dir\""
+echo "execute serial_resolver.py for all roles in \"$dir\""
 
 role_dirs=$(ls -1 -d $dir/*/)
 
