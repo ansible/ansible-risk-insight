@@ -97,4 +97,24 @@ class NonBuiltinResolver(Resolver):
         if use_non_builtin:
             playbook.annotations[self.annotation_name] = True
 
+    # add `use-non-builtin-module` annotation to the collection if it uses a playbook/role with the annotation
+    def collection(self, obj):
+        collection = obj
+        # if the annotation is already set, do nothing
+        if collection.annotations.get(self.annotation_name, False):
+            return
+
+        use_non_builtin = False
+        for p in collection.playbooks:
+            if p.annotations.get(self.annotation_name, False):
+                use_non_builtin = True
+                break
+        if not use_non_builtin:
+            for r in collection.roles:
+                if r.annotations.get(self.annotation_name, False):
+                    use_non_builtin = True
+                    break
+        if use_non_builtin:
+            collection.annotations[self.annotation_name] = True
+
 

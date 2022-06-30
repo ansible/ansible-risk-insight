@@ -1,5 +1,5 @@
 from resolver import Resolver
-
+import logging
 
 # set used_in to all applicable objects
 class UsedInResolver(Resolver):
@@ -47,7 +47,8 @@ class UsedInResolver(Resolver):
         # recording used_in info for the executable (Role or Module) in this task
         exec_type = task.executable_type.lower()
         if exec_type == "":
-            raise ValueError("the executable type is not set")
+            logging.warning("the executable type is not set")
+            return
         elif exec_type not in self.used_in_dict:
             raise ValueError("the executable type {} is not supported".format(exec_type))
         current = self.used_in_dict[exec_type].get(task.resolved_name, set())

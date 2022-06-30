@@ -1,5 +1,6 @@
 from resolver import Resolver
 import re
+import logging
 
 
 module_name_re = re.compile(r'^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$')
@@ -21,7 +22,11 @@ class DependencyResolver(Resolver):
         all_tasks = []
         for tf in role.taskfiles:
             for t in tf.tasks:
-                tasks = self.repo.get_all_tasks_called_from_one_task(t)
+                try:
+                    tasks = self.repo.get_all_tasks_called_from_one_task(t)
+                except:
+                    logging.exception("error while getting all tasks called from the task \"{}\", executable: \"{}\"".format(t.id, t.executable))
+                    continue
                 all_tasks.extend(tasks)
         
         dep_collections = set()
@@ -47,7 +52,12 @@ class DependencyResolver(Resolver):
         if len(collection.dependency) > 0:
             return
 
-        all_tasks = self.repo.get_all_tasks_called_from_one_collection(collection)
+        all_tasks = []
+        try:
+            all_tasks = self.repo.get_all_tasks_called_from_one_collection(collection)
+        except:
+            logging.exception("error while getting all tasks called in one collection \"{}\"".format(collection.name))
+            return
         
         dep_collections = set()
         dep_roles = set()
