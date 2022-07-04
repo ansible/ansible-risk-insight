@@ -1,6 +1,8 @@
 import os
 import re
-from struct4 import BuiltinModuleSet
+import json
+import argparse
+from struct4 import BuiltinModuleSet, Role, Collection
 from resolver import Resolver
 import logging
 
@@ -11,8 +13,28 @@ role_in_collection_name_re = re.compile(r'^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$')
 
 # set fqcn to all Task and RoleInPlay
 class FQCNResolver(Resolver):
-    def __init__(self, repo_obj):
-        self.repo = repo_obj
+    def __init__(self, path_to_dict1_json=""):
+        self.module_dict = {}
+        self.taskfile_dict = {}
+        self.role_dict = {}
+        if path_to_dict1_json != "":
+            d = {}
+            with open(path_to_dict1_json, "r") as file:
+                d = json.load(file)
+            self.module_dict = d.get("module", {})
+            self.taskfile_dict = d.get("taskfile", {})
+            self.role_dict = d.get("role", {})
+
+        self.module_fqcn_dict = {}
+        for k in self.module_dict:
+            short_name = k.split(".")[-1]
+            self.module_fqcn_dict[short_name] = k
+
+        self.role_fqcn_dict = {}
+        for k in self.role_dict:
+            short_name = k.split(".")[-1]
+            self.role_fqcn_dict[short_name] = k
+
         self.failed_annotation_key = "fqcn-resolve-failed"
 
     def task(self, obj):
@@ -89,10 +111,10 @@ class FQCNResolver(Resolver):
         if module_name in builtin_modules:
             fqcn = "ansible.builtin.{}".format(module_name)
         if fqcn == "":
-            m = self.repo.get_module_by_short_name(module_name)
-            if m is None:
+            found_fqcn = self.module_fqcn_dict.get(module_name, None)
+            if found_fqcn is None:
                 return ""
-            fqcn = m.fqcn
+            fqcn = found_fqcn
         return fqcn
 
     def search_taskfile_path(self, task_defined_path, taskfile_ref):
@@ -103,9 +125,9 @@ class FQCNResolver(Resolver):
                 roles_parent_dir = task_defined_path.split("/roles/")[0]
                 fpath = os.path.join(roles_parent_dir, taskfile_ref)
                 fpath = os.path.normpath(fpath)
-                tf = self.repo.get_taskfile_by_path(fpath)
-                if tf is not None:
-                    return tf.defined_in
+                found_tf = self.taskfile_dict.get(fpath, None)
+                if found_tf is not None:
+                    return fpath
 
         task_dir = os.path.dirname(task_defined_path)
         fpath = os.path.join(task_dir, taskfile_ref)
@@ -113,17 +135,59 @@ class FQCNResolver(Resolver):
         # but "tasks/some_dir/../some_taskfile.yml" cannot be found in the taskfile_dict
         # it will be "tasks/some_taskfile.yml" by this normalize
         fpath = os.path.normpath(fpath)
-        tf = self.repo.get_taskfile_by_path(fpath)
-        if tf is None:
-            return ""
-        fqcn = tf.defined_in
-        return fqcn
+        found_tf = self.taskfile_dict.get(fpath, None)
+        if found_tf is not None:
+            return fpath
+        return ""
 
     def search_role_fqcn(self, role_name):
-        r = self.repo.get_role_by_fqcn(role_name)
-        if r is not None:
-            return r.fqcn
-        r = self.repo.get_role_by_short_name(role_name)
-        if r is not None:
-            return r.fqcn
-        return ""
+        found_fqcn = self.role_fqcn_dict.get(role_name, None)
+        if found_fqcn is None:
+            return ""
+        return found_fqcn
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog='resolver_fqcn.py',
+        description='resolve fqcn',
+        epilog='end',
+        add_help=True,
+    )
+
+    parser.add_argument('-f', '--filepath', default="", help='path to json file')
+    parser.add_argument('-o', '--output', default="", help='path to the output json')
+    parser.add_argument('-d', '--dict-path', default="", help='path to the dict1 json file')
+
+    args = parser.parse_args()
+
+    if args.filepath == "":
+        raise ValueError("--filepath (-f) option is required")
+
+    obj_json = ""
+    with open(args.filepath, "r") as file:
+        obj_json = file.read()
+
+    obj = None
+    basename = os.path.basename(args.filepath)
+    if basename.startswith("role-"):
+        obj = Role()
+    elif basename.startswith("collection-"):
+        obj = Collection()
+    
+    if obj is None:
+        raise ValueError("object is None; json file name must start with \"role-\" or \"collection-\"")
+
+    # Role or Collection
+    obj.from_json(obj_json)
+
+    resolver = FQCNResolver(args.dict_path)
+    obj.resolve(resolver)
+
+    if args.output != "":
+        resolved_json = obj.dump()
+        with open(args.output, "w") as file:
+            file.write(resolved_json)
+
+if __name__ == "__main__":
+    
