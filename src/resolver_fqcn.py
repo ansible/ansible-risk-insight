@@ -266,8 +266,8 @@ def main():
         add_help=True,
     )
 
-    parser.add_argument('-f', '--filepath', default="", help='path to json file')
-    parser.add_argument('-o', '--output', default="", help='path to the output json')
+    parser.add_argument('-f', '--filepath', default="/Users/Hirokuni.Kitahara1@ibm.com/dev/ansible/ari-experiments/galaxy", help='path to json file or directory when `--all` mode')
+    parser.add_argument('-o', '--output', default="/Users/Hirokuni.Kitahara1@ibm.com/dev/ansible/ari-experiments/galaxy_resolved", help='path to the output json or directory when `--all` mode')
     parser.add_argument('-d', '--dict-path', default="/Users/Hirokuni.Kitahara1@ibm.com/dev/ansible/ari-experiments/dict1.json", help='path to the dict1 json file')
     parser.add_argument('-a', '--all', action='store_true', help='enable full resolve')
 
@@ -276,12 +276,15 @@ def main():
     if args.filepath == "" and not args.all:
         raise ValueError("--filepath (-f) option is required")
 
+    if not os.path.exists(args.dict_path):
+        raise ValueError("need to specify the correct path to the dict1 json with `--dict-path`")
+
     resolver = FQCNResolver(path_to_dict1_json=args.dict_path)
 
     fpath_list = []
     if args.all:
-        basedir = "/Users/Hirokuni.Kitahara1@ibm.com/dev/ansible/ari-experiments/galaxy"
-        outdir = "/Users/Hirokuni.Kitahara1@ibm.com/dev/ansible/ari-experiments/galaxy_resolved"
+        basedir = args.filepath
+        outdir = args.output
         fnames = os.listdir(basedir)
         fpath_list = [(os.path.join(basedir, fname), os.path.join(outdir, fname)) for fname in fnames]
     else:

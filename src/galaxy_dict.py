@@ -7,7 +7,7 @@ from struct4 import get_object, Module, Task, TaskFile, Role, Playbook, Play, Co
 
 
 class GalaxyDict():
-    def __init__(self, mode="load", dir="", target="", fqcn_to_extract="", out_dir=""):
+    def __init__(self, mode="load", dir="", target="", fqcn_to_extract="", out_dir="", dict1_path="", dict2_path="", json_search_root=""):
         available_modes = ["load", "dict1", "dict2", "merge", "extract"]
         if mode not in available_modes:
             raise ValueError("mode must be one of \"{}\"".format(available_modes))
@@ -17,21 +17,25 @@ class GalaxyDict():
         self.dir = dir
         self.target = target
         self.fqcn_to_extract = fqcn_to_extract
-        self.json_search_root = "/Users/Hirokuni.Kitahara1@ibm.com/dev/ansible/ari-experiments/galaxy_resolved"
         self.out_dir = out_dir
 
-        self.dict1_path = "/Users/Hirokuni.Kitahara1@ibm.com/dev/ansible/ari-experiments/dict1.json"
-        self.dict2_path = "/Users/Hirokuni.Kitahara1@ibm.com/dev/ansible/ari-experiments/dict2.json"
-        
-        with open(self.dict1_path, "r") as file:
-            d = json.load(file)
-            self.module_dict = d.get("module", {})
-            self.taskfile_dict = d.get("taskfile", {})
-            self.role_dict = d.get("role", {})
-        with open(self.dict2_path, "r") as file:
-            d = json.load(file)
-            self.task_dict = d.get("task", {})
-            self.playbook_dict = d.get("playbook", {})
+        self.dict1_path = dict1_path
+        self.dict2_path = dict2_path
+
+        if mode == "extract":
+            if not os.path.exists(json_search_root):
+                raise ValueError("need to specify correct path to the direcotry contains the resolved role/collection json files.")
+            self.json_search_root = json_search_root
+
+            with open(self.dict1_path, "r") as file:
+                d = json.load(file)
+                self.module_dict = d.get("module", {})
+                self.taskfile_dict = d.get("taskfile", {})
+                self.role_dict = d.get("role", {})
+            with open(self.dict2_path, "r") as file:
+                d = json.load(file)
+                self.task_dict = d.get("task", {})
+                self.playbook_dict = d.get("playbook", {})
 
         self.json_cache = {}
 
@@ -470,10 +474,15 @@ def main():
     parser.add_argument('-d', '--dir', default="", help='path to input directory')
     parser.add_argument('-t', '--target', default="", help='role or collection when load mode')
     parser.add_argument('-o', '--out-dir', default="", help='path to the output directory')
+    parser.add_argument('--dict1', default="/Users/Hirokuni.Kitahara1@ibm.com/dev/ansible/ari-experiments/dict1.json", help='path to dict1 json')
+    parser.add_argument('--dict2', default="/Users/Hirokuni.Kitahara1@ibm.com/dev/ansible/ari-experiments/dict2.json", help='path to dict1 json')
+    parser.add_argument('--json-search-root', default="/Users/Hirokuni.Kitahara1@ibm.com/dev/ansible/ari-experiments/galaxy_resolved", help='path to the direcotry contains the resolved role/collection json files')
     parser.add_argument('--module-fqcn', default="", help='module fqcn to extract target with the fqcn')
 
+    
+
     args = parser.parse_args()
-    m = GalaxyDict(args.mode, args.dir, args.target, args.module_fqcn, args.out_dir)
+    m = GalaxyDict(args.mode, args.dir, args.target, args.module_fqcn, args.out_dir, args.dict1, args.dict2)
     m.run()
 
 
