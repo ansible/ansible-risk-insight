@@ -268,7 +268,6 @@ class FQCNResolver(Resolver):
                 found_tf = self.taskfile_dict.get(fpath, None)
                 if found_tf is not None:
                     return fpath
-
             if task_dir.endswith("/tasks"):
                 role_dir = os.path.dirname(task_dir)
                 fpath = os.path.join(role_dir, taskfile_ref)
@@ -276,7 +275,6 @@ class FQCNResolver(Resolver):
                 found_tf = self.taskfile_dict.get(fpath, None)
                 if found_tf is not None:
                     return fpath
-
         return ""
 
     def search_role_fqcn(self, role_name, my_collection_name=""):
@@ -298,7 +296,6 @@ class FQCNResolver(Resolver):
                 if k.endswith(suffix):
                     return k
         return ""
-
     def role_fqcn_exists(self, role_fqcn):
         if self.repo is not None:
             for r in self.repo.roles:
