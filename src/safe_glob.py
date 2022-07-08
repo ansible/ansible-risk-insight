@@ -18,17 +18,20 @@ def safe_glob(patterns, root_dir="", recursive=True, followlinks=False):
     for pattern in pattern_list:
         # if root dir is not specified, automatically decide it with pattern
         # e.g.) pattern "testdir1/testdir2/*.py" --> root_dir "testdir1/testdir2"
+        root_dir_for_this_pattern = ""
         if root_dir == "":
             root_cand = pattern.split("*")[0]
             if root_cand.endswith("/"):
                 root_cand = root_cand[:-1] # trim "/" suffix
             else:
                 root_cand = "/".join(root_cand.split("/")[:-1]) # testdir1/testdir2/file-*.txt --> testdir1/testdir2
-            root_dir = root_cand
+            root_dir_for_this_pattern = root_cand
+        else:
+            root_dir_for_this_pattern = root_dir
         
         # if recusive, use os.walk to search files recursively
         if recursive:
-            for dirpath, folders, files in os.walk(root_dir, followlinks=followlinks):
+            for dirpath, folders, files in os.walk(root_dir_for_this_pattern, followlinks=followlinks):
                 for file in files:
                     fpath = os.path.join(dirpath, file)
                     fpath = os.path.normpath(fpath)
@@ -38,7 +41,7 @@ def safe_glob(patterns, root_dir="", recursive=True, followlinks=False):
                         matched_files.append(fpath)
         else:
             # otherwise, just use os.listdir to avoid unnecessary loading time of os.walk
-            files = os.listdir(root_dir)
+            files = os.listdir(root_dir_for_this_pattern)
             for file in files:
                 fpath = os.path.join(root_dir, file)
                 fpath = os.path.normpath(fpath)
