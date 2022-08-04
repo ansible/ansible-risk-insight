@@ -7,7 +7,7 @@ import subprocess
 import logging
 import copy
 from dataclasses import dataclass, field
-from struct4 import get_object, Repository, Playbook, Play, Role, Collection, TaskFile, Task, PlaybookFormatError
+from struct5 import get_object, Repository, Playbook, Play, Role, Collection, TaskFile, Task, PlaybookFormatError
 from resolver_fqcn import FQCNResolver
 
 

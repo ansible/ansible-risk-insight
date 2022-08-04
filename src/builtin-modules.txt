@@ -115,7 +115,6 @@ together
 unvault
 url
 varnames
-vars
 cmd
 powershell
 sh

@@ -1,4 +1,4 @@
-from struct4 import Module, Collection, Task, TaskFile, Role, RoleInPlay, Playbook, Play, Repository
+from struct5 import Module, Collection, Task, TaskFile, Role, RoleInPlay, Playbook, Play, Repository, ObjectList
 
 
 class Resolver:
@@ -22,6 +22,8 @@ class Resolver:
             self.collection(obj)
         elif obj_type == "Module":
             self.module(obj)
+        elif obj_type == "ObjectList":
+            self.objectlist(obj)
         else:
             raise ValueError("{} is not supported".format(obj_type))
 
@@ -60,3 +62,7 @@ class Resolver:
     def module(self, obj):
         if not isinstance(obj, Module):
             raise ValueError("this object is not a Module")
+
+    def objectlist(self, obj):
+        if not isinstance(obj, ObjectList):
+            raise ValueError("this object is not a ObjectList")

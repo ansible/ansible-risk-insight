@@ -8,7 +8,7 @@ from struct4 import get_object, Module, Task, TaskFile, Role, Playbook, Play, Co
 
 class GalaxyDict():
     def __init__(self, mode="load", dir="", target="", fqcn_to_extract="", out_dir="", dict1_path="", dict2_path="", json_search_root=""):
-        available_modes = ["load", "dict1", "dict2", "merge", "extract"]
+        available_modes = ["load", "dict1", "dict2", "merge", "extract", "dependency"]
         if mode not in available_modes:
             raise ValueError("mode must be one of \"{}\"".format(available_modes))
         if mode == "load" and target not in ["role", "collection"]:
@@ -37,6 +37,10 @@ class GalaxyDict():
                 self.task_dict = d.get("task", {})
                 self.playbook_dict = d.get("playbook", {})
 
+        self.traverse_main_only_for_role = True
+        if self.mode == "dependency":
+            self.traverse_main_only_for_role = False
+
         self.json_cache = {}
 
     def run(self):
@@ -50,6 +54,8 @@ class GalaxyDict():
             self.merge()
         elif self.mode == "extract":
             self.extract()
+        elif self.mode == "dependency":
+            self.dependency()
         return
 
     def load(self):
@@ -154,12 +160,14 @@ class GalaxyDict():
         return
 
     def extract(self):
-        supported = ["playbook"]
+        supported = ["playbook", "role"]
         if self.target not in supported:
             raise ValueError("the specified target is not supported yet")
         obj_dict = {}
         if self.target == "playbook":
             obj_dict = self.playbook_dict
+        elif self.target == "role":
+            obj_dict = self.role_dict
         if len(obj_dict) == 0:
             raise ValueError("found dict has 0 data; something wrong")
         found = []
@@ -184,6 +192,9 @@ class GalaxyDict():
         json_str = jsonpickle.encode(found, make_refs=False)
         with open(self.out_dir, "w") as file:
             file.write(json_str)
+
+    def dependency(self):
+        pass
 
     def use_module(self, obj, module_fqcn, ancestor_tasks=[]):
         ancestors = [task_id for task_id in ancestor_tasks]
@@ -235,6 +246,15 @@ class GalaxyDict():
                 r = get_object(json_path, "role", rip.resolved_name, self.json_cache)
                 if self.use_module(r, module_fqcn, ancestors):
                     return True
+        elif isinstance(obj, Role):
+            for tf in obj.taskfiles:
+                if self.traverse_main_only_for_role and tf.name not in ["main.yml", "main.yaml"]:
+                    continue
+                for t in tf.tasks:
+                    if t.id in ancestors:
+                        return False
+                    if self.use_module(t, module_fqcn, ancestors):
+                        return True
         elif isinstance(obj, Task):
             ancestors.append(obj.id)
             if obj.resolved_name == "":
@@ -266,13 +286,6 @@ class GalaxyDict():
                 r = get_object(json_path, "role", obj.resolved_name, self.json_cache)
                 if self.use_module(r, module_fqcn, ancestors):
                     return True
-        elif isinstance(obj, Role):
-            for tf in obj.taskfiles:
-                 for t in tf.tasks:
-                    if t.id in ancestors:
-                        return False
-                    if self.use_module(t, module_fqcn, ancestors):
-                        return True
         return False
         
 def merge_dict(d, di):
@@ -482,7 +495,7 @@ def main():
     
 
     args = parser.parse_args()
-    m = GalaxyDict(args.mode, args.dir, args.target, args.module_fqcn, args.out_dir, args.dict1, args.dict2)
+    m = GalaxyDict(args.mode, args.dir, args.target, args.module_fqcn, args.out_dir, args.dict1, args.dict2, args.json_search_root)
     m.run()
 
 
