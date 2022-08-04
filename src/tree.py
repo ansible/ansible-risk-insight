@@ -81,7 +81,6 @@ class TreeNode(object):
     def to_str(self):
         src_dst_array = self.to_graph()
         return json.dumps(src_dst_array)
-
     # return list of (src, dst)
     def to_graph(self):
         return self.recursive_graph_dump(None, self)
@@ -93,7 +92,6 @@ class TreeNode(object):
     # reutrn list of TreeNodes that are under this TreeNode
     def to_list(self):
         return self.recursive_convert_to_list(self)
-
     def recursive_convert_to_list(self, node, nodelist=[]):
         current = [pair for pair in nodelist]
         current.append(node)
@@ -148,7 +146,6 @@ class TreeNode(object):
         path_array = self.search_branch_to_key(end_key, self)
         path_array = [nodelist2branch(nodelist) for nodelist in path_array]
         return path_array
-
     def search_branch_to_key(self, search_key, node, ancestors=[]):
         current = [n for n in ancestors]
         found = []
@@ -184,7 +181,6 @@ def nodelist2branch(nodelist):
         current.children = [n.copy()]
         current = current.children[0]
     return t
-
 
 def load_graph(graph_path):
     graph = {}

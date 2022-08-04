@@ -212,7 +212,7 @@ def extract_variable_names(txt):
 
 class CallChain():
     def __init__(self, type, name, collection, scm_repo_path, variable, path_to_dict1_json, path_to_dict2_json, json_search_root, task_name, module_name, out_dir, out_file):
-        if name == "":
+        if not all and name == "":
             raise ValueError("\"name\" must be specified in order to trace the call chain")
         self.type = type.lower()
         self.name = name
@@ -304,8 +304,8 @@ class CallChain():
                 continue
             if self.module_name != "" and task.resolved_name != self.module_name:
                 continue
-            print("[DEBUG1] Task:", task.dump())
-            print("[DEBUG2] Context:", ctx.chain_str())
+            # print("[DEBUG1] Task:", task.dump())
+            # print("[DEBUG2] Context:", ctx.chain_str())
             single_item = {
                 "context": ctx,
                 "task": task,
@@ -313,7 +313,7 @@ class CallChain():
             if self.variable:
                 resolved_options = resolve_module_options(ctx, task)
                 single_item["resolved_options"] = resolved_options
-                print("[DEBUG3] resolved_options:", json.dumps(resolved_options))
+                # print("[DEBUG3] resolved_options:", json.dumps(resolved_options))
             output.append(single_item)
             
         if self.out_dir != "" or self.out_file != "":

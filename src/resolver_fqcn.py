@@ -23,7 +23,6 @@ class FQCNResolver(Resolver):
         self.repo = repo_obj
         dict1_pack_path = "dict1_pack.json"
         dict1_pack = None
-
         if len(dicts) == 3:
             self.module_dict = dicts.get("module", {})
             self.role_dict = dicts.get("role", {})
@@ -302,6 +301,145 @@ class FQCNResolver(Resolver):
                 if r.fqcn == role_fqcn:
                     return True
         return role_fqcn in set(self.role_dict.keys())
+
+def get_dependency_names(raw_dependencies):
+    if not isinstance(raw_dependencies, dict):
+        return [], []
+    raw_dep_roles = raw_dependencies.get("roles", [])
+    raw_dep_colls = raw_dependencies.get("collections", [])
+
+    dep_roles = []
+    if isinstance(raw_dep_roles, list):
+        for dep in raw_dep_roles:
+            if isinstance(dep, str):
+                dep_roles.append(dep)
+            elif isinstance(dep, dict):
+                r_name = dep.get("role", "")
+                if r_name != "":
+                    dep_roles.append(dep)
+    dep_colls = []
+    if isinstance(raw_dep_colls, list):
+        for dep in raw_dep_colls:
+            if isinstance(dep, str):
+                dep_colls.append(dep)
+    # Collection.dependency["collections"] is a dict like below
+    #   "community.general": "1.0.0",
+    #   "ansible.posix": "*",
+    elif isinstance(raw_dep_colls, dict):
+        for c_name in raw_dep_colls:
+            dep_colls.append(c_name)
+    return dep_roles, dep_colls
+
+
+def get_all_dependencies(target_path, known_dependencies={}):
+    # TODO: if target is not there, should do install & load & parse for it dynamically?
+    if not os.path.exists(target_path):
+        return {"roles": [], "collections": []}
+    target = os.path.basename(os.path.normpath(target_path))
+    basedir = os.path.dirname(os.path.normpath(target_path))
+    target_type = target.split("-")[0]
+
+    target_key = target_type + "s" # role --> roles, collection --> collections
+    if target in known_dependencies.get(target_key, []):
+        return {"roles": [], "collections": []}
+
+    raw_dependencies = {}
+    if target_type == "collection":
+        collections_path = os.path.join(target_path, "collections.json")
+        collections = ObjectList().from_json(fpath=collections_path)
+        c = collections.items[0]
+        raw_dependencies = c.dependency
+    elif target_type == "role":
+        roles_path = os.path.join(target_path, "roles.json")
+        roles = ObjectList().from_json(fpath=roles_path)
+        r = roles.items[0]
+        raw_dependencies = r.dependency
+
+    dep_roles, dep_colls = get_dependency_names(raw_dependencies)
+
+    dependencies = {}
+    dependencies["roles"] = dep_roles
+    dependencies["collections"] = dep_colls        
+
+    for role_name in dependencies["roles"]:
+        sub_target_path = os.path.join(basedir, "role-{}".format(role_name))
+        sub_dependencies = get_all_dependencies(target_path=sub_target_path, known_dependencies=dependencies)
+        dependencies["roles"].extend(sub_dependencies["roles"])
+        dependencies["collections"].extend(sub_dependencies["collections"])
+
+    for collection_name in dependencies["collections"]:
+        sub_target_path = os.path.join(basedir, "collection-{}".format(collection_name))
+        sub_dependencies = get_all_dependencies(target_path=sub_target_path, known_dependencies=dependencies)
+        dependencies["roles"].extend(sub_dependencies["roles"])
+        dependencies["collections"].extend(sub_dependencies["collections"])
+
+    dependencies["roles"] = sorted(dependencies["roles"])
+    dependencies["collections"] = sorted(dependencies["collections"])
+    return dependencies
+
+def load_definitions(target_path):
+    roles_path = os.path.join(target_path, "roles.json")
+    roles = ObjectList()
+    if os.path.exists(roles_path):
+        roles.from_json(fpath=roles_path)
+    taskfiles_path = os.path.join(target_path, "taskfiles.json")
+    taskfiles = ObjectList()
+    if os.path.exists(taskfiles_path):
+        taskfiles.from_json(fpath=taskfiles_path)
+    modules_path = os.path.join(target_path, "modules.json")
+    modules = ObjectList()
+    if os.path.exists(modules_path):
+        modules.from_json(fpath=modules_path)
+    return roles, taskfiles, modules
+
+def make_dicts(target_path, dependencies, galaxy_dir="", save_marged=False):
+    basedir = ""
+    if galaxy_dir == "":
+        basedir = os.path.dirname(os.path.normpath(target_path))
+    else:
+        basedir = galaxy_dir
+    roles, taskfiles, modules = load_definitions(target_path=target_path)
+    
+    req_path_list = []
+    for role_name in dependencies.get("roles", []):
+        req_path_list.append(os.path.join(basedir, "role-{}".format(role_name)))
+    for collection_name in dependencies.get("collections", []):
+        req_path_list.append(os.path.join(basedir, "collection-{}".format(collection_name)))
+
+    for sub_target_path in req_path_list:
+        sub_roles, sub_taskfiles, sub_modules = load_definitions(target_path=sub_target_path)
+        roles.merge(sub_roles)
+        taskfiles.merge(sub_taskfiles)
+        modules.merge(sub_modules)
+    
+    if save_marged:
+        os.makedirs(os.path.join(target_path, "merged"), exist_ok=True)
+        roles.dump(fpath=os.path.join(target_path, "merged", "roles.json"))
+        taskfiles.dump(fpath=os.path.join(target_path, "merged", "taskfiles.json"))
+        modules.dump(fpath=os.path.join(target_path, "merged", "modules.json"))
+
+        # TODO: handle playbook, play and tasks correctly
+        shutil.copyfile(os.path.join(target_path, "playbooks.json"), os.path.join(target_path, "merged/playbooks.json"))
+        shutil.copyfile(os.path.join(target_path, "plays.json"), os.path.join(target_path, "merged/plays.json"))
+        shutil.copyfile(os.path.join(target_path, "tasks.json"), os.path.join(target_path, "merged/tasks.json"))
+
+    role_dict = {}
+    for r in roles.items:
+        role_dict[r.fqcn] = r
+    taskfile_dict = {}
+    for tf in taskfiles.items:
+        taskfile_dict[tf.defined_in] = tf
+    module_dict = {}
+    for m in modules.items:
+        module_dict[m.fqcn] = m
+
+    dicts = {
+        "role": role_dict,
+        "taskfile": taskfile_dict,
+        "module": module_dict,
+    }
+
+    return dicts
 
 
 def get_dependency_names(raw_dependencies):
