@@ -131,9 +131,16 @@ class Resolvable(object):
     def resolver_targets(self):
         raise NotImplementedError
 
+class LoadType:
+    SCM_REPO_TYPE = "scm_repo"
+    COLLECTION_TYPE = "collection"
+    ROLE_TYPE = "role"
+    PLAYBOOK_TYPE = "playbook"
+    UNKNOWN_TYPE = "unknown"
+
 @dataclass
 class Load(JSONSerializable):
-    target: str = ""
+    target_name: str = ""
     target_type: str = ""
     path: str = ""
     loader_version: str = ""
@@ -145,47 +152,35 @@ class Load(JSONSerializable):
     taskfiles: list = field(default_factory=list)
     modules: list = field(default_factory=list)
 
-    def run(self, basedir="", output_path=""):
-        repo = None
-        if self.target_type == "collection":
-            c = Collection()
-            c.load(collection_dir=self.path, basedir=basedir, load_children=False)
-            self.roles = c.roles
-            self.playbooks = c.playbooks
-            self.taskfiles = c.taskfiles
-            self.modules = c.modules
-        elif self.target_type == "role":
-            r = Role()
-            r.load(path=self.path, basedir=basedir, load_children=False)
-            self.playbooks = r.playbooks
-            self.taskfiles = r.taskfiles
-            self.modules = r.modules
-        elif self.target_type == "playbook":
-            repo_root = get_repo_root(self.path)
-            if repo_root != "":
-                repo = Repository()
-                repo.load(path=repo_root, basedir=basedir, load_children=False)
-                self.roles = repo.roles
-                self.playbooks = repo.playbooks
-                self.taskfiles = repo.taskfiles
-                self.modules = repo.modules
-            else:
-                p = Playbook()
-                p.load(path=self.path, role_name="", collection_name="", basedir=basedir)
+    def run(self, output_path=""):
+        obj = None
+        if self.target_type == LoadType.COLLECTION_TYPE:
+            obj = Collection()
+            obj.load(collection_dir=self.path, basedir=self.path, load_children=False)
+        elif self.target_type == LoadType.ROLE_TYPE:
+            obj = Role()
+            obj.load(path=self.path, basedir=self.path, load_children=False)
+        elif self.target_type == LoadType.PLAYBOOK_TYPE:
+            obj = Playbook()
+            obj.load(path=self.path, role_name="", collection_name="", basedir=self.path)
+        elif self.target_type == LoadType.SCM_REPO_TYPE:
+            obj = Repository()
+            obj.load(path=self.path, basedir=self.path, load_children=False)
+
+        if hasattr(obj, "roles"):
+            self.roles = obj.roles
+        if hasattr(obj, "playbooks"):
+            self.playbooks = obj.playbooks
+        if hasattr(obj, "taskfiles"):
+            self.taskfiles = obj.taskfiles
+        if hasattr(obj, "modules"):
+            self.modules = obj.modules
         self.timestamp = datetime.datetime.utcnow().isoformat()
-        self.path = self.path.replace(basedir, "")
-        if self.path.startswith("/"):
-            self.path = self.path[1:]
 
         json_str = self.dump()
         if output_path != "":
             with open(output_path, "w") as file:
                 file.write(json_str)
-            if repo is not None:
-                repo_output_path = os.path.join(os.path.dirname(output_path), "repository.json")
-                with open(repo_output_path, "w") as file:
-                    repo_json_str = repo.dump()
-                    file.write(repo_json_str)
         else:
             print(json_str)
 

@@ -5,72 +5,41 @@ import sys
 import pathlib
 import json
 import jsonpickle
+import yaml
 import logging
 import git
 import datetime
 import joblib
 from resolver_fqcn import FQCNResolver
-from struct5 import Load, get_repo_root
+from struct5 import Load, LoadType, get_repo_root
+from safe_glob import safe_glob
 
-supported_target_types = ["collection", "role", "playbook", "repository"]
 
-skip_files = [".DS_Store"]
 
-search_dirs = [
-    "testdata-aa",
-    "testdata-ab",
-    "testdata-ac",
-    "testdata-ad",
-    "testdata-ae",
-    "testdata-af",
-    "testdata-ag-ah",
-    "testdata-ai",
-    "testdata-aj",
-    "testdata-ak",
-    "testdata-al",
-    "testdata-am",
-    "testdata-an",
-    "testdata-ao",
-    "testdata-ap",
-    "testdata-collection"
-]
+supported_target_types = [LoadType.SCM_REPO_TYPE, LoadType.COLLECTION_TYPE, LoadType.ROLE_TYPE, LoadType.PLAYBOOK_TYPE]
 
-def args2target_info(args):
-    if args.role != "":
-        return args.role, "role"
-    elif args.collection != "":
-        return args.collection, "collection"
-    elif args.playbook != "":
-        return args.playbook, "playbook"
-    elif args.scm_repo != "":
-        return args.scm_repo, "repository"
-    else:
-        return "", ""
+collection_manifest_json = "MANIFEST.json"
+role_meta_main_yml = "meta/main.yml"
 
-def path2info(path):
-    target_type = ""
-    if "testdata-collection/ansible_collections/" in path:
-        target_type = "collection"
-    elif os.path.exists(os.path.join(path, "MANIFEST.json")):
-        target_type = "collection"
-    elif "/testdata-a" in path:
-        target_type = "role"
-    elif os.path.exists(os.path.join(path, "meta/main.yml")):
-        target_type = "role"
-    elif path.endswith(".yml") or path.endswith(".yaml"):
-        target_type = "playbook"
-    
-    if target_type == "":
-        return "", ""
-
-    parts = path.split("/")
-    if target_type == "role":
-        target = parts[-1]
-    elif target_type == "collection":
-        target = ".".join(parts[-2:])
-    elif target_type == "playbook":
-        target = path
-    return target, target_type
+def detect_target_type(path):
+    if os.path.isfile(path):
+        # need further check?
+        return LoadType.PLAYBOOK_TYPE, [path]
+    if os.path.abspath(get_repo_root(path)) == os.path.abspath(path):
+        return LoadType.SCM_REPO_TYPE, [path]
+    if os.path.exists(os.path.join(path, collection_manifest_json)):
+        return LoadType.COLLECTION_TYPE, [path]
+    if os.path.exists(os.path.join(path, role_meta_main_yml)):
+        return LoadType.ROLE_TYPE, [path]
+    collection_meta_files = safe_glob(os.path.join(path, "**", collection_manifest_json), recursive=True)
+    if len(collection_meta_files) > 0:
+        collection_path_list = [f.replace("/" + collection_manifest_json, "") for f in collection_meta_files]
+        return LoadType.COLLECTION_TYPE, collection_path_list
+    role_meta_files = safe_glob(os.path.join(path, "**", role_meta_main_yml), recursive=True)
+    if len(role_meta_files) > 0:
+        role_path_list = [f.replace("/" + role_meta_main_yml, "") for f in role_meta_files]
+        return LoadType.ROLE_TYPE, role_path_list
+    return LoadType.UNKNOWN_TYPE, []
 
 def get_loader_version():
     script_dir = pathlib.Path(__file__).parent.resolve()
@@ -78,85 +47,51 @@ def get_loader_version():
     sha = repo.head.object.hexsha
     return sha
 
-def check_search_dirs(root_dir):
-    if not os.path.exists(root_dir):
-        raise ValueError("file not found: {}".format(root_dir))
-    for d in search_dirs:
-        path = os.path.join(root_dir, d)
-        if not os.path.exists(path):
-            raise ValueError("file not found: {}".format(path))
-    return
+def create_load_json_path(target_type, target_path, output_dir):
+    target_name = ""
+    if target_type == LoadType.SCM_REPO_TYPE:
+        repo_name = get_repo_root(target_path).split("/")[-1]
+        target_name = repo_name
+    elif target_type == LoadType.COLLECTION_TYPE:
+        meta_file = os.path.join(target_path, collection_manifest_json)
+        metadata = {}
+        with open(meta_file, "r") as file:
+            metadata = json.load(file)
+        collection_namespace = metadata.get("collection_info", {}).get("namespace", "")
+        collection_name = metadata.get("collection_info", {}).get("name", "")
+        target_name = "{}.{}".format(collection_namespace, collection_name)
+    elif target_type == LoadType.ROLE_TYPE:
+        # any better approach?
+        target_name = target_path.split("/")[-1]
+    elif target_type == LoadType.PLAYBOOK_TYPE:
+        target_name = filepath_to_target_name(target_path)
 
-def get_base_dir(path):
-    basedir = ""
-    for d in search_dirs:
-        if d in path:
-            basedir = path.split(d)[0]
-            break
-    if basedir != "":
-        return basedir
-    repo_root = get_repo_root(path)
-    if repo_root != "":
-        basedir = os.path.dirname(os.path.normpath(repo_root))
-    if basedir != "":
-        return basedir
-    return path
+    load_json_path = os.path.join(output_dir, "load-{}-{}.json".format(target_type, target_name))
+    return load_json_path, target_name
+
+def filepath_to_target_name(filepath):
+    return filepath.translate(str.maketrans({' ': '___', '/': '---', '.':'_dot_'}))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog='loader.py',
-        description='load collection/role/playbook/repository and make call graph',
+        description='load scm_repo/collection(s)/role(s)/playbook and make call graph',
         epilog='end',
         add_help=True,
     )
 
     parser.add_argument('-t', '--target-path', default="", help='target path')
-    parser.add_argument('-a', '--all', action='store_true', help='if True, load all collections and roles')
-    parser.add_argument('-o', '--output-path', default="", help='path to output file')  
+    parser.add_argument('-o', '--output-dir', default="", help='path to output dir')  
 
     args = parser.parse_args()
 
-    profiles = []
-    if args.all:
-        search_root = args.target_path
-        output_root = args.output_path
-        check_search_dirs(search_root)
-        for d in search_dirs:
-            if d == "testdata-collection":
-                data_root_dir = os.path.join(search_root, d, "ansible_collections")
-                dir_names1 = os.listdir(data_root_dir)
-                for d1 in dir_names1:
-                    if d1.endswith(".info"):
-                        continue
-                    if d1 in skip_files:
-                        continue
-                    dir_names2 = os.listdir(os.path.join(data_root_dir, d1))
-                    for d2 in dir_names2:
-                        if d2 in skip_files:
-                            continue
-                        target_path = os.path.join(data_root_dir, d1, d2)
-                        output_path = os.path.join(output_root, "collection-{}.{}".format(d1, d2), "load.json")
-                        p = (target_path, output_path)
-                        profiles.append(p)
-            else:
-                data_root_dir = os.path.join(search_root, d)
-                dir_names1 = os.listdir(data_root_dir)
-                for d1 in dir_names1:
-                    if d1 in skip_files:
-                        continue
-                    dir_names2 = os.listdir(os.path.join(data_root_dir, d1))
-                    for d2 in dir_names2:
-                        if d2 in skip_files:
-                            continue
-                        target_path = os.path.join(data_root_dir, d1, d2)
-                        output_path = os.path.join(output_root, "role-{}".format(d2), "load.json")
-                        p = (target_path, output_path)
-                        profiles.append(p)
-                continue
-            
-    else:
-        p = (args.target_path, args.output_path)
-        profiles.append(p)
+    target_type, target_path_list = detect_target_type(args.target_path)
+    logging.info("the detected target type: \"{}\", found targets: {}".format(target_type, len(target_path_list)))
+    if target_type not in supported_target_types:
+        logging.error("this target type is not supported")
+        sys.exit(1)
+
+    profiles = [(target_path) for target_path in target_path_list]
 
     num = len(profiles)
     if num == 0:
@@ -165,14 +100,16 @@ if __name__ == "__main__":
     else:
         logging.info("start loading for {} collections & roles".format(num))
     
-    basedir = get_base_dir(profiles[0][0])
+    output_dir = args.output_dir
     loader_version = get_loader_version()
 
     def load_single(single_input):
         i = single_input[0]
-        target_path = single_input[1]
-        output_path = single_input[2]
-        target, target_type = path2info(target_path)
+        num = single_input[1]
+        target_path = os.path.normpath(single_input[2])
+        output_dir = single_input[3]
+        loader_version = single_input[4]
+        output_path, target_name = create_load_json_path(target_type, target_path, output_dir)
         if os.path.exists(output_path):
             d = json.load(open(output_path, "r"))
             timestamp = d.get("timestamp", "")
@@ -181,19 +118,18 @@ if __name__ == "__main__":
                 now = datetime.datetime.utcnow()
                 # if the load data was updated within last 10 minutes, skip it
                 if (now - loaded_time).total_seconds() < 60 * 10:
-                    print("[{}/{}] SKIP: {} {}       ".format(i+1, num, target_type, target))
+                    print("[{}/{}] SKIP: {} {}       ".format(i+1, num, target_type, target_name))
                     return
-        print("[{}/{}] {} {}       ".format(i+1, num, target_type, target))
+        print("[{}/{}] {} {}       ".format(i+1, num, target_type, target_name))
 
-        target_path = os.path.normpath(target_path)
         if not os.path.exists(target_path):
-            raise ValueError("file not found: {}".format(target_path))
+            raise ValueError("No such file or directory: {}".format(target_path))
         output_dir = os.path.dirname(output_path)
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
-        l = Load(target=target, target_type=target_type, path=target_path, loader_version=loader_version)
-        l.run(basedir=basedir, output_path=output_path)
+        l = Load(target_name=target_name, target_type=target_type, path=target_path, loader_version=loader_version)
+        l.run(output_path=output_path)
 
-    parallel_input_list = [(i, target_path, output_path) for i, (target_path, output_path) in enumerate(profiles)]
+    parallel_input_list = [(i, num, target_path, output_dir, loader_version) for i, (target_path) in enumerate(profiles)]
     _ = joblib.Parallel(n_jobs=-1)(joblib.delayed(load_single)(single_input) for single_input in parallel_input_list)
     
