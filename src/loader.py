@@ -22,7 +22,6 @@ collection_manifest_json = "MANIFEST.json"
 role_meta_main_yml = "meta/main.yml"
 role_meta_main_yaml = "meta/main.yaml"
 
-
 def detect_target_type(path, is_ext):
     if os.path.isfile(path):
         # need further check?

@@ -265,7 +265,10 @@ def dump_object_list(obj_list, output_path):
     open(output_path, "w").write("\n".join(lines))
     return
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> c4eb8f3f (update parser)
 def load_name2target_name(path):
     filename = os.path.basename(path)
     parts = os.path.splitext(filename)
@@ -274,7 +277,6 @@ def load_name2target_name(path):
     if target_name.startswith(prefix):
         target_name = target_name[len(prefix):]
     return target_name
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
