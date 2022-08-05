@@ -712,6 +712,7 @@ class Role(JSONSerializable, Resolvable):
     name: str = ""
     defined_in: str = ""
     key: str = ""
+    local_key: str = ""
     fqcn: str = ""
     metadata: dict = field(default_factory=dict)
     collection: str = ""
@@ -938,6 +939,7 @@ class Play(JSONSerializable, Resolvable):
     defined_in: str = ""
     index: int = -1
     key: str = ""
+    local_key: str = ""
 
     role: str = ""
     collection: str = ""
@@ -1100,6 +1102,7 @@ class Playbook(JSONSerializable, Resolvable):
     name: str = ""
     defined_in: str = ""
     key: str = ""
+    local_key: str = ""
 
     role: str = ""
     collection: str = ""
