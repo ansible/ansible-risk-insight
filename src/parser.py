@@ -111,7 +111,9 @@ class Parser():
                 continue
             modules.append(m)
             mappings.append((module_path, m.key))
-        modules = add_builtin_modules(modules)
+        
+        # TODO: handle builtin modules while making a tree without adding dummy module objects here
+        # modules = add_builtin_modules(modules)
 
         logging.debug("roles: {}".format(len(roles)))
         logging.debug("taskfiles: {}".format(len(taskfiles)))
