@@ -11,34 +11,36 @@ import git
 import datetime
 import joblib
 from resolver_fqcn import FQCNResolver
-from struct5 import Load, LoadType, get_repo_root
+from struct5 import Load, LoadType
 from safe_glob import safe_glob
 
 
 
-supported_target_types = [LoadType.SCM_REPO_TYPE, LoadType.COLLECTION_TYPE, LoadType.ROLE_TYPE, LoadType.PLAYBOOK_TYPE]
+supported_target_types = [LoadType.PROJECT_TYPE, LoadType.COLLECTION_TYPE, LoadType.ROLE_TYPE, LoadType.PLAYBOOK_TYPE]
 
 collection_manifest_json = "MANIFEST.json"
 role_meta_main_yml = "meta/main.yml"
 
-def detect_target_type(path):
+def detect_target_type(path, is_ext):
     if os.path.isfile(path):
         # need further check?
         return LoadType.PLAYBOOK_TYPE, [path]
-    if os.path.abspath(get_repo_root(path)) == os.path.abspath(path):
-        return LoadType.SCM_REPO_TYPE, [path]
+
     if os.path.exists(os.path.join(path, collection_manifest_json)):
         return LoadType.COLLECTION_TYPE, [path]
     if os.path.exists(os.path.join(path, role_meta_main_yml)):
         return LoadType.ROLE_TYPE, [path]
-    collection_meta_files = safe_glob(os.path.join(path, "**", collection_manifest_json), recursive=True)
-    if len(collection_meta_files) > 0:
-        collection_path_list = [f.replace("/" + collection_manifest_json, "") for f in collection_meta_files]
-        return LoadType.COLLECTION_TYPE, collection_path_list
-    role_meta_files = safe_glob(os.path.join(path, "**", role_meta_main_yml), recursive=True)
-    if len(role_meta_files) > 0:
-        role_path_list = [f.replace("/" + role_meta_main_yml, "") for f in role_meta_files]
-        return LoadType.ROLE_TYPE, role_path_list
+    if is_ext:
+        collection_meta_files = safe_glob(os.path.join(path, "**", collection_manifest_json), recursive=True)
+        if len(collection_meta_files) > 0:
+            collection_path_list = [f.replace("/" + collection_manifest_json, "") for f in collection_meta_files]
+            return LoadType.COLLECTION_TYPE, collection_path_list
+        role_meta_files = safe_glob(os.path.join(path, "**", role_meta_main_yml), recursive=True)
+        if len(role_meta_files) > 0:
+            role_path_list = [f.replace("/" + role_meta_main_yml, "") for f in role_meta_files]
+            return LoadType.ROLE_TYPE, role_path_list
+    else:
+        return LoadType.PROJECT_TYPE, [path]
     return LoadType.UNKNOWN_TYPE, []
 
 def get_loader_version():
@@ -49,9 +51,9 @@ def get_loader_version():
 
 def create_load_json_path(target_type, target_path, output_dir):
     target_name = ""
-    if target_type == LoadType.SCM_REPO_TYPE:
-        repo_name = get_repo_root(target_path).split("/")[-1]
-        target_name = repo_name
+    if target_type == LoadType.PROJECT_TYPE:
+        project_name = os.path.normpath(target_path).split("/")[-1]
+        target_name = project_name
     elif target_type == LoadType.COLLECTION_TYPE:
         meta_file = os.path.join(target_path, collection_manifest_json)
         metadata = {}
@@ -75,17 +77,24 @@ def filepath_to_target_name(filepath):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog='loader.py',
-        description='load scm_repo/collection(s)/role(s)/playbook and make call graph',
+        description='load project/collection(s)/role(s)/playbook and make a load json',
         epilog='end',
         add_help=True,
     )
 
     parser.add_argument('-t', '--target-path', default="", help='target path')
-    parser.add_argument('-o', '--output-dir', default="", help='path to output dir')  
+    parser.add_argument('-o', '--output-dir', default="", help='path to output dir')
+    parser.add_argument('--root', action='store_true', help='enable this if the target is the root')
+    parser.add_argument('--ext', action='store_true', help='enable this if the target is the external dependency(s)')
 
     args = parser.parse_args()
 
-    target_type, target_path_list = detect_target_type(args.target_path)
+    if not args.root and not args.ext:
+        logging.error("either \"--root\" or \"--ext\" must be specified")
+        sys.exit(1)
+    is_ext = args.ext
+
+    target_type, target_path_list = detect_target_type(args.target_path, is_ext)
     logging.info("the detected target type: \"{}\", found targets: {}".format(target_type, len(target_path_list)))
     if target_type not in supported_target_types:
         logging.error("this target type is not supported")
@@ -98,7 +107,7 @@ if __name__ == "__main__":
         logging.info("no target dirs found. exitting.")
         sys.exit()
     else:
-        logging.info("start loading for {} collections & roles".format(num))
+        logging.info("start loading {} {}(s)".format(num, target_type))
     
     output_dir = args.output_dir
     loader_version = get_loader_version()

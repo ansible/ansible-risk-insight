@@ -3,15 +3,16 @@ from dataclasses import dataclass, field
 import argparse
 import os
 import sys
+import json
 import logging
 import copy
 import joblib
 from resolver_fqcn import FQCNResolver
-from struct5 import Module, Task, TaskFile, Role, Playbook, Play, Collection, Repository, Load, BuiltinModuleSet
+from struct5 import Module, Task, TaskFile, Role, Playbook, Play, Collection, Repository, Load, BuiltinModuleSet, LoadType
 
 
 class Parser():
-    def run(self, load_json_path="", basedir=""):
+    def run(self, load_json_path="", output_dir=""):
         l = Load()
         if load_json_path != "":
             if not os.path.exists(load_json_path):
@@ -21,32 +22,38 @@ class Parser():
         collection_name = ""
         role_name = ""
         obj = None
-        if l.target_type == "collection":
-            collection_dir = os.path.join(basedir, l.path)
-            collection_name = l.target
+        if l.target_type == LoadType.COLLECTION_TYPE:
+            collection_name = l.target_name
             c = Collection()
             try:
-                c.load(collection_dir=collection_dir, basedir=basedir, load_children=False)
+                c.load(collection_dir=l.path, basedir=l.path, load_children=False)
             except:
                 logging.exception("failed to load the collection {}".format(collection_name))
                 return
             obj = c
-        elif l.target_type == "role":
-            role_path = os.path.join(basedir, l.path)
-            role_name = l.target
+        elif l.target_type == LoadType.ROLE_TYPE:
+            role_name = l.target_name
             r = Role()
             try:
-                r.load(path=role_path, basedir=basedir, load_children=False)
+                r.load(path=l.path, basedir=l.path, load_children=False)
             except:
                 logging.exception("failed to load the role {}".format(role_name))
                 return
             obj = r
-        elif l.target_type == "playbook":
-            playbook_path = os.path.join(basedir, l.path)
-            playbook_name = l.target
+        elif l.target_type == LoadType.PROJECT_TYPE:
+            repo_name = l.target_name
+            repo = Repository()
+            try:
+                repo.load(path=l.path, basedir=l.path)
+            except:
+                logging.exception("failed to load the project {}".format(repo_name))
+                return
+            obj = repo
+        elif l.target_type == LoadType.PLAYBOOK_TYPE:
+            playbook_name = l.target_name
             p = Playbook()
             try:
-                p.load(path=playbook_path, role_name="", collection_name="", basedir=basedir)
+                p.load(path=l.path, role_name="", collection_name="", basedir=l.path)
             except:
                 logging.exception("failed to load the playbook {}".format(playbook_name))
                 return
@@ -54,32 +61,36 @@ class Parser():
         else:
             raise ValueError("unsupported type: {}".format(l.target_type))
 
+        mappings = []
         roles = []
         for role_path in l.roles:
             r = Role()
             try:
-                r.load(path=role_path, collection_name=collection_name, basedir=basedir)
+                r.load(path=role_path, collection_name=collection_name, basedir=l.path)
             except:
                 continue
             roles.append(r)
+            mappings.append((role_path, r.key))
 
         taskfiles = [tf for r in roles for tf in r.taskfiles]
         for taskfile_path in l.taskfiles:
             tf = TaskFile()
             try:
-                tf.load(path=taskfile_path, role_name=role_name, collection_name=collection_name, basedir=basedir)
+                tf.load(path=taskfile_path, role_name=role_name, collection_name=collection_name, basedir=l.path)
             except:
                 continue
             taskfiles.append(tf)
+            mappings.append((taskfile_path, tf.key))
 
         playbooks = [p for r in roles for p in r.playbooks]
         for playbook_path in l.playbooks:
             p = Playbook()
             try:
-                p.load(path=playbook_path, role_name=role_name, collection_name=collection_name, basedir=basedir)
+                p.load(path=playbook_path, role_name=role_name, collection_name=collection_name, basedir=l.path)
             except:
                 continue
             playbooks.append(p)
+            mappings.append((playbook_path, p.key))
 
         plays = [play for p in playbooks for play in p.plays]
 
@@ -95,10 +106,11 @@ class Parser():
         for module_path in l.modules:
             m = Module()
             try:
-                m.load(module_file_path=module_path, role_name=role_name, collection_name=collection_name, basedir=basedir)
+                m.load(module_file_path=module_path, role_name=role_name, collection_name=collection_name, basedir=l.path)
             except:
                 continue
             modules.append(m)
+            mappings.append((module_path, m.key))
         modules = add_builtin_modules(modules)
 
         logging.debug("roles: {}".format(len(roles)))
@@ -108,20 +120,39 @@ class Parser():
         logging.debug("plays: {}".format(len(plays)))
         logging.debug("tasks: {}".format(len(tasks)))
         
-        output_dir = os.path.dirname(load_json_path)
-        if l.target_type == "collection":
-            dump_object_list([obj], os.path.join(output_dir, "collections.json"))
-            dump_object_list(roles, os.path.join(output_dir, "roles.json"))
-        elif l.target_type == "role":
-            dump_object_list([obj], os.path.join(output_dir, "roles.json"))
-        elif l.target_type == "playbook":
-            dump_object_list(roles, os.path.join(output_dir, "roles.json"))
+        if output_dir == "":
+            output_dir = os.path.dirname(load_json_path)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
 
-        dump_object_list(taskfiles, os.path.join(output_dir, "taskfiles.json"))
-        dump_object_list(modules, os.path.join(output_dir, "modules.json"))
-        dump_object_list(playbooks, os.path.join(output_dir, "playbooks.json"))
-        dump_object_list(plays, os.path.join(output_dir, "plays.json"))
-        dump_object_list(tasks, os.path.join(output_dir, "tasks.json"))
+        collections = []
+        if l.target_type == LoadType.COLLECTION_TYPE:
+            collections = [obj]
+        elif l.target_type == LoadType.ROLE_TYPE:
+            roles = [obj]
+        elif l.target_type == LoadType.PLAYBOOK_TYPE:
+            playbooks = [obj]
+
+        if len(collections) > 0:
+            dump_object_list(collections, os.path.join(output_dir, "collections.json"))
+        if len(roles) > 0:
+            dump_object_list(roles, os.path.join(output_dir, "roles.json"))
+        if len(taskfiles) > 0:
+            dump_object_list(taskfiles, os.path.join(output_dir, "taskfiles.json"))
+        if len(modules) > 0:
+            dump_object_list(modules, os.path.join(output_dir, "modules.json"))
+        if len(playbooks) > 0:
+            dump_object_list(playbooks, os.path.join(output_dir, "playbooks.json"))
+        if len(plays) > 0:
+            dump_object_list(plays, os.path.join(output_dir, "plays.json"))
+        if len(tasks) > 0:
+            dump_object_list(tasks, os.path.join(output_dir, "tasks.json"))
+
+        # save mappings
+        mapping_path = os.path.join(output_dir, "mappings.json")
+        lines = [json.dumps(m) for m in mappings]
+        open(mapping_path, "w").write("\n".join(lines))
+
         return
             
 def add_builtin_modules(modules):
@@ -144,9 +175,14 @@ def dump_object_list(obj_list, output_path):
     open(output_path, "w").write("\n".join(lines))
     return
 
-def load_path2info(path):
-    parts = path.split("/")
-    return parts[-2]
+def load_name2target_name(path):
+    filename = os.path.basename(path)
+    parts = os.path.splitext(filename)
+    prefix = "load-"
+    target_name = parts[0]
+    if target_name.startswith(prefix):
+        target_name = target_name[len(prefix):]
+    return target_name
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -157,41 +193,47 @@ if __name__ == "__main__":
     )
 
     parser.add_argument('-l', '--load-path', default="", help='load json path')
-    parser.add_argument('-b', '--base-dir', default="", help='base dir path')
-    parser.add_argument('-a', '--all', action='store_true', help='if True, load all collections and roles') 
-
+    parser.add_argument('-o', '--output-dir', default="", help='path to the output dir')
+    
     args = parser.parse_args()
 
-    profiles = []
-    if args.all:
-        dirnames = os.listdir(args.load_path)
-        for dname in dirnames:
-            load_json_path = os.path.join(args.load_path, dname, "load.json")
-            if os.path.exists(load_json_path):
-                p = (load_json_path)
-                profiles.append(p)
+    if not os.path.exists(args.load_path):
+        logging.info("No such file or directory: {}".format(args.load_path))
+        sys.exit(1)
+
+    load_json_path_list = []
+    if os.path.isfile(args.load_path):
+        load_json_path_list = [args.load_path]
     else:
-        p = (args.load_path)
-        profiles.append(p)
+        files = os.listdir(args.load_path)
+        load_json_path_list = [os.path.join(args.load_path, fname) for fname in files if fname.startswith("load-") and fname.endswith(".json")]
+
+    if len(load_json_path_list) == 0:
+        logging.info("no load json files found. exitting.")
+        sys.exit()
+
+    profiles = [(load_json_path, os.path.join(args.output_dir, load_name2target_name(load_json_path))) for load_json_path in load_json_path_list]
 
     num = len(profiles)
     if num == 0:
-        logging.info("no target dirs found. exitting.")
+        logging.info("no load json files found. exitting.")
         sys.exit()
     else:
-        logging.info("start loading for {} collections & roles".format(num))
+        target_type = os.path.basename(profiles[0][0]).split("-")[1]
+        logging.info("start parsing {} {}(s)".format(num, target_type))
     
-    basedir = args.base_dir
     p = Parser()
 
     def parse_single(single_input):
         i = single_input[0]
-        load_json_path = single_input[1]
-        target = load_path2info(load_json_path)
-        print("[{}/{}] {}       ".format(i+1, num, target))
+        num = single_input[1]
+        load_json_path = single_input[2]
+        output_dir = single_input[3]
+        target_name = load_name2target_name(load_json_path)
+        print("[{}/{}] {}       ".format(i+1, num, target_name))
 
-        p.run(load_json_path=load_json_path, basedir=basedir)
+        p.run(load_json_path=load_json_path, output_dir=output_dir)
 
-    parallel_input_list = [(i, load_json_path) for i, (load_json_path) in enumerate(profiles)]
+    parallel_input_list = [(i, num, load_json_path, output_dir) for i, (load_json_path, output_dir) in enumerate(profiles)]
     _ = joblib.Parallel(n_jobs=-1)(joblib.delayed(parse_single)(single_input) for single_input in parallel_input_list)
     

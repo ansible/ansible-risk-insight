@@ -132,7 +132,7 @@ class Resolvable(object):
         raise NotImplementedError
 
 class LoadType:
-    SCM_REPO_TYPE = "scm_repo"
+    PROJECT_TYPE = "project"
     COLLECTION_TYPE = "collection"
     ROLE_TYPE = "role"
     PLAYBOOK_TYPE = "playbook"
@@ -163,7 +163,7 @@ class Load(JSONSerializable):
         elif self.target_type == LoadType.PLAYBOOK_TYPE:
             obj = Playbook()
             obj.load(path=self.path, role_name="", collection_name="", basedir=self.path)
-        elif self.target_type == LoadType.SCM_REPO_TYPE:
+        elif self.target_type == LoadType.PROJECT_TYPE:
             obj = Repository()
             obj.load(path=self.path, basedir=self.path, load_children=False)
 
@@ -239,6 +239,7 @@ class Module(JSONSerializable, Resolvable):
     name: str = ""
     fqcn: str = ""
     key: str = ""
+    local_key: str = ""
     collection: str = ""
     role: str = ""
     defined_in: str = ""
@@ -267,6 +268,7 @@ class Module(JSONSerializable, Resolvable):
                     defined_in = defined_in[1:]
         self.defined_in = defined_in
         self.key = "Module {}".format(self.fqcn)
+        self.local_key = "Module {}".format(self.defined_in)
 
     def children_to_key(self):
         pass
@@ -417,6 +419,14 @@ class Collection(JSONSerializable, Resolvable):
     def resolver_targets(self):
         return self.playbooks + self.taskfiles + self.roles + self.modules
 
+def make_global_key_prefix(collection, role):
+    key_prefix = ""
+    if collection != "":
+        key_prefix = "collection-{}::".format(collection)
+    elif role != "":
+        key_prefix = "role-{}::".format(role)
+    return key_prefix
+
 @dataclass
 class Task(JSONSerializable, Resolvable):
     name: str = ""
@@ -425,6 +435,7 @@ class Task(JSONSerializable, Resolvable):
     play_index: int = -1
     defined_in: str = ""
     key: str = ""
+    local_key: str = ""
     role: str = ""
     collection: str = ""
     variables: dict = field(default_factory=dict)
@@ -552,7 +563,8 @@ class Task(JSONSerializable, Resolvable):
         self.executable = executable
         self.executable_type = executable_type
         self.collections_in_play = collections_in_play
-        self.key = "Task {}".format(self.id)
+        self.key = "Task {}{}".format(make_global_key_prefix(self.collection, self.role), self.id)
+        self.local_key = "Task {}".format(self.id)
 
     def find_module_name(self, keys):
         task_keywords = TaskKeywordSet().task_keywords
@@ -585,6 +597,7 @@ class TaskFile(JSONSerializable, Resolvable):
     name: str = ""
     defined_in: str = ""
     key: str = ""
+    local_key: str = ""
     tasks: list = field(default_factory=list)
     role: str = ""  # role name of this task file; this might be empty because a task file can be defined out of roles
     collection: str = ""
@@ -614,7 +627,6 @@ class TaskFile(JSONSerializable, Resolvable):
                 if defined_in.startswith("/"):
                     defined_in = defined_in[1:]
         self.defined_in = defined_in
-        self.key = "TaskFile {}".format(defined_in)
         if role_name != "":
             self.role = role_name
         if collection_name != "":
@@ -634,6 +646,8 @@ class TaskFile(JSONSerializable, Resolvable):
                 logging.exception("error while loading the task at {}, index: {}".format(fullpath, i))
             tasks.append(t)
         self.tasks = tasks
+        self.key = "TaskFile {}{}".format(make_global_key_prefix(self.collection, self.role), defined_in)
+        self.local_key = "TaskFile {}".format(defined_in)
 
     def children_to_key(self):
         task_keys = [t.key if isinstance(t, Task) else t for t in self.tasks]
@@ -773,6 +787,7 @@ class Role(JSONSerializable, Resolvable):
         self.collection = collection
         self.fqcn = fqcn
         self.key = "Role {}".format(fqcn)
+        self.local_key = "Role {}".format(defined_in)
 
         if os.path.exists(os.path.join(fullpath, "playbooks")):
             playbook_files = safe_glob(fullpath + "/playbooks/**/*.yml", recursive=True)
@@ -1058,7 +1073,8 @@ class Play(JSONSerializable, Resolvable):
         self.roles = roles
         self.options = play_options
         self.collections_in_play = collections_in_play
-        self.key = "Play {}".format(self.id)
+        self.key = "Play {}{}".format(make_global_key_prefix(self.collection, self.role), self.id)
+        self.local_key = "Play {}".format(self.id)
 
     def children_to_key(self):
         pre_task_keys = [t.key if isinstance(t, Task) else t for t in self.pre_tasks]
@@ -1113,8 +1129,10 @@ class Playbook(JSONSerializable, Resolvable):
                     defined_in = defined_in[1:]
         self.defined_in = defined_in
         self.name = os.path.basename(fullpath)
-        self.key = "Playbook {}".format(defined_in)
+        self.role = role_name
         self.collection = collection_name
+        self.key = "Playbook {}{}".format(make_global_key_prefix(self.collection, self.role), defined_in)
+        self.local_key = "Playbook {}".format(defined_in)
         data = None
         if fullpath != "":
             with open(fullpath , "r") as file:
