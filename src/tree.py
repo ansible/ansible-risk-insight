@@ -1,11 +1,13 @@
 import argparse
 import logging
 import os
+import sys
+import re
 import json
 import jsonpickle
 from copy import deepcopy
 from dataclasses import dataclass, field
-from struct5 import ObjectList, JSONSerializable
+from struct5 import ObjectList, RoleInPlay, Task, Play, ExecutableType, BuiltinModuleSet, object_delimiter, key_delimiter
 
 
 obj_type_dict = {
@@ -16,6 +18,10 @@ obj_type_dict = {
     "Task": "tasks.json",
     "Module": "modules.json",
 }
+
+module_name_re = re.compile(r'^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$')
+role_name_re = re.compile(r'^[a-z0-9_]+\.[a-z0-9_]+$')
+role_in_collection_name_re = re.compile(r'^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$')
 
 @dataclass
 class TreeNode(object):
@@ -163,9 +169,190 @@ def load_graph(graph_path):
             graph[src] = children
     return graph
 
+def load_single_definition(fpath):
+        obj_list = ObjectList()
+        if os.path.exists(fpath):
+            obj_list.from_json(fpath=fpath)
+        return obj_list
+
+def load_definitions(dir):
+    roles = load_single_definition(os.path.join(dir, "roles.json"))
+    taskfiles = load_single_definition(os.path.join(dir, "taskfiles.json"))
+    modules = load_single_definition(os.path.join(dir, "modules.json"))
+    playbooks = load_single_definition(os.path.join(dir, "playbooks.json"))
+    plays = load_single_definition(os.path.join(dir, "plays.json"))
+    tasks = load_single_definition(os.path.join(dir, "tasks.json"))
+    return roles, taskfiles, modules, playbooks, plays, tasks
+
+def load_all_definitions(base_dir):
+    dirnames = os.listdir(base_dir)
+    loaded = {}
+    types = ["roles", "taskfiles", "modules", "playbooks", "plays", "tasks"]
+    for dname in dirnames:
+        path = os.path.join(base_dir, dname)
+        if os.path.isfile(path):
+            continue
+        def_tuple = load_definitions(path)
+        for i, type_key in enumerate(types):
+            if type_key not in loaded:
+                loaded[type_key] = def_tuple[i]
+            else:
+                loaded[type_key].merge(def_tuple[i])
+    return loaded
+
+def make_dicts(root_definitions, ext_definitions):
+    definitions = {
+        "roles": ObjectList(),
+        "modules": ObjectList(),
+        "taskfiles": ObjectList(),
+    }
+    for type_key in definitions:
+        definitions[type_key].merge(root_definitions.get(type_key, ObjectList()))
+        definitions[type_key].merge(ext_definitions.get(type_key, ObjectList()))
+    dicts = {}
+    for type_key, obj_list in definitions.items():
+        for obj in obj_list.items:
+            obj_dict_key = obj.fqcn if hasattr(obj, "fqcn") else obj.key
+            if type_key not in dicts:
+                dicts[type_key] = {}
+            dicts[type_key][obj_dict_key] = obj
+    return dicts
+
+def resolve(obj, dicts):
+    failed = False
+    if isinstance(obj, Task):
+        task = obj
+        if task.executable != "":
+            if task.executable_type == ExecutableType.MODULE_TYPE:
+                task.resolved_name = resolve_module(task.executable, dicts.get("modules", {}))
+            elif task.executable_type == ExecutableType.ROLE_TYPE:
+                task.resolved_name = resolve_role(task.executable, dicts.get("roles", {}), task.collection, task.collections_in_play)
+            elif task.executable_type == ExecutableType.TASKFILE_TYPE:
+                task.resolved_name = resolve_taskfile(task.executable, dicts.get("taskfiles", {}), task.key)
+            if task.resolved_name == "":
+                failed = True
+    elif isinstance(obj, Play):
+        for i in range(len(obj.roles)):
+            roleinplay = obj.roles[i]
+            if not isinstance(roleinplay, RoleInPlay):
+                continue
+            roleinplay.resolved_name = resolve_role(roleinplay.name, dicts.get("roles", {}), roleinplay.collection, roleinplay.collections_in_play)
+            obj.roles[i] = roleinplay
+            if roleinplay.resolved_name == "":
+                failed = True
+    return obj, failed
+
+def resolve_module(module_name, module_dict={}):
+    module_key = ""
+    found_module = module_dict.get(module_name, None)
+    if found_module is not None:
+        module_key = found_module.key
+    if module_key == "":
+        for k in module_dict:
+            suffix = ".{}".format(module_name)
+            if k.endswith(suffix):
+                module_key = module_dict[k].key
+                break
+    return module_key
+
+def resolve_role(role_name, role_dict={}, my_collection_name="", collections_in_play=[]):
+    role_key = ""
+    if "." not in role_name and len(collections_in_play) > 0:
+        for coll in collections_in_play:
+            role_name_cand = "{}.{}".format(coll, role_name)
+            found_role = role_dict.get(role_name_cand, None)
+            if found_role is not None:
+                role_key = found_role.key
+    else:
+        if "." not in role_name and my_collection_name != "":
+            role_name_cand = "{}.{}".format(my_collection_name, role_name)
+            found_role = role_dict.get(role_name_cand, None)
+            if found_role is not None:
+                role_key = found_role.key
+        if role_key == "":
+            found_role = role_dict.get(role_name, None)
+            if found_role is not None:
+                role_key = found_role.key
+            else:
+                for k in role_dict:
+                    suffix = ".{}".format(role_name)
+                    if k.endswith(suffix):
+                        role_key = role_dict[k].key
+                        break
+    return role_key
+
+def resolve_taskfile(taskfile_ref, taskfile_dict={}, task_key=""):
+    parts = task_key.split(object_delimiter)
+    parent_key = ""
+    task_defined_path = ""
+    for p in parts[::-1]:
+        if p.startswith("playbook"+key_delimiter) or p.startswith("taskfile"+key_delimiter):
+            task_defined_path = p.split(key_delimiter)[1]
+            parent_key = task_key.split(p)[0]
+            break
+    
+    # include/import tasks can have a path like "roles/xxxx/tasks/yyyy.yml"
+    # then try to find roles directory
+    if taskfile_ref.startswith("roles/"):
+        if "roles/" in task_defined_path:
+            roles_parent_dir = task_defined_path.split("roles/")[0]
+            fpath = os.path.join(roles_parent_dir, taskfile_ref)
+            fpath = os.path.normpath(fpath)
+            taskfile_key = "{}taskfile{}{}".format(parent_key, key_delimiter, fpath)
+            found_tf = taskfile_dict.get(taskfile_key, None)
+            if found_tf is not None:
+                return found_tf.key
+
+    task_dir = os.path.dirname(task_defined_path)
+    fpath = os.path.join(task_dir, taskfile_ref)
+    # need to normalize path here because taskfile_ref can be smoething like "../some_taskfile.yml",
+    # but "tasks/some_dir/../some_taskfile.yml" cannot be found in the taskfile_dict
+    # it will be "tasks/some_taskfile.yml" by this normalize
+    fpath = os.path.normpath(fpath)
+    taskfile_key = "{}taskfile{}{}".format(parent_key, key_delimiter, fpath)
+    found_tf = taskfile_dict.get(taskfile_key, None)
+    if found_tf is not None:
+        return found_tf.key
+    
+    return ""
+
 class TreeLoader(object):
 
-    def __init__(self, graph_path, definition_dir=""):
+    def __init__(self, root, ext, tree, node):
+
+        self.root_dir = root
+        self.ext_dir = ext
+        self.tree_file = tree
+        self.node_file = node
+
+        self.root_definitions = load_all_definitions(self.root_dir)
+        self.ext_definitions = load_all_definitions(self.ext_dir)
+
+        self.dicts = make_dicts(self.root_definitions, self.ext_definitions)
+        
+        debug_task_count = [0, 0]
+        tasks = self.root_definitions.get("tasks", ObjectList())
+        for i, t in enumerate(tasks.items):
+            tasks.items[i], failed = resolve(t, self.dicts)
+            debug_task_count[0] += 1
+            if failed:
+                debug_task_count[1] += 1
+        self.root_definitions["tasks"] = tasks
+
+        debug_play_count = [0, 0]
+        plays = self.root_definitions.get("plays", ObjectList())
+        for i, p in enumerate(plays.items):
+            plays.items[i], failed = resolve(p, self.dicts)
+            debug_play_count[0] += 1
+            if failed:
+                debug_play_count[1] += 1
+        self.root_definitions["plays"] = plays
+        print("DEBUG task resolve count", debug_task_count)
+        print("DEBUG play resolve count", debug_play_count)
+
+        
+
+        return
 
         self.graph = load_graph(graph_path)
 
@@ -277,15 +464,18 @@ def main():
         add_help=True,
     )
 
-    parser.add_argument('-g', '--graph', default="graph.json", help='path to the graph file')
-    parser.add_argument('-t', '--target', default="", help='target key which is the root (or leaf if reverse) of the tree')
-    parser.add_argument('-o', '--out-file', default="", help='path to the output tree file')
-    parser.add_argument('-n', '--node-file', default="array", help='path to the output node objects')
-    parser.add_argument('-r', '--reverse', action='store_true', help='whether to search from leaves')
-    parser.add_argument('-d', '--dir', default="", help='path to input directory')
-
+    parser.add_argument('-r', '--root', default="", help='path to the input definition dir for root')
+    parser.add_argument('-e', '--ext', default="", help='path to the input definition dir for ext')
+    parser.add_argument('-t', '--tree', default="", help='path to the output tree file')
+    parser.add_argument('-n', '--node', default="array", help='path to the output node objects')
     
     args = parser.parse_args()
+
+    tree_loader = TreeLoader(args.root, args.ext, args.tree, args.node)
+    # tree_loader.run()
+    sys.exit()
+
+    # TODO: implement
 
     if args.reverse:
         raise ValueError("not implemented yet")
