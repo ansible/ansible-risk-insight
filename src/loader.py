@@ -84,6 +84,7 @@ if __name__ == "__main__":
 
     parser.add_argument('-t', '--target-path', default="", help='target path')
     parser.add_argument('-o', '--output-dir', default="", help='path to output dir')
+    parser.add_argument('-i', '--index-path', default="", help='path to the output index.json')
     parser.add_argument('--root', action='store_true', help='enable this if the target is the root')
     parser.add_argument('--ext', action='store_true', help='enable this if the target is the external dependency(s)')
 
@@ -141,4 +142,15 @@ if __name__ == "__main__":
 
     parallel_input_list = [(i, num, target_path, output_dir, loader_version) for i, (target_path) in enumerate(profiles)]
     _ = joblib.Parallel(n_jobs=-1)(joblib.delayed(load_single)(single_input) for single_input in parallel_input_list)
+
+    if args.index_path != "":
+        output_path_list = []
+        for target_path in profiles:
+            output_path, _ = create_load_json_path(target_type, target_path, output_dir)
+            output_path_list.append(output_path)
+        
+        with open(args.index_path, "w") as file:
+            json.dump(output_path_list, file)
+        
+    
     
