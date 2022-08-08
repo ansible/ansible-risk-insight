@@ -345,7 +345,6 @@ def resolve_playbook(playbook_ref, playbook_dict={}, play_key=""):
     return ""
 
 class TreeLoader(object):
-
     def __init__(self, root, ext, tree, node):
 
         self.root_dir = root
@@ -363,26 +362,6 @@ class TreeLoader(object):
         self.trees = []
         self.node_objects = ObjectList()
         return
-        
-        debug_task_count = [0, 0]
-        tasks = self.root_definitions.get("tasks", ObjectList())
-        for i, t in enumerate(tasks.items):
-            tasks.items[i], failed = resolve(t, self.dicts)
-            debug_task_count[0] += 1
-            if failed:
-                debug_task_count[1] += 1
-        self.root_definitions["tasks"] = tasks
-
-        debug_play_count = [0, 0]
-        plays = self.root_definitions.get("plays", ObjectList())
-        for i, p in enumerate(plays.items):
-            plays.items[i], failed = resolve(p, self.dicts)
-            debug_play_count[0] += 1
-            if failed:
-                debug_play_count[1] += 1
-        self.root_definitions["plays"] = plays
-        print("DEBUG task resolve count", debug_task_count)
-        print("DEBUG play resolve count", debug_play_count)
 
     def run(self):
         objects = ObjectList()
