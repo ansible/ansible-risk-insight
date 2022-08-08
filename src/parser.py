@@ -214,13 +214,30 @@ if __name__ == "__main__":
 
     load_json_path_list = []
     if args.index_path != "":
-        with open(args.index_path, "r") as file:
-            load_json_path_list = json.load(file)
-    elif os.path.isfile(args.load_path):
-        load_json_path_list = [args.load_path]
-    else:
-        files = os.listdir(args.load_path)
-        load_json_path_list = [os.path.join(args.load_path, fname) for fname in files if fname.startswith("load-") and fname.endswith(".json")]
+        if os.path.isfile(args.index_path):
+            with open(args.index_path, "r") as file:
+                index_data = json.load(file)
+                load_dir = index_data.get("out_dir", "")
+                load_json_name_list = index_data.get("generated_load_files", [])
+                load_json_path_list = [os.path.join(load_dir, f) for f in load_json_name_list]
+        else:
+            files = os.listdir(args.index_path)
+            index_json_path_list = [os.path.join(args.index_path, fname) for fname in files if fname.startswith("index-") and fname.endswith(".json")]
+            for i in index_json_path_list:
+                with open(i, "r") as file:
+                    index_data = json.load(file)
+                    load_dir = index_data.get("out_dir", "")
+                    load_json_name_list = index_data.get("generated_load_files", [])
+                    tmp_load_json_list = [os.path.join(load_dir, f) for f in load_json_name_list]
+                    for l in tmp_load_json_list:
+                        if l not in load_json_path_list:
+                            load_json_path_list.append(l)
+    elif args.load_path != "":
+        if os.path.isfile(args.load_path):
+            load_json_path_list = [args.load_path]
+        else:
+            files = os.listdir(args.load_path)
+            load_json_path_list = [os.path.join(args.load_path, fname) for fname in files if fname.startswith("load-") and fname.endswith(".json")]
 
     if len(load_json_path_list) == 0:
         logging.info("no load json files found. exitting.")

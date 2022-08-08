@@ -144,13 +144,24 @@ if __name__ == "__main__":
     _ = joblib.Parallel(n_jobs=-1)(joblib.delayed(load_single)(single_input) for single_input in parallel_input_list)
 
     if args.index_path != "":
-        output_path_list = []
+        index_data = {
+            "in_dir": args.target_path,
+            "out_dir": output_dir,
+            "mode": "ext" if is_ext else "root",
+            "target_type": target_type,
+            "generated_load_files": []
+        }
+        generated_load_files = []
         for target_path in profiles:
             output_path, _ = create_load_json_path(target_type, target_path, output_dir)
-            output_path_list.append(output_path)
+            lf = output_path.replace(output_dir, "")
+            if lf.startswith("/"):
+                lf = lf[1:]
+            generated_load_files.append(lf)
+        index_data["generated_load_files"] = generated_load_files
         
         with open(args.index_path, "w") as file:
-            json.dump(output_path_list, file)
+            json.dump(index_data, file)
         
     
     
