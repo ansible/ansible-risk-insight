@@ -83,7 +83,7 @@ if __name__ == "__main__":
     )
 
     parser.add_argument('-t', '--target-path', default="", help='target path')
-    parser.add_argument('-o', '--output-dir', default="", help='path to output dir')
+    parser.add_argument('-o', '--output-path', default="", help='path to output dir/file')
     parser.add_argument('-i', '--index-path', default="", help='path to the output index.json')
     parser.add_argument('--root', action='store_true', help='enable this if the target is the root')
     parser.add_argument('--ext', action='store_true', help='enable this if the target is the external dependency(s)')
@@ -93,6 +93,11 @@ if __name__ == "__main__":
     if not args.root and not args.ext:
         logging.error("either \"--root\" or \"--ext\" must be specified")
         sys.exit(1)
+
+    if args.root and not args.output_path.endswith(".json"):
+        logging.error("\"--output-path\" must be a single .json file for \"--root\" mode")
+        sys.exit(1)
+    
     is_ext = args.ext
 
     target_type, target_path_list = detect_target_type(args.target_path, is_ext)
@@ -110,18 +115,22 @@ if __name__ == "__main__":
     else:
         logging.info("start loading {} {}(s)".format(num, target_type))
     
-    output_dir = args.output_dir
+    output_path = args.output_path
     loader_version = get_loader_version()
 
     def load_single(single_input):
         i = single_input[0]
         num = single_input[1]
         target_path = os.path.normpath(single_input[2])
-        output_dir = single_input[3]
-        loader_version = single_input[4]
-        output_path, target_name = create_load_json_path(target_type, target_path, output_dir)
-        if os.path.exists(output_path):
-            d = json.load(open(output_path, "r"))
+        output_path = single_input[3]
+        is_ext = single_input[4]
+        loader_version = single_input[5]
+        load_json_path = output_path
+        target_name = target_path
+        if is_ext:
+            load_json_path, target_name = create_load_json_path(target_type, target_path, output_path)
+        if os.path.exists(load_json_path):
+            d = json.load(open(load_json_path, "r"))
             timestamp = d.get("timestamp", "")
             if timestamp != "":
                 loaded_time = datetime.datetime.fromisoformat(timestamp)
@@ -134,30 +143,35 @@ if __name__ == "__main__":
 
         if not os.path.exists(target_path):
             raise ValueError("No such file or directory: {}".format(target_path))
-        output_dir = os.path.dirname(output_path)
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir, exist_ok=True)
+        load_json_dir = os.path.dirname(load_json_path)
+        if not os.path.exists(load_json_dir):
+            os.makedirs(load_json_dir, exist_ok=True)
         l = Load(target_name=target_name, target_type=target_type, path=target_path, loader_version=loader_version)
-        l.run(output_path=output_path)
+        l.run(output_path=load_json_path)
 
-    parallel_input_list = [(i, num, target_path, output_dir, loader_version) for i, (target_path) in enumerate(profiles)]
+    parallel_input_list = [(i, num, target_path, output_path, is_ext, loader_version) for i, (target_path) in enumerate(profiles)]
     _ = joblib.Parallel(n_jobs=-1)(joblib.delayed(load_single)(single_input) for single_input in parallel_input_list)
 
     if args.index_path != "":
         index_data = {
-            "in_dir": args.target_path,
-            "out_dir": output_dir,
+            "in_path": args.target_path,
+            "out_path": args.output_path,
             "mode": "ext" if is_ext else "root",
             "target_type": target_type,
             "generated_load_files": []
         }
+        
         generated_load_files = []
-        for target_path in profiles:
-            output_path, _ = create_load_json_path(target_type, target_path, output_dir)
-            lf = output_path.replace(output_dir, "")
-            if lf.startswith("/"):
-                lf = lf[1:]
-            generated_load_files.append(lf)
+        if is_ext:
+            
+            for target_path in profiles:
+                load_json_path, _ = create_load_json_path(target_type, target_path, args.output_path)
+                lf = load_json_path.replace(args.output_path, "")
+                if lf.startswith("/"):
+                    lf = lf[1:]
+                generated_load_files.append(lf)
+        else:
+            generated_load_files = [args.output_path]
         index_data["generated_load_files"] = generated_load_files
         
         with open(args.index_path, "w") as file:

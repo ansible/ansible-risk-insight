@@ -61,7 +61,12 @@ class Parser():
         else:
             raise ValueError("unsupported type: {}".format(l.target_type))
 
-        mappings = []
+        mappings = {
+            "roles": [],
+            "taskfiles": [],
+            "modules": [],
+            "playbooks": [],
+        }
         roles = []
         for role_path in l.roles:
             r = Role()
@@ -70,7 +75,7 @@ class Parser():
             except:
                 continue
             roles.append(r)
-            mappings.append((role_path, r.key))
+            mappings["roles"].append([role_path, r.key])
 
         taskfiles = [tf for r in roles for tf in r.taskfiles]
         for taskfile_path in l.taskfiles:
@@ -80,7 +85,7 @@ class Parser():
             except:
                 continue
             taskfiles.append(tf)
-            mappings.append((taskfile_path, tf.key))
+            mappings["taskfiles"].append([taskfile_path, tf.key])
 
         playbooks = [p for r in roles for p in r.playbooks]
         for playbook_path in l.playbooks:
@@ -90,7 +95,7 @@ class Parser():
             except:
                 continue
             playbooks.append(p)
-            mappings.append((playbook_path, p.key))
+            mappings["playbooks"].append([playbook_path, p.key])
 
         plays = [play for p in playbooks for play in p.plays]
 
@@ -110,7 +115,7 @@ class Parser():
             except:
                 continue
             modules.append(m)
-            mappings.append((module_path, m.key))
+            mappings["modules"].append([module_path, m.key])
         
         # TODO: handle builtin modules while making a tree without adding dummy module objects here
         # modules = add_builtin_modules(modules)
@@ -151,9 +156,12 @@ class Parser():
             dump_object_list(tasks, os.path.join(output_dir, "tasks.json"))
 
         # save mappings
+        l.roles = mappings["roles"]
+        l.taskfiles = mappings["taskfiles"]
+        l.playbooks = mappings["playbooks"]
+        l.modules = mappings["modules"]
         mapping_path = os.path.join(output_dir, "mappings.json")
-        lines = [json.dumps(m) for m in mappings]
-        open(mapping_path, "w").write("\n".join(lines))
+        open(mapping_path, "w").write(l.dump())
 
         return
             
@@ -194,14 +202,29 @@ if __name__ == "__main__":
         add_help=True,
     )
 
-    parser.add_argument('-l', '--load-path', default="", help='load json path')
-    parser.add_argument('-i', '--index-path', default="", help='if specified, load only files in this index.json (--load-path will be ignored)')
+    parser.add_argument('-l', '--load-path', default="", help='load json path/dir')
+    parser.add_argument('-i', '--index-path', default="", help='if specified, load files in this index.json (--load-path will be ignored)')
+    parser.add_argument('--root', action='store_true', help='enable this if the target is the root')
+    parser.add_argument('--ext', action='store_true', help='enable this if the target is the external dependency(s)')
     parser.add_argument('-o', '--output-dir', default="", help='path to the output dir')
     
     args = parser.parse_args()
 
+    if not args.root and not args.ext:
+        logging.error("either \"--root\" or \"--ext\" must be specified")
+        sys.exit(1)
+    is_ext = args.ext
+
     if args.load_path == "" and args.index_path == "":
         logging.error("either `--load-path` or `--index-path` is required")
+        sys.exit(1)
+
+    if args.root and args.load_path == "":
+        logging.error("\"--load-path\" must be specified for \"--root\" mode")
+        sys.exit(1)
+
+    if args.root and not os.path.isfile(args.load_path):
+        logging.error("\"--load-path\" must be a single .json file for \"--root\" mode")
         sys.exit(1)
 
     if args.load_path != "" and not os.path.exists(args.load_path):
@@ -217,7 +240,7 @@ if __name__ == "__main__":
         if os.path.isfile(args.index_path):
             with open(args.index_path, "r") as file:
                 index_data = json.load(file)
-                load_dir = index_data.get("out_dir", "")
+                load_dir = index_data.get("out_path", "")
                 load_json_name_list = index_data.get("generated_load_files", [])
                 load_json_path_list = [os.path.join(load_dir, f) for f in load_json_name_list]
         else:
@@ -226,7 +249,7 @@ if __name__ == "__main__":
             for i in index_json_path_list:
                 with open(i, "r") as file:
                     index_data = json.load(file)
-                    load_dir = index_data.get("out_dir", "")
+                    load_dir = index_data.get("out_path", "")
                     load_json_name_list = index_data.get("generated_load_files", [])
                     tmp_load_json_list = [os.path.join(load_dir, f) for f in load_json_name_list]
                     for l in tmp_load_json_list:
@@ -243,15 +266,14 @@ if __name__ == "__main__":
         logging.info("no load json files found. exitting.")
         sys.exit()
 
-    profiles = [(load_json_path, os.path.join(args.output_dir, load_name2target_name(load_json_path))) for load_json_path in load_json_path_list]
+    profiles = [(load_json_path, os.path.join(args.output_dir, load_name2target_name(load_json_path)) if is_ext else args.output_dir) for load_json_path in load_json_path_list]
 
     num = len(profiles)
     if num == 0:
         logging.info("no load json files found. exitting.")
         sys.exit()
     else:
-        target_type = os.path.basename(profiles[0][0]).split("-")[1]
-        logging.info("start parsing {} {}(s)".format(num, target_type))
+        logging.info("start parsing {} target(s)".format(num))
     
     p = Parser()
 
@@ -260,8 +282,7 @@ if __name__ == "__main__":
         num = single_input[1]
         load_json_path = single_input[2]
         output_dir = single_input[3]
-        target_name = load_name2target_name(load_json_path)
-        print("[{}/{}] {}       ".format(i+1, num, target_name))
+        print("[{}/{}] {}       ".format(i+1, num, load_json_path))
 
         p.run(load_json_path=load_json_path, output_dir=output_dir)
 
