@@ -1,4 +1,5 @@
 import argparse
+from email.mime import base
 import logging
 import os
 import re
@@ -691,7 +692,6 @@ class TreeLoader(object):
             obj_list.add(obj)
             loaded[k] = obj
         return obj_list
-
 
 def dump_node_objects(obj_list, path=""):
     if path == "":
