@@ -69,6 +69,9 @@ def make_global_key_prefix(collection, role):
         key_prefix = "role{}{}{}".format(key_delimiter, role, object_delimiter)
     return key_prefix
 
+def detect_type(key=""):
+    return key.split(object_delimiter)[-1].split(key_delimiter)[0]
+
 class PlaybookFormatError(Exception):
     pass
 
@@ -208,6 +211,7 @@ def get_repo_root(filepath):
 @dataclass
 class ObjectList(Resolvable):
     items: list = field(default_factory=list)
+    _dict: dict = field(default_factory=dict)
 
     def dump(self, fpath=""):
         return self.to_json(fpath=fpath)
@@ -225,21 +229,38 @@ class ObjectList(Resolvable):
         lines = json_str.splitlines()
         items = [jsonpickle.decode(obj_str) for obj_str in lines]
         self.items = items
+        self._update_dict()
         return copy.deepcopy(self)
 
     def add(self, obj):
         self.items.append(obj)
+        self._update_dict()
         return
 
     def merge(self, obj_list):
         if not isinstance(obj_list, ObjectList):
             raise ValueError("obj_list must be an instance of ObjectList, but got {}".format(type(obj_list).__name__))
         self.items.extend(obj_list.items)
+        self._update_dict()
         return
 
-    def find(self, key, val):
+    def find_by_attr(self, key, val):
         found = [obj for obj in self.items if obj.__dict__.get(key, None) == val]
         return found
+
+    def find_by_key(self, key):
+        return self._dict.get(key, None)
+
+    def contains(self, key="", obj=None):
+        if obj is not None:
+            key = obj.key
+        return self.find_by_key(key) is not None
+
+    def _update_dict(self):
+        for obj in self.items:
+            if obj.key not in self._dict:
+                self._dict[obj.key] = obj
+        return
 
     @property
     def resolver_targets(self):
