@@ -253,6 +253,7 @@ if __name__ == "__main__":
 
     if args.index_path != "":
         index_data = {
+<<<<<<< HEAD
             "in_path": args.target_path,
             "out_path": args.output_path,
             "mode": "ext" if is_ext else "root",
@@ -286,3 +287,25 @@ if __name__ == "__main__":
 
         with open(args.index_path, "w") as file:
             json.dump(index_data, file)
+=======
+            "in_dir": args.target_path,
+            "out_dir": output_dir,
+            "mode": "ext" if is_ext else "root",
+            "target_type": target_type,
+            "generated_load_files": []
+        }
+        generated_load_files = []
+        for target_path in profiles:
+            output_path, _ = create_load_json_path(target_type, target_path, output_dir)
+            lf = output_path.replace(output_dir, "")
+            if lf.startswith("/"):
+                lf = lf[1:]
+            generated_load_files.append(lf)
+        index_data["generated_load_files"] = generated_load_files
+        
+        with open(args.index_path, "w") as file:
+            json.dump(index_data, file)
+        
+    
+    
+>>>>>>> fb105744 (update index json format)
