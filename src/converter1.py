@@ -146,7 +146,7 @@ def main():
         t_obj, content = convert(tree, objects)
         # print(json.dumps(t_obj, indent=2))
         # break
-        print(json.dumps(t_obj))
+        print(json.dumps(t_obj), flush=True)
 
 if __name__ == "__main__":
     main()
