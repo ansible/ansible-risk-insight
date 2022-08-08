@@ -143,9 +143,10 @@ def main():
     objects = load_node_objects(args.node_file, args.root_dir, args.ext_dir)
 
     for tree in trees:
-        t_obj = convert(tree, objects)
-        print(json.dumps(t_obj, indent=2))
-        break
+        t_obj, content = convert(tree, objects)
+        # print(json.dumps(t_obj, indent=2))
+        # break
+        print(json.dumps(t_obj))
 
 if __name__ == "__main__":
     main()
