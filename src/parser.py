@@ -413,7 +413,6 @@ if __name__ == "__main__":
         sys.exit()
     else:
         logging.info("start parsing {} target(s)".format(num))
-
     p = Parser()
 
     def parse_single(single_input):
