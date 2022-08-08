@@ -444,6 +444,11 @@ class Collection(JSONSerializable, Resolvable):
     def resolver_targets(self):
         return self.playbooks + self.taskfiles + self.roles + self.modules
 
+class ExecutableType:
+    MODULE_TYPE = "Module"
+    ROLE_TYPE = "Role"
+    TASKFILE_TYPE = "TaskFile"
+
 @dataclass
 class Task(JSONSerializable, Resolvable):
     name: str = ""
@@ -523,7 +528,7 @@ class Task(JSONSerializable, Resolvable):
                         new_module_options[key] = val
                 module_options = new_module_options
         executable = module_name
-        executable_type = "Module"
+        executable_type = ExecutableType.MODULE_TYPE
         if module_short_name in ["import_role", "include_role"]:
             role_ref = ""
             if isinstance(module_options, str):
@@ -531,7 +536,7 @@ class Task(JSONSerializable, Resolvable):
             elif isinstance(module_options, dict):
                 role_ref = module_options.get("name", "")
             executable = role_ref
-            executable_type = "Role"
+            executable_type = ExecutableType.ROLE_TYPE
         if module_short_name in ["import_tasks", "include_tasks", "include"]:
             taskfile_ref = ""
             if isinstance(module_options, str):
@@ -539,7 +544,7 @@ class Task(JSONSerializable, Resolvable):
             elif isinstance(module_options, dict):
                 taskfile_ref = module_options.get("file", "")
             executable = taskfile_ref
-            executable_type = "TaskFile"
+            executable_type = ExecutableType.TASKFILE_TYPE
 
         variables = {}
         # get variables for this task

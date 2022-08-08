@@ -260,7 +260,6 @@ def make_dicts(root_definitions, ext_definitions):
             dicts[type_key][obj_dict_key] = obj
     return dicts
 
-
 def resolve(obj, dicts):
     failed = False
     if isinstance(obj, Task):
@@ -298,7 +297,6 @@ def resolve(obj, dicts):
             if roleinplay.resolved_name == "":
                 failed = True
     return obj, failed
-
 
 def resolve_module(module_name, module_dict={}):
     module_key = ""
