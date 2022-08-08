@@ -58,6 +58,17 @@ loop_task_option_names = [
     "with_random_choice",
 ]
 
+key_delimiter = ":"
+object_delimiter = "#"
+
+def make_global_key_prefix(collection, role):
+    key_prefix = ""
+    if collection != "":
+        key_prefix = "collection{}{}{}".format(key_delimiter, collection, object_delimiter)
+    elif role != "":
+        key_prefix = "role{}{}{}".format(key_delimiter, role, object_delimiter)
+    return key_prefix
+
 class PlaybookFormatError(Exception):
     pass
 
@@ -267,8 +278,14 @@ class Module(JSONSerializable, Resolvable):
                 if defined_in.startswith("/"):
                     defined_in = defined_in[1:]
         self.defined_in = defined_in
-        self.key = "Module {}".format(self.fqcn)
-        self.local_key = "Module {}".format(self.defined_in)
+        self.set_key()
+
+    def set_key(self):
+        global_key_prefix = make_global_key_prefix(self.collection, self.role)
+        global_key = "{}{}{}{}".format(global_key_prefix, type(self).__name__.lower(), key_delimiter, self.fqcn.lower())
+        local_key = "{}{}{}".format(type(self).__name__.lower(), key_delimiter, self.defined_in.lower())
+        self.key = global_key
+        self.local_key = local_key
 
     def children_to_key(self):
         pass
@@ -281,6 +298,8 @@ class Module(JSONSerializable, Resolvable):
 class Collection(JSONSerializable, Resolvable):
     name: str = ""
     path: str = ""
+    key: str = ""
+    local_key: str = ""
     metadata: dict = field(default_factory=dict)
     playbooks: list = field(default_factory=list)
     taskfiles: list = field(default_factory=list)
@@ -402,6 +421,12 @@ class Collection(JSONSerializable, Resolvable):
         self.roles = roles
         self.modules = modules
 
+    def set_key(self):
+        global_key = "{}{}{}".format(type(self).__name__.lower(), key_delimiter, self.name.lower())
+        local_key = global_key
+        self.key = global_key
+        self.local_key = local_key
+
     def children_to_key(self):
         module_keys = [m.key if isinstance(m, Module) else m  for m in self.modules]
         self.modules = module_keys
@@ -418,14 +443,6 @@ class Collection(JSONSerializable, Resolvable):
     @property
     def resolver_targets(self):
         return self.playbooks + self.taskfiles + self.roles + self.modules
-
-def make_global_key_prefix(collection, role):
-    key_prefix = ""
-    if collection != "":
-        key_prefix = "collection-{}::".format(collection)
-    elif role != "":
-        key_prefix = "role-{}::".format(role)
-    return key_prefix
 
 @dataclass
 class Task(JSONSerializable, Resolvable):
@@ -450,7 +467,7 @@ class Task(JSONSerializable, Resolvable):
 
     annotations: dict = field(default_factory=dict)
 
-    def load(self, path, index, task_block_dict, role_name="", collection_name="", collections_in_play=[], play_index=-1, basedir=""):
+    def load(self, path, index, task_block_dict, role_name="", collection_name="", collections_in_play=[], play_index=-1, parent_key="", parent_local_key="", basedir=""):
         fullpath = ""
         if os.path.exists(path):
             fullpath = path
@@ -563,8 +580,14 @@ class Task(JSONSerializable, Resolvable):
         self.executable = executable
         self.executable_type = executable_type
         self.collections_in_play = collections_in_play
-        self.key = "Task {}{}".format(make_global_key_prefix(self.collection, self.role), self.id)
-        self.local_key = "Task {}".format(self.id)
+        self.set_key(parent_key, parent_local_key)
+
+    def set_key(self, parent_key="", parent_local_key=""):
+        index_info = "[{}]".format(self.index)
+        global_key = "{}{}{}{}{}".format(parent_key, object_delimiter, type(self).__name__.lower(), key_delimiter, index_info)
+        local_key = "{}{}{}{}{}".format(parent_local_key, object_delimiter, type(self).__name__.lower(), key_delimiter, index_info)
+        self.key = global_key
+        self.local_key = local_key
 
     def find_module_name(self, keys):
         task_keywords = TaskKeywordSet().task_keywords
@@ -631,6 +654,8 @@ class TaskFile(JSONSerializable, Resolvable):
             self.role = role_name
         if collection_name != "":
             self.collection = collection_name
+        self.set_key()
+
         task_dicts = get_task_blocks(fpath=fullpath)
         if task_dicts is None:
             return
@@ -638,7 +663,7 @@ class TaskFile(JSONSerializable, Resolvable):
         for i, t_dict in enumerate(task_dicts):
             t = Task()
             try:
-                t.load(fullpath, i, t_dict, role_name, collection_name, basedir=basedir)
+                t.load(fullpath, i, t_dict, role_name, collection_name, parent_key=self.key, parent_local_key=self.local_key, basedir=basedir)
             except TaskFormatError:
                 logging.warning("this task is wrong format; skip the task in {}, index: {}".format(fullpath, i))
                 continue
@@ -646,8 +671,14 @@ class TaskFile(JSONSerializable, Resolvable):
                 logging.exception("error while loading the task at {}, index: {}".format(fullpath, i))
             tasks.append(t)
         self.tasks = tasks
-        self.key = "TaskFile {}{}".format(make_global_key_prefix(self.collection, self.role), defined_in)
-        self.local_key = "TaskFile {}".format(defined_in)
+        
+
+    def set_key(self):
+        global_key_prefix = make_global_key_prefix(self.collection, self.role)
+        global_key = "{}{}{}{}".format(global_key_prefix, type(self).__name__.lower(), key_delimiter, self.defined_in.lower())
+        local_key = "{}{}{}".format(type(self).__name__.lower(), key_delimiter, self.defined_in.lower())
+        self.key = global_key
+        self.local_key = local_key
 
     def children_to_key(self):
         task_keys = [t.key if isinstance(t, Task) else t for t in self.tasks]
@@ -787,8 +818,7 @@ class Role(JSONSerializable, Resolvable):
             fqcn = "{}.{}".format(collection_name, role_name)
         self.collection = collection
         self.fqcn = fqcn
-        self.key = "Role {}".format(fqcn)
-        self.local_key = "Role {}".format(defined_in)
+        self.set_key()
 
         if os.path.exists(os.path.join(fullpath, "playbooks")):
             playbook_files = safe_glob(fullpath + "/playbooks/**/*.yml", recursive=True)
@@ -879,6 +909,13 @@ class Role(JSONSerializable, Resolvable):
             taskfiles = sorted(taskfiles)
         self.taskfiles = taskfiles
 
+    def set_key(self):
+        global_key_prefix = make_global_key_prefix(self.collection, "")
+        global_key = "{}{}{}{}".format(global_key_prefix, type(self).__name__.lower(), key_delimiter, self.fqcn.lower())
+        local_key = "{}{}{}".format(type(self).__name__.lower(), key_delimiter, self.defined_in.lower())
+        self.key = global_key
+        self.local_key = local_key
+
     def children_to_key(self):
         module_keys = [m.key if isinstance(m, Module) else m  for m in self.modules]
         self.modules = module_keys
@@ -954,7 +991,7 @@ class Play(JSONSerializable, Resolvable):
     collections_in_play: list = field(default_factory=list)
     variables: dict = field(default_factory=dict)
 
-    def load(self, path, index, play_block_dict, role_name="", collection_name="", basedir=""):
+    def load(self, path, index, play_block_dict, role_name="", collection_name="", parent_key="", parent_local_key="", basedir=""):
         if play_block_dict is None:
             raise ValueError("play block dict is required to load Play")
         if not isinstance(play_block_dict, dict):
@@ -962,6 +999,12 @@ class Play(JSONSerializable, Resolvable):
         data_block = play_block_dict
         if "hosts" not in data_block and "import_playbook" not in data_block and "include" not in data_block:
             raise PlaybookFormatError("this play block does not have \"hosts\", \"import_playbook\" and \"include\"; maybe this is not a playbook")
+        
+        self.index = index
+        self.role = role_name
+        self.collection = collection_name
+        self.set_key(parent_key, parent_local_key)
+        
         play_name = data_block.get("name", "")
         collections_in_play = data_block.get("collections", [])
         pre_tasks = []
@@ -989,7 +1032,7 @@ class Play(JSONSerializable, Resolvable):
                 for i, task_dict in enumerate(task_blocks):
                     t = Task()
                     try:
-                        t.load(path=path, index=i, task_block_dict=task_dict, role_name=role_name, collection_name=collection_name, collections_in_play=collections_in_play, play_index=index, basedir=basedir)
+                        t.load(path=path, index=i, task_block_dict=task_dict, role_name=role_name, collection_name=collection_name, collections_in_play=collections_in_play, play_index=index, parent_key=self.key, parent_local_key=self.local_key, basedir=basedir)
                     except TaskFormatError:
                         logging.warning("this task is wrong format; skip the task in {}, index: {}".format(path, i))
                         continue
@@ -1006,7 +1049,7 @@ class Play(JSONSerializable, Resolvable):
                     _i = i + pre_task_num
                     t = Task()
                     try:
-                        t.load(path=path, index=_i, task_block_dict=task_dict, role_name=role_name, collection_name=collection_name, collections_in_play=collections_in_play, play_index=index, basedir=basedir)
+                        t.load(path=path, index=_i, task_block_dict=task_dict, role_name=role_name, collection_name=collection_name, collections_in_play=collections_in_play, play_index=index, parent_key=self.key, parent_local_key=self.local_key, basedir=basedir)
                     except TaskFormatError:
                         logging.warning("this task is wrong format; skip the task in {}, index: {}".format(path, i))
                         continue
@@ -1023,7 +1066,7 @@ class Play(JSONSerializable, Resolvable):
                     _i = i + pre_task_num + task_num
                     t = Task()
                     try:
-                        t.load(path=path, index=_i, task_block_dict=task_dict, role_name=role_name, collection_name=collection_name, collections_in_play=collections_in_play, play_index=index, basedir=basedir)
+                        t.load(path=path, index=_i, task_block_dict=task_dict, role_name=role_name, collection_name=collection_name, collections_in_play=collections_in_play, play_index=index, parent_key=self.key, parent_local_key=self.local_key, basedir=basedir)
                     except TaskFormatError:
                         logging.warning("this task is wrong format; skip the task in {}, index: {}".format(path, i))
                         continue
@@ -1064,9 +1107,6 @@ class Play(JSONSerializable, Resolvable):
 
         self.name = play_name
         self.defined_in = path
-        self.index = index
-        self.role = role_name
-        self.collection = collection_name
         self.import_module = import_module
         self.import_playbook = import_playbook
         self.pre_tasks = pre_tasks
@@ -1075,8 +1115,14 @@ class Play(JSONSerializable, Resolvable):
         self.roles = roles
         self.options = play_options
         self.collections_in_play = collections_in_play
-        self.key = "Play {}{}".format(make_global_key_prefix(self.collection, self.role), self.id)
-        self.local_key = "Play {}".format(self.id)
+        
+
+    def set_key(self, parent_key="", parent_local_key=""):
+        index_info = "[{}]".format(self.index)
+        global_key = "{}{}{}{}{}".format(parent_key, object_delimiter, type(self).__name__.lower(), key_delimiter, index_info)
+        local_key = "{}{}{}{}{}".format(parent_local_key, object_delimiter, type(self).__name__.lower(), key_delimiter, index_info)
+        self.key = global_key
+        self.local_key = local_key
 
     def children_to_key(self):
         pre_task_keys = [t.key if isinstance(t, Task) else t for t in self.pre_tasks]
@@ -1134,8 +1180,7 @@ class Playbook(JSONSerializable, Resolvable):
         self.name = os.path.basename(fullpath)
         self.role = role_name
         self.collection = collection_name
-        self.key = "Playbook {}{}".format(make_global_key_prefix(self.collection, self.role), defined_in)
-        self.local_key = "Playbook {}".format(defined_in)
+        self.set_key()
         data = None
         if fullpath != "":
             with open(fullpath , "r") as file:
@@ -1152,7 +1197,7 @@ class Playbook(JSONSerializable, Resolvable):
         for i, play_dict in enumerate(data):
             play = Play()
             try:
-                play.load(path=defined_in, index=i, play_block_dict=play_dict, role_name=role_name, collection_name=collection_name, basedir=basedir)
+                play.load(path=defined_in, index=i, play_block_dict=play_dict, role_name=role_name, collection_name=collection_name, parent_key=self.key, parent_local_key=self.local_key, basedir=basedir)
             except PlaybookFormatError:
                 logging.warning("this play is wrong format; skip the play in {}, index: {}".format(fullpath, i))
                 continue
@@ -1160,6 +1205,13 @@ class Playbook(JSONSerializable, Resolvable):
                 logging.exception("error while loading the play at {} (index={})".format(fullpath, i))
             plays.append(play)
         self.plays = plays
+
+    def set_key(self):
+        global_key_prefix = make_global_key_prefix(self.collection, self.role)
+        global_key = "{}{}{}{}".format(global_key_prefix, type(self).__name__.lower(), key_delimiter, self.defined_in.lower())
+        local_key = "{}{}{}".format(type(self).__name__.lower(), key_delimiter, self.defined_in.lower())
+        self.key = global_key
+        self.local_key = local_key
 
     def children_to_key(self):
         play_keys = [play.key if isinstance(play, Play) else play for play in self.plays]
