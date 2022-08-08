@@ -195,16 +195,28 @@ if __name__ == "__main__":
     )
 
     parser.add_argument('-l', '--load-path', default="", help='load json path')
+    parser.add_argument('-i', '--index-path', default="", help='if specified, load only files in this index.json (--load-path will be ignored)')
     parser.add_argument('-o', '--output-dir', default="", help='path to the output dir')
     
     args = parser.parse_args()
 
-    if not os.path.exists(args.load_path):
-        logging.info("No such file or directory: {}".format(args.load_path))
+    if args.load_path == "" and args.index_path == "":
+        logging.error("either `--load-path` or `--index-path` is required")
+        sys.exit(1)
+
+    if args.load_path != "" and not os.path.exists(args.load_path):
+        logging.error("No such file or directory: {}".format(args.load_path))
+        sys.exit(1)
+
+    if args.index_path != "" and not os.path.exists(args.index_path):
+        logging.error("No such file or directory: {}".format(args.index_path))
         sys.exit(1)
 
     load_json_path_list = []
-    if os.path.isfile(args.load_path):
+    if args.index_path != "":
+        with open(args.index_path, "r") as file:
+            load_json_path_list = json.load(file)
+    elif os.path.isfile(args.load_path):
         load_json_path_list = [args.load_path]
     else:
         files = os.listdir(args.load_path)
