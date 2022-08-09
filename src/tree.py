@@ -290,13 +290,14 @@ def resolve_role(role_name, role_dict={}, my_collection_name="", collections_in_
     return role_key
 
 def resolve_taskfile(taskfile_ref, taskfile_dict={}, task_key=""):
-    parts = task_key.split(object_delimiter)
+    type_prefix = "task "
+    parts = task_key[len(type_prefix):].split(object_delimiter)
     parent_key = ""
     task_defined_path = ""
     for p in parts[::-1]:
         if p.startswith("playbook"+key_delimiter) or p.startswith("taskfile"+key_delimiter):
             task_defined_path = p.split(key_delimiter)[1]
-            parent_key = task_key.split(p)[0]
+            parent_key = task_key[len(type_prefix):].split(p)[0]
             break
     
     # include/import tasks can have a path like "roles/xxxx/tasks/yyyy.yml"
@@ -306,7 +307,7 @@ def resolve_taskfile(taskfile_ref, taskfile_dict={}, task_key=""):
             roles_parent_dir = task_defined_path.split("roles/")[0]
             fpath = os.path.join(roles_parent_dir, taskfile_ref)
             fpath = os.path.normpath(fpath)
-            taskfile_key = "{}taskfile{}{}".format(parent_key, key_delimiter, fpath)
+            taskfile_key = "taskfile {}taskfile{}{}".format(parent_key, key_delimiter, fpath)
             found_tf = taskfile_dict.get(taskfile_key, None)
             if found_tf is not None:
                 return found_tf.key
@@ -317,7 +318,7 @@ def resolve_taskfile(taskfile_ref, taskfile_dict={}, task_key=""):
     # but "tasks/some_dir/../some_taskfile.yml" cannot be found in the taskfile_dict
     # it will be "tasks/some_taskfile.yml" by this normalize
     fpath = os.path.normpath(fpath)
-    taskfile_key = "{}taskfile{}{}".format(parent_key, key_delimiter, fpath)
+    taskfile_key = "taskfile {}taskfile{}{}".format(parent_key, key_delimiter, fpath)
     found_tf = taskfile_dict.get(taskfile_key, None)
     if found_tf is not None:
         return found_tf.key
@@ -325,20 +326,21 @@ def resolve_taskfile(taskfile_ref, taskfile_dict={}, task_key=""):
     return ""
 
 def resolve_playbook(playbook_ref, playbook_dict={}, play_key=""):
-    parts = play_key.split(object_delimiter)
+    type_prefix = "playbook "
+    parts = play_key[len(type_prefix):].split(object_delimiter)
     parent_key = ""
     play_defined_path = ""
     for p in parts[::-1]:
         if p.startswith("playbook"+key_delimiter):
             play_defined_path = p.split(key_delimiter)[1]
-            parent_key = play_key.split(p)[0]
+            parent_key = play_key[len(type_prefix):].split(p)[0]
             break
     
     play_dir = os.path.dirname(play_defined_path)
     fpath = os.path.join(play_dir, playbook_ref)
     # need to normalize path here because playbook_ref can be smoething like "../some_playbook.yml"
     fpath = os.path.normpath(fpath)
-    playbook_key = "{}playbook{}{}".format(parent_key, key_delimiter, fpath)
+    playbook_key = "playbook {}playbook{}{}".format(parent_key, key_delimiter, fpath)
     found_playbook = playbook_dict.get(playbook_key, None)
     if found_playbook is not None:
         return found_playbook.key
@@ -434,8 +436,8 @@ class TreeLoader(object):
         for module_name in builtin_module_names:
             collection_name = "ansible.builtin"
             fqcn = "{}.{}".format(collection_name, module_name)
-            global_key = "collection{}{}{}module{}{}".format(key_delimiter, collection_name, object_delimiter, key_delimiter, fqcn)
-            local_key = "module{}{}".format(key_delimiter, "__builtin__")
+            global_key = "module collection{}{}{}module{}{}".format(key_delimiter, collection_name, object_delimiter, key_delimiter, fqcn)
+            local_key = "module module{}{}".format(key_delimiter, "__builtin__")
             m = Module(name=module_name, fqcn=fqcn, key=global_key, local_key=local_key, collection=collection_name, builtin=True)
             obj_list.add(m)
         self.ext_definitions["modules"].merge(obj_list)

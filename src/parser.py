@@ -164,17 +164,6 @@ class Parser():
         open(mapping_path, "w").write(l.dump())
 
         return
-            
-def add_builtin_modules(modules):
-    current_modules = [m for m in modules]
-    builtin_module_names = BuiltinModuleSet().builtin_modules
-    for m_name in builtin_module_names:
-        fqcn = "ansible.builtin.{}".format(m_name)
-        key = "Module {}".format(fqcn)
-        collection = "ansible.builtin"
-        m = Module(name=m_name, fqcn=fqcn, key=key, collection=collection, role="", defined_in="", builtin=True)
-        current_modules.append(m)
-    return current_modules
         
 def dump_object_list(obj_list, output_path):
     tmp_obj_list = copy.deepcopy(obj_list)
