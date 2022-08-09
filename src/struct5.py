@@ -70,7 +70,7 @@ def make_global_key_prefix(collection, role):
     return key_prefix
 
 def detect_type(key=""):
-    return key.split(object_delimiter)[-1].split(key_delimiter)[0]
+    return key.split(" ")[0]
 
 class PlaybookFormatError(Exception):
     pass
@@ -304,8 +304,8 @@ class Module(JSONSerializable, Resolvable):
 
     def set_key(self):
         global_key_prefix = make_global_key_prefix(self.collection, self.role)
-        global_key = "{}{}{}{}".format(global_key_prefix, self.type, key_delimiter, self.fqcn.lower())
-        local_key = "{}{}{}".format(self.type, key_delimiter, self.defined_in.lower())
+        global_key = "{} {}{}{}{}".format(self.type, global_key_prefix, self.type, key_delimiter, self.fqcn.lower())
+        local_key = "{} {}{}{}".format(self.type, self.type, key_delimiter, self.defined_in.lower())
         self.key = global_key
         self.local_key = local_key
 
@@ -445,7 +445,7 @@ class Collection(JSONSerializable, Resolvable):
         self.modules = modules
 
     def set_key(self):
-        global_key = "{}{}{}".format(self.type, key_delimiter, self.name.lower())
+        global_key = "{} {}{}{}".format(self.type, self.type, key_delimiter, self.name.lower())
         local_key = global_key
         self.key = global_key
         self.local_key = local_key
@@ -613,8 +613,8 @@ class Task(JSONSerializable, Resolvable):
 
     def set_key(self, parent_key="", parent_local_key=""):
         index_info = "[{}]".format(self.index)
-        global_key = "{}{}{}{}{}".format(parent_key, object_delimiter, self.type, key_delimiter, index_info)
-        local_key = "{}{}{}{}{}".format(parent_local_key, object_delimiter, self.type, key_delimiter, index_info)
+        global_key = "{} {}{}{}{}{}".format(self.type, parent_key, object_delimiter, self.type, key_delimiter, index_info)
+        local_key = "{} {}{}{}{}{}".format(self.type, parent_local_key, object_delimiter, self.type, key_delimiter, index_info)
         self.key = global_key
         self.local_key = local_key
 
@@ -705,8 +705,8 @@ class TaskFile(JSONSerializable, Resolvable):
 
     def set_key(self):
         global_key_prefix = make_global_key_prefix(self.collection, self.role)
-        global_key = "{}{}{}{}".format(global_key_prefix, self.type, key_delimiter, self.defined_in.lower())
-        local_key = "{}{}{}".format(self.type, key_delimiter, self.defined_in.lower())
+        global_key = "{} {}{}{}{}".format(self.type, global_key_prefix, self.type, key_delimiter, self.defined_in.lower())
+        local_key = "{} {}{}{}".format(self.type, self.type, key_delimiter, self.defined_in.lower())
         self.key = global_key
         self.local_key = local_key
 
@@ -942,8 +942,8 @@ class Role(JSONSerializable, Resolvable):
 
     def set_key(self):
         global_key_prefix = make_global_key_prefix(self.collection, "")
-        global_key = "{}{}{}{}".format(global_key_prefix, self.type, key_delimiter, self.fqcn.lower())
-        local_key = "{}{}{}".format(self.type, key_delimiter, self.defined_in.lower())
+        global_key = "{} {}{}{}{}".format(self.type, global_key_prefix, self.type, key_delimiter, self.fqcn.lower())
+        local_key = "{} {}{}{}".format(self.type, self.type, key_delimiter, self.defined_in.lower())
         self.key = global_key
         self.local_key = local_key
 
@@ -1152,8 +1152,8 @@ class Play(JSONSerializable, Resolvable):
 
     def set_key(self, parent_key="", parent_local_key=""):
         index_info = "[{}]".format(self.index)
-        global_key = "{}{}{}{}{}".format(parent_key, object_delimiter, self.type, key_delimiter, index_info)
-        local_key = "{}{}{}{}{}".format(parent_local_key, object_delimiter, self.type, key_delimiter, index_info)
+        global_key = "{} {}{}{}{}{}".format(self.type, parent_key, object_delimiter, self.type, key_delimiter, index_info)
+        local_key = "{} {}{}{}{}{}".format(self.type, parent_local_key, object_delimiter, self.type, key_delimiter, index_info)
         self.key = global_key
         self.local_key = local_key
 
@@ -1242,8 +1242,8 @@ class Playbook(JSONSerializable, Resolvable):
 
     def set_key(self):
         global_key_prefix = make_global_key_prefix(self.collection, self.role)
-        global_key = "{}{}{}{}".format(global_key_prefix, self.type, key_delimiter, self.defined_in.lower())
-        local_key = "{}{}{}".format(self.type, key_delimiter, self.defined_in.lower())
+        global_key = "{} {}{}{}{}".format(self.type, global_key_prefix, self.type, key_delimiter, self.defined_in.lower())
+        local_key = "{} {}{}{}".format(self.type, self.type, key_delimiter, self.defined_in.lower())
         self.key = global_key
         self.local_key = local_key
 
