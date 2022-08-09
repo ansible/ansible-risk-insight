@@ -326,7 +326,7 @@ def resolve_taskfile(taskfile_ref, taskfile_dict={}, task_key=""):
     return ""
 
 def resolve_playbook(playbook_ref, playbook_dict={}, play_key=""):
-    type_prefix = "playbook "
+    type_prefix = "play "
     parts = play_key[len(type_prefix):].split(object_delimiter)
     parent_key = ""
     play_defined_path = ""

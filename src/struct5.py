@@ -613,8 +613,10 @@ class Task(JSONSerializable, Resolvable):
 
     def set_key(self, parent_key="", parent_local_key=""):
         index_info = "[{}]".format(self.index)
-        global_key = "{} {}{}{}{}{}".format(self.type, parent_key, object_delimiter, self.type, key_delimiter, index_info)
-        local_key = "{} {}{}{}{}{}".format(self.type, parent_local_key, object_delimiter, self.type, key_delimiter, index_info)
+        _parent_key = parent_key.split(" ")[-1]
+        _parent_local_key = parent_local_key.split(" ")[-1]
+        global_key = "{} {}{}{}{}{}".format(self.type, _parent_key, object_delimiter, self.type, key_delimiter, index_info)
+        local_key = "{} {}{}{}{}{}".format(self.type, _parent_local_key, object_delimiter, self.type, key_delimiter, index_info)
         self.key = global_key
         self.local_key = local_key
 
@@ -1152,8 +1154,10 @@ class Play(JSONSerializable, Resolvable):
 
     def set_key(self, parent_key="", parent_local_key=""):
         index_info = "[{}]".format(self.index)
-        global_key = "{} {}{}{}{}{}".format(self.type, parent_key, object_delimiter, self.type, key_delimiter, index_info)
-        local_key = "{} {}{}{}{}{}".format(self.type, parent_local_key, object_delimiter, self.type, key_delimiter, index_info)
+        _parent_key = parent_key.split(" ")[-1]
+        _parent_local_key = parent_local_key.split(" ")[-1]
+        global_key = "{} {}{}{}{}{}".format(self.type, _parent_key, object_delimiter, self.type, key_delimiter, index_info)
+        local_key = "{} {}{}{}{}{}".format(self.type, _parent_local_key, object_delimiter, self.type, key_delimiter, index_info)
         self.key = global_key
         self.local_key = local_key
 
