@@ -268,6 +268,7 @@ class ObjectList(Resolvable):
 
 @dataclass
 class Module(JSONSerializable, Resolvable):
+    type: str = "module"
     name: str = ""
     fqcn: str = ""
     key: str = ""
@@ -303,8 +304,8 @@ class Module(JSONSerializable, Resolvable):
 
     def set_key(self):
         global_key_prefix = make_global_key_prefix(self.collection, self.role)
-        global_key = "{}{}{}{}".format(global_key_prefix, type(self).__name__.lower(), key_delimiter, self.fqcn.lower())
-        local_key = "{}{}{}".format(type(self).__name__.lower(), key_delimiter, self.defined_in.lower())
+        global_key = "{}{}{}{}".format(global_key_prefix, self.type, key_delimiter, self.fqcn.lower())
+        local_key = "{}{}{}".format(self.type, key_delimiter, self.defined_in.lower())
         self.key = global_key
         self.local_key = local_key
 
@@ -317,6 +318,7 @@ class Module(JSONSerializable, Resolvable):
 
 @dataclass
 class Collection(JSONSerializable, Resolvable):
+    type: str = "collection"
     name: str = ""
     path: str = ""
     key: str = ""
@@ -443,7 +445,7 @@ class Collection(JSONSerializable, Resolvable):
         self.modules = modules
 
     def set_key(self):
-        global_key = "{}{}{}".format(type(self).__name__.lower(), key_delimiter, self.name.lower())
+        global_key = "{}{}{}".format(self.type, key_delimiter, self.name.lower())
         local_key = global_key
         self.key = global_key
         self.local_key = local_key
@@ -472,6 +474,7 @@ class ExecutableType:
 
 @dataclass
 class Task(JSONSerializable, Resolvable):
+    type: str = "task"
     name: str = ""
     module: str = ""    
     index: int = -1
@@ -610,8 +613,8 @@ class Task(JSONSerializable, Resolvable):
 
     def set_key(self, parent_key="", parent_local_key=""):
         index_info = "[{}]".format(self.index)
-        global_key = "{}{}{}{}{}".format(parent_key, object_delimiter, type(self).__name__.lower(), key_delimiter, index_info)
-        local_key = "{}{}{}{}{}".format(parent_local_key, object_delimiter, type(self).__name__.lower(), key_delimiter, index_info)
+        global_key = "{}{}{}{}{}".format(parent_key, object_delimiter, self.type, key_delimiter, index_info)
+        local_key = "{}{}{}{}{}".format(parent_local_key, object_delimiter, self.type, key_delimiter, index_info)
         self.key = global_key
         self.local_key = local_key
 
@@ -643,6 +646,7 @@ class Task(JSONSerializable, Resolvable):
 
 @dataclass
 class TaskFile(JSONSerializable, Resolvable):
+    type: str = "taskfile"
     name: str = ""
     defined_in: str = ""
     key: str = ""
@@ -701,8 +705,8 @@ class TaskFile(JSONSerializable, Resolvable):
 
     def set_key(self):
         global_key_prefix = make_global_key_prefix(self.collection, self.role)
-        global_key = "{}{}{}{}".format(global_key_prefix, type(self).__name__.lower(), key_delimiter, self.defined_in.lower())
-        local_key = "{}{}{}".format(type(self).__name__.lower(), key_delimiter, self.defined_in.lower())
+        global_key = "{}{}{}{}".format(global_key_prefix, self.type, key_delimiter, self.defined_in.lower())
+        local_key = "{}{}{}".format(self.type, key_delimiter, self.defined_in.lower())
         self.key = global_key
         self.local_key = local_key
 
@@ -766,6 +770,7 @@ def flatten_block_tasks(task_dict):
 
 @dataclass
 class Role(JSONSerializable, Resolvable):
+    type: str = "role"
     name: str = ""
     defined_in: str = ""
     key: str = ""
@@ -937,8 +942,8 @@ class Role(JSONSerializable, Resolvable):
 
     def set_key(self):
         global_key_prefix = make_global_key_prefix(self.collection, "")
-        global_key = "{}{}{}{}".format(global_key_prefix, type(self).__name__.lower(), key_delimiter, self.fqcn.lower())
-        local_key = "{}{}{}".format(type(self).__name__.lower(), key_delimiter, self.defined_in.lower())
+        global_key = "{}{}{}{}".format(global_key_prefix, self.type, key_delimiter, self.fqcn.lower())
+        local_key = "{}{}{}".format(self.type, key_delimiter, self.defined_in.lower())
         self.key = global_key
         self.local_key = local_key
 
@@ -958,6 +963,7 @@ class Role(JSONSerializable, Resolvable):
 
 @dataclass
 class RoleInPlay(JSONSerializable, Resolvable):
+    type: str = "roleinplay"
     name: str = ""
     options: dict = field(default_factory=dict)
     defined_in: str = ""
@@ -998,6 +1004,7 @@ class RoleInPlay(JSONSerializable, Resolvable):
 
 @dataclass
 class Play(JSONSerializable, Resolvable):
+    type: str = "play"
     name: str = ""
     defined_in: str = ""
     index: int = -1
@@ -1145,8 +1152,8 @@ class Play(JSONSerializable, Resolvable):
 
     def set_key(self, parent_key="", parent_local_key=""):
         index_info = "[{}]".format(self.index)
-        global_key = "{}{}{}{}{}".format(parent_key, object_delimiter, type(self).__name__.lower(), key_delimiter, index_info)
-        local_key = "{}{}{}{}{}".format(parent_local_key, object_delimiter, type(self).__name__.lower(), key_delimiter, index_info)
+        global_key = "{}{}{}{}{}".format(parent_key, object_delimiter, self.type, key_delimiter, index_info)
+        local_key = "{}{}{}{}{}".format(parent_local_key, object_delimiter, self.type, key_delimiter, index_info)
         self.key = global_key
         self.local_key = local_key
 
@@ -1171,6 +1178,7 @@ class Play(JSONSerializable, Resolvable):
 
 @dataclass
 class Playbook(JSONSerializable, Resolvable):
+    type: str = "playbook"
     name: str = ""
     defined_in: str = ""
     key: str = ""
@@ -1234,8 +1242,8 @@ class Playbook(JSONSerializable, Resolvable):
 
     def set_key(self):
         global_key_prefix = make_global_key_prefix(self.collection, self.role)
-        global_key = "{}{}{}{}".format(global_key_prefix, type(self).__name__.lower(), key_delimiter, self.defined_in.lower())
-        local_key = "{}{}{}".format(type(self).__name__.lower(), key_delimiter, self.defined_in.lower())
+        global_key = "{}{}{}{}".format(global_key_prefix, self.type, key_delimiter, self.defined_in.lower())
+        local_key = "{}{}{}".format(self.type, key_delimiter, self.defined_in.lower())
         self.key = global_key
         self.local_key = local_key
 
@@ -1252,6 +1260,7 @@ class Playbook(JSONSerializable, Resolvable):
         
 @dataclass
 class Repository(JSONSerializable, Resolvable):
+    type: str = "repository"
     name: str = ""
     path: str = ""
 
