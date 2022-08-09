@@ -79,6 +79,7 @@ def convert(tree, node_objects, mutated_keys):
 
         # define here
         obj["type"] = node_type
+        obj["path"] = no.defined_in
 
         is_mutated = mutated_keys.get(node.key, "") != ""
         if is_mutated:
