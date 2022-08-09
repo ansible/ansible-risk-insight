@@ -72,10 +72,13 @@ def convert(tree, node_objects, mutated_keys):
     for no in node_objects.items:
         node_dict[no.key] = no
 
+    _no_in_this_tree = ObjectList()
+
     def getSubTree(node, root=False):
         obj = {}
         no = node_dict[node.key]
         node_type = detect_type(node.key)
+        _no_in_this_tree.add(no)
 
         # define here
         obj["type"] = node_type
@@ -126,9 +129,9 @@ def convert(tree, node_objects, mutated_keys):
         return obj
 
     tObj = getSubTree(tree, root=True)
-    tObj["dependent_collections"] = list(set([ no.collection for no in node_objects.items if hasattr(no, "collection") and no.collection != ""]))
-    tObj["dependent_roles"] = list(set([ no.role for no in node_objects.items if hasattr(no, "collection") and hasattr(no, "role") and no.collection == "" and no.role != ""]))
-    tObj["dependent_module_collections"] = list(set([ no.collection for no in node_objects.items if detect_type(no.key)=="module" and hasattr(no, "collection") and no.collection != ""]))
+    tObj["dependent_collections"] = list(set([ no.collection for no in _no_in_this_tree.items if hasattr(no, "collection") and no.collection != ""]))
+    tObj["dependent_roles"] = list(set([ no.role for no in _no_in_this_tree.items if hasattr(no, "collection") and hasattr(no, "role") and no.collection == "" and no.role != ""]))
+    tObj["dependent_module_collections"] = list(set([ no.collection for no in _no_in_this_tree.items if detect_type(no.key)=="module" and hasattr(no, "collection") and no.collection != ""]))
     # tObj["dependent_module_roles"] = list(set([ no["role"] for no in node_objects if detect_type(no["key"])=="Module" and "collection" not in no]))
 
     context_and_task = []
