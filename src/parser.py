@@ -257,11 +257,6 @@ class Parser:
         return definitions, load_and_mappings
 
 
-<<<<<<< HEAD
-=======
-        return
-        
->>>>>>> ab01ebdb (update key format)
 def dump_object_list(obj_list, output_path):
     tmp_obj_list = copy.deepcopy(obj_list)
     lines = []

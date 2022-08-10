@@ -145,6 +145,22 @@ mutable_types = [
     VariableType.INVENTORY_VARS,
 ]
 
+def get_all_variables(var_dict={}):
+    def _recursive_extract(name, node):
+        all_vars = {}
+        if isinstance(node, dict):
+            for k, v in node.items():
+                var_name = "{}.{}".format(name, k) if name != "" else k
+                all_vars[var_name] = v
+                child_node_vars = _recursive_extract(var_name, v)
+                all_vars.update(child_node_vars)
+        else:
+            var_name = name
+            all_vars[var_name] = node
+        return all_vars
+    
+    all_vars = _recursive_extract("", var_dict)
+    return all_vars
 
 @dataclass
 class Context:

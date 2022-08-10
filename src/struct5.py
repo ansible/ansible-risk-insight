@@ -248,6 +248,9 @@ class ObjectList(Resolvable):
         found = [obj for obj in self.items if obj.__dict__.get(key, None) == val]
         return found
 
+    def find_by_type(self, type):
+        return [obj for obj in self.items if hasattr(obj, "type") and obj.type == type]
+
     def find_by_key(self, key):
         return self._dict.get(key, None)
 
@@ -452,16 +455,16 @@ class Collection(JSONSerializable, Resolvable):
 
     def children_to_key(self):
         module_keys = [m.key if isinstance(m, Module) else m  for m in self.modules]
-        self.modules = module_keys
+        self.modules = sorted(module_keys)
 
         playbook_keys = [p.key if isinstance(p, Playbook) else p for p in self.playbooks]
-        self.playbooks = playbook_keys
+        self.playbooks = sorted(playbook_keys)
 
         role_keys = [r.key if isinstance(r, Role) else r for r in self.roles]
-        self.roles = role_keys
+        self.roles = sorted(role_keys)
 
         taskfile_keys = [tf.key if isinstance(tf, TaskFile) else tf for tf in self.taskfiles]
-        self.taskfiles = taskfile_keys
+        self.taskfiles = sorted(taskfile_keys)
 
     @property
     def resolver_targets(self):
@@ -714,7 +717,7 @@ class TaskFile(JSONSerializable, Resolvable):
 
     def children_to_key(self):
         task_keys = [t.key if isinstance(t, Task) else t for t in self.tasks]
-        self.tasks = task_keys
+        self.tasks = sorted(task_keys)
 
     @property
     def resolver_targets(self):
@@ -951,13 +954,13 @@ class Role(JSONSerializable, Resolvable):
 
     def children_to_key(self):
         module_keys = [m.key if isinstance(m, Module) else m  for m in self.modules]
-        self.modules = module_keys
+        self.modules = sorted(module_keys)
 
         playbook_keys = [p.key if isinstance(p, Playbook) else p for p in self.playbooks]
-        self.playbooks = playbook_keys
+        self.playbooks = sorted(playbook_keys)
 
         taskfile_keys = [tf.key if isinstance(tf, TaskFile) else tf for tf in self.taskfiles]
-        self.taskfiles = taskfile_keys
+        self.taskfiles = sorted(taskfile_keys)
 
     @property
     def resolver_targets(self):
@@ -1163,13 +1166,13 @@ class Play(JSONSerializable, Resolvable):
 
     def children_to_key(self):
         pre_task_keys = [t.key if isinstance(t, Task) else t for t in self.pre_tasks]
-        self.pre_tasks = pre_task_keys
+        self.pre_tasks = sorted(pre_task_keys)
 
         task_keys = [t.key if isinstance(t, Task) else t for t in self.tasks]
-        self.tasks = task_keys
+        self.tasks = sorted(task_keys)
 
         post_task_keys = [t.key if isinstance(t, Task) else t for t in self.post_tasks]
-        self.post_tasks = post_task_keys
+        self.post_tasks = sorted(post_task_keys)
 
     @property
     def id(self):
@@ -1253,7 +1256,7 @@ class Playbook(JSONSerializable, Resolvable):
 
     def children_to_key(self):
         play_keys = [play.key if isinstance(play, Play) else play for play in self.plays]
-        self.plays = play_keys
+        self.plays = sorted(play_keys)
 
     @property
     def resolver_targets(self):
@@ -1261,12 +1264,78 @@ class Playbook(JSONSerializable, Resolvable):
             return self.plays
         else:
             return self.roles + self.tasks
-        
+
+class InventoryType:
+    GROUP_VARS_TYPE = "group_vars"
+    HOST_VARS_TYPE = "host_vars"
+    UNKNOWN_TYPE = ""
+
+@dataclass
+class Inventory(JSONSerializable):
+    type: str = "inventory"
+    name: str = ""
+    defined_in: str = ""
+    inventory_type: str = ""
+    group_name: str = ""
+    host_name: str = ""
+    variables: dict = field(default_factory=dict)
+
+    def load(self, path, basedir=""):
+        fullpath = ""
+        if os.path.exists(path):
+            fullpath = path
+        if os.path.exists(os.path.join(basedir, path)):
+            fullpath = os.path.join(basedir, path)
+        if fullpath == "":
+            raise ValueError("file not found")
+        defined_in = fullpath
+        if basedir != "":
+            if defined_in.startswith(basedir):
+                defined_in = defined_in[len(basedir):]
+                if defined_in.startswith("/"):
+                    defined_in = defined_in[1:]
+        self.defined_in = defined_in
+        base_parts = os.path.splitext(os.path.basename(fullpath))
+        self.name = base_parts[0]
+        file_ext = base_parts[1]
+        dirname = os.path.dirname(fullpath)
+        inventory_type = InventoryType.UNKNOWN_TYPE
+        group_name = ""
+        host_name = ""
+        if dirname.endswith("/group_vars"):
+            inventory_type = InventoryType.GROUP_VARS_TYPE
+            group_name = base_parts[0]
+        elif dirname.endswith("/host_vars"):
+            inventory_type = InventoryType.HOST_VARS_TYPE
+            host_name = base_parts[0]
+        self.inventory_type = inventory_type
+        self.group_name = group_name
+        self.host_name = host_name
+        data = {}
+        if file_ext == "":
+            # TODO: parse it as INI file
+            pass
+        elif file_ext == ".yml" or file_ext == ".yaml":
+            with open(fullpath , "r") as file:
+                try:
+                    data = yaml.safe_load(file)
+                except Exception as e:
+                    logging.error("failed to load this yaml file (inventory); {}".format(e.args[0]))
+        elif file_ext == ".json":
+            with open(fullpath , "r") as file:
+                try:
+                    data = json.load(file)
+                except Exception as e:
+                    logging.error("failed to load this json file (inventory); {}".format(e.args[0]))
+        self.variables = data
+
 @dataclass
 class Repository(JSONSerializable, Resolvable):
     type: str = "repository"
     name: str = ""
     path: str = ""
+    key: str = ""
+    local_key: str = ""
 
     my_collection_name: str = ""    # if set, this repository is a collection repository
     
@@ -1283,6 +1352,9 @@ class Repository(JSONSerializable, Resolvable):
     
     modules: list = field(default_factory=list)
     taskfiles: list = field(default_factory=list)
+
+    inventories: list = field(default_factory=list)
+
     version: str = ""
 
     annotations: dict = field(default_factory=dict)
@@ -1321,6 +1393,9 @@ class Repository(JSONSerializable, Resolvable):
         logging.debug("start loading taskfiles (that are defined for playbooks in this repository)")
         self.load_taskfiles(repo_path, basedir=basedir, load_children=load_children)
         logging.debug("done ... {} task files loaded".format(len(self.taskfiles)))
+        logging.debug("start loading inventory files")
+        self.load_inventories(repo_path, basedir=basedir)
+        logging.debug("done ... {} inventory files loaded".format(len(self.inventories)))
         logging.debug("start loading installed collections")
         self.load_installed_collections(installed_collections_path)
         logging.debug("done ... {} collections loaded".format(len(self.installed_collections)))
@@ -1328,7 +1403,13 @@ class Repository(JSONSerializable, Resolvable):
         self.load_installed_roles(installed_roles_path)
         logging.debug("done ... {} roles loaded".format(len(self.installed_roles)))
         self.load_requirements(path=repo_path)
-        self.path = repo_path
+        name = os.path.basename(path)
+        self.name = name
+        _path = name
+        if os.path.abspath(repo_path).startswith(os.path.abspath(path)):
+            relative = os.path.abspath(repo_path)[len(os.path.abspath(path)):]
+            _path = os.path.join(name, relative)
+        self.path = _path
         self.installed_collections_path = installed_collections_path
         self.installed_roles_path = installed_roles_path
         logging.info("done")
@@ -1401,6 +1482,22 @@ class Repository(JSONSerializable, Resolvable):
                     self.requirements = yaml.safe_load(file)
                 except Exception as e:
                     logging.error("failed to load requirements.yml; {}".format(e.args[0]))
+
+    def load_inventories(self, path, basedir=""):
+        if not os.path.exists(path):
+            return
+        
+        inventory_file_paths = search_inventory_files(path)
+        if len(inventory_file_paths) > 0:
+            inventories = []
+            for inventory_path in inventory_file_paths:
+                iv = Inventory()
+                try:
+                    iv.load(inventory_path, basedir=basedir)
+                except:
+                    logging.exception("error while loading the inventory file at {}".format(inventory_path))
+                inventories.append(iv)
+            self.inventories = inventories
 
     def load_installed_collections(self, installed_collections_path):
         search_path = installed_collections_path
@@ -1560,6 +1657,25 @@ class Repository(JSONSerializable, Resolvable):
             root_path = os.path.dirname(top_playbook_path)
         return root_path
 
+    def set_key(self):
+        global_key = "{} {}{}{}".format(self.type, self.type, key_delimiter, self.name.lower())
+        local_key = global_key
+        self.key = global_key
+        self.local_key = local_key
+
+    def children_to_key(self):
+        module_keys = [m.key if isinstance(m, Module) else m  for m in self.modules]
+        self.modules = sorted(module_keys)
+
+        playbook_keys = [p.key if isinstance(p, Playbook) else p for p in self.playbooks]
+        self.playbooks = sorted(playbook_keys)
+
+        taskfile_keys = [tf.key if isinstance(tf, TaskFile) else tf for tf in self.taskfiles]
+        self.taskfiles = sorted(taskfile_keys)
+
+        role_keys = [r.key if isinstance(r, Role) else r for r in self.roles]
+        self.roles = sorted(role_keys)
+
     @property
     def resolver_targets(self):
         return self.playbooks + self.roles + self.modules + self.installed_roles + self.installed_collections
@@ -1713,6 +1829,14 @@ def search_taskfiles_for_playbooks(path, taskfile_dir_paths=[]):
                 continue
             candidates.append(f)
     return candidates
+
+def search_inventory_files(path):
+    inventory_file_patterns = [
+        os.path.join(path, "**/group_vars", "*"),
+        os.path.join(path, "**/host_vars", "*"),
+    ]
+    files = safe_glob(patterns=inventory_file_patterns, recursive=True)
+    return files
 
 # this method is based on awx code https://github.com/ansible/awx/blob/devel/awx/main/utils/ansible.py#L42-L64
 def could_be_playbook(fpath):
