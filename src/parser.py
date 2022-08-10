@@ -133,15 +133,20 @@ class Parser():
             os.makedirs(output_dir, exist_ok=True)
 
         collections = []
+        projects = []
         if l.target_type == LoadType.COLLECTION_TYPE:
             collections = [obj]
         elif l.target_type == LoadType.ROLE_TYPE:
             roles = [obj]
         elif l.target_type == LoadType.PLAYBOOK_TYPE:
             playbooks = [obj]
+        elif l.target_type == LoadType.PROJECT_TYPE:
+            projects = [obj]
 
         if len(collections) > 0:
             dump_object_list(collections, os.path.join(output_dir, "collections.json"))
+        if len(projects) > 0:
+            dump_object_list(projects, os.path.join(output_dir, "projects.json"))
         if len(roles) > 0:
             dump_object_list(roles, os.path.join(output_dir, "roles.json"))
         if len(taskfiles) > 0:

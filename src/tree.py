@@ -8,7 +8,7 @@ import json
 import jsonpickle
 from copy import deepcopy
 from dataclasses import dataclass, field
-from struct5 import ObjectList, Playbook, Play, RoleInPlay, Role, Task, TaskFile, ExecutableType, Load, Module, BuiltinModuleSet, object_delimiter, key_delimiter, detect_type, safe_glob
+from struct5 import ObjectList, Playbook, Play, Repository, RoleInPlay, Role, Task, TaskFile, ExecutableType, Load, Module, BuiltinModuleSet, object_delimiter, key_delimiter, detect_type, safe_glob, LoadType
 
 
 
@@ -205,7 +205,7 @@ def load_all_definitions(base_dir):
 def load_mappings(fpath):
     l = Load()
     l.from_json(open(fpath, "r").read())
-    return l.roles, l.playbooks
+    return l
 
 def make_dicts(root_definitions, ext_definitions):
     definitions = {
@@ -354,7 +354,9 @@ class TreeLoader(object):
         self.tree_file = tree
         self.node_file = node
 
-        self.role_mappings, self.playbook_mappings = load_mappings(os.path.join(self.root_dir, "mappings.json"))
+        self.load_and_mapping = load_mappings(os.path.join(self.root_dir, "mappings.json"))
+        self.playbook_mappings = self.load_and_mapping.playbooks
+        self.role_mappings = self.load_and_mapping.roles
 
         self.root_definitions = load_all_definitions(self.root_dir)
         self.ext_definitions = load_all_definitions(self.ext_dir)
@@ -367,6 +369,10 @@ class TreeLoader(object):
 
     def run(self):
         objects = ObjectList()
+        if self.load_and_mapping.target_type == LoadType.PROJECT_TYPE:
+            projects = ObjectList()
+            projects.from_json(fpath=os.path.join(self.root_dir, "projects.json"))
+            objects.merge(projects)
         for mapping in self.playbook_mappings:
             playbook_key = mapping[1]
             graph = [[None, playbook_key]]

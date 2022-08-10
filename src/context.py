@@ -7,18 +7,35 @@ import subprocess
 import logging
 import copy
 from dataclasses import dataclass, field
-from struct5 import get_object, Repository, Playbook, Play, Role, Collection, TaskFile, Task, PlaybookFormatError
+from struct5 import get_object, Repository, Playbook, Play, Role, Collection, TaskFile, Task, PlaybookFormatError, InventoryType
 from resolver_fqcn import FQCNResolver
 
 
 variable_block_re = re.compile(r'{{[^}]+}}')
 
+def get_all_variables(var_dict={}):
+    def _recursive_extract(name, node):
+        all_vars = {}
+        if isinstance(node, dict):
+            for k, v in node.items():
+                var_name = "{}.{}".format(name, k) if name != "" else k
+                all_vars[var_name] = v
+                child_node_vars = _recursive_extract(var_name, v)
+                all_vars.update(child_node_vars)
+        else:
+            var_name = name
+            all_vars[var_name] = node
+        return all_vars
+    
+    all_vars = _recursive_extract("", var_dict)
+    return all_vars
 
 @dataclass
 class Context():
     chain: list = field(default_factory=list)
     variables: dict = field(default_factory=dict)
     options: dict = field(default_factory=dict)
+    inventories: list = field(default_factory=list)
 
     def add(self, obj, depth_lvl=0):
         if isinstance(obj, Playbook):
@@ -48,15 +65,25 @@ class Context():
 
     def resolve_variable(self, var_name):
         val = self.variables.get(var_name, None)
-        if val is None:
-            return None
-        if isinstance(val, str):
-            return self.resolve_single_variable(val)
-        elif isinstance(val, list):
-            resolved_val_list = [self.resolve_single_variable(vi) for vi in val]
-            return resolved_val_list
-        else:
-            return val
+        if val is not None:
+            if isinstance(val, str):
+                return self.resolve_single_variable(val)
+            elif isinstance(val, list):
+                resolved_val_list = [self.resolve_single_variable(vi) for vi in val]
+                return resolved_val_list
+        
+        # TODO: consider group
+        inventory_for_all = [iv for iv in self.inventories if iv.inventory_type==InventoryType.GROUP_VARS_TYPE and iv.name == "all"]
+        for iv in inventory_for_all:
+            all_variables_in_this_iv = get_all_variables(iv.variables)
+            val = all_variables_in_this_iv.get(var_name, None)
+            if val is not None:
+                if isinstance(val, str):
+                    return self.resolve_single_variable(val)
+                elif isinstance(val, list):
+                    resolved_val_list = [self.resolve_single_variable(vi) for vi in val]
+                    return resolved_val_list
+        return None
 
     def resolve_single_variable(self, txt):
         if not isinstance(txt, str):
@@ -119,7 +146,7 @@ def resolve_module_options(context, task):
                     variables_in_loop.append({loop_key: loop_values})  
         elif isinstance(loop_values, list):
             for v in loop_values:
-                if isinstance(v, str) and variable_block_re.match(v):
+                if isinstance(v, str) and variable_block_re.search(v):
                     var_names = extract_variable_names(v)
                     if len(var_names) == 0:
                         variables_in_loop.append({loop_key: v})
@@ -153,7 +180,7 @@ def resolve_module_options(context, task):
                 if not isinstance(module_opt_val, str):
                     resolved_opts[module_opt_key] = module_opt_val
                     continue
-                if not variable_block_re.match(module_opt_val):
+                if not variable_block_re.search(module_opt_val):
                     resolved_opts[module_opt_key] = module_opt_val
                     continue
                 # if variables are used in the module option value string
@@ -175,6 +202,26 @@ def resolve_module_options(context, task):
                         break
                     resolved_opt_val = resolved_opt_val.replace(original_block, str(resolved_var_val))
                 resolved_opts[module_opt_key] = resolved_opt_val
+        elif isinstance(task.module_options, str):
+            resolved_opt_val = task.module_options
+            if variable_block_re.search(resolved_opt_val):
+                var_names = extract_variable_names(task.module_options)
+                for var_name_dict in var_names:
+                    original_block = var_name_dict.get("original", "")
+                    var_name = var_name_dict.get("name", "")
+                    default_var_name = var_name_dict.get("default", "")
+                    resolved_var_val = variables.get(var_name, None)
+                    if resolved_var_val is None:
+                        resolved_var_val = context.resolve_variable(var_name)
+                    if resolved_var_val is None and default_var_name != "":
+                        resolved_var_val = context.resolve_variable(default_var_name)
+                    if resolved_var_val is None:
+                        continue
+                    if resolved_opt_val == original_block:
+                        resolved_opt_val = resolved_var_val
+                        break
+                    resolved_opt_val = resolved_opt_val.replace(original_block, str(resolved_var_val))
+            resolved_opts = resolved_opt_val
         else:
             resolved_opts = task.module_options
         resolved_opts_in_loop.append(resolved_opts)
@@ -182,7 +229,7 @@ def resolve_module_options(context, task):
 
 
 def extract_variable_names(txt):
-    if not variable_block_re.match(txt):
+    if not variable_block_re.search(txt):
         return []
     found_var_blocks = variable_block_re.findall(txt)
     blocks = []

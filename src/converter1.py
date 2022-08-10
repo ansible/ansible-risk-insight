@@ -4,9 +4,9 @@ import sys
 import json
 import jsonpickle
 import logging
-from struct5 import ObjectList, detect_type, ExecutableType
+from struct5 import ObjectList, detect_type, ExecutableType, Repository, Playbook
 from tree import TreeNode, key_to_file_name, load_node_objects, TreeLoader, TreeNode, load_all_definitions
-from context import Context, resolve_module_options
+from context import Context, resolve_module_options, get_all_variables
 
 def convert(tree, node_objects):
     node_dict = {}
@@ -69,26 +69,25 @@ def convert(tree, node_objects):
     tObj["dependent_module_collections"] = list(set([ no.collection for no in _no_in_this_tree.items if detect_type(no.key)=="module" and hasattr(no, "collection") and no.collection != ""]))
     # tObj["dependent_module_roles"] = list(set([ no["role"] for no in node_objects if detect_type(no["key"])=="Module" and "collection" not in no]))
 
-    context_and_task = []
-    def add_context(node, context=None, depth_level=0):
-        current_context = None
-        if context is None:
-            current_context = Context()
-        else:
-            current_context = context.copy()
+    
+    def add_context(node, context, contexts_per_task, depth_level=0):
+        current_context = context.copy()
         node_type = detect_type(node.key)
         obj = node_dict[node.key]
         current_context.add(obj, depth_level)
-        if node_type == "Task":
-            context_and_task.append((current_context, obj))
-
+        if node_type == "task":
+            contexts_per_task.append((current_context, obj))
         for c in node.children:
-            add_context(c, current_context, depth_level+1)
+            contexts_per_task = add_context(c, current_context, contexts_per_task, depth_level+1)
+        return contexts_per_task
     
-    add_context(tree)
+    inventories = get_inventories(tree.key, node_objects)
+    initial_context = Context(inventories=inventories)
+    contexts_per_task = []
+    contexts_per_task = add_context(tree, initial_context, contexts_per_task)
 
     contexts = []
-    for (ctx, task) in context_and_task:
+    for (ctx, task) in contexts_per_task:
         resolved_options = resolve_module_options(ctx, task)
         single_item = {
             "context": ctx,
@@ -98,6 +97,28 @@ def convert(tree, node_objects):
         contexts.append(single_item)
 
     return tObj, contexts
+
+def get_inventories(playbook_key, node_objects):
+    projects = node_objects.find_by_type("repository")
+    inventories = []
+    found = False
+    for p in projects:
+        if not isinstance(p, Repository):
+            continue
+        for playbook in p.playbooks:
+            if isinstance(playbook, str):
+                if playbook == playbook_key:
+                    inventories = p.inventories
+                    found = True
+            elif isinstance(playbook, Playbook):
+                if playbook.key == playbook_key:
+                    inventories = p.inventories
+                    found = True
+            if found:
+                break
+        if found:
+            break
+    return inventories
 
 def load_tree_json(tree_path):
     trees = []
@@ -133,6 +154,7 @@ def main():
     parser.add_argument('-n', '--node-file', default="", help='path to node object json file')
     parser.add_argument('-r', '--root-dir', default="", help='path to definitions dir for root')
     parser.add_argument('-e', '--ext-dir', default="", help='path to definitions dir for ext')
+    parser.add_argument('-c', '--context-file', default="", help='path to context file (output)')
 
     args = parser.parse_args()
 
@@ -147,11 +169,15 @@ def main():
     trees = load_tree_json(args.tree_file)
     objects = load_node_objects(args.node_file, args.root_dir, args.ext_dir)
 
+    all_contexts = []
     for tree in trees:
-        t_obj, content = convert(tree, objects)
-        # print(json.dumps(t_obj, indent=2))
-        # break
+        t_obj, contexts = convert(tree, objects)
+        all_contexts.extend(contexts)
         print(json.dumps(t_obj), flush=True)
+
+    if args.context_file != "":
+        with open(args.context_file, "w") as file:
+            file.write(jsonpickle.encode(all_contexts, make_refs=False))
 
 if __name__ == "__main__":
     main()
