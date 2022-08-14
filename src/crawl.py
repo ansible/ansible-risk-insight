@@ -185,7 +185,7 @@ def move_load_file(path1, src1, path2, src2):
     else:
         os.makedirs(p2)
 
-    shutil.copytree(p1, p2, dirs_exist_ok=True)
+    shutil.copytree(p1, p2, dirs_exist_ok=True, ignore=shutil.ignore_patterns('.cache'), symlinks=False, ignore_dangling_symlinks=True)
     with open(path2, "w") as f2:
         json.dump(js2, f2)
 
