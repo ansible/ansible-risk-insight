@@ -121,7 +121,6 @@ def get_target_name(target_type, target_path):
         target_name = filepath_to_target_name(target_path)
     return target_name
 
-
 def filepath_to_target_name(filepath):
     return filepath.translate(
         str.maketrans({" ": "___", "/": "---", ".": "_dot_"})

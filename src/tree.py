@@ -6,7 +6,6 @@ import re
 import json
 from copy import deepcopy
 from dataclasses import dataclass, field
-<<<<<<< HEAD
 from keyutil import detect_type, key_delimiter, object_delimiter
 from models import (
     ObjectList,
@@ -22,11 +21,6 @@ from models import (
     LoadType,
 )
 from finder import get_builtin_module_names
-=======
-from struct5 import ObjectList, Playbook, Play, Repository, RoleInPlay, Role, Task, TaskFile, ExecutableType, Load, Module, BuiltinModuleSet, object_delimiter, key_delimiter, detect_type, safe_glob, LoadType
-
-
->>>>>>> de81294d (add inventory class and update variable resolver)
 
 obj_type_dict = {
     "playbook": "playbooks",
@@ -239,16 +233,10 @@ def load_all_definitions(definitions: dict, dependencies: list = []):
 
 
 def load_mappings(fpath):
-<<<<<<< HEAD
     ld = Load()
     ld.from_json(open(fpath, "r").read())
     return ld
 
-=======
-    l = Load()
-    l.from_json(open(fpath, "r").read())
-    return l
->>>>>>> de81294d (add inventory class and update variable resolver)
 
 def make_dicts(root_definitions, ext_definitions):
     definitions = {
@@ -485,7 +473,6 @@ class TreeLoader(object):
         self.tree_file = tree
         self.node_file = node
 
-<<<<<<< HEAD
         self.load_and_mapping = load_mappings(
             os.path.join(self.root_dir, "mappings.json")
         )
@@ -536,11 +523,6 @@ class TreeLoader(object):
                                 "{}-{}".format(dep_type, dep_name),
                             )
                         )
-=======
-        self.load_and_mapping = load_mappings(os.path.join(self.root_dir, "mappings.json"))
-        self.playbook_mappings = self.load_and_mapping.playbooks
-        self.role_mappings = self.load_and_mapping.roles
->>>>>>> de81294d (add inventory class and update variable resolver)
 
         self.root_definitions = load_all_definitions(self.root_dir)
         self.ext_definitions = load_all_definitions(
@@ -556,7 +538,6 @@ class TreeLoader(object):
     def run(self):
         objects = ObjectList()
         if self.load_and_mapping.target_type == LoadType.PROJECT_TYPE:
-<<<<<<< HEAD
             p_defs = self.org_root_definitions.get("definitions", {}).get(
                 "projects", []
             )
@@ -564,11 +545,6 @@ class TreeLoader(object):
                 objects.add(p_defs[0])
             logging.info("  project loaded")
         logging.info("  start building playbook trees")
-=======
-            projects = ObjectList()
-            projects.from_json(fpath=os.path.join(self.root_dir, "projects.json"))
-            objects.merge(projects)
->>>>>>> de81294d (add inventory class and update variable resolver)
         for mapping in self.playbook_mappings:
             playbook_key = mapping[1]
             graph = [[None, playbook_key]]
