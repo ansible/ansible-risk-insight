@@ -49,7 +49,11 @@ def get_loader_version():
     sha = repo.head.object.hexsha
     return sha
 
-def create_load_json_path(target_type, target_path, output_dir):
+def create_load_json_path(target_type, target_name, output_dir):
+    load_json_path = os.path.join(output_dir, "load-{}-{}.json".format(target_type, target_name))
+    return load_json_path
+
+def get_target_name(target_type, target_path):
     target_name = ""
     if target_type == LoadType.PROJECT_TYPE:
         project_name = os.path.normpath(target_path).split("/")[-1]
@@ -67,9 +71,7 @@ def create_load_json_path(target_type, target_path, output_dir):
         target_name = target_path.split("/")[-1]
     elif target_type == LoadType.PLAYBOOK_TYPE:
         target_name = filepath_to_target_name(target_path)
-
-    load_json_path = os.path.join(output_dir, "load-{}-{}.json".format(target_type, target_name))
-    return load_json_path, target_name
+    return target_name
 
 def filepath_to_target_name(filepath):
     return filepath.translate(str.maketrans({' ': '___', '/': '---', '.':'_dot_'}))
@@ -126,9 +128,9 @@ if __name__ == "__main__":
         is_ext = single_input[4]
         loader_version = single_input[5]
         load_json_path = output_path
-        target_name = target_path
+        target_name = get_target_name(target_type, target_path)
         if is_ext:
-            load_json_path, target_name = create_load_json_path(target_type, target_path, output_path)
+            load_json_path = create_load_json_path(target_type, target_name, output_path)
         if os.path.exists(load_json_path):
             d = json.load(open(load_json_path, "r"))
             timestamp = d.get("timestamp", "")
@@ -165,7 +167,8 @@ if __name__ == "__main__":
         if is_ext:
             
             for target_path in profiles:
-                load_json_path, _ = create_load_json_path(target_type, target_path, args.output_path)
+                target_name = get_target_name(target_type, target_path)
+                load_json_path = create_load_json_path(target_type, target_name, args.output_path)
                 lf = load_json_path.replace(args.output_path, "")
                 if lf.startswith("/"):
                     lf = lf[1:]
