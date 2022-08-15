@@ -172,9 +172,17 @@ if __name__ == "__main__":
                 lf = load_json_path.replace(args.output_path, "")
                 if lf.startswith("/"):
                     lf = lf[1:]
-                generated_load_files.append(lf)
+                generated_load_files.append({
+                    "file": lf,
+                    "name": target_name, 
+                    "type": target_type,
+                })
         else:
-            generated_load_files = [args.output_path]
+            generated_load_files = [{
+                "file": args.output_path,
+                "name": "",
+                "type": ""
+            }]
         index_data["generated_load_files"] = generated_load_files
         
         with open(args.index_path, "w") as file:

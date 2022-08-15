@@ -186,13 +186,16 @@ def load_definitions(dir):
     tasks = load_single_definition(os.path.join(dir, "tasks.json"))
     return roles, taskfiles, modules, playbooks, plays, tasks
 
-def load_all_definitions(base_dir):
+def load_all_definitions(base_dir, dependencies=[]):
     mapping_files = safe_glob(patterns=os.path.join(base_dir, "**", "mappings.json"), recursive=True)
     loaded = {}
     types = ["roles", "taskfiles", "modules", "playbooks", "plays", "tasks"]
     for mapping_file_path in mapping_files:
         path = os.path.dirname(mapping_file_path)
         if os.path.isfile(path):
+            continue
+        name = os.path.basename(path)
+        if len(dependencies) > 0 and name not in dependencies:
             continue
         def_tuple = load_definitions(path)
         for i, type_key in enumerate(types):
@@ -347,10 +350,11 @@ def resolve_playbook(playbook_ref, playbook_dict={}, play_key=""):
     return ""
 
 class TreeLoader(object):
-    def __init__(self, root, ext, tree, node):
+    def __init__(self, root, ext, index, tree, node):
 
         self.root_dir = root
         self.ext_dir = ext
+        self.index_file = index
         self.tree_file = tree
         self.node_file = node
 
@@ -358,8 +362,27 @@ class TreeLoader(object):
         self.playbook_mappings = self.load_and_mapping.playbooks
         self.role_mappings = self.load_and_mapping.roles
 
+        dependencies = []
+        if self.index_file != "":
+            index_data = json.load(open(self.index_file, "r"))
+            dependency_list = index_data.get("generated_load_files", [])
+            for dep in dependency_list:
+                if isinstance(dep, dict):
+                    dep_type = dep.get("type", "")
+                    dep_name = dep.get("name", "")
+                    if dep_type == "" or dep_name == "":
+                        continue
+                    dependencies.append("{}-{}".format(dep_type, dep_name))
+                elif isinstance(dep, str):
+                    d = dep
+                    if d.startswith("load-"):
+                        d = d[len("load-"):]
+                    if d.endswith(".json"):
+                        d = d[:-len(".json")]
+                    dependencies.append(d)
+
         self.root_definitions = load_all_definitions(self.root_dir)
-        self.ext_definitions = load_all_definitions(self.ext_dir)
+        self.ext_definitions = load_all_definitions(self.ext_dir, dependencies)
         self.add_builtin_modules()
 
         self.dicts = make_dicts(self.root_definitions, self.ext_definitions)
@@ -373,18 +396,23 @@ class TreeLoader(object):
             projects = ObjectList()
             projects.from_json(fpath=os.path.join(self.root_dir, "projects.json"))
             objects.merge(projects)
+            logging.info("  project loaded")
+        logging.info("  start building playbook trees")
         for mapping in self.playbook_mappings:
             playbook_key = mapping[1]
             graph = [[None, playbook_key]]
             graph = self._recursive_make_graph(playbook_key, graph, objects)
             tree = TreeNode.load(graph=graph)
             self.trees.append(tree)
+        logging.info("  done")
+        logging.info("  start building role trees")
         for mapping in self.role_mappings:
             role_key = mapping[1]
             graph = [[None, role_key]]
             graph = self._recursive_make_graph(role_key, graph, objects)
             tree = TreeNode.load(graph=graph)
             self.trees.append(tree)
+        logging.info("  done")
         self.node_objects = objects
         
         if self.tree_file != "":
@@ -393,8 +421,10 @@ class TreeLoader(object):
                 d = {"key": t.key, "tree": t.to_graph()}
                 lines.append(json.dumps(d))
             open(self.tree_file, "w").write("\n".join(lines))
+            logging.info("  tree file saved")
         if self.node_file != "":
             self.node_objects.dump(fpath=self.node_file)
+            logging.info("  node file saved")
 
     def _recursive_make_graph(self, key, graph, _objects):
         current_graph = [g for g in graph]
@@ -515,6 +545,8 @@ def key_to_file_name(prefix, key):
     return prefix + "___" + key.translate(str.maketrans({' ': '___', '/': '---', '.':'_dot_'}))+".json"
 
 def main():
+
+    logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser(
         prog='tree.py',
         description='make a tree of ansible nodes in graph.json and show/save it',
@@ -524,13 +556,18 @@ def main():
 
     parser.add_argument('-r', '--root', default="", help='path to the input definition dir for root')
     parser.add_argument('-e', '--ext', default="", help='path to the input definition dir for ext')
+    parser.add_argument('-i', '--index', default="", help='path to the index.json file to specify the definitions to be loaded in the \"ext\" dir')
     parser.add_argument('-t', '--tree', default="", help='path to the output tree file')
     parser.add_argument('-n', '--node', default="array", help='path to the output node objects')
     
     args = parser.parse_args()
 
-    tree_loader = TreeLoader(args.root, args.ext, args.tree, args.node)
+    logging.info("start initializing tree_loader")
+    tree_loader = TreeLoader(args.root, args.ext, args.index, args.tree, args.node)
+    logging.info("done")
+    logging.info("start building trees")
     tree_loader.run()
+    logging.info("done")
 
 if __name__ == "__main__":
     main()

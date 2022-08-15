@@ -236,6 +236,7 @@ if __name__ == "__main__":
                 index_data = json.load(file)
                 load_dir = index_data.get("out_path", "")
                 load_json_name_list = index_data.get("generated_load_files", [])
+                load_json_name_list = [f.get("file", "") if isinstance(f, dict) else f for f in load_json_name_list]
                 load_json_path_list = [os.path.join(load_dir, f) for f in load_json_name_list]
         else:
             files = os.listdir(args.index_path)
@@ -245,6 +246,7 @@ if __name__ == "__main__":
                     index_data = json.load(file)
                     load_dir = index_data.get("out_path", "")
                     load_json_name_list = index_data.get("generated_load_files", [])
+                    load_json_name_list = [f.get("file", "") if isinstance(f, dict) else f for f in load_json_name_list]
                     tmp_load_json_list = [os.path.join(load_dir, f) for f in load_json_name_list]
                     for l in tmp_load_json_list:
                         if l not in load_json_path_list:
