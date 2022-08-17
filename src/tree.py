@@ -600,6 +600,7 @@ class TreeLoader(object):
 
     # get definition object from root/ext definitions
     def get_object(self, obj_key):
+        print("DEBUG", obj_key)
         obj_type = detect_type(obj_key)
         if obj_type == "":
             raise ValueError(
