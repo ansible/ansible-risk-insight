@@ -10,9 +10,10 @@ import copy
 
 from subprocess import PIPE
 
-from struct5 import Load, LoadType
+from struct5 import Load
 from loader import detect_target_type, supported_target_types, get_loader_version, create_load_json_path, get_target_name
 from parser import load_name2target_name, Parser
+from tree import TreeLoader, load_node_objects, load_tree_json
 
 def crawl(is_ext, output_path, index_path, crawl_target_path):
     target_type, target_path_list = detect_target_type(crawl_target_path, is_ext)
@@ -77,7 +78,7 @@ def crawl(is_ext, output_path, index_path, crawl_target_path):
                     lf = lf[1:]
                 generated_load_files.append({
                     "file": lf,
-                    "name": target_name, 
+                    "name": target_name,
                     "type": target_type,
                 })
         else:
@@ -156,7 +157,6 @@ def move_index(path1, path2, params):
                 js2[p] = params[p]
         with open(path2, "w") as f2:
             json.dump(js2, f2)
-    return js1, js2
 
 def move_load_file(path1, src1, path2, src2):
 
@@ -209,117 +209,133 @@ def move_definitions(dir1, src1, dir2, src2):
     with open(map2, "w") as f2:
         json.dump(js2, f2)
 
-def crawl_ext(_target, _target_type, _common_data_dir):
+def crawl_ext(_target, _target_type, _common_data_dir, _skip_install):
+
+    if _common_data_dir == "":
+        raise ValueError("common_data_dir must be specified")
 
     is_ext = True
-    _common_src_dir = os.path.join(_common_data_dir, "src")
-    _common_ext_dir = os.path.join(_common_data_dir, "ext")
-    _common_def_dir = os.path.join(_common_data_dir, "definitions")
+    skip_install = _skip_install
 
     if not os.path.exists(_common_data_dir):
         os.makedirs(_common_data_dir)
 
-    if not os.path.exists(_common_src_dir):
-        os.makedirs(_common_src_dir)
+    _params_after = None
 
-    if not os.path.exists(_common_ext_dir):
-        os.makedirs(_common_ext_dir)
+    with tempfile.TemporaryDirectory() as tmpdir:
 
-    if not os.path.exists(_common_def_dir):
-        os.makedirs(_common_def_dir)
+        new_src_dir = os.path.join(_common_data_dir, "src")
+        if not os.path.exists(new_src_dir):
+            os.makedirs(new_src_dir)
 
-    with tempfile.TemporaryDirectory() as dname:
+        new_load_files_dir = os.path.join(_common_data_dir, "ext")
+        if not os.path.exists(new_load_files_dir):
+            os.makedirs(new_load_files_dir)
 
-        _load_output_path = os.path.join(dname, "ext")
-        _load_index_path = os.path.join(dname, "index-ext.json")
-        _install_log_path = os.path.join(dname, "install.log")
-        _defs_out_path = os.path.join(dname, "definitions")
-        # _crawl_target_path = "/tmp/collections/debops.debops/src"
-        _src_dir = os.path.join(dname, "src")
-        _crawl_target_path = _src_dir
+        new_install_log = os.path.join(_common_data_dir, "{}-{}-install.log".format(_target_type, _target))
+        new_index_file = os.path.join(_common_data_dir, "{}-{}-index-ext.json".format(_target_type, _target))
 
-        print("temporary dir {} created".format(dname))
+        load_files_dir = os.path.join(tmpdir, "ext") if not skip_install else new_load_files_dir
+        index_file = os.path.join(tmpdir, "index-ext.json") if not skip_install else new_index_file
+        install_log = os.path.join(tmpdir, "install.log")
+        defs_dir = os.path.join(tmpdir, "definitions")
+        src_dir = os.path.join(tmpdir, "src") if not skip_install else new_src_dir
+
+        print("temporary dir {} created".format(tmpdir))
 
         _params_before = {
-            "_is_ext": True,
-            "_target": _target,
-            "_target_type": _target_type,
-            "_load_output_path": _load_output_path,
-            "_load_index_path": _load_index_path,
-            "_install_log_path": _install_log_path, 
-            "_defs_out_path" : _defs_out_path,
-            "_src_dir": _src_dir
+            "is_ext": True,
+            "target": _target,
+            "target_type": _target_type,
+            "load_files_dir": load_files_dir,
+            "index_file": index_file,
+            "install_log": install_log,
+            "defs_dir" : defs_dir,
+            "src_dir": src_dir
         }
 
         print("before move")
         print(json.dumps(_params_before, indent=2))
 
         # ansible-galaxy install
-        print("installing collections from galaxy")
+        if not skip_install: 
+            print("installing collections from galaxy")
 
-        install_msg = install_target(_target, _target_type, _src_dir)
-        with open(_install_log_path, "w") as f:
-            print(install_msg, file=f)
-            print(install_msg)
+            install_msg = install_target(_target, _target_type, src_dir)
+            with open(install_log, "w") as f:
+                print(install_msg, file=f)
+                print(install_msg)
 
-        # ansible-galaxy collection install
-        # load src, create load.json
-        print("loading collections")
-        crawl(is_ext, _load_output_path, _load_index_path, _crawl_target_path)
+            # ansible-galaxy collection install
+            # load src, create load.json
+            print("loading collections")
+            crawl(is_ext, load_files_dir, index_file, src_dir)
 
         # load index_
         print("decomposing files")
-        load_definitions(is_ext, _load_index_path, "", _defs_out_path)
+        load_definitions(is_ext, index_file, "", defs_dir)
 
         # move the files to common dir
+        with open(index_file, "r") as f:
+            index_data = json.load(f)
+            out_path = index_data.get("out_path","")
+            generated_load_files = index_data.get("generated_load_files",[])
+            if out_path == "":
+                raise ValueError("no out_path in index file")
+
+        if not skip_install:
+            print("moving load files to common dir")
+            for v in generated_load_files:
+                load_file = v["file"]
+                target_name = v["name"]
+                target_type = v["type"]
+                load_file_path = os.path.join(out_path, load_file) #skip
+                new_load_file_path = os.path.join(new_load_files_dir, load_file) #skip
+                move_load_file(load_file_path, src_dir, new_load_file_path, new_src_dir) #skip
+
+            print("moving index") #skip
+            params = {
+                "in_path": new_src_dir,
+                "out_path": new_load_files_dir,
+            } #skip
+            move_index(index_file, new_index_file, params) #skip
+
+            print("moving install log")
+            shutil.move(install_log, new_install_log) #skip
 
 
-        _new_load_index_path = os.path.join(_common_data_dir, "{}-{}-index-ext.json".format(_target_type, _target))
-        _new_log_path = os.path.join(_common_data_dir, "{}-{}-install.log".format(_target_type, _target))
-
-        params = {
-            "in_path": _common_src_dir,
-            "out_path": _common_ext_dir,
-        }        
-
-        print("moving index")
-        lidx1, lidx2 = move_index(_load_index_path, _new_load_index_path, params)
-
-        print("moving results to common dir")
-        out_path = lidx1.get("out_path","")
-        generated_load_files = lidx1.get("generated_load_files",[])
+        print("moving load definitions to common dir")
+        new_defs_dir = os.path.join(_common_data_dir, "definitions")
+        if not os.path.exists(new_defs_dir):
+            os.makedirs(new_defs_dir)
         for v in generated_load_files:
-            load_file = v["file"]
             target_name = v["name"]
             target_type = v["type"]
-            load_file_path = os.path.join(out_path, load_file)
-            new_load_file_path = os.path.join(_common_ext_dir, load_file)
-            move_load_file(load_file_path, _src_dir, new_load_file_path, _common_src_dir)
-            def1 = os.path.join(_defs_out_path, "{}-{}".format(target_type, target_name))
-            def2 = os.path.join(_common_def_dir, "{}-{}".format(target_type, target_name))
-            move_definitions(def1, _src_dir, def2, _common_src_dir)
-
-        shutil.move(_install_log_path, _new_log_path)
+            def1 = os.path.join(defs_dir, "{}-{}".format(target_type, target_name))
+            def2 = os.path.join(new_defs_dir, "{}-{}".format(target_type, target_name))
+            move_definitions(def1, src_dir, def2, new_src_dir)
 
         _params_after = {
-            "_is_ext": True,
-            "_target": _target,
-            "_target_type": _target_type,
-            "_load_output_path": _common_ext_dir,
-            "_load_index_path": _new_load_index_path,
-            "_install_log_path": _new_log_path, 
-            "_defs_out_path" : _common_def_dir,
-            "_src_dir": _common_src_dir
+            "is_ext": True,
+            "target": _target,
+            "target_type": _target_type,
+            "load_files_dir": new_load_files_dir,
+            "index_file": new_index_file,
+            "install_log": new_install_log,
+            "defs_dir" : new_defs_dir,
+            "src_dir": new_src_dir
         }
 
         print("after move")
         print(json.dumps(_params_after, indent=2))
 
-    if not os.path.exists(dname):
-        print("temporary dir {} cleared".format(dname))
+    if not os.path.exists(tmpdir):
+        print("temporary dir {} cleared".format(tmpdir))
     else:
-        print("temporary dir {} remaining somehow...".format(dname))
+        print("temporary dir {} remaining somehow...".format(tmpdir))
 
+
+    return _params_after
 
 def crawl_root(target, target_type, common_data_dir):
 
@@ -344,6 +360,8 @@ def crawl_root(target, target_type, common_data_dir):
         os.makedirs(dst_dir)
 
 
+    _params_after = None
+
 
     with tempfile.TemporaryDirectory() as tmpdir:
 
@@ -356,8 +374,8 @@ def crawl_root(target, target_type, common_data_dir):
             "is_ext": is_ext,
             "target": target,
             "target_type": target_type,
-            "tmp_load_file": tmp_load_file,
-            "tmp_defs_dir" : tmp_defs_dir,
+            "load_file": tmp_load_file,
+            "defs_dir" : tmp_defs_dir,
             "src_dir": src_dir
         }
 
@@ -388,12 +406,12 @@ def crawl_root(target, target_type, common_data_dir):
         move_definitions(tmp_defs_dir, src_dir, dst_def_dir, src_dir)
 
         _params_after = {
-            "_is_ext": is_ext,
-            "_target": target,
-            "_target_type": target_type,
-            "_load_output_path": dst_load_file,
-            "_defs_out_path" : dst_def_dir,
-            "_src_dir": src_dir
+            "is_ext": is_ext,
+            "target": target,
+            "target_type": target_type,
+            "load_file": dst_load_file,
+            "defs_dir" : dst_def_dir,
+            "src_dir": src_dir
         }
 
         print("after move")
@@ -404,7 +422,35 @@ def crawl_root(target, target_type, common_data_dir):
     else:
         print("temporary dir {} remaining somehow...".format(tmpdir))
 
-def tree():
+    return _params_after
+
+def tree(root_def_dir, ext_def_dir, index_path, out_dir):
+
+    trees = None
+    node_objects = None
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        tree_path = os.path.join(tmpdirname, "tree.json")
+        node_path = os.path.join(tmpdirname, "node_objects.json")
+        tl = TreeLoader(root_def_dir, ext_def_dir, index_path, tree_path, node_path)
+        tl.run()
+        trees = load_tree_json(tree_path)
+        node_objects = load_node_objects(node_path)
+
+        if trees is None:
+            raise ValueError("failed to get trees")
+        if node_objects is None:
+            raise ValueError("failed to get node_objects")
+
+
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+
+        dst_tree_path = os.path.join(out_dir, "tree.json")
+        dst_node_path = os.path.join(out_dir, "node_objects.json")
+
+        shutil.move(tree_path, dst_tree_path)
+        shutil.move(node_path, dst_node_path)
+
     return
 
 if __name__ == "__main__":
@@ -418,6 +464,7 @@ if __name__ == "__main__":
 
     parser.add_argument('-c', '--collection', default="", help='collection name')
     parser.add_argument('-o', '--output-dir', default="", help='path to the output directory')
+    parser.add_argument('-s', '--skip-install', action='store_true', help='skip ansible-galaxy install')
 
     args = parser.parse_args()
 
@@ -429,11 +476,28 @@ if __name__ == "__main__":
         logging.error("output dir must be specified")
         sys.exit(1)
 
-    _is_ext = True
-    _target = args.collection
-    _target_type = "collection"
-    _common_data_dir = args.output_dir
+    target = args.collection
+    target_type = "collection"
+    common_data_dir = args.output_dir
+    skip_install = args.skip_install
 
-    crawl_ext( _target, _target_type, _common_data_dir)
-    crawl_root(_target, _target_type, _common_data_dir)
-    tree()
+    print("crawling external dependeicies")
+    res_ext = crawl_ext(target, target_type, common_data_dir, skip_install)
+    # print(json.dumps(res_ext, indent=2))
+
+    print("analyzing target dir")
+    res_root = crawl_root(target, target_type, common_data_dir)
+    # print(json.dumps(res_root, indent=2))
+
+    root_def_dir = res_root.get("defs_dir", "")
+    ext_def_dir = res_ext.get("defs_dir", "")
+    index_path = res_ext.get("index_file", "")
+
+    if root_def_dir == "" or ext_def_dir == "" or index_path == "":
+        raise ValueError("Invalid input for tree anlaysis")
+
+    out_dir = root_def_dir
+    # out_dir = "/tmp/tree-tmp"
+
+    print("analyzing inter-dependency")
+    tree(root_def_dir, ext_def_dir, index_path, out_dir)

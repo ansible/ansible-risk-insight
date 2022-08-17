@@ -702,7 +702,6 @@ def dump_node_objects(obj_list, path=""):
     else:
         obj_list.dump(fpath=path)
 
-
 def load_tree_json(tree_path):
     trees = []
     with open(tree_path, "r") as file:
@@ -712,7 +711,6 @@ def load_tree_json(tree_path):
             tree = TreeNode.load(graph=src_dst_array)
             trees.append(tree)
     return trees
-
 
 def load_node_objects(node_list_file):
     obj_list = ObjectList().from_json(fpath=node_list_file)
