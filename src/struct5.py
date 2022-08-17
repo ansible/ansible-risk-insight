@@ -501,10 +501,10 @@ class Task(JSONSerializable, Resolvable):
 
     def load(self, path, index, task_block_dict, role_name="", collection_name="", collections_in_play=[], play_index=-1, parent_key="", parent_local_key="", basedir=""):
         fullpath = ""
-        if os.path.exists(path):
+        if os.path.exists(path) and path != "" and path != ".":
             fullpath = path
         if os.path.exists(os.path.join(basedir, path)):
-            fullpath = os.path.join(basedir, path)
+            fullpath = os.path.normpath(os.path.join(basedir, path))
         if fullpath == "":
             raise ValueError("file not found")
         if not fullpath.endswith(".yml") and not fullpath.endswith(".yaml"):
@@ -669,10 +669,10 @@ class TaskFile(JSONSerializable, Resolvable):
 
     def load(self, path, role_name="", collection_name="", basedir=""):
         fullpath = ""
-        if os.path.exists(path):
+        if os.path.exists(path) and path != "" and path != ".":
             fullpath = path
         if os.path.exists(os.path.join(basedir, path)):
-            fullpath = os.path.join(basedir, path)
+            fullpath = os.path.normpath(os.path.join(basedir, path))
         if fullpath == "":
             raise ValueError("file not found")
         if not fullpath.endswith(".yml") and not fullpath.endswith(".yaml"):
@@ -798,19 +798,19 @@ class Role(JSONSerializable, Resolvable):
     loop: dict = field(default_factory=dict)    # key: loop_var (default "item"), value: list/dict of item value
     options: dict = field(default_factory=dict)
 
-    def load(self, path, collection_name="", module_dir_paths=[], basedir="", load_children=True):
+    def load(self, path, name="", collection_name="", module_dir_paths=[], basedir="", load_children=True):
         fullpath = ""
-        if os.path.exists(path):
+        if os.path.exists(path) and path != "" and path != ".":
             fullpath = path
         if os.path.exists(os.path.join(basedir, path)):
-            fullpath = os.path.join(basedir, path)
+            fullpath = os.path.normpath(os.path.join(basedir, path))
         if fullpath == "":
             raise ValueError("directory not found")
         meta_file_path = ""
         defaults_dir_path = ""
         tasks_dir_path = ""
         includes_dir_path = ""
-        if path != "":
+        if fullpath != "":
             meta_file_path = os.path.join(fullpath, "meta/main.yml")
             defaults_dir_path = os.path.join(fullpath, "defaults")
             tasks_dir_path = os.path.join(fullpath, "tasks")
@@ -838,7 +838,7 @@ class Role(JSONSerializable, Resolvable):
         parts = tasks_dir_path.split("/")
         if len(parts) < 2:
             raise ValueError("role path is wrong")
-        role_name = parts[-2]
+        role_name = parts[-2] if name == "" else name
         self.name = role_name
         defined_in = fullpath
         if basedir != "":
@@ -1205,10 +1205,10 @@ class Playbook(JSONSerializable, Resolvable):
 
     def load(self, path, role_name="", collection_name="", basedir=""):
         fullpath = ""
-        if os.path.exists(path):
+        if os.path.exists(path) and path != "" and path != ".":
             fullpath = path
         if os.path.exists(os.path.join(basedir, path)):
-            fullpath = os.path.join(basedir, path)
+            fullpath = os.path.normpath(os.path.join(basedir, path))
         if fullpath == "":
             raise ValueError("file not found")
         defined_in = fullpath
@@ -1282,10 +1282,10 @@ class Inventory(JSONSerializable):
 
     def load(self, path, basedir=""):
         fullpath = ""
-        if os.path.exists(path):
+        if os.path.exists(path) and path != "" and path != ".":
             fullpath = path
         if os.path.exists(os.path.join(basedir, path)):
-            fullpath = os.path.join(basedir, path)
+            fullpath = os.path.normpath(os.path.join(basedir, path))
         if fullpath == "":
             raise ValueError("file not found")
         defined_in = fullpath

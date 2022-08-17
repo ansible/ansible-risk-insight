@@ -116,9 +116,6 @@ class Parser():
                 continue
             modules.append(m)
             mappings["modules"].append([module_path, m.key])
-        
-        # TODO: handle builtin modules while making a tree without adding dummy module objects here
-        # modules = add_builtin_modules(modules)
 
         logging.debug("roles: {}".format(len(roles)))
         logging.debug("taskfiles: {}".format(len(taskfiles)))
@@ -137,7 +134,11 @@ class Parser():
         if l.target_type == LoadType.COLLECTION_TYPE:
             collections = [obj]
         elif l.target_type == LoadType.ROLE_TYPE:
-            roles = [obj]
+            role_path = "."
+            r = Role()
+            r.load(path=role_path, name=l.target_name, basedir=l.path)
+            roles.append(r)
+            mappings["roles"].append([role_path, r.key])
         elif l.target_type == LoadType.PLAYBOOK_TYPE:
             playbooks = [obj]
         elif l.target_type == LoadType.PROJECT_TYPE:
