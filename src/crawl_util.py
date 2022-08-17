@@ -226,7 +226,16 @@ def move_load_file(path1, src1, path2, src2):
     else:
         os.makedirs(p2)
 
-    shutil.copytree(p1, p2, dirs_exist_ok=True, ignore=shutil.ignore_patterns('.cache'), symlinks=False, ignore_dangling_symlinks=True)
+    def copytree(src,dst):
+        if src == "" or not os.path.exists(src) or not os.path.isdir(src):
+            raise ValueError("src {} is not directory".format(src))
+        if dst == "" or ".." in dst:
+            raise ValueError("dst {} is invalid".format(dst))
+        os.system("cp -r {}/ {}/".format(src, dst))
+
+    # use cp instead of shutil.copytree to avoid symlink reference loop
+    copytree(p1, p2)
+
     with open(path2, "w") as f2:
         json.dump(js2, f2)
 
