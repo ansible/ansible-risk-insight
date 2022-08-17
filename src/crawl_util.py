@@ -307,7 +307,7 @@ def crawl_ext(_target, _target_type, _common_data_dir, _collection_data_dir, _sk
         if not skip_install:
 
             # ansible-galaxy install
-            print("installing a {} <{}>from galaxy".format(_target_type, _target))
+            print("installing a {} <{}> from galaxy".format(_target_type, _target))
             install_msg = install_target(_target, _target_type, src_dir)
             with open(install_log, "w") as f:
                 print(install_msg, file=f)
