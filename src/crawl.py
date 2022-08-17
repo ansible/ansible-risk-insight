@@ -141,7 +141,7 @@ def load_definitions(is_ext, index_path, load_path, output_path):
         p.run(load_json_path=load_json_path, output_dir=output_dir)
 
 def install_target(target, target_type, output_dir):
-    if target_type != "collection":
+    if target_type != "collection" and target_type != "role":
         raise ValueError("Invalid target_type: {}".format(target_type))
     proc = subprocess.run("ansible-galaxy {} install {} -p {}".format(target_type, target, output_dir), shell=True, stdout=PIPE, stderr=PIPE, text=True)
     install_msg = proc.stdout
@@ -257,21 +257,20 @@ def crawl_ext(_target, _target_type, _common_data_dir, _skip_install):
         print("before move")
         print(json.dumps(_params_before, indent=2))
 
-        # ansible-galaxy install
-        if not skip_install: 
-            print("installing collections from galaxy")
+        if not skip_install:
 
+            # ansible-galaxy install
+            print("installing a {} <{}>from galaxy".format(_target_type, _target))
             install_msg = install_target(_target, _target_type, src_dir)
             with open(install_log, "w") as f:
                 print(install_msg, file=f)
                 print(install_msg)
 
-            # ansible-galaxy collection install
             # load src, create load.json
-            print("loading collections")
+            print("crawl content")
             crawl(is_ext, load_files_dir, index_file, src_dir)
 
-        # load index_
+        # decompose files to definitions
         print("decomposing files")
         load_definitions(is_ext, index_file, "", defs_dir)
 
@@ -382,9 +381,9 @@ def crawl_root(target, target_type, common_data_dir):
         print("before move")
         print(json.dumps(_params_before, indent=2))
 
-        # ansible-galaxy collection install
+        # ansible-galaxy install
         # load src, create load.json
-        print("loading collections")
+        print("crawl content")
         crawl(is_ext, tmp_load_file, "", src_dir)
 
         # load index_
@@ -457,27 +456,38 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
         prog='crawl.py',
-        description='crawl a collection and store data under a common directory',
+        description='crawl a collection/role, and store data under a common directory',
         epilog='end',
         add_help=True,
     )
 
+    parser.add_argument('-r', '--role', default="", help='role name')
     parser.add_argument('-c', '--collection', default="", help='collection name')
     parser.add_argument('-o', '--output-dir', default="", help='path to the output directory')
     parser.add_argument('-s', '--skip-install', action='store_true', help='skip ansible-galaxy install')
 
     args = parser.parse_args()
 
-    if not args.collection:
-        logging.error("collection must be specified")
-        sys.exit(1)
 
     if not args.output_dir:
         logging.error("output dir must be specified")
         sys.exit(1)
 
-    target = args.collection
-    target_type = "collection"
+    target = ""
+    target_type = ""
+    if args.collection:
+        if args.role:
+            logging.error("either collection or role must be specified")
+            sys.exit(1)
+        target_type = "collection"
+        target = args.collection
+    elif args.role:
+        target_type = "role"
+        target = args.role
+    else:
+        logging.error("collection or role must be specified")
+        sys.exit(1)
+
     common_data_dir = args.output_dir
     skip_install = args.skip_install
 
