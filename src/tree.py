@@ -378,7 +378,7 @@ class TreeLoader(object):
                 
             if target_type == LoadType.ROLE_TYPE:
                 collection_path = index_data.get("collection_path", "")
-                coll_definitions_path = os.path.join(collection_path, "/definitions")
+                coll_definitions_path = os.path.join(collection_path, "definitions")
 
                 coll_dependency_list = index_data.get("dep_collection_load_files", [])
                 for dep in coll_dependency_list:
