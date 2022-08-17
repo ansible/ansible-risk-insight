@@ -62,7 +62,6 @@ def detect_target_type(path, is_ext):
         return LoadType.PROJECT_TYPE, [path]
     return LoadType.UNKNOWN_TYPE, []
 
-
 # remove a dir which is a sub directory of another dir in the list
 def remove_subdirectories(dir_list):
     sorted_dir_list = sorted(dir_list)
@@ -72,7 +71,6 @@ def remove_subdirectories(dir_list):
             continue
         new_dir_list.append(dir)
     return new_dir_list
-
 
 def trim_suffix(txt, suffix_patterns=[]):
     if isinstance(suffix_patterns, str):
