@@ -375,7 +375,7 @@ class Collection(JSONSerializable, Resolvable):
             try:
                 p.load(f, collection_name=collection_name, basedir=basedir)
             except PlaybookFormatError as e:
-                logging.warning("this file is not in a playbook format, maybe not a playbook file: {}".format(e.args[0]))
+                logging.debug("this file is not in a playbook format, maybe not a playbook file: {}".format(e.args[0]))
                 continue
             except:
                 logging.exception("error while loading the playbook at {}".format(f))
@@ -700,7 +700,7 @@ class TaskFile(JSONSerializable, Resolvable):
             try:
                 t.load(fullpath, i, t_dict, role_name, collection_name, parent_key=self.key, parent_local_key=self.local_key, basedir=basedir)
             except TaskFormatError:
-                logging.warning("this task is wrong format; skip the task in {}, index: {}".format(fullpath, i))
+                logging.debug("this task is wrong format; skip the task in {}, index: {}".format(fullpath, i))
                 continue
             except:
                 logging.exception("error while loading the task at {}, index: {}".format(fullpath, i))
@@ -864,7 +864,7 @@ class Role(JSONSerializable, Resolvable):
                 try:
                     p.load(f, role_name=role_name, collection_name=collection_name, basedir=basedir)
                 except PlaybookFormatError as e:
-                        logging.warning("this file is not in a playbook format, maybe not a playbook file: {}".format(e.args[0]))
+                        logging.debug("this file is not in a playbook format, maybe not a playbook file: {}".format(e.args[0]))
                         continue
                 except:
                     logging.exception("error while loading the playbook at {}".format(f))
@@ -1072,7 +1072,7 @@ class Play(JSONSerializable, Resolvable):
                     try:
                         t.load(path=path, index=i, task_block_dict=task_dict, role_name=role_name, collection_name=collection_name, collections_in_play=collections_in_play, play_index=index, parent_key=self.key, parent_local_key=self.local_key, basedir=basedir)
                     except TaskFormatError:
-                        logging.warning("this task is wrong format; skip the task in {}, index: {}".format(path, i))
+                        logging.debug("this task is wrong format; skip the task in {}, index: {}".format(path, i))
                         continue
                     except:
                         logging.exception("error while loading the task at {} (index={})".format(path, i))
@@ -1089,7 +1089,7 @@ class Play(JSONSerializable, Resolvable):
                     try:
                         t.load(path=path, index=_i, task_block_dict=task_dict, role_name=role_name, collection_name=collection_name, collections_in_play=collections_in_play, play_index=index, parent_key=self.key, parent_local_key=self.local_key, basedir=basedir)
                     except TaskFormatError:
-                        logging.warning("this task is wrong format; skip the task in {}, index: {}".format(path, i))
+                        logging.debug("this task is wrong format; skip the task in {}, index: {}".format(path, i))
                         continue
                     except:
                         logging.exception("error while loading the task at {} (index={})".format(path, i))
@@ -1106,7 +1106,7 @@ class Play(JSONSerializable, Resolvable):
                     try:
                         t.load(path=path, index=_i, task_block_dict=task_dict, role_name=role_name, collection_name=collection_name, collections_in_play=collections_in_play, play_index=index, parent_key=self.key, parent_local_key=self.local_key, basedir=basedir)
                     except TaskFormatError:
-                        logging.warning("this task is wrong format; skip the task in {}, index: {}".format(path, i))
+                        logging.debug("this task is wrong format; skip the task in {}, index: {}".format(path, i))
                         continue
                     except:
                         logging.exception("error while loading the task at {} (index={})".format(path, i))
@@ -1240,7 +1240,7 @@ class Playbook(JSONSerializable, Resolvable):
             try:
                 play.load(path=defined_in, index=i, play_block_dict=play_dict, role_name=role_name, collection_name=collection_name, parent_key=self.key, parent_local_key=self.local_key, basedir=basedir)
             except PlaybookFormatError:
-                logging.warning("this play is wrong format; skip the play in {}, index: {}".format(fullpath, i))
+                logging.debug("this play is wrong format; skip the play in {}, index: {}".format(fullpath, i))
                 continue
             except:
                 logging.exception("error while loading the play at {} (index={})".format(fullpath, i))
@@ -1433,7 +1433,7 @@ class Repository(JSONSerializable, Resolvable):
                 try:
                     p.load(fpath, basedir=basedir)
                 except PlaybookFormatError as e:
-                    logging.warning("this file is not in a playbook format, maybe not a playbook file: {}".format(e.args[0]))
+                    logging.debug("this file is not in a playbook format, maybe not a playbook file: {}".format(e.args[0]))
                     continue
                 except:
                     logging.exception("error while loading the playbook at {}".format(fpath))
