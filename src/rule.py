@@ -2,7 +2,6 @@ import argparse
 import os
 import sys
 import json
-import jsonpickle
 import logging
 from struct5 import ObjectList, detect_type, ExecutableType
 from tree import TreeNode, key_to_file_name, load_node_objects, TreeLoader, TreeNode, load_all_definitions

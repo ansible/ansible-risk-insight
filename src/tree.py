@@ -5,7 +5,6 @@ import os
 import sys
 import re
 import json
-import jsonpickle
 from copy import deepcopy
 from dataclasses import dataclass, field
 from struct5 import ObjectList, Playbook, Play, Repository, RoleInPlay, Role, Task, TaskFile, ExecutableType, Load, Module, BuiltinModuleSet, object_delimiter, key_delimiter, detect_type, safe_glob, LoadType
@@ -535,6 +534,16 @@ def dump_node_objects(obj_list, path=""):
             print(json.dumps(obj_dict, indent=2))
     else:
         obj_list.dump(fpath=path)
+
+def load_tree_json(tree_path):
+    trees = []
+    with open(tree_path, "r") as file:
+        for line in file:
+            d = json.loads(line)
+            src_dst_array = d.get("tree", [])
+            tree = TreeNode.load(graph=src_dst_array)
+            trees.append(tree)
+    return trees
 
 def load_node_objects(node_list_file):
     obj_list = ObjectList().from_json(fpath=node_list_file)
