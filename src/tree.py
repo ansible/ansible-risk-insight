@@ -1,8 +1,6 @@
 import argparse
-from email.mime import base
 import logging
 import os
-import sys
 import re
 import json
 from copy import deepcopy
@@ -186,15 +184,16 @@ def load_definitions(dir):
     return roles, taskfiles, modules, playbooks, plays, tasks
 
 def load_all_definitions(base_dir, dependencies=[]):
-    mapping_files = safe_glob(patterns=os.path.join(base_dir, "**", "mappings.json"), recursive=True)
+    mapping_files = []
+    if len(dependencies) == 0:
+        mapping_files = safe_glob(patterns=os.path.join(base_dir, "**", "mappings.json"), recursive=True)
+    else:
+        mapping_files = [os.path.join(d, "mappings.json") for d in dependencies]
     loaded = {}
     types = ["roles", "taskfiles", "modules", "playbooks", "plays", "tasks"]
     for mapping_file_path in mapping_files:
         path = os.path.dirname(mapping_file_path)
         if os.path.isfile(path):
-            continue
-        name = os.path.basename(path)
-        if len(dependencies) > 0 and name not in dependencies:
             continue
         def_tuple = load_definitions(path)
         for i, type_key in enumerate(types):
@@ -364,6 +363,10 @@ class TreeLoader(object):
         dependencies = []
         if self.index_file != "":
             index_data = json.load(open(self.index_file, "r"))
+            target_type = index_data.get("target_type", "")
+            out_path_in_index = index_data.get("out_path", "")
+            definitions_path = out_path_in_index.replace("/ext", "/definitions")
+
             dependency_list = index_data.get("generated_load_files", [])
             for dep in dependency_list:
                 if isinstance(dep, dict):
@@ -371,14 +374,20 @@ class TreeLoader(object):
                     dep_name = dep.get("name", "")
                     if dep_type == "" or dep_name == "":
                         continue
-                    dependencies.append("{}-{}".format(dep_type, dep_name))
-                elif isinstance(dep, str):
-                    d = dep
-                    if d.startswith("load-"):
-                        d = d[len("load-"):]
-                    if d.endswith(".json"):
-                        d = d[:-len(".json")]
-                    dependencies.append(d)
+                    dependencies.append(os.path.join(definitions_path, "{}-{}".format(dep_type, dep_name)))
+                
+            if target_type == LoadType.ROLE_TYPE:
+                collection_path = index_data.get("collection_path", "")
+                coll_definitions_path = os.path.join(collection_path, "/definitions")
+
+                coll_dependency_list = index_data.get("dep_collection_load_files", [])
+                for dep in coll_dependency_list:
+                    if isinstance(dep, dict):
+                        dep_type = dep.get("type", "")
+                        dep_name = dep.get("name", "")
+                        if dep_type == "" or dep_name == "":
+                            continue
+                        dependencies.append(os.path.join(coll_definitions_path, "{}-{}".format(dep_type, dep_name)))
 
         self.root_definitions = load_all_definitions(self.root_dir)
         self.ext_definitions = load_all_definitions(self.ext_dir, dependencies)
@@ -434,7 +443,6 @@ class TreeLoader(object):
         # otherwise, trace children
         obj = self.get_object(key)
         if obj is None:
-            print("DEBUG obj not found:", key)
             return current_graph
         if not _objects.contains(obj=obj):
             _objects.add(obj)
@@ -451,7 +459,6 @@ class TreeLoader(object):
 
     # get definition object from root/ext definitions
     def get_object(self, obj_key):
-        print("DEBUG", obj_key)
         obj_type = detect_type(obj_key)
         if obj_type == "":
             raise ValueError("failed to detect object type from key \"{}\"".format(obj_key))

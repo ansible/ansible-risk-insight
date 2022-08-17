@@ -1,5 +1,3 @@
-import collections
-from dataclasses import dataclass, field
 import argparse
 import os
 import sys
@@ -7,7 +5,6 @@ import json
 import logging
 import copy
 import joblib
-from resolver_fqcn import FQCNResolver
 from struct5 import Module, Task, TaskFile, Role, Playbook, Play, Collection, Repository, Load, BuiltinModuleSet, LoadType
 
 
