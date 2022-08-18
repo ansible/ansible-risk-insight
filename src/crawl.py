@@ -1,7 +1,7 @@
 import argparse
 import sys
 import logging
-from crawl_util import crawl_root, crawl_ext, tree
+from crawl_util import crawl_root, crawl_ext, tree, resolve
 
 if __name__ == "__main__":
 
@@ -63,4 +63,9 @@ if __name__ == "__main__":
     # out_dir = "/tmp/tree-tmp"
 
     print("analyzing inter-dependency")
-    tree(root_def_dir, ext_def_dir, index_path, out_dir)
+    tree_path, node_path = tree(root_def_dir, ext_def_dir, index_path, out_dir)
+
+    print("resolving")
+    resolve(tree_path, node_path, out_dir)
+
+    
