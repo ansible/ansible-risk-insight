@@ -497,6 +497,9 @@ class Task(JSONSerializable, Resolvable):
     resolved_name: str = ""  # FQCN for Module and Role. Or a file path for TaskFile.  resolved later
     possible_candidates: list = field(default_factory=list) # candidates of resovled_name
 
+    resolved_variables: list = field(default_factory=list)
+    resolved_module_options: dict = field(default_factory=dict)
+
     annotations: dict = field(default_factory=dict)
 
     def load(self, path, index, task_block_dict, role_name="", collection_name="", collections_in_play=[], play_index=-1, parent_key="", parent_local_key="", basedir=""):
@@ -808,11 +811,13 @@ class Role(JSONSerializable, Resolvable):
             raise ValueError("directory not found")
         meta_file_path = ""
         defaults_dir_path = ""
+        vars_dir_path = ""
         tasks_dir_path = ""
         includes_dir_path = ""
         if fullpath != "":
             meta_file_path = os.path.join(fullpath, "meta/main.yml")
             defaults_dir_path = os.path.join(fullpath, "defaults")
+            vars_dir_path = os.path.join(fullpath, "vars")
             tasks_dir_path = os.path.join(fullpath, "tasks")
             includes_dir_path = os.path.join(fullpath, "includes")
         
@@ -895,6 +900,26 @@ class Role(JSONSerializable, Resolvable):
                     except Exception as e:
                         logging.error("failed to load this yaml file to raed default variables; {}".format(e.args[0]))
             self.default_variables = default_variables
+
+        if os.path.exists(vars_dir_path):
+            patterns = [
+                vars_dir_path + "/**/*.yml",
+                vars_dir_path + "/**/*.yaml"
+            ]
+            vars_yaml_files = safe_glob(patterns, recursive=True)
+            variables = {}
+            for fpath in vars_yaml_files:
+                with open(fpath, "r") as file:
+                    try:
+                        vars_in_yaml = yaml.safe_load(file)
+                        if vars_in_yaml is None:
+                            continue
+                        if not isinstance(vars_in_yaml, dict):
+                            continue
+                        variables.update(vars_in_yaml)
+                    except Exception as e:
+                        logging.error("failed to load this yaml file to raed variables; {}".format(e.args[0]))
+            self.variables = variables
 
         if not os.path.exists(tasks_dir_path):
             # a role possibly has no tasks

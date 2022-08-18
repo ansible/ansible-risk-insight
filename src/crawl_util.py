@@ -13,7 +13,9 @@ from subprocess import PIPE
 from struct5 import Load, LoadType
 from loader import detect_target_type, supported_target_types, get_loader_version, create_load_json_path, get_target_name
 from parser import load_name2target_name, Parser
-from tree import TreeLoader, load_node_objects, load_tree_json
+from tree import TreeLoader, TreeNode, load_node_objects, load_tree_json
+from variable_resolver import tree_to_task_list, resolve_variables
+
 
 def crawl(is_ext, output_path, collection_path, index_path, crawl_target_path):
     target_type, target_path_list = detect_target_type(crawl_target_path, is_ext)
@@ -480,7 +482,8 @@ def crawl_root(target, target_type, common_data_dir):
     return _params_after
 
 def tree(root_def_dir, ext_def_dir, index_path, out_dir):
-
+    dst_tree_path = os.path.join(out_dir, "tree.json")
+    dst_node_path = os.path.join(out_dir, "node_objects.json")
     trees = None
     node_objects = None
     with tempfile.TemporaryDirectory() as tmpdirname:
@@ -500,10 +503,44 @@ def tree(root_def_dir, ext_def_dir, index_path, out_dir):
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 
-        dst_tree_path = os.path.join(out_dir, "tree.json")
-        dst_node_path = os.path.join(out_dir, "node_objects.json")
-
         shutil.move(tree_path, dst_tree_path)
         shutil.move(node_path, dst_node_path)
 
-    return
+    return dst_tree_path, dst_node_path
+
+def resolve(tree_path, node_path, out_dir):
+    trees = load_tree_json(tree_path)
+    node_objects = load_node_objects(node_path)
+
+    tasks_r_lines = []
+    for tree in trees:
+        if not isinstance(tree, TreeNode):
+            continue
+        tasks = tree_to_task_list(tree, node_objects)
+        d = {
+            "root_key": tree.key,
+            "tasks": tasks,
+        }
+        line = json.dumps(d)
+        tasks_r_lines.append(line)
+    tasks_r_path = os.path.join(out_dir, "tasks_r.json")
+    open(tasks_r_path, "w").write("\n".join(tasks_r_lines))
+
+
+    tasks_rv_lines = []
+    for tree in trees:
+        if not isinstance(tree, TreeNode):
+            continue
+        tasks = resolve_variables(tree, node_objects)
+        d = {
+            "root_key": tree.key,
+            "tasks": tasks,
+        }
+        line = json.dumps(d)
+        tasks_rv_lines.append(line)
+    tasks_rv_path = os.path.join(out_dir, "tasks_rv.json")
+    open(tasks_rv_path, "w").write("\n".join(tasks_rv_lines))
+
+
+
+    

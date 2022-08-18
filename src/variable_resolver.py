@@ -88,18 +88,15 @@ def tree_to_task_list(tree, node_objects):
             no.resolved_name = resolved_name
             tasks.append(no.__dict__)
         tasks.extend(children_tasks)
-
         return tasks, resolved_name
 
     tasks, _ = getSubTree(tree)
     return tasks
 
-
 def resolve_variables(tree, node_objects):
     node_dict = {}
     for no in node_objects.items:
         node_dict[no.key] = no
-
     def add_context(node, context, contexts_per_task, depth_level=0):
         current_context = context.copy()
         node_type = detect_type(node.key)
@@ -179,7 +176,6 @@ def get_inventories(tree_root_key, node_objects):
             break
     return inventories
 
-
 def load_tree_json(tree_path):
     trees = []
     with open(tree_path, "r") as file:
@@ -189,7 +185,6 @@ def load_tree_json(tree_path):
             tree = TreeNode.load(graph=src_dst_array)
             trees.append(tree)
     return trees
-
 
 def load_node_objects(node_path="", root_dir="", ext_dir=""):
     objects = ObjectList()
