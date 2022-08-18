@@ -720,7 +720,7 @@ class TaskFile(JSONSerializable, Resolvable):
 
     def children_to_key(self):
         task_keys = [t.key if isinstance(t, Task) else t for t in self.tasks]
-        self.tasks = sorted(task_keys)
+        self.tasks = task_keys
 
     @property
     def resolver_targets(self):
@@ -1191,13 +1191,13 @@ class Play(JSONSerializable, Resolvable):
 
     def children_to_key(self):
         pre_task_keys = [t.key if isinstance(t, Task) else t for t in self.pre_tasks]
-        self.pre_tasks = sorted(pre_task_keys)
+        self.pre_tasks = pre_task_keys
 
         task_keys = [t.key if isinstance(t, Task) else t for t in self.tasks]
-        self.tasks = sorted(task_keys)
+        self.tasks = task_keys
 
         post_task_keys = [t.key if isinstance(t, Task) else t for t in self.post_tasks]
-        self.post_tasks = sorted(post_task_keys)
+        self.post_tasks = post_task_keys
 
     @property
     def id(self):
@@ -1281,7 +1281,7 @@ class Playbook(JSONSerializable, Resolvable):
 
     def children_to_key(self):
         play_keys = [play.key if isinstance(play, Play) else play for play in self.plays]
-        self.plays = sorted(play_keys)
+        self.plays = play_keys
 
     @property
     def resolver_targets(self):
