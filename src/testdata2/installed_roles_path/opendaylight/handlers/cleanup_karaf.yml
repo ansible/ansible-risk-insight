@@ -1,4 +1,0 @@
-- name: Cleanup Karaf
-  file:
-    path=/opt/opendaylight/data
-    state=absent

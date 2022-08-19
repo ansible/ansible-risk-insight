@@ -1,9 +1,0 @@
----
-features:
-  - Nova may now use an encrypted database connection.
-    This is enabled by setting ``nova_galera_use_ssl``
-    to ``True``.
-security:
-  - Nova may now use an encrypted database connection.
-    This is enabled by setting ``nova_galera_use_ssl``
-    to ``True``.

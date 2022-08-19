@@ -1,9 +1,0 @@
----
-
-- name: prepare config
-  template:
-    src: dalite.gunicorn
-    dest: /etc/gunicorn.d/dalite
-
-- name: restart guncorn
-  service: name=gunicorn state=restarted

@@ -1,5 +1,0 @@
----
-features:
-  - The variable ``lxc_cache_environment`` has been added. This dictionary
-    can be overridden by deployers to set HTTP proxy environment variables that
-    will be applied to all lxc container download tasks.

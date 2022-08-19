@@ -1,6 +1,0 @@
-# {{ ansible_managed }}
-
-[Service]
-{% for key, value in (deployment_environment_variables | default({})).items() %}
-Environment={{ key }}={{ value }}
-{% endfor %}

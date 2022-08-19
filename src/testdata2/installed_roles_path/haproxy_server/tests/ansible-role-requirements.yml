@@ -1,5 +1,0 @@
----
-- name: apt_package_pinning
-  src: https://opendev.org/openstack/openstack-ansible-apt_package_pinning
-  scm: git
-  version: master

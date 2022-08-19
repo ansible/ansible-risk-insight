@@ -1,6 +1,0 @@
----
-features:
-  - |
-    Implemented ``openstack_hosts_package_manager_extra_conf`` variable.
-    It allows to add extra content into package manager's configuration
-    (works with apt,yum and dnf).

@@ -1,5 +1,0 @@
-- name: Install Memcached
-  hosts: memcached
-  user: root
-  roles:
-    - { role: "memcached_server" }

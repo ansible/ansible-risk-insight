@@ -1,5 +1,0 @@
----
-features:
-  - |
-    LXC on CentOS is now installed via package from a COPR repository rather
-    than installed from the upstream source.

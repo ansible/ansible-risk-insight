@@ -1,5 +1,0 @@
----
-
-dependencies:
-  - name: docker-compose
-    tags: 'docker'

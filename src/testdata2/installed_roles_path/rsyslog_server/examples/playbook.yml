@@ -1,6 +1,0 @@
-- name: Install rsyslog
-  hosts: rsyslog
-  max_fail_percentage: 20
-  user: root
-  roles:
-    - { role: "rsyslog_server", tags: [ "rsyslog-server" ] }

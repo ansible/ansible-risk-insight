@@ -1,8 +1,0 @@
----
-features:
-  - |
-    New variables 'keepalived_internal_ping_address' and
-    'keepalived_external_ping_address' allow deployments to decouple liveness
-    checks for HAProxy accessibility via internal and external networks. The
-    previous 'keepalived_ping_address' variable is maintained for backwards
-    compatibility.

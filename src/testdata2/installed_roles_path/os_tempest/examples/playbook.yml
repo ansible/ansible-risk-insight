@@ -1,8 +1,0 @@
----
-- hosts: localhost
-  become: true
-  vars:
-    tempest_cloud_name: mycloud
-    tempest_run: true
-  roles:
-    - os_tempest

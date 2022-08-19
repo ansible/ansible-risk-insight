@@ -1,5 +1,0 @@
----
-fixes:
-  - The openstack service uri protocol variables were not being used to
-    set the Trove specific uris. This resulted in 'http' always being used
-    for the public, admin and internal uris even when 'https' was intended.

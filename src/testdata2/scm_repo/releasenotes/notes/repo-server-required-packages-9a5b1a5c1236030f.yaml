@@ -1,5 +1,0 @@
----
-deprecations:
-  - |
-    The variable ``repo_requires_pip_packages`` is no longer required
-    and has therefore been removed.

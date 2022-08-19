@@ -1,6 +1,0 @@
----
-- name: Install PKI
-  hosts: localhost
-  user: root
-  roles:
-    - role: "pki"

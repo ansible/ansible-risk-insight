@@ -1,4 +1,0 @@
----
-upgrade:
-  - The variable ``aodh_apt_packages`` has been renamed to
-    ``aodh_distro_packages``.

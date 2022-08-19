@@ -1,4 +1,0 @@
----
-upgrade:
-  - The keystone endpoints now have versionless URLs.
-    Any existing endpoints will be updated.

@@ -1,4 +1,0 @@
----
-features:
-  - The role now supports SUSE based distributions. Required packages
-    can now be installed using the `zypper` package manager.

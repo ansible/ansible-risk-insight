@@ -1,6 +1,0 @@
----
-- name: Install senlin server
-  hosts: senlin_all
-  user: root
-  roles:
-    - { role: "os_senlin", tags: [ "os-senlin" ] }

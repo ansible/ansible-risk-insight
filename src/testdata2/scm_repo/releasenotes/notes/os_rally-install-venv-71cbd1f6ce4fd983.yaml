@@ -1,5 +1,0 @@
----
-upgrade:
-  - Installation of rally and its dependent pip packages will now only
-    occur within a Python virtual environment. The ``rally_venv_bin``,
-    ``rally_venv_enabled`` variables have been removed.

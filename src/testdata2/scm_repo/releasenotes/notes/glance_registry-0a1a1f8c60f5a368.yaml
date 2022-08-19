@@ -1,4 +1,0 @@
----
-deprecations:
-  - |
-    Glance registry service has been finally removed

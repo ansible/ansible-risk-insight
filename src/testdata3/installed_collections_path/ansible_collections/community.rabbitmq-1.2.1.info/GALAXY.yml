@@ -1,8 +1,0 @@
-download_url: https://galaxy.ansible.com/download/community-rabbitmq-1.2.1.tar.gz
-format_version: 1.0.0
-name: rabbitmq
-namespace: community
-server: https://galaxy.ansible.com/api/
-signatures: []
-version: 1.2.1
-version_url: https://galaxy.ansible.com/api/v2/collections/community/rabbitmq/versions/1.2.1/

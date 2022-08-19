@@ -1,7 +1,0 @@
-- name: Install RabbitMQ server
-  hosts: rabbitmq_all
-  user: root
-  roles:
-    - { role: "rabbitmq_server", tags: [ "rabbitmq-server" ] }
-  vars:
-    rabbitmq_cookie_token: secrete

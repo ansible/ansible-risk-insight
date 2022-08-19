@@ -1,5 +1,0 @@
----
-- name: Install ODL via Deb path
-  apt:
-    deb: "{{ deb_path }}"
-    state: present

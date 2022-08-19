@@ -1,3 +1,0 @@
----
-features:
-  - The ``os-designate`` role now supports Ubuntu 16.04 and SystemD.

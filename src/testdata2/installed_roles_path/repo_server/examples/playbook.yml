@@ -1,5 +1,0 @@
-    - name: Setup repo servers
-      hosts: repo_all
-      user: root
-      roles:
-        - { role: "repo_server", tags: [ "repo-server" ] }

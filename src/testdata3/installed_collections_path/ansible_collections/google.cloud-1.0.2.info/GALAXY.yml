@@ -1,8 +1,0 @@
-download_url: https://galaxy.ansible.com/download/google-cloud-1.0.2.tar.gz
-format_version: 1.0.0
-name: cloud
-namespace: google
-server: https://galaxy.ansible.com/api/
-signatures: []
-version: 1.0.2
-version_url: https://galaxy.ansible.com/api/v2/collections/google/cloud/versions/1.0.2/

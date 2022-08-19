@@ -1,3 +1,0 @@
----
-features:
-  - The ``rsyslog_server`` role now has support for CentOS 7.

@@ -1,6 +1,0 @@
-# {{ ansible_managed }}
-
-Defaults:{{ designate_system_user_name }} !requiretty
-Defaults:{{ designate_system_user_name }} secure_path="{{ designate_bin }}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-
-{{ designate_system_user_name }} ALL = (root) NOPASSWD: {{ designate_bin }}/{{ designate_service_name }}-rootwrap

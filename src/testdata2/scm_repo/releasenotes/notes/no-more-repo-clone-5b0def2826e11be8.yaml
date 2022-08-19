@@ -1,4 +1,0 @@
----
-upgrade:
-  - The ``repo-clone-mirror.yml`` play has been removed as it is no longer
-    used by the project.

@@ -1,5 +1,0 @@
----
-upgrade:
-   - The MariaDB wait_timeout setting is decreased to 1h to match the
-     SQL Alchemy pool recycle timeout, in order to prevent unnecessary
-     database session buildups.

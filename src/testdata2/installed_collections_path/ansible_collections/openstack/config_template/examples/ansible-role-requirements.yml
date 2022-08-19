@@ -1,4 +1,0 @@
-- name: ansible-config_template
-  src: https://opendev.org/openstack/ansible-config_template
-  scm: git
-  version: master

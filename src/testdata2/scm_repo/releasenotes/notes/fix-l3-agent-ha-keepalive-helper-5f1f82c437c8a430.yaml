@@ -1,3 +1,0 @@
----
-fixes:
-  - Fixes neutron HA routers, by enabling ``neutron-l3-agent`` to invoke the required helper script.

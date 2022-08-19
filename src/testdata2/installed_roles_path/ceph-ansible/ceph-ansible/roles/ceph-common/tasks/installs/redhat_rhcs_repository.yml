@@ -1,3 +1,0 @@
----
-- name: include prerequisite_rhcs_cdn_install.yml
-  include_tasks: prerequisite_rhcs_cdn_install.yml

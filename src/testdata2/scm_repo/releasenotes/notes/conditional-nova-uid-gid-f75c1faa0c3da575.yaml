@@ -1,4 +1,0 @@
----
-features:
-  - Deployers can optionally set a UID and/or GID for the nova user and group.
-    This is helpful for environments with shared storage.

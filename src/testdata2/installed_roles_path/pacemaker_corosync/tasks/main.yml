@@ -1,4 +1,0 @@
----
-
-- include: check_vars.yml tags=pacemaker,check
-- include: pacemaker.yml tags=pacemaker

@@ -1,4 +1,0 @@
----
-features:
-  - The security-hardening playbook hosts target can now be filtered using the
-    ``security_host_group`` var.

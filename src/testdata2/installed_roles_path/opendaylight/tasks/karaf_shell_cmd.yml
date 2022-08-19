@@ -1,3 +1,0 @@
-- name: "Issue Karaf shell command: {{ karaf_cmd }}"
-  command: /opt/opendaylight/bin/client {{ karaf_cmd }}
-  ignore_errors: True

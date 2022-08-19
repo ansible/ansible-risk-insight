@@ -1,5 +1,0 @@
----
-features:
-  - Fedora 27 is now supported.
-deprecations:
-  - Fedora 26 support is deprecated and no longer tested on each commit.

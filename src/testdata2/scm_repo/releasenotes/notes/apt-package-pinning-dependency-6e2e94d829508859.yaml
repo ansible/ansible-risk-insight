@@ -1,4 +1,0 @@
----
-upgrade:
-  - The Galera client role now has a dependency on the
-    apt package pinning role.

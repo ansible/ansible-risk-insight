@@ -1,4 +1,0 @@
-dependencies:
-  - setup_ssh_keygen
-  - setup_ssh_agent
-  - setup_remote_tmp_dir

@@ -1,4 +1,0 @@
----
-- include: nginx.yml
-
-- include: mattermost.yml

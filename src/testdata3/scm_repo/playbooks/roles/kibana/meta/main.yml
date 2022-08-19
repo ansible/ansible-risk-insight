@@ -1,7 +1,0 @@
----
-
-dependencies:
-  - name: nginx-proxy
-    NGINX_PROXY_CONFIG_PATH: /etc/nginx/sites-available/kibana
-    NGINX_PROXY_PUBLIC_PORT: 443
-    NGINX_PROXY_INTERNAL_PORT: 5601

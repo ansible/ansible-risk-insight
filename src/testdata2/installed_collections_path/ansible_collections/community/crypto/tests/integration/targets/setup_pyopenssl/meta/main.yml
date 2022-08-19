@@ -1,4 +1,0 @@
-dependencies:
-  - setup_python_info
-  - setup_remote_constraints
-  - setup_pkg_mgr

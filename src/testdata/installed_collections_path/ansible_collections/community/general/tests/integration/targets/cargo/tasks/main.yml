@@ -1,5 +1,0 @@
-- import_tasks: setup.yml
-- block:
-  - import_tasks: test_general.yml
-  - import_tasks: test_version.yml
-  when: has_cargo | default(false)

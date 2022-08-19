@@ -1,6 +1,0 @@
----
-features:
-  - |
-    The ``container_interface`` provider network option is no longer required
-    for Neutron provider network definitions when related agents or OVN
-    controllers are deployed on bare metal.

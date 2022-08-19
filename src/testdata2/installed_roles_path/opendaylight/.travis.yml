@@ -1,9 +1,0 @@
----
-language: python
-script: tox -vv
-notifications:
-    email:
-        recipients:
-            - dfarrell@redhat.com
-    on_success: change
-    on_failure: change

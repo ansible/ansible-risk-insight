@@ -1,6 +1,0 @@
-shippable/posix/group1
-needs/target/setup_epel
-destructive
-skip/aix
-skip/osx  # FIXME
-skip/rhel9.0  # FIXME

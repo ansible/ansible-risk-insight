@@ -1,4 +1,0 @@
----
-features:
-  - CentOS7 support has been added to the ``rsyslog_client``
-    role.

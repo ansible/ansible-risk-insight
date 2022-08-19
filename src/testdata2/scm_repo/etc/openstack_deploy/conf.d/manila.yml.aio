@@ -1,7 +1,0 @@
-manila-infra_hosts:
-  aio1:
-    ip: 172.29.236.100
-
-manila-data_hosts:
-  aio1:
-    ip: 172.29.236.100

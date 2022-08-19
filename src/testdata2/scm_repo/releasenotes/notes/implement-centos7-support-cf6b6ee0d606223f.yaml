@@ -1,3 +1,0 @@
----
-features:
-  - CentOS 7 support has been added to the ``galera_server`` role.

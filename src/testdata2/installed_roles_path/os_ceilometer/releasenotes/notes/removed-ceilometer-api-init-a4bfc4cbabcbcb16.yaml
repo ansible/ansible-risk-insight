@@ -1,4 +1,0 @@
----
-upgrade:
-  - The ``ceilometer-api`` init service is removed since ``ceilometer-api`` is
-    deployed as an apache ``mod_wsgi`` service.

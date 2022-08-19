@@ -1,5 +1,0 @@
----
-# Variables for emulated framework containers
-container_name: "{{ control_node_container_name }}"
-node_type: service
-COMP_ID: 2

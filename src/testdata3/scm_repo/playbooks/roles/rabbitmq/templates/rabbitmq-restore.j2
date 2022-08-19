@@ -1,4 +1,0 @@
-#!/bin/bash
-
-SRC="$1"
-python {{ RABBITMQ_SCRIPTS_DIR }}/rabbitmqadmin import $SRC -c /etc/rabbitmqadmin.conf -N host_ssl

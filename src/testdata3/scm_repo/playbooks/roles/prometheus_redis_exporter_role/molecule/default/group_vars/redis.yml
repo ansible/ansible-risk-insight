@@ -1,9 +1,0 @@
----
-
-redis_exporter_private_tmp: false
-redis_mode: single
-
-# you can include here redis.conf's vars
-# use quotation mark to avoid python value override
-
-redis_os_tuning: false

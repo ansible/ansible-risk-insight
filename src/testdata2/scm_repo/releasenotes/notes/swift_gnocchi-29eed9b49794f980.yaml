@@ -1,6 +1,0 @@
----
-
-deprecations:
-  - |
-    Variable `swift_gnocchi_enabled` has been removed and won't have any
-    effect

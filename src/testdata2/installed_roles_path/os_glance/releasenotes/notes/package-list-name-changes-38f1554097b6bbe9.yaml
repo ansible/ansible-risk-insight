@@ -1,4 +1,0 @@
----
-upgrade:
-  - The variable ``glance_apt_packages`` has been renamed to
-    ``glance_distro_packages``.

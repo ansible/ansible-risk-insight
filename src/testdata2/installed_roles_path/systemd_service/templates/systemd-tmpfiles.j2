@@ -1,4 +1,0 @@
-# {{ ansible_managed }}
-
-D {{ item.systemd_lock_dir | default(systemd_lock_dir) }}/{{ item.systemd_slice_name | default(systemd_slice_name) | replace(' ', '_') }} 2755 {{ item.systemd_user_name | default(systemd_user_name) }} {{ item.systemd_group_name | default(systemd_group_name) }}
-D {{ item.systemd_run_dir | default(systemd_run_dir) }}/{{ item.systemd_slice_name | default(systemd_slice_name) | replace(' ', '_') }} 2755 {{ item.systemd_user_name | default(systemd_user_name) }} {{ item.systemd_group_name | default(systemd_group_name) }}

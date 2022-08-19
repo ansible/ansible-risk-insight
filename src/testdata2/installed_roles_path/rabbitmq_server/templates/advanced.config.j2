@@ -1,6 +1,0 @@
-[
-  {kernel, [
-     {inet_dist_use_interface, { {{ rabbitmq_management_bind_address|replace('.',',') }} } }
-  ]},
-  {mnesia, [{dump_log_write_threshold, {{ mnesia_dump_log_write_threshold }} }]}
-].

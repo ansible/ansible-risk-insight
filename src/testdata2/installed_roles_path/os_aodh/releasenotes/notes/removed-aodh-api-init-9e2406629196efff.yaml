@@ -1,4 +1,0 @@
----
-upgrade:
-  - The aodh-api init service is removed since aodh-api is deployed as an
-    apache mod_wsgi service.

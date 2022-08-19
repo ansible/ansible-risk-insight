@@ -1,5 +1,0 @@
-COMMON_SERVER_INSTALL_NGINX: true
-
-# Default tmpreaper runtime limit is 55 seconds.
-# This often isn't enough, so increase by default.
-TMPREAPER_RUNTIME: '110'

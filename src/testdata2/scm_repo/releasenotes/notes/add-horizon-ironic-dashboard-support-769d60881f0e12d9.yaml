@@ -1,5 +1,0 @@
----
-features:
-  - Adds support for the horizon ironic-ui dashboard. The
-    dashboard will be automatically enabled if any ironic
-    hosts are defined.
