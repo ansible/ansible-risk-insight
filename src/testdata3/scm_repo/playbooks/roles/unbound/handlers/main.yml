@@ -1,5 +1,0 @@
----
-- name: restart unbound
-  service:
-    name: unbound
-    state: restarted

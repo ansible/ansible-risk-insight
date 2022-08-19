@@ -1,5 +1,0 @@
----
-
-- src: idealista.redis_role
-  version: 4.0.1
-  name: redis_role

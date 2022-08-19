@@ -1,2 +1,0 @@
-REDIS_SCRIPTS_DIR: "/usr/local/sbin"
-REDIS_BACKUP_COMMAND: "redis-backup"

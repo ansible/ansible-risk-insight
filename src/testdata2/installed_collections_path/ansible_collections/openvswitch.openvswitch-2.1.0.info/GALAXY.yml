@@ -1,8 +1,0 @@
-download_url: https://galaxy.ansible.com/download/openvswitch-openvswitch-2.1.0.tar.gz
-format_version: 1.0.0
-name: openvswitch
-namespace: openvswitch
-server: https://galaxy.ansible.com/api/
-signatures: []
-version: 2.1.0
-version_url: https://galaxy.ansible.com/api/v2/collections/openvswitch/openvswitch/versions/2.1.0/

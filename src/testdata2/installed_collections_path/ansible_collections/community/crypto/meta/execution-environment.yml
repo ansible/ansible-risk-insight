@@ -1,5 +1,0 @@
----
-version: 1
-dependencies:
-  python: meta/ee-requirements.txt
-  system: meta/ee-bindep.txt

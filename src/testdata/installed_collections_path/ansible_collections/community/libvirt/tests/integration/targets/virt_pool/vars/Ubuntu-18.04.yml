@@ -1,5 +1,0 @@
----
-virt_pool_packages:
-  - libvirt-daemon
-  - python-libvirt
-  - python-lxml

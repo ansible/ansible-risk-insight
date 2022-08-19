@@ -1,5 +1,0 @@
----
-features:
-  - Adds support for the horizon trove-ui dashboard. The
-    dashboard will be automatically enabled if any trove
-    hosts are defined.

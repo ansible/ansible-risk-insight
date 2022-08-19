@@ -1,5 +1,0 @@
----
-features:
-  - Support has been added for the horizon trove-ui dashboard. The
-    dashboard will be automatically enabled if any hosts are defined
-    in the ``trove-infra_hosts`` inventory group.

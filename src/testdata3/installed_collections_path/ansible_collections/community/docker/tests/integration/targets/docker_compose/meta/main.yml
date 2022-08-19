@@ -1,4 +1,0 @@
----
-dependencies:
-  - setup_docker_compose
-  - setup_remote_tmp_dir

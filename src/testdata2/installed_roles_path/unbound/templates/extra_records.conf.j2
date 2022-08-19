@@ -1,5 +1,0 @@
-# {{ ansible_managed }}
-server:
-{% for r in item.records %}
-        local-data: "{{ r.host }} {{ r.type|default('A') }} {{ r.val }}"
-{% endfor %}

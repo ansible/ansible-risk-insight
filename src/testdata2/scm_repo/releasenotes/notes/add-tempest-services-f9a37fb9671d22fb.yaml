@@ -1,4 +1,0 @@
----
-features:
-  - Added new parameter ``tempest_services`` for setting
-    tempest_service_available_{service_name} var automatically.

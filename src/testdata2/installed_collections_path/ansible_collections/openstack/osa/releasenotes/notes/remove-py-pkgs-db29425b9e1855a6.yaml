@@ -1,6 +1,0 @@
----
-deprecations:
-  - |
-    The ``py_pkgs`` and ``packages_file`` Ansible lookups are no
-    longer used in OSA and have been removed from the plugins
-    repository.

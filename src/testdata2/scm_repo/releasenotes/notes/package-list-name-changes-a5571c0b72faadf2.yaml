@@ -1,4 +1,0 @@
----
-upgrade:
-  - The variable ``memcached_apt_packages`` has been renamed to
-    ``memcached_distro_packages``.

@@ -1,9 +1,0 @@
-{
-    "log_mechanism": "console",
-    "log_levels": {
-        "root": {
-            "log_name": "rootLogger",
-            "log_level": "DEBUG"
-        }
-    }
-}

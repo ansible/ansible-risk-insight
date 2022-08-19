@@ -1,5 +1,0 @@
----
-dependencies:
-  - role: newrelic_infra
-    tags:
-      - rabbitmq-newrelic

@@ -1,6 +1,0 @@
----
-upgrade:
-  - |
-    The Yoga release of OpenStack-Ansible removes support for Ubuntu Bionic.
-    Deployments should be upgraded from Bionic to Focal before or during the
-    Xena release before upgrading to Yoga.

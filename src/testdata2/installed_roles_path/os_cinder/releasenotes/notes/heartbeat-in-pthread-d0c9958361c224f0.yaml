@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-    Fixes a file descriptor leak which may impact services which use the
-    oslo.messaging RabbitMQ heartbeat mechanism.

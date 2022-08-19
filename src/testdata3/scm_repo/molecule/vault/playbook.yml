@@ -1,3 +1,0 @@
----
-- import_playbook: ../../playbooks/vault.yml
-- import_playbook: ../../playbooks/vault-policy.yml

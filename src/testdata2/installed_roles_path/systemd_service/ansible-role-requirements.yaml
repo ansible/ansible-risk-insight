@@ -1,4 +1,0 @@
-- name: "plugins"
-  src: "https://opendev.org/openstack/openstack-ansible-plugins"
-  scm: git
-  version: "master"

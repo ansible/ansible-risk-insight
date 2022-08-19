@@ -1,5 +1,0 @@
-[gerrit]
-host=review.opendev.org
-port=29418
-project=openstack/openstack-ansible-lxc_container_create.git
-defaultbranch=stable/yoga

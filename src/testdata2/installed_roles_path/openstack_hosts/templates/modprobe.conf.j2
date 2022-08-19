@@ -1,5 +1,0 @@
-# {{ ansible_managed }}
-# Modules from the openstack-ansible-openstack_hosts role
-{% for module in openstack_host_kernel_modules + openstack_host_specific_kernel_modules %}
-{{ module.name }}
-{% endfor %}

@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Added sockets key to configure systemd-sockets for the systemd service.

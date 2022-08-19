@@ -1,7 +1,0 @@
-template {
-  source           = "/etc/consul-template/templates/backend.map.ctmpl"
-  destination      = "/etc/haproxy/backend.map"
-  create_dest_dirs = false
-  backup           = true
-  command          = "flock -n -E 0 /tmp/haproxy-reload-lock service haproxy reload"
-}

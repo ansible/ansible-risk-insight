@@ -1,5 +1,0 @@
-[gerrit]
-host=review.opendev.org
-port=29418
-project=openstack/openstack-ansible-os_barbican.git
-defaultbranch=stable/yoga

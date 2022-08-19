@@ -1,6 +1,0 @@
----
-- name: Install Manila Share service
-  hosts: localhost
-  user: root
-  roles:
-    - role: "os_manila"

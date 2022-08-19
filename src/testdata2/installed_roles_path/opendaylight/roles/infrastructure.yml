@@ -1,5 +1,0 @@
----
-- hosts: cluster0
-  roles:
-    - common
-    - infra

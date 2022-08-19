@@ -1,4 +1,0 @@
----
-features:
-  - The ``os_barbican`` role now supports deployment on Ubuntu 16.04 using
-    SystemD.

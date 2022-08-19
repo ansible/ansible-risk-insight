@@ -1,9 +1,0 @@
-filebeat:
-  inputs:
-    {% for prospector in filebeat_prospectors %}
-- {{ filebeat_common_prospector | combine(prospector, recursive=True) | to_nice_yaml | indent(width=6) }}
-    {% endfor %}
-
-output:
-  logstash:
-{{ filebeat_logstash | to_nice_yaml | indent(width=4, first=True) }}

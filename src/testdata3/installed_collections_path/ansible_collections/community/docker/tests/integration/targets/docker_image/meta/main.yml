@@ -1,4 +1,0 @@
----
-dependencies:
-  - setup_docker_registry
-  - setup_remote_tmp_dir

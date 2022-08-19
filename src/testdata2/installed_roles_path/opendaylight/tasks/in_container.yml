@@ -1,6 +1,0 @@
----
-- name: Check if in a container
-  command: grep -q docker /proc/1/cgroup
-  failed_when: in_container.rc != 0 and in_container.rc !=1
-  changed_when: false
-  register: in_container

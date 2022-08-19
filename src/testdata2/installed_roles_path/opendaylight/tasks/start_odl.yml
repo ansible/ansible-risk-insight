@@ -1,5 +1,0 @@
----
-- include_tasks: in_container.yml
-
-- include_tasks: start_odl_systemd_service.yml
-  when: in_container.rc == 1

@@ -1,5 +1,0 @@
----
-upgrade:
-  - |
-    The Wallaby release of openstack-ansible does not support deployment of
-    the control plane in nspawn containers.

@@ -1,5 +1,0 @@
----
-deprecations:
-  - |
-    Variable ``nova_enabled_vgpu_types`` has been deprecated and is replaced
-    with ``nova_enabled_mdev_types``.

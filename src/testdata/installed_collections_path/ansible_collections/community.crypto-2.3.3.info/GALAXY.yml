@@ -1,8 +1,0 @@
-download_url: https://galaxy.ansible.com/download/community-crypto-2.3.3.tar.gz
-format_version: 1.0.0
-name: crypto
-namespace: community
-server: https://galaxy.ansible.com/api/
-signatures: []
-version: 2.3.3
-version_url: https://galaxy.ansible.com/api/v2/collections/community/crypto/versions/2.3.3/

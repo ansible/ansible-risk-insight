@@ -1,6 +1,0 @@
----
-deprecations:
-  - |
-    OVN-related HAProxy configuration is deprecated and has been
-    replaced with built-in clustering functionality. OVN-related
-    endpoints will be completely removed in the Z release.

@@ -1,4 +1,0 @@
----
-features:
-  - Chrony got a new configuration option to synchronize the system clock back
-    to the RTC using the ``security_ntp_sync_rtc`` variable. Disabled by default.

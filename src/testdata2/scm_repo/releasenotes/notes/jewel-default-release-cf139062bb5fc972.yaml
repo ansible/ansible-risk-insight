@@ -1,4 +1,0 @@
----
-upgrade:
-  - The latest stable release of Ceph, Jewel, is now used as the default client
-    version since Hammer was scheduled for EOL in November 2016.

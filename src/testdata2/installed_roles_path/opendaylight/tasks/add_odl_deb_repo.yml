@@ -1,5 +1,0 @@
-- name: Add ODL deb repo
-  apt_repository:
-    repo: "{{ deb_repo_url }}"
-    state: present
-    update_cache: yes

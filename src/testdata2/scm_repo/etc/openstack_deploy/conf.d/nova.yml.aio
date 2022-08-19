@@ -1,8 +1,0 @@
----
-compute-infra_hosts:
-  aio1:
-    ip: 172.29.236.100
-
-compute_hosts:
-  aio1:
-    ip: 172.29.236.100

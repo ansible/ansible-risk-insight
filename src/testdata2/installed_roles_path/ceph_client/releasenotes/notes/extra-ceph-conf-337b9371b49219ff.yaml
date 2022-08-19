@@ -1,5 +1,0 @@
----
-features:
-  - New variable ``ceph_extra_confs`` may be defined to support
-    deployment of extra Ceph config files.  This is useful for cinder
-    deployments that utilize multiple Ceph clusters as cinder backends.

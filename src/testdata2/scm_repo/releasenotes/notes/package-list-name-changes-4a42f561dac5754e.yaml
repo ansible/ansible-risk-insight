@@ -1,4 +1,0 @@
----
-upgrade:
-  - The variable ``horizon_apt_packages`` has been renamed to
-    ``horizon_distro_packages``.

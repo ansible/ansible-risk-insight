@@ -1,5 +1,0 @@
----
-features:
-  - The filename of the apt source for the ubuntu
-    cloud archive can now be defined with the
-    variable ``uca_apt_source_list_filename``.

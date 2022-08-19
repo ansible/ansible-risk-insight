@@ -1,6 +1,0 @@
----
-other:
-  - |
-    Gate jobs for OpenDaylight, SFC, and OVS w/ NSH have been removed in
-    preparation for deprecation of those deployment scenarios and related
-    code.

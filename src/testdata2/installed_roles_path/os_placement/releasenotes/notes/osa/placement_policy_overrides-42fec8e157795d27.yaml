@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Added variable ``placement_policy_overrides`` that aims to allow deploying
-    policy.yaml file with provided overrides for Placement service.

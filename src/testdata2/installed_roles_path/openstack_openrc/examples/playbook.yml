@@ -1,7 +1,0 @@
-- name: Create OpenStack openrc and clouds.yaml file
-  hosts: all
-  user: root
-  roles:
-    - role: "openstack_openrc"
-  vars:
-    openrc_os_password: secrete

@@ -1,5 +1,0 @@
----
-features:
-  - Support has been added to allow the deployment of the OpenStack
-    barbican service when hosts are present in the host group
-    ``key-manager_hosts``.

@@ -1,7 +1,0 @@
-[all]
-localhost
-
-[all_containers]
-
-[memcached_all]
-localhost

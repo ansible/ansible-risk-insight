@@ -1,6 +1,0 @@
----
-- name: restart rgw
-  service:
-    name: "ceph-radosgw@rgw.{{ ansible_facts['hostname'] }}.{{ item.instance_name }}"
-    state: restarted
-  with_items: "{{ rgw_instances }}"

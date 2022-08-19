@@ -1,5 +1,0 @@
----
-features:
-  - Adds support for the horizon magnum-ui dashboard. The
-    dashboard will be automatically enabled if any magnum
-    hosts are defined.

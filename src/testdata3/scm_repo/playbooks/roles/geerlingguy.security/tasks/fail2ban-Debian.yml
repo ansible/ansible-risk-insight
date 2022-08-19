@@ -1,3 +1,0 @@
----
-- name: Install fail2ban.
-  apt: name=fail2ban state=present

@@ -1,4 +1,0 @@
----
-upgrade:
-  - The variable ``lxc_apt_packages`` has been renamed to
-    ``lxc_hosts_distro_packages``.

@@ -1,4 +1,0 @@
----
-
-octavia_package_list: "{{ octavia_distro_packages }}"
-_octavia_bin: "/openstack/venvs/octavia-{{ octavia_venv_tag }}/bin"

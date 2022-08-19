@@ -1,3 +1,0 @@
----
-other:
-  - Added new variable ``tempest_endpoint_type`` to avoid having endpoint type hardcoded in tempest.conf

@@ -1,6 +1,0 @@
-FROM ubuntu:xenial
-
-RUN apt-get update && apt-get install -y sudo python python3 ca-certificates unzip
-RUN useradd --create-home --shell /bin/bash  ubuntu
-RUN echo "ubuntu ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
-ENV USER=ubuntu

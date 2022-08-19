@@ -1,4 +1,0 @@
----
-fixes:
-  - |
-    Fixed facts gathering when tags were provided with playbook run.

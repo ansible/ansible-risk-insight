@@ -1,5 +1,0 @@
----
-upgrade:
-  - A new global variable has been created named
-    ``openstack_domain``. This variable has a default
-    value of "openstack.local".

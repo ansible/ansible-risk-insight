@@ -1,6 +1,0 @@
----
-- name: Install trove
-  hosts: all
-  user: root
-  roles:
-    - role: "os_trove"

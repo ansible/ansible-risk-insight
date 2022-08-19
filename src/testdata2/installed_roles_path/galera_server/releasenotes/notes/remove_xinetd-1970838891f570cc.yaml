@@ -1,5 +1,0 @@
----
-upgrade:
-  - |
-    The xinetd script and configuration to run the 'clustercheck' script is
-    replaced with a systemd socket activated service.

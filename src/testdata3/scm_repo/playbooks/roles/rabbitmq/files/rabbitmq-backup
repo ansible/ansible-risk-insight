@@ -1,4 +1,0 @@
-#!/bin/bash
-
-DEST="$1"
-python {{ RABBITMQ_SCRIPTS_DIR }}/rabbitmqadmin export $DEST -c /etc/rabbitmqadmin.conf -N host_ssl

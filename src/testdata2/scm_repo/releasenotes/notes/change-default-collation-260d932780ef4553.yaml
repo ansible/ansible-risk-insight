@@ -1,5 +1,0 @@
----
-upgrade:
-  - The default database collation has changed from
-    `utf8_unicode_ci` to `utf8_general_ci`. Existing
-    databases and tables will need to be converted.

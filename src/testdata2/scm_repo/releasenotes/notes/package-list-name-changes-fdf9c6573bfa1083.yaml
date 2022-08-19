@@ -1,4 +1,0 @@
----
-upgrade:
-  - The variable ``openstack_host_apt_packages`` has been renamed to
-    ``openstack_host_distro_packages``.
