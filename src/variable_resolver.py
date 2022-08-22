@@ -1,4 +1,5 @@
 import argparse
+import os
 import sys
 import json
 import jsonpickle
@@ -154,7 +155,7 @@ def load_node_objects(node_path="", root_dir="", ext_dir=""):
 def main():
     parser = argparse.ArgumentParser(
         prog='variable_resolver.py',
-        description='converter1',
+        description='resolve variables',
         epilog='end',
         add_help=True,
     )
@@ -163,7 +164,7 @@ def main():
     parser.add_argument('-n', '--node-file', default="", help='path to node object json file')
     parser.add_argument('-r', '--root-dir', default="", help='path to definitions dir for root')
     parser.add_argument('-e', '--ext-dir', default="", help='path to definitions dir for ext')
-    parser.add_argument('-c', '--context-file', default="", help='path to context file (output)')
+    parser.add_argument('-o', '--out-dir', default="", help='path to output dir')
 
     args = parser.parse_args()
 
@@ -178,15 +179,19 @@ def main():
     trees = load_tree_json(args.tree_file)
     objects = load_node_objects(args.node_file, args.root_dir, args.ext_dir)
 
-    all_contexts = []
+    tasks_rv_lines = []
     for tree in trees:
-        t_obj, contexts = convert(tree, objects)
-        all_contexts.extend(contexts)
-        print(json.dumps(t_obj), flush=True)
-
-    if args.context_file != "":
-        with open(args.context_file, "w") as file:
-            file.write(jsonpickle.encode(all_contexts, make_refs=False))
+        if not isinstance(tree, TreeNode):
+            continue
+        tasks = resolve_variables(tree, objects)
+        d = {
+            "root_key": tree.key,
+            "tasks": tasks,
+        }
+        line = json.dumps(d)
+        tasks_rv_lines.append(line)
+    tasks_rv_path = os.path.join(args.out_dir, "tasks_rv.json")
+    open(tasks_rv_path, "w").write("\n".join(tasks_rv_lines))
 
 if __name__ == "__main__":
     main()

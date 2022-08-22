@@ -11,6 +11,8 @@ from struct5 import get_object, Repository, Playbook, Play, Role, Collection, Ta
 from resolver_fqcn import FQCNResolver
 
 
+ansible_special_variables = open("ansible_variables.txt", "r").read().splitlines()
+_special_var_value = "__ansible_special_variable__"
 variable_block_re = re.compile(r'{{[^}]+}}')
 
 def get_all_variables(var_dict={}):
@@ -34,6 +36,7 @@ class VariableType:
     NORMAL = "normal"
     ROLE_DEFAULTS = "role_defaults"
     ROLE_VARS = "role_vars"
+    SPECIAL_VARS = "special_vars"
     FAILED_TO_RESOLVE = "failed_to_resolve"
 
 @dataclass
@@ -90,6 +93,19 @@ class Context():
             elif isinstance(val, list):
                 resolved_val_list = [self.resolve_single_variable(vi) for vi in val]
                 return resolved_val_list, v_type
+            else:
+                return val, v_type
+
+        flattened_all_variables = get_all_variables(self.variables)
+        val = flattened_all_variables.get(var_name, None)
+        if val is not None:
+            if isinstance(val, str):
+                return self.resolve_single_variable(val), v_type
+            elif isinstance(val, list):
+                resolved_val_list = [self.resolve_single_variable(vi) for vi in val]
+                return resolved_val_list, v_type
+            else:
+                return val, v_type
         
         # TODO: consider group
         inventory_for_all = [iv for iv in self.inventories if iv.inventory_type==InventoryType.GROUP_VARS_TYPE and iv.name == "all"]
@@ -102,6 +118,12 @@ class Context():
                 elif isinstance(val, list):
                     resolved_val_list = [self.resolve_single_variable(vi) for vi in val]
                     return resolved_val_list, v_type
+                else:
+                    return val, v_type
+
+        if var_name in ansible_special_variables:
+            return _special_var_value, VariableType.SPECIAL_VARS
+
         return None, VariableType.FAILED_TO_RESOLVE
 
     def resolve_single_variable(self, txt):
