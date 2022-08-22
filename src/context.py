@@ -166,6 +166,7 @@ class VariableType:
     NORMAL = "normal"
     ROLE_DEFAULTS = "role_defaults"
     ROLE_VARS = "role_vars"
+    SPECIAL_VARS = "special_vars"
     FAILED_TO_RESOLVE = "failed_to_resolve"
 
 @dataclass
@@ -176,10 +177,7 @@ class Context:
     inventories: list = field(default_factory=list)
     role_defaults: list = field(default_factory=list)
     role_vars: list = field(default_factory=list)
-<<<<<<< HEAD
     registered_vars: list = field(default_factory=list)
-=======
->>>>>>> 6fcf7456 (implement variable resolution)
 
     def add(self, obj, depth_lvl=0):
         if isinstance(obj, Playbook):
@@ -217,26 +215,18 @@ class Context:
 
     def resolve_variable(self, var_name):
         v_type = VariableType.NORMAL
-<<<<<<< HEAD
         if var_name in self.role_vars:
             v_type = VariableType.ROLE_VARS
         elif var_name in self.role_defaults:
             v_type = VariableType.ROLE_DEFAULTS
         elif var_name in self.registered_vars:
             v_type = VariableType.REGISTERED_VARS
-=======
-        if var_name in self.role_defaults:
-            v_type = VariableType.ROLE_DEFAULTS
-        if var_name in self.role_vars:
-            v_type = VariableType.ROLE_VARS
->>>>>>> 6fcf7456 (implement variable resolution)
 
         val = self.variables.get(var_name, None)
         if val is not None:
             if isinstance(val, str):
                 return self.resolve_single_variable(val), v_type
             elif isinstance(val, list):
-<<<<<<< HEAD
                 resolved_val_list = [
                     self.resolve_single_variable(vi) for vi in val
                 ]
@@ -257,11 +247,6 @@ class Context:
             else:
                 return val, v_type
 
-=======
-                resolved_val_list = [self.resolve_single_variable(vi) for vi in val]
-                return resolved_val_list, v_type
-        
->>>>>>> 6fcf7456 (implement variable resolution)
         # TODO: consider group
         inventory_for_all = [
             iv
@@ -277,7 +262,6 @@ class Context:
                 if isinstance(val, str):
                     return self.resolve_single_variable(val), v_type
                 elif isinstance(val, list):
-<<<<<<< HEAD
                     resolved_val_list = [
                         self.resolve_single_variable(vi) for vi in val
                     ]
@@ -322,10 +306,6 @@ class Context:
                         VariableType.PARTIAL_RESOLVE,
                     )
 
-=======
-                    resolved_val_list = [self.resolve_single_variable(vi) for vi in val]
-                    return resolved_val_list, v_type
->>>>>>> 6fcf7456 (implement variable resolution)
         return None, VariableType.FAILED_TO_RESOLVE
 
     def resolve_single_variable(self, txt):
@@ -335,7 +315,6 @@ class Context:
             var_names_in_txt = extract_variable_names(txt)
             if len(var_names_in_txt) == 0:
                 return txt
-<<<<<<< HEAD
             resolved_txt = txt
             for var_name_in_txt in var_names_in_txt:
                 original_block = var_name_in_txt.get("original", "")
@@ -353,19 +332,6 @@ class Context:
                 resolved_txt = resolved_txt.replace(
                     original_block, str(var_val_in_txt)
                 )
-=======
-            original_block = var_names_in_txt[0].get("original", "")
-            var_name_in_txt = var_names_in_txt[0].get("name", "")
-            default_var_name_in_txt = var_names_in_txt[0].get("default", "")
-            var_val_in_txt, _ = self.resolve_variable(var_name_in_txt)
-            if var_val_in_txt is None and default_var_name_in_txt != "":
-                var_val_in_txt, _ = self.resolve_variable(default_var_name_in_txt)
-            if var_val_in_txt is None:
-                return txt
-            if txt == original_block:
-                return var_val_in_txt
-            resolved_txt = txt.replace(original_block, var_val_in_txt)
->>>>>>> 6fcf7456 (implement variable resolution)
             return resolved_txt
         else:
             return txt
@@ -436,15 +402,11 @@ def resolve_module_options(context, task):
     else:
         loop_key = list(task.loop.keys())[0]
         loop_values = task.loop.get(loop_key, [])
-<<<<<<< HEAD
         new_var = {
             "key": loop_key,
             "value": loop_values,
             "type": VariableType.LOOP_VAR,
         }
-=======
-        new_var = {"key": loop_key, "value": loop_values, "type": VariableType.NORMAL}
->>>>>>> 6fcf7456 (implement variable resolution)
         if not resolved_vars_contains(resolved_vars, new_var):
             resolved_vars.append(new_var)
         if isinstance(loop_values, str):
@@ -453,7 +415,6 @@ def resolve_module_options(context, task):
                 variables_in_loop.append({loop_key: loop_values})
             else:
                 var_name = var_names[0].get("name", "")
-<<<<<<< HEAD
                 resolved_vars_in_item, v_type = context.resolve_variable(
                     var_name
                 )
@@ -462,10 +423,6 @@ def resolve_module_options(context, task):
                     "value": resolved_vars_in_item,
                     "type": v_type,
                 }
-=======
-                resolved_vars_in_item, v_type = context.resolve_variable(var_name)
-                new_var = {"key": var_name, "value": resolved_vars_in_item, "type": v_type}
->>>>>>> 6fcf7456 (implement variable resolution)
                 if not resolved_vars_contains(resolved_vars, new_var):
                     resolved_vars.append(new_var)
                 if isinstance(resolved_vars_in_item, list):
@@ -491,7 +448,6 @@ def resolve_module_options(context, task):
                         variables_in_loop.append({loop_key: v})
                         continue
                     var_name = var_names[0].get("name", "")
-<<<<<<< HEAD
                     resolved_vars_in_item, v_type = context.resolve_variable(
                         var_name
                     )
@@ -500,10 +456,6 @@ def resolve_module_options(context, task):
                         "value": resolved_vars_in_item,
                         "type": v_type,
                     }
-=======
-                    resolved_vars_in_item, v_type = context.resolve_variable(var_name)
-                    new_var = {"key": var_name, "value": resolved_vars_in_item, "type": v_type}
->>>>>>> 6fcf7456 (implement variable resolution)
                     if not resolved_vars_contains(resolved_vars, new_var):
                         resolved_vars.append(new_var)
                     if not isinstance(resolved_vars_in_item, list):
@@ -550,7 +502,6 @@ def resolve_module_options(context, task):
                     default_var_name = var_name_dict.get("default", "")
                     resolved_var_val = variables.get(var_name, None)
                     if resolved_var_val is None:
-<<<<<<< HEAD
                         resolved_var_val, v_type = context.resolve_variable(
                             var_name
                         )
@@ -584,21 +535,6 @@ def resolve_module_options(context, task):
                             "value": None,
                             "type": VariableType.FAILED_TO_RESOLVE,
                         }
-=======
-                        resolved_var_val, v_type = context.resolve_variable(var_name)
-                        if resolved_var_val is not None:
-                            new_var = {"key": var_name, "value": resolved_var_val, "type": v_type}
-                            if not resolved_vars_contains(resolved_vars, new_var):
-                                resolved_vars.append(new_var)
-                    if resolved_var_val is None and default_var_name != "":
-                        resolved_var_val, v_type = context.resolve_variable(default_var_name)
-                        if resolved_var_val is not None:
-                            new_var = {"key": default_var_name, "value": resolved_var_val, "type": v_type}
-                            if not resolved_vars_contains(resolved_vars, new_var):
-                                resolved_vars.append(new_var)
-                    if resolved_var_val is None:
-                        new_var = {"key": var_name, "value": None, "type": VariableType.FAILED_TO_RESOLVE}
->>>>>>> 6fcf7456 (implement variable resolution)
                         if not resolved_vars_contains(resolved_vars, new_var):
                             resolved_vars.append(new_var)
                         continue
@@ -619,7 +555,6 @@ def resolve_module_options(context, task):
                     default_var_name = var_name_dict.get("default", "")
                     resolved_var_val = variables.get(var_name, None)
                     if resolved_var_val is None:
-<<<<<<< HEAD
                         resolved_var_val, v_type = context.resolve_variable(
                             var_name
                         )
@@ -653,21 +588,6 @@ def resolve_module_options(context, task):
                             "value": None,
                             "type": VariableType.FAILED_TO_RESOLVE,
                         }
-=======
-                        resolved_var_val, v_type = context.resolve_variable(var_name)
-                        if resolved_var_val is not None:
-                            new_var = {"key": var_name, "value": resolved_var_val, "type": v_type}
-                            if not resolved_vars_contains(resolved_vars, new_var):
-                                resolved_vars.append(new_var)
-                    if resolved_var_val is None and default_var_name != "":
-                        resolved_var_val, v_type = context.resolve_variable(default_var_name)
-                        if resolved_var_val is not None:
-                            new_var = {"key": default_var_name, "value": resolved_var_val, "type": v_type}
-                            if not resolved_vars_contains(resolved_vars, new_var):
-                                resolved_vars.append(new_var)
-                    if resolved_var_val is None:
-                        new_var = {"key": var_name, "value": None, "type": VariableType.FAILED_TO_RESOLVE}
->>>>>>> 6fcf7456 (implement variable resolution)
                         if not resolved_vars_contains(resolved_vars, new_var):
                             resolved_vars.append(new_var)
                         continue

@@ -256,6 +256,5 @@ def main():
     tasks_rv_path = os.path.join(args.out_dir, "tasks_rv.json")
     open(tasks_rv_path, "w").write("\n".join(tasks_rv_lines))
 
-
 if __name__ == "__main__":
     main()
