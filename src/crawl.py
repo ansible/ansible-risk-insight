@@ -40,16 +40,19 @@ if __name__ == "__main__":
         logging.error("collection or role must be specified")
         sys.exit(1)
 
-    common_data_dir = args.output_dir
-    collecion_data_dir = args.collection_dir
+    output_dir = args.output_dir
+    collection_search_path = args.collection_dir
     skip_install = args.skip_install
 
     print("crawling external dependeicies")
-    res_ext = crawl_ext(target, target_type, common_data_dir, collecion_data_dir, skip_install)
+    res_ext = crawl_ext(target, target_type, output_dir, collection_search_path, skip_install)
     # print(json.dumps(res_ext, indent=2))
 
+    ext_index_file = res_ext.get("index_file", "")
+
     print("analyzing target dir")
-    res_root = crawl_root(target, target_type, common_data_dir)
+    # root will be generated in common_data_dir
+    res_root = crawl_root(target, target_type, ext_index_file, output_dir)
     # print(json.dumps(res_root, indent=2))
 
     root_def_dir = res_root.get("defs_dir", "")
