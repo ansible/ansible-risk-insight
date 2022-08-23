@@ -36,7 +36,9 @@ class VariableType:
     NORMAL = "normal"
     ROLE_DEFAULTS = "role_defaults"
     ROLE_VARS = "role_vars"
+    REGISTERED_VARS = "registered_vars"
     SPECIAL_VARS = "special_vars"
+    PARTIAL_RESOLVE = "partial_resolve"
     FAILED_TO_RESOLVE = "failed_to_resolve"
 
 @dataclass
@@ -47,6 +49,7 @@ class Context():
     inventories: list = field(default_factory=list)
     role_defaults: list = field(default_factory=list)
     role_vars: list = field(default_factory=list)
+    registered_vars: list = field(default_factory=list)
 
     def add(self, obj, depth_lvl=0):
         if isinstance(obj, Playbook):
@@ -76,15 +79,20 @@ class Context():
             self.chain.append({"obj": obj, "depth": depth_lvl})
         elif isinstance(obj, Task):
             self.variables.update(obj.variables)
+            self.variables.update(obj.registered_variables)
+            for var_name in obj.registered_variables:
+                self.registered_vars.append(var_name)
             self.options.update(obj.options)
             self.chain.append({"obj": obj, "depth": depth_lvl})
 
     def resolve_variable(self, var_name):
         v_type = VariableType.NORMAL
-        if var_name in self.role_defaults:
-            v_type = VariableType.ROLE_DEFAULTS
         if var_name in self.role_vars:
             v_type = VariableType.ROLE_VARS
+        elif var_name in self.role_defaults:
+            v_type = VariableType.ROLE_DEFAULTS
+        elif var_name in self.registered_vars:
+            v_type = VariableType.REGISTERED_VARS
 
         val = self.variables.get(var_name, None)
         if val is not None:
@@ -124,6 +132,27 @@ class Context():
         if var_name in ansible_special_variables:
             return _special_var_value, VariableType.SPECIAL_VARS
 
+        if var_name.startswith("hostvars[") or var_name.startswith("groups["):
+            return "__partial_resolve__{}__".format(var_name), VariableType.PARTIAL_RESOLVE
+        
+        if "." in var_name:
+            parts = var_name.split(".")
+            top_var_name = parts[0]
+            sub_var_name = parts[1] if len(parts) >= 2 else ""
+            rest_parts = ".".join(parts[1:]) if len(parts) >= 2 else ""
+            if top_var_name in self.variables or top_var_name in flattened_all_variables:
+                _val, _v_type = self.resolve_variable(top_var_name)
+                if _v_type == VariableType.REGISTERED_VARS:
+                    return _val, _v_type
+                if sub_var_name != "" and isinstance(_val, dict) and sub_var_name in _val:
+                    flattened_variables = get_all_variables(_val)
+                    val = flattened_variables.get(rest_parts, None)
+                    if val is not None:
+                        return val, _v_type
+
+                elif sub_var_name != "" and _val is not None:
+                    return "__partial_resolve__{}__".format(var_name), VariableType.PARTIAL_RESOLVE
+
         return None, VariableType.FAILED_TO_RESOLVE
 
     def resolve_single_variable(self, txt):
@@ -133,17 +162,19 @@ class Context():
             var_names_in_txt = extract_variable_names(txt)
             if len(var_names_in_txt) == 0:
                 return txt
-            original_block = var_names_in_txt[0].get("original", "")
-            var_name_in_txt = var_names_in_txt[0].get("name", "")
-            default_var_name_in_txt = var_names_in_txt[0].get("default", "")
-            var_val_in_txt, _ = self.resolve_variable(var_name_in_txt)
-            if var_val_in_txt is None and default_var_name_in_txt != "":
-                var_val_in_txt, _ = self.resolve_variable(default_var_name_in_txt)
-            if var_val_in_txt is None:
-                return txt
-            if txt == original_block:
-                return var_val_in_txt
-            resolved_txt = txt.replace(original_block, var_val_in_txt)
+            resolved_txt = txt
+            for var_name_in_txt in var_names_in_txt:
+                original_block = var_name_in_txt.get("original", "")
+                var_name = var_name_in_txt.get("name", "")
+                default_var_name = var_name_in_txt.get("default", "")
+                var_val_in_txt, _ = self.resolve_variable(var_name)
+                if var_val_in_txt is None and default_var_name != "":
+                    var_val_in_txt, _ = self.resolve_variable(default_var_name)
+                if var_val_in_txt is None:
+                    return txt
+                if txt == original_block:
+                    return var_val_in_txt
+                resolved_txt = resolved_txt.replace(original_block, str(var_val_in_txt))
             return resolved_txt
         else:
             return txt
@@ -210,7 +241,7 @@ def resolve_module_options(context, task):
                     for vi in resolved_vars_in_item:
                         variables_in_loop.append({loop_key: vi})
                 else:
-                    variables_in_loop.append({loop_key: loop_values})  
+                    variables_in_loop.append({loop_key: resolved_vars_in_item})  
         elif isinstance(loop_values, list):
             for v in loop_values:
                 if isinstance(v, str) and variable_block_re.search(v):
@@ -226,7 +257,6 @@ def resolve_module_options(context, task):
                     if not isinstance(resolved_vars_in_item, list):
                         variables_in_loop.append({loop_key: resolved_vars_in_item})
                         continue
-                    
                     for vi in resolved_vars_in_item:
                         variables_in_loop.append({loop_key: vi})
                 else:

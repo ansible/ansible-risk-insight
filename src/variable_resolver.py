@@ -91,6 +91,7 @@ def resolve_variables(tree, node_objects):
             contexts_per_task.append((current_context, obj))
         for c in node.children:
             contexts_per_task = add_context(c, current_context, contexts_per_task, depth_level+1)
+            current_context = contexts_per_task[-1][0]
         return contexts_per_task
     
     # if load type is "project", it might have inventories
