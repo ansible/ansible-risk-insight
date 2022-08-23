@@ -166,7 +166,9 @@ class VariableType:
     NORMAL = "normal"
     ROLE_DEFAULTS = "role_defaults"
     ROLE_VARS = "role_vars"
+    REGISTERED_VARS = "registered_vars"
     SPECIAL_VARS = "special_vars"
+    PARTIAL_RESOLVE = "partial_resolve"
     FAILED_TO_RESOLVE = "failed_to_resolve"
 
 @dataclass

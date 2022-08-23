@@ -488,6 +488,7 @@ class Task(JSONSerializable, Resolvable):
     role: str = ""
     collection: str = ""
     variables: dict = field(default_factory=dict)
+    registered_variables: dict = field(default_factory=dict)
     options: dict = field(default_factory=dict)
     module_options: dict = field(default_factory=dict)
     executable: str = ""
@@ -576,33 +577,9 @@ class Task(JSONSerializable, Resolvable):
             executable = taskfile_ref
             executable_type = ExecutableType.TASKFILE_TYPE
 
-        variables = {}
-        # get variables for this task
-        if "vars" in task_options:
-            vars_in_task = task_options.get("vars", {})
-            if vars_in_task is not None and isinstance(vars_in_task, dict):
-                variables.update(vars_in_task)
-        
-        # if the Task is set_fact, set variables too
-        if module_short_name == "set_fact":
-            if isinstance(module_options, dict):
-                variables.update(module_options)
-        
-        # set loop variables when loop / with_xxxx are there
-        loop_info = {}
-        for k in task_options:
-            if k in loop_task_option_names:
-                loop_var = task_options.get("loop_control", {}).get("loop_var", "item")
-                loop_info[loop_var] = task_options.get(k, [])
-
         self.name = task_name
         self.role = role_name
         self.collection = collection_name
-        self.options = task_options
-        self.variables = variables
-        self.loop = loop_info
-        self.module = module_name
-        self.module_options = module_options
         defined_in = fullpath
         if basedir != "":
             if defined_in.startswith(basedir):
@@ -616,6 +593,39 @@ class Task(JSONSerializable, Resolvable):
         self.executable_type = executable_type
         self.collections_in_play = collections_in_play
         self.set_key(parent_key, parent_local_key)
+
+        variables = {}
+        # get variables for this task
+        if "vars" in task_options:
+            vars_in_task = task_options.get("vars", {})
+            if vars_in_task is not None and isinstance(vars_in_task, dict):
+                variables.update(vars_in_task)
+
+        # if the Task is set_fact, set variables too
+        if module_short_name == "set_fact":
+            if isinstance(module_options, dict):
+                variables.update(module_options)
+
+        registered_variables = {}
+        # set variables if this task register a new var
+        if "register" in task_options:
+            register_var_name = task_options.get("register", "")
+            if register_var_name is not None and isinstance(register_var_name, str) and register_var_name != "":
+                registered_variables.update({register_var_name: self.key})
+        
+        # set loop variables when loop / with_xxxx are there
+        loop_info = {}
+        for k in task_options:
+            if k in loop_task_option_names:
+                loop_var = task_options.get("loop_control", {}).get("loop_var", "item")
+                loop_info[loop_var] = task_options.get(k, [])
+
+        self.options = task_options
+        self.variables = variables
+        self.registered_variables = registered_variables
+        self.loop = loop_info
+        self.module = module_name
+        self.module_options = module_options
 
     def set_key(self, parent_key="", parent_local_key=""):
         index_info = "[{}]".format(self.index)
