@@ -17,12 +17,7 @@ from tree import TreeLoader, TreeNode, load_node_objects, load_tree_json
 from variable_resolver import tree_to_task_list, resolve_variables
 
 
-def crawl(is_ext, output_path, collection_path, index_path, crawl_target_path):
-    target_type, target_path_list = detect_target_type(crawl_target_path, is_ext)
-    logging.info("the detected target type: \"{}\", found targets: {}".format(target_type, len(target_path_list)))
-    if target_type not in supported_target_types:
-        logging.error("this target type is not supported")
-        sys.exit(1)
+def create_load_files(is_ext, target_type, target_path_list, output_path):
 
     profiles = [(target_path) for target_path in target_path_list]
 
@@ -58,48 +53,48 @@ def crawl(is_ext, output_path, collection_path, index_path, crawl_target_path):
         l = Load(target_name=target_name, target_type=target_type, path=target_path, loader_version=loader_version)
         l.run(output_path=load_json_path)
 
+def create_index_data(is_ext, target_type, target_path_list, src_dir, collection_search_path, output_path):
 
-    if index_path != "":
-        index_data = {
-            "in_path": crawl_target_path,
-            "out_path": output_path,
-            "collection_path": collection_path,
-            "mode": "ext" if is_ext else "root",
-            "target_type": target_type,
-            "generated_load_files": [],
-            "dep_collection_load_files": [],
-        }
+    index_data = {
+        "in_path": src_dir,
+        "out_path": output_path,
+        "collection_path": collection_search_path,
+        "mode": "ext" if is_ext else "root",
+        "target_type": target_type,
+        "generated_load_files": [],
+        "dep_collection_load_files": [],
+    }
 
-        generated_load_files = []
-        if is_ext:
+    profiles = [(target_path) for target_path in target_path_list]
 
-            for target_path in profiles:
-                target_name = get_target_name(target_type, target_path)
-                load_json_path = create_load_json_path(target_type, target_name, output_path)
-                target_name = get_target_name(target_type, target_path)
-                lf = load_json_path.replace(output_path, "")
-                if lf.startswith("/"):
-                    lf = lf[1:]
-                generated_load_files.append({
-                    "file": lf,
-                    "name": target_name,
-                    "type": target_type,
-                })
-        else:
-            generated_load_files = [{
-                "file": output_path,
-                "name": "",
-                "type": ""
-                }]
-        index_data["generated_load_files"] = generated_load_files
+    generated_load_files = []
+    if is_ext:
 
-        dep_collection_load_files = []
-        if target_type == LoadType.ROLE_TYPE:
-            dep_collection_load_files = find_load_files_for_dependency_collections(target_path_list, collection_path)
-            index_data["dep_collection_load_files"] = dep_collection_load_files
+        for target_path in profiles:
+            target_name = get_target_name(target_type, target_path)
+            load_json_path = create_load_json_path(target_type, target_name, output_path)
+            lf = load_json_path.replace(output_path, "")
+            if lf.startswith("/"):
+                lf = lf[1:]
+            generated_load_files.append({
+                "file": lf,
+                "name": target_name,
+                "type": target_type,
+            })
+    else:
+        generated_load_files = [{
+            "file": output_path,
+            "name": "",
+            "type": ""
+            }]
+    index_data["generated_load_files"] = generated_load_files
 
-        with open(index_path, "w") as file:
-            json.dump(index_data, file)
+    dep_collection_load_files = []
+    if target_type == LoadType.ROLE_TYPE:
+        dep_collection_load_files = find_load_files_for_dependency_collections(target_path_list, collection_search_path)
+        index_data["dep_collection_load_files"] = dep_collection_load_files
+
+    return index_data
 
 def find_load_files_for_dependency_collections(role_path_list, collection_search_path):
     dep_collections = []
@@ -222,21 +217,23 @@ def move_load_file(path1, src1, path2, src2):
         p2 = p1.replace(src1, src2, 1)
         js2["path"] = p2
 
-    if os.path.exists(p2):
-        if os.path.isfile(p2):
-            raise ValueError("{} is not directory".format(p2))
-    else:
-        os.makedirs(p2)
+    if src1 != src2:
 
-    def copytree(src,dst):
-        if src == "" or not os.path.exists(src) or not os.path.isdir(src):
-            raise ValueError("src {} is not directory".format(src))
-        if dst == "" or ".." in dst:
-            raise ValueError("dst {} is invalid".format(dst))
-        os.system("cp -r {}/ {}/".format(src, dst))
+        if os.path.exists(p2):
+            if os.path.isfile(p2):
+                raise ValueError("{} is not directory".format(p2))
+        else:
+            os.makedirs(p2)
 
-    # use cp instead of shutil.copytree to avoid symlink reference loop
-    copytree(p1, p2)
+        def copytree(src,dst):
+            if src == "" or not os.path.exists(src) or not os.path.isdir(src):
+                raise ValueError("src {} is not directory".format(src))
+            if dst == "" or ".." in dst:
+                raise ValueError("dst {} is invalid".format(dst))
+            os.system("cp -r {}/ {}/".format(src, dst))
+
+        # use cp instead of shutil.copytree to avoid symlink reference loop
+        copytree(p1, p2)
 
     with open(path2, "w") as f2:
         json.dump(js2, f2)
@@ -267,13 +264,12 @@ def move_definitions(dir1, src1, dir2, src2):
     with open(map2, "w") as f2:
         json.dump(js2, f2)
 
-def crawl_ext(_target, _target_type, dst_dir, _collection_data_dir, _skip_install):
+def crawl_ext(target, target_type, dst_dir, collection_search_path, skip_install):
 
     if dst_dir == "":
         raise ValueError("common_data_dir must be specified")
 
     is_ext = True
-    skip_install = _skip_install
 
     if not os.path.exists(dst_dir):
         os.makedirs(dst_dir)
@@ -290,8 +286,8 @@ def crawl_ext(_target, _target_type, dst_dir, _collection_data_dir, _skip_instal
         if not os.path.exists(dst_load_files_dir):
             os.makedirs(dst_load_files_dir)
 
-        dst_install_log = os.path.join(dst_dir, "{}-{}-install.log".format(_target_type, _target))
-        dst_index_file = os.path.join(dst_dir, "{}-{}-index-ext.json".format(_target_type, _target))
+        dst_install_log = os.path.join(dst_dir, "{}-{}-install.log".format(target_type, target))
+        dst_index_file = os.path.join(dst_dir, "{}-{}-index-ext.json".format(target_type, target))
 
         tmp_load_files_dir = os.path.join(tmpdir, "ext") if not skip_install else dst_load_files_dir
         tmp_index_file = os.path.join(tmpdir, "index-ext.json") if not skip_install else dst_index_file
@@ -303,8 +299,8 @@ def crawl_ext(_target, _target_type, dst_dir, _collection_data_dir, _skip_instal
 
         _params_before = {
             "is_ext": True,
-            "target": _target,
-            "target_type": _target_type,
+            "target": target,
+            "target_type": target_type,
             "load_files_dir": tmp_load_files_dir,
             "index_file": tmp_index_file,
             "install_log": tmp_install_log,
@@ -315,18 +311,46 @@ def crawl_ext(_target, _target_type, dst_dir, _collection_data_dir, _skip_instal
         print("before move")
         print(json.dumps(_params_before, indent=2))
 
-        if not skip_install:
-
+        if skip_install:
+            tmp_src_dir = dst_src_dir
+        else:
             # ansible-galaxy install
-            print("installing a {} <{}> from galaxy".format(_target_type, _target))
-            install_msg = install_target(_target, _target_type, tmp_src_dir)
+            print("installing a {} <{}> from galaxy".format(target_type, target))
+            install_msg = install_target(target, target_type, tmp_src_dir)
             with open(tmp_install_log, "w") as f:
                 print(install_msg, file=f)
                 print(install_msg)
 
-            # load src, create load.json
-            print("crawl content")
-            crawl(is_ext, tmp_load_files_dir, _collection_data_dir, tmp_index_file, tmp_src_dir)
+        # load src, create load.json
+        print("crawl content")
+
+        if skip_install:
+            target_path_list = []
+            if not os.path.exists(tmp_index_file):
+                raise ValueError("No index file {}".format(tmp_index_file))
+            with open(tmp_index_file, "r") as f:
+                index_data = json.load(f)
+                in_path = index_data.get("in_path", "")
+                _load_files_for_this_collection = index_data.get("generated_load_files", [])
+                for load_data in _load_files_for_this_collection:
+                    name = load_data.get("name", "")
+                    if name != "":
+                        load_path = os.path.join(in_path, name)
+                        target_path_list.append(load_path)
+        else:
+            _, target_path_list = detect_target_type(tmp_src_dir, is_ext)
+
+            logging.info("the detected target type: \"{}\", found targets: {}".format(target_type, len(target_path_list)))
+            if target_type not in supported_target_types:
+                logging.error("this target type is not supported")
+                sys.exit(1)
+
+        create_load_files(is_ext, target_type, target_path_list, tmp_load_files_dir)
+
+        if not skip_install:
+            index_data = create_index_data(is_ext, target_type, target_path_list, tmp_src_dir, collection_search_path, tmp_load_files_dir)
+            with open(tmp_index_file, "w") as file:
+                json.dump(index_data, file)
 
         # decompose files to definitions
         print("decomposing files")
@@ -340,28 +364,25 @@ def crawl_ext(_target, _target_type, dst_dir, _collection_data_dir, _skip_instal
             if defined_load_files_dir == "":
                 raise ValueError("no out_path in index file")
 
+        print("moving load files to common dir")
+        for v in defined_generated_load_files:
+            defined_load_file = v["file"]
+            target_name = v["name"]
+            target_type = v["type"]
+            defined_load_file_path = os.path.join(defined_load_files_dir, defined_load_file)
+            dst_load_file_path = os.path.join(dst_load_files_dir, defined_load_file)
+            move_load_file(defined_load_file_path, tmp_src_dir, dst_load_file_path, dst_src_dir)
+
         if not skip_install:
-            print("moving source")
-
-
-            print("moving load files to common dir")
-            for v in defined_generated_load_files:
-                defined_load_file = v["file"]
-                target_name = v["name"]
-                target_type = v["type"]
-                defined_load_file_path = os.path.join(defined_load_files_dir, defined_load_file) #skip
-                dst_load_file_path = os.path.join(dst_load_files_dir, defined_load_file) #skip
-                move_load_file(defined_load_file_path, tmp_src_dir, dst_load_file_path, dst_src_dir) #skip
-
-            print("moving index") #skip
+            print("moving index")
             params = {
                 "in_path": dst_src_dir,
                 "out_path": dst_load_files_dir,
-            } #skip
-            move_index(tmp_index_file, dst_index_file, params) #skip
+            }
+            move_index(tmp_index_file, dst_index_file, params)
 
             print("moving install log")
-            shutil.move(tmp_install_log, dst_install_log) #skip
+            shutil.move(tmp_install_log, dst_install_log)
 
 
         print("moving load definitions to common dir")
@@ -377,8 +398,8 @@ def crawl_ext(_target, _target_type, dst_dir, _collection_data_dir, _skip_instal
 
         _params_after = {
             "is_ext": True,
-            "target": _target,
-            "target_type": _target_type,
+            "target": target,
+            "target_type": target_type,
             "load_files_dir": dst_load_files_dir,
             "index_file": dst_index_file,
             "install_log": dst_install_log,
@@ -397,11 +418,11 @@ def crawl_ext(_target, _target_type, dst_dir, _collection_data_dir, _skip_instal
 
     return _params_after
 
-def crawl_root(target, target_type, common_data_dir):
+def crawl_root(target, target_type, src_index_file, output_dir):
 
     is_ext = False
-    src_index_file = os.path.join(common_data_dir, "{}-{}-index-ext.json".format(target_type, target))
 
+    src_load_file = None
     with open(src_index_file, "r") as f:
         src_index = json.load(f)
         src_load_dir = src_index.get("out_path", "")
@@ -409,13 +430,12 @@ def crawl_root(target, target_type, common_data_dir):
             if v["name"] == target and v["type"] == target_type:
                 src_load_file = os.path.join(src_load_dir, v["file"])
 
+    if src_load_file:
+        with open(src_load_file, "r") as f:
+            src_load = json.load(f)
+            src_dir = src_load.get("path", "")
 
-    with open(src_load_file, "r") as f:
-        src_load = json.load(f)
-        src_dir = src_load.get("path", "")
-
-    # dst_dir = "/tmp/tehe-dst"
-    dst_dir = os.path.join(common_data_dir, "root")
+    dst_dir = os.path.join(output_dir, "root")
     if not os.path.exists(dst_dir):
         os.makedirs(dst_dir)
 
@@ -445,7 +465,15 @@ def crawl_root(target, target_type, common_data_dir):
         # ansible-galaxy install
         # load src, create load.json
         print("crawl content")
-        crawl(is_ext, tmp_load_file, "", "", src_dir)
+
+        target_type, target_path_list = detect_target_type(src_dir, is_ext)
+
+        logging.info("the detected target type: \"{}\", found targets: {}".format(target_type, len(target_path_list)))
+        if target_type not in supported_target_types:
+            logging.error("this target type is not supported")
+            sys.exit(1)
+
+        create_load_files(is_ext, target_type, target_path_list, tmp_load_file)
 
         # load index_
         print("decomposing files")
@@ -456,7 +484,7 @@ def crawl_root(target, target_type, common_data_dir):
         dst_load_file = os.path.join(dst_dir, "{}-{}-load-root.json".format(target_type, target))
 
         print("moving load file")
-        move_index(tmp_load_file, dst_load_file, {})
+        move_load_file(tmp_load_file, src_dir, dst_load_file, src_dir)
 
         print("moving results to common dir")
         dst_def_dir = os.path.join(dst_dir, "definitions", target_type, target)
