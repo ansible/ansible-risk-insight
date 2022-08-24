@@ -10,7 +10,7 @@ import yaml
 
 from subprocess import PIPE
 
-from struct5 import Load, LoadType
+from struct5 import Collection, Load, LoadType
 from loader import detect_target_type, supported_target_types, get_loader_version, create_load_json_path, get_target_name
 from parser import load_name2target_name, Parser
 from tree import TreeLoader, TreeNode, load_node_objects, load_tree_json
@@ -330,13 +330,28 @@ def crawl_ext(target, target_type, dst_dir, collection_search_path, skip_install
                 raise ValueError("No index file {}".format(tmp_index_file))
             with open(tmp_index_file, "r") as f:
                 index_data = json.load(f)
-                in_path = index_data.get("in_path", "")
                 _load_files_for_this_collection = index_data.get("generated_load_files", [])
-                for load_data in _load_files_for_this_collection:
-                    name = load_data.get("name", "")
-                    if name != "":
-                        load_path = os.path.join(in_path, name)
-                        target_path_list.append(load_path)
+                if target_type == LoadType.COLLECTION_TYPE:
+                    in_path = index_data.get("in_path", "")
+                    for load_data in _load_files_for_this_collection:
+                        name = load_data.get("name", "")
+                        if name != "":
+                            name_arr = name.split(".")
+                            load_path = os.path.join(in_path, "ansible_collections")
+                            for v in name_arr:
+                                load_path = os.path.join(load_path, v)
+                            print("load_path", load_path)
+                            target_path_list.append(load_path)
+                elif target_type == LoadType.ROLE_TYPE:
+                    in_path = index_data.get("in_path", "")
+                    for load_data in _load_files_for_this_collection:
+                        name = load_data.get("name", "")
+                        if name != "":
+                            load_path = os.path.join(in_path, name)
+                            target_path_list.append(load_path)
+                else:
+                    raise ValueError("Unsupported target type")
+
         else:
             _, target_path_list = detect_target_type(tmp_src_dir, is_ext)
 
