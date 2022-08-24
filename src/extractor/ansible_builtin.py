@@ -11,6 +11,8 @@ class BuiltinExtractor():
         self.reset()
         if "resolved_name" not in task:
             return
+        if "module_options" not in task:
+            return
         resolved_name = task["resolved_name"]
         self.analyzed_task["resolved_name"] = resolved_name
         self.analyzed_task["key"] = task["key"]
@@ -730,9 +732,8 @@ class BuiltinExtractor():
                 data["cmd"] =  options["cmd"]
         return data
 
-    def slurp(self,task):
+    def slurp(self,options):
         data = {}
-        options = task["module_options"]
         if type(options) is not dict:
             return data
         if "src" in options:
