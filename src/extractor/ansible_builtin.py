@@ -1004,6 +1004,8 @@ class BuiltinExtractor():
             data["delete"] = True
         if "mode" in options:
             data["mode"] = options["mode"]
+            # if data["mode"] == "":
+            #     data[""]
         if "file" not in data:
             return data
         for rv in resolved_variables:
