@@ -1,5 +1,6 @@
 
 from multiprocessing.spawn import is_forking
+from re import T
 
 
 class BuiltinExtractor():
@@ -18,13 +19,14 @@ class BuiltinExtractor():
         self.analyzed_task["key"] = task["key"]
         options = task["module_options"]
         resolved_options = task["resolved_module_options"]
+        resolved_variables = task["resolved_variables"]
 
         # builtin modules
         if resolved_name == "ansible.builtin.get_url":
             res = {"category": "inbound_transfer" , "data": {},  "resolved_data": []}
-            res["data"] = self.get_url(options)
+            res["data"] = self.get_url(options, resolved_variables)
             for ro in resolved_options:
-                res["resolved_data"].append(self.get_url(resolved_options))
+                res["resolved_data"].append(self.get_url(resolved_options,resolved_variables))
             self.analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.fetch":
@@ -36,9 +38,9 @@ class BuiltinExtractor():
 
         if resolved_name == "ansible.builtin.command":
             res = {"category": "cmd_exec" , "data": {},  "resolved_data": []}
-            res["data"] = self.command(options)
+            res["data"] = self.command(options, resolved_variables)
             for ro in resolved_options:
-                res["resolved_data"].append(self.command(ro))
+                res["resolved_data"].append(self.command(ro, resolved_variables))
             self.analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.apt":
@@ -141,9 +143,9 @@ class BuiltinExtractor():
 
         if resolved_name == "ansible.builtin.expect":
             res = {"category": "cmd_exec" , "data": {},  "resolved_data": []}
-            res["data"] = self.expect(options)
+            res["data"] = self.expect(options, resolved_variables)
             for ro in resolved_options:
-                res["resolved_data"].append(self.expect(ro))
+                res["resolved_data"].append(self.expect(ro, resolved_variables))
             self.analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.fail":
@@ -155,9 +157,9 @@ class BuiltinExtractor():
 
         if resolved_name == "ansible.builtin.file":
             res = {"category": "file_change" , "data": {},  "resolved_data": []}
-            res["data"] = self.file(options)
+            res["data"] = self.file(options, resolved_variables)
             for ro in resolved_options:
-                res["resolved_data"].append(self.file(ro))
+                res["resolved_data"].append(self.file(ro, resolved_variables))
             self.analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.find":
@@ -273,9 +275,9 @@ class BuiltinExtractor():
 
         if resolved_name == "ansible.builtin.raw":
             res = {"category": "cmd_exec" , "data": {},  "resolved_data": []}
-            res["data"] = self.raw(options)
+            res["data"] = self.raw(options, resolved_variables)
             for ro in resolved_options:
-                res["resolved_data"].append(self.raw(ro))
+                res["resolved_data"].append(self.raw(ro, resolved_variables))
             self.analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.reboot":
@@ -301,9 +303,9 @@ class BuiltinExtractor():
 
         if resolved_name == "ansible.builtin.script":
             res = {"category": "cmd_exec" , "data": {},  "resolved_data": []}
-            res["data"] = self.script(options)
+            res["data"] = self.script(options, resolved_variables)
             for ro in resolved_options:
-                res["resolved_data"].append(self.script(ro))
+                res["resolved_data"].append(self.script(ro, resolved_variables))
             self.analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.service":
@@ -450,15 +452,16 @@ class BuiltinExtractor():
 
         if resolved_name == "ansible.builtin.shell":
             res = {"category": "cmd_exec" , "data": {},  "resolved_data": []}
-            res["data"] = self.shell(options)
+            res["data"] = self.shell(options, resolved_variables)
             for ro in resolved_options:
-                res["resolved_data"].append(self.shell(ro))
+                res["resolved_data"].append(self.shell(ro, resolved_variables))
             self.analyzed_data.append(res)
         
         if len(self.analyzed_data) != 0:
             # root
             res = self.root(task)
-            self.analyzed_data.append(res)
+            if res["data"]["root"]:
+                self.analyzed_data.append(res)
 
         self.analyzed_task["analyzed_data"] = self.analyzed_data
         return self.analyzed_task
@@ -474,7 +477,7 @@ class BuiltinExtractor():
         res = {"category": "privilege_escalation" , "data": {"root": is_root}}
         return res
 
-    def get_url(self, options):
+    def get_url(self, options, resolved_variables):
         data = {}
         # original options
         if type(options) is not dict:
@@ -488,6 +491,29 @@ class BuiltinExtractor():
             data["mode"] = options["mode"]
         if "checksum" in options:
             data["checksum"] = options["checksum"]
+        if "validate_certs" in options:
+            if not options["validate_certs"] or options["validate_certs"] == "no":
+                data["validate_certs"] = False
+        # injection risk
+        for rv in resolved_variables:
+            if rv["key"] in data["src"] and "{{" in data["src"]:
+                data["undetermined_src"] = True
+                if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                    data["injection_risk"] = True
+                    if "injection_risk_variables" in data:
+                        data["injection_risk_variables"].append(rv["key"])
+                    else:
+                        data["injection_risk_variables"] = [rv["key"]]
+            if rv["key"] in data["dest"] and "{{" in data["src"]:
+                data["undetermined_dest"] = True
+                if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                    data["injection_risk"] = True
+                    if "injection_risk_variables" in data:
+                        data["injection_risk_variables"].append(rv["key"])
+                    else:
+                        data["injection_risk_variables"] = [rv["key"]]
+        # unsecure src/dest
+
         return data
 
     def fetch(self,options):
@@ -498,7 +524,7 @@ class BuiltinExtractor():
         data["dest"] =  options["dest"]
         return data
 
-    def command(self,options):
+    def command(self,options, resolved_variables):
         data = {}
         if type(options) is str:
             data["cmd"] =  options
@@ -507,6 +533,15 @@ class BuiltinExtractor():
                 data["cmd"] =  options["cmd"]
             if "argv" in options:
                 data["cmd"] =  options["argv"]
+        for rv in resolved_variables:
+            if rv["key"] in data["cmd"] and "{{" in data["cmd"]:
+                data["undetermined_cmd"] = True
+                if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                    data["injection_risk"] = True
+                    if "injection_risk_variables" in data:
+                        data["injection_risk_variables"].append(rv["key"])
+                    else:
+                        data["injection_risk_variables"] = [rv["key"]]            
         return data
 
     def apt(self,options):
@@ -647,10 +682,19 @@ class BuiltinExtractor():
             data["delete"] = True
         return data
 
-    def raw(self,options):
+    def raw(self,options, resolved_variables):
         data = {}
         if type(options) is str:
             data["cmd"] =  options
+        for rv in resolved_variables:
+            if rv["key"] in data["cmd"] and "{{" in data["cmd"]:
+                data["undetermined_cmd"] = True
+                if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                    data["injection_risk"] = True
+                    if "injection_risk_variables" in data:
+                        data["injection_risk_variables"].append(rv["key"])
+                    else:
+                        data["injection_risk_variables"] = [rv["key"]]     
         return data
     
     def replace(self,options):
@@ -681,13 +725,22 @@ class BuiltinExtractor():
             data["delete"] = True
         return data
 
-    def script(self,options):
+    def script(self,options, resolved_variables):
         data = {}
         if type(options) is str:
             data["cmd"] =  options
         elif options is not None:
             if "cmd" in options:
                 data["cmd"] =  options["cmd"]
+        for rv in resolved_variables:
+            if rv["key"] in data["cmd"] and "{{" in data["cmd"]:
+                data["undetermined_cmd"] = True
+                if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                    data["injection_risk"] = True
+                    if "injection_risk_variables" in data:
+                        data["injection_risk_variables"].append(rv["key"])
+                    else:
+                        data["injection_risk_variables"] = [rv["key"]]    
         return data
     
     # proxy for multiple more specific service manager modules
@@ -723,13 +776,22 @@ class BuiltinExtractor():
                 data["enabled"] = False
         return data
 
-    def shell(self,options):
+    def shell(self,options, resolved_variables):
         data = {}
         if type(options) is str:
             data["cmd"] =  options
         elif options is not None:
             if "cmd" in options:
                 data["cmd"] =  options["cmd"]
+        for rv in resolved_variables:
+            if rv["key"] in data["cmd"] and "{{" in data["cmd"]:
+                data["undetermined_cmd"] = True
+                if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                    data["injection_risk"] = True
+                    if "injection_risk_variables" in data:
+                        data["injection_risk_variables"].append(rv["key"])
+                    else:
+                        data["injection_risk_variables"] = [rv["key"]]     
         return data
 
     def slurp(self,options):
@@ -886,10 +948,19 @@ class BuiltinExtractor():
         data = {}
         return data
     
-    def expect(self,options):
+    def expect(self,options,resolved_variables):
         data = {}
         if "command" in options:
             data["cmd"] =  options["command"]
+        for rv in resolved_variables:
+            if rv["key"] in data["cmd"] and "{{" in data["cmd"]:
+                data["undetermined_cmd"] = True
+                if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                    data["injection_risk"] = True
+                    if "injection_risk_variables" in data:
+                        data["injection_risk_variables"].append(rv["key"])
+                    else:
+                        data["injection_risk_variables"] = [rv["key"]]    
         return data
     
     def dnf(self,options):
@@ -921,16 +992,29 @@ class BuiltinExtractor():
         data = {}
         return data
     
-    def file(self,options):
+    def file(self,options, resolved_variables):
         data = {}
         if type(options) is not dict:
             return data
         if "path" in options:
             data["file"] =  options["path"]
+        if "src" in options:
+            data["file"] = options["src"]
         if "state" in options and options["state"] == "absent":
             data["delete"] = True
         if "mode" in options:
-            data["mode"] = options["mode"]   
+            data["mode"] = options["mode"]
+        if "file" not in data:
+            return data
+        for rv in resolved_variables:
+            if rv["key"] in data["file"] and "{{" in data["file"]:
+                data["undetermined_file"] = True
+            if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                data["injection_risk"] = True
+                if "injection_risk_variables" in data:
+                    data["injection_risk_variables"].append(rv["key"])
+                else:
+                    data["injection_risk_variables"] = [rv["key"]]  
         return data
 
     def find(self,options):

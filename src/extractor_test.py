@@ -22,8 +22,10 @@ def main():
     #     tasks = file.readlines()
 
     try:
-        file = open(args.input)
-        data = json.load(file)
+        # file = open(args.input)
+        with open(args.input, "r") as file:
+            tasks = file.readlines()
+        # data = json.load(file)
     except Exception as e:
         raise ValueError("failed to load {} {}".format(args.input, e))
 
@@ -31,15 +33,17 @@ def main():
     builtin_tasks = []
     # extractor
     extractor = BuiltinExtractor()
-    for d in data["tasks"]:
-        # d = json.loads(task_json_str)
-        res = extractor.run(d)
-        d["analyzed_data"] = res
-    if args.output != "":
-        with open(args.output, mode='wt') as file:
-            json.dump(data, file, ensure_ascii=False)
-    else:
-        print(json.dumps(data, indent=2))
+    for task in tasks:
+        data = json.loads(task)
+        for d in data["tasks"]:
+            # d = json.loads(task_json_str)
+            res = extractor.run(d)
+            d["analyzed_data"] = res
+        if args.output != "":
+            with open(args.output, mode='wt') as file:
+                json.dump(data, file, ensure_ascii=False)
+        else:
+            print(json.dumps(data, indent=2))
 
 if __name__ == "__main__":
     main()
