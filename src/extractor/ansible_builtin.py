@@ -101,9 +101,9 @@ class BuiltinExtractor():
 
         if resolved_name == "ansible.builtin.copy":
             res = {"category": "outbound_transfer" , "data": {},  "resolved_data": []}
-            res["data"] = self.copy(options)
+            res["data"] = self.copy(options, resolved_variables)
             for ro in resolved_options:
-                res["resolved_data"].append(self.copy(ro))
+                res["resolved_data"].append(self.copy(ro, resolved_variables))
             self.analyzed_data.append(res)     
 
         if resolved_name == "ansible.builtin.cron":
@@ -394,16 +394,16 @@ class BuiltinExtractor():
 
         if resolved_name == "ansible.builtin.unarchive":
             res = {"category": "outbound_transfer" , "data": {},  "resolved_data": []}
-            res["data"] = self.unarchive(options)
+            res["data"] = self.unarchive(options, resolved_variables)
             for ro in resolved_options:
-                res["resolved_data"].append(self.unarchive(ro))
+                res["resolved_data"].append(self.unarchive(ro, resolved_variables))
             self.analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.uri":
             res = {"category": "inbound_transfer" , "data": {},  "resolved_data": []}
-            res["data"], res["category"] = self.uri(options)
+            res["data"], res["category"] = self.uri(options, resolved_variables)
             for ro in resolved_options:
-                rd, c = self.uri(ro)
+                rd, c = self.uri(ro, resolved_variables)
                 res["resolved_data"].append(rd)
             self.analyzed_data.append(res)
 
@@ -590,7 +590,7 @@ class BuiltinExtractor():
             data["unsafe_writes"] = True 
         return data
  
-    def copy(self,options):
+    def copy(self, options, resolved_variables):
         data = {}
         if type(options) is not dict:
             return data
@@ -601,7 +601,24 @@ class BuiltinExtractor():
         if "content" in options:
             data["src"] = options["content"]
         if "mode" in options:
-            data["mode"] = options["mode"]    
+            data["mode"] = options["mode"]
+        for rv in resolved_variables:
+            if rv["key"] in data["dest"] and "{{" in data["dest"]:
+                data["undetermined_dest"] = True
+                if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                    data["injection_risk"] = True
+                    if "injection_risk_variables" in data:
+                        data["injection_risk_variables"].append(rv["key"])
+                    else:
+                        data["injection_risk_variables"] = [rv["key"]]
+            if rv["key"] in data["src"] and "{{" in data["src"]:
+                data["undetermined_src"] = True
+                if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                    data["injection_risk"] = True
+                    if "injection_risk_variables" in data:
+                        data["injection_risk_variables"].append(rv["key"])
+                    else:
+                        data["injection_risk_variables"] = [rv["key"]]  
         return data
     
     def git(self,options):
@@ -860,7 +877,7 @@ class BuiltinExtractor():
             data["unsafe_writes"] = True 
         return data
 
-    def uri(self,options):
+    def uri(self,options, resolved_variables):
         category = "inbound_transfer"
         data = {}
         if type(options) is not dict:
@@ -869,6 +886,15 @@ class BuiltinExtractor():
             category = "outbound_transfer"
             if "url" in options:
                 data["dest"] =  options["url"]
+            for rv in resolved_variables:
+                if rv["key"] in data["dest"] and "{{" in data["dest"]:
+                    data["undetermined_dest"] = True
+                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                        data["injection_risk"] = True
+                        if "injection_risk_variables" in data:
+                            data["injection_risk_variables"].append(rv["key"])
+                        else:
+                            data["injection_risk_variables"] = [rv["key"]]  
         else:
             if "url" in options:
                 data["src"] =  options["url"]
@@ -914,7 +940,7 @@ class BuiltinExtractor():
         data = {}
         return data
     
-    def unarchive(self,options):
+    def unarchive(self, options, resolved_variables):
         data = {}
         if type(options) is not dict:
             return data
@@ -928,6 +954,23 @@ class BuiltinExtractor():
             data["unsafe_writes"] = options["unsafe_writes"]    
         if "validate_certs" in options:
             data["validate_certs"] = options["validate_certs"] 
+        for rv in resolved_variables:
+            if rv["key"] in data["dest"] and "{{" in data["dest"]:
+                data["undetermined_dest"] = True
+                if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                    data["injection_risk"] = True
+                    if "injection_risk_variables" in data:
+                        data["injection_risk_variables"].append(rv["key"])
+                    else:
+                        data["injection_risk_variables"] = [rv["key"]]
+            if rv["key"] in data["src"] and "{{" in data["src"]:
+                data["undetermined_src"] = True
+                if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                    data["injection_risk"] = True
+                    if "injection_risk_variables" in data:
+                        data["injection_risk_variables"].append(rv["key"])
+                    else:
+                        data["injection_risk_variables"] = [rv["key"]]  
         return data
 
     def cron(self,options):
