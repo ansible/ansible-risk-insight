@@ -8,6 +8,8 @@ import codecs
 from urllib.robotparser import RobotFileParser
 import yaml
 import glob
+import tempfile
+import subprocess
 import copy
 import json
 import datetime
@@ -20,6 +22,11 @@ from safe_glob import safe_glob
 logging.basicConfig()
 logging.getLogger().setLevel(logging.INFO)
 
+
+_default_ari_dir = os.path.expanduser("~/.ari")
+_ari_dir_env_key = "ARI_DIR"
+_ari_config_file = "config.json"
+_ari_data_file = "data.json"
 
 valid_playbook_re = re.compile(r'^\s*?-?\s*?(?:hosts|include|import_playbook):\s*?.*?$')
 module_name_re = re.compile(r'^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$')
@@ -84,6 +91,9 @@ class TaskFormatError(Exception):
 class TaskTraverseLoopError(Exception):
     pass
 
+class ARIConfigError(Exception):
+    pass
+
 
 class Singleton(type):
     _instances = {}
@@ -144,6 +154,118 @@ class Resolvable(object):
     @property
     def resolver_targets(self):
         raise NotImplementedError
+
+def _get_ari_dir():
+    ari_dir = os.environ.get(_ari_dir_env_key, None)
+    if ari_dir is not None:
+        return ari_dir
+    return _default_ari_dir
+
+def _get_ari_config_path():
+    return os.path.join(_get_ari_dir(), _ari_config_file)
+
+def _get_ari_data_path():
+    return os.path.join(_get_ari_dir(), _ari_data_file)
+
+def get_definition_dir():
+    config = ARIConfig.load()
+    return config.definition_dir
+
+def get_dependencies_dir():
+    config = ARIConfig.load()
+    return config.dependencies_dir
+
+@dataclass
+class ARIConfig(JSONSerializable):
+    definition_dir: str = ""
+    dependencies_dir: str = ""
+
+    @staticmethod
+    def load():
+        config_path = _get_ari_config_path()
+        if not os.path.exists(config_path):
+            raise ARIConfigError("ARI config file does not exist: {}".format(config_path))
+        config_data = json.load(open(config_path, "r"))
+        if not isinstance(config_data, dict):
+            raise ARIConfigError("ARI config file must be a JSON object, but {}".format(type(config_data).__name__))
+        config = ARIConfig()
+        config.definition_dir = config_data.get("definition_dir", None)
+        config.dependencies_dir = config_data.get("dependencies_dir", None)
+        return config
+
+    def dump(self):
+        config_path = _get_ari_config_path()
+        if not os.path.exists(os.path.dirname(config_path)):
+            os.makedirs(os.path.dirname(config_path), exist_ok=True)
+        json.dump(self.__dict__, open(config_path, "w"))
+        return
+
+@dataclass
+class ARIData(JSONSerializable):
+    installs: list = field(default_factory=list)
+    loads: list = field(default_factory=list)
+    sources: list = field(default_factory=list)
+
+    @staticmethod
+    def load():
+        data_path = _get_ari_data_path()
+        if not os.path.exists(data_path):
+            return ARIData()
+        data_dict = json.load(open(data_path, "r"))
+        if not isinstance(data_dict, dict):
+            raise ARIConfigError("ARI data file must be a JSON object, but {}".format(type(data_dict).__name__))
+        data = ARIData()
+        data.installs = data_dict.get("installs", [])
+        data.loads = data_dict.get("loads", [])
+        data.sources = data_dict.get("sources", [])
+        return data
+
+    def dump(self):
+        data_path = _get_ari_data_path()
+        if not os.path.exists(os.path.dirname(data_path)):
+            os.makedirs(os.path.dirname(data_path), exist_ok=True)
+        json.dump(self.__dict__, open(data_path, "w"))
+        return
+
+class InstallType:
+    PROJECT_TYPE = "project"
+    COLLECTION_TYPE = "collection"
+    ROLE_TYPE = "role"
+    COLLECTION_DEPENDENCIES_TYPE = "collection_dependencies"
+    ROLE_DEPENDENCIES_TYPE = "role_dependencies"
+    GENERIC_DIR_TYPE = "generic_dir"
+    UNKNOWN_TYPE = "unknown"
+
+
+def install_target(target, install_type, output_dir):
+    if install_type not in [InstallType.ROLE_TYPE, InstallType.COLLECTION_TYPE]:
+        raise ValueError("Invalid install_type: {}".format(install_type))
+    proc = subprocess.run("ansible-galaxy {} install {} -p {}".format(install_type, target, output_dir), shell=True, stdout=os.PIPE, stderr=os.PIPE, text=True)
+    install_msg = proc.stdout
+    logging.info('STDOUT: {}'.format(install_msg))
+    return proc.stdout
+
+@dataclass
+class InstallData(JSONSerializable):
+    install_command: str = ""
+    install_time: str = ""
+    src_dir: str = ""
+    installed_dependencies: list = field(default_factory=list)
+    collection_path: str = ""
+    mode: str = ""
+    install_type: str = ""
+
+    @staticmethod
+    def install(install_type: str, name: str):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            install_log = os.path.join(tmpdir, "install.log")
+            src_dir = os.path.join(tmpdir, "src")
+            install_msg = install_target(name, install_type, src_dir)
+            with open(install_log, "w") as f:
+                f.write(install_msg)
+                logging.info(install_msg)
+
+        
 
 class LoadType:
     PROJECT_TYPE = "project"
