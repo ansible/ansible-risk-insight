@@ -82,24 +82,23 @@ class TreeNode(object):
             current = self.recursive_convert_to_list(child_node, current)
         return current
 
-    def recursive_tree_load(self, node_key, src_dst_array, visited=None):
-        if visited is None:
-            visited = set()
-        if len(visited) == len(src_dst_array):
-            return TreeNode(), visited
+    def recursive_tree_load(self, node_key, src_dst_array, parent_keys=None):
+        if parent_keys is None:
+            parent_keys = set()
         n = TreeNode(key=node_key)
-        for i, (src_key, dst_key) in enumerate(src_dst_array):
-            if i in visited:
-                continue
+        if node_key in parent_keys:
+            return n, parent_keys
+        parent_keys.add(node_key)
+        new_parent_keys = parent_keys.copy()
+        for (src_key, dst_key) in src_dst_array:
             children_keys = []
             if node_key == src_key:
                 children_keys.append(dst_key)
-                visited.add(i)
             for c_key in children_keys:
-                child_tree, new_visited = self.recursive_tree_load(c_key, src_dst_array, visited)
+                child_tree, sub_parent_keys = self.recursive_tree_load(c_key, src_dst_array, parent_keys)
                 n.children.append(child_tree)
-                visited = visited.union(new_visited)
-        return n, visited
+                new_parent_keys = new_parent_keys.union(sub_parent_keys)
+        return n, new_parent_keys
 
     def recursive_graph_dump(self, parent_node, node, src_dst_array=[]):
         current = [pair for pair in src_dst_array]
@@ -107,6 +106,9 @@ class TreeNode(object):
         dst = node.key
         current.append((src, dst))
         for child_node in node.children:
+            is_included = len([(src, dst) for (src, dst) in current if src == child_node.key]) > 0
+            if is_included:
+                continue
             current = self.recursive_graph_dump(node, child_node, current)
         return current
 

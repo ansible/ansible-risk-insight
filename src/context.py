@@ -34,9 +34,11 @@ def get_all_variables(var_dict={}):
 
 class VariableType:
     NORMAL = "normal"
+    LOOP_VAR = "loop_var"
+    REGISTERED_VARS = "registered_vars"
     ROLE_DEFAULTS = "role_defaults"
     ROLE_VARS = "role_vars"
-    REGISTERED_VARS = "registered_vars"
+    INVENTORY_VARS = "inventory_vars"
     SPECIAL_VARS = "special_vars"
     PARTIAL_RESOLVE = "partial_resolve"
     FAILED_TO_RESOLVE = "failed_to_resolve"
@@ -121,6 +123,7 @@ class Context():
             all_variables_in_this_iv = get_all_variables(iv.variables)
             val = all_variables_in_this_iv.get(var_name, None)
             if val is not None:
+                v_type = VariableType.INVENTORY_VARS
                 if isinstance(val, str):
                     return self.resolve_single_variable(val), v_type
                 elif isinstance(val, list):
@@ -224,7 +227,7 @@ def resolve_module_options(context, task):
     else:
         loop_key = list(task.loop.keys())[0]
         loop_values = task.loop.get(loop_key, [])
-        new_var = {"key": loop_key, "value": loop_values, "type": VariableType.NORMAL}
+        new_var = {"key": loop_key, "value": loop_values, "type": VariableType.LOOP_VAR}
         if not resolved_vars_contains(resolved_vars, new_var):
             resolved_vars.append(new_var)
         if isinstance(loop_values, str):
@@ -240,6 +243,9 @@ def resolve_module_options(context, task):
                 if isinstance(resolved_vars_in_item, list):
                     for vi in resolved_vars_in_item:
                         variables_in_loop.append({loop_key: vi})
+                if isinstance(resolved_vars_in_item, dict):
+                    for vi_key, vi_value in resolved_vars_in_item.items():
+                        variables_in_loop.append({loop_key+".key": vi_key, loop_key+".value": vi_value})
                 else:
                     variables_in_loop.append({loop_key: resolved_vars_in_item})  
         elif isinstance(loop_values, list):
