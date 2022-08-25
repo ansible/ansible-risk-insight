@@ -88,6 +88,17 @@ def resolve_variables(tree, node_objects):
         obj = node_dict[node.key]
         current_context.add(obj, depth_level)
         if node_type == "task":
+            # insert "resolved_name" to task obj
+            if len(node.children) > 0:
+                c = node.children[0]
+                c_obj = node_dict.get(c.key, None)
+                if c_obj is not None:
+                    if obj.executable_type == ExecutableType.MODULE_TYPE:
+                        obj.resolved_name = c_obj.fqcn
+                    elif obj.executable_type == ExecutableType.ROLE_TYPE:
+                        obj.resolved_name = c_obj.fqcn
+                    elif obj.executable_type == ExecutableType.TASKFILE_TYPE:
+                        obj.resolved_name = c_obj.key
             contexts_per_task.append((current_context, obj))
         for c in node.children:
             contexts_per_task = add_context(c, current_context, contexts_per_task, depth_level+1)
