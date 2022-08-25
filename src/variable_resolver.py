@@ -139,7 +139,6 @@ def resolve_variables(tree, node_objects):
         tasks.append(task.__dict__)
     return tasks
 
-
 def get_inventories(tree_root_key, node_objects):
     tree_root_type = detect_type(tree_root_key)
     projects = node_objects.find_by_type("repository")
