@@ -909,7 +909,7 @@ class BuiltinExtractor():
         category = "inbound_transfer"
         data = {}
         if type(options) is not dict:
-            return data
+            return data, category
         if "method" in options and ( options["method"] == "POST" or options["method"] == "DELETE"):
             category = "outbound_transfer"
             if "url" in options:
