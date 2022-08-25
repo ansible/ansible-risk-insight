@@ -3,6 +3,7 @@ import sys
 import json
 import jsonpickle
 import logging
+from tabulate import tabulate
 from struct5 import ObjectList, detect_type, ExecutableType, Repository, Playbook
 from tree import TreeNode, key_to_file_name, load_node_objects, TreeLoader, TreeNode, load_all_definitions
 from context import Context, resolve_module_options, get_all_variables
@@ -114,6 +115,16 @@ def load_node_objects(node_path="", root_dir="", ext_dir=""):
             objects.merge(ext_defs[type_key])
     return objects
 
+def check(tree: TreeNode, objects: ObjectList, verified_collections: list):
+    t_obj = convert(tree, objects)
+    dependencies = t_obj["dependent_module_collections"]
+    unverified_dependencies = [d for d in dependencies if d != "ansible.builtin" and d not in verified_collections]
+    only_verified = len(unverified_dependencies) == 0
+    ok = only_verified
+    findings = "all dependencies are verified" if only_verified else "depends on {} unverifeid collections".format(len(unverified_dependencies))
+    resolution = "" if only_verified else "the following must be signed {}".format(unverified_dependencies)
+    return ok, findings, resolution, t_obj
+
 def main():
     parser = argparse.ArgumentParser(
         prog='converter1.py',
@@ -126,7 +137,7 @@ def main():
     parser.add_argument('-n', '--node-file', default="", help='path to node object json file')
     parser.add_argument('-r', '--root-dir', default="", help='path to definitions dir for root')
     parser.add_argument('-e', '--ext-dir', default="", help='path to definitions dir for ext')
-    parser.add_argument('-o', '--output', default="", help='path to output file')
+    parser.add_argument('-v', '--verified-collections', default="", help='comma separated list of verified collections')
 
     args = parser.parse_args()
 
@@ -141,14 +152,22 @@ def main():
     trees = load_tree_json(args.tree_file)
     objects = load_node_objects(args.node_file, args.root_dir, args.ext_dir)
 
-    tree_object_lines = []
-    for tree in trees:
-        t_obj = convert(tree, objects)
-        tree_object_lines.append(json.dumps(t_obj))
-        print(json.dumps(t_obj), flush=True)
+    verified_collections = [d.replace(" ", "") for d in args.verified_collections.split(",") if d.replace(" ", "") != ""]
 
-    if args.output != "":
-        open(args.output, "w").write("\n".join(tree_object_lines))
+    table = [["Type", "Name", "Result", "Findings", "Resolution"]]
+    for tree in trees:
+        root_type = detect_type(tree.key)
+        ok, findings, resolution, t_obj = check(tree, objects, verified_collections)
+        single_result = [
+            root_type,
+            t_obj["path"],
+            "o" if ok else "x",
+            findings,
+            resolution,
+        ]
+        table.append(single_result)
+    print(tabulate(table))
+    
 
 if __name__ == "__main__":
     main()
