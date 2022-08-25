@@ -528,9 +528,9 @@ class BuiltinExtractor():
 
     def command(self,options, resolved_variables):
         data = {}
-        if type(options) is str:
+        if type(options) is not dict:
             data["cmd"] =  options
-        elif options is not None:
+        else:
             if "cmd" in options:
                 data["cmd"] =  options["cmd"]
             if "argv" in options:
@@ -638,22 +638,24 @@ class BuiltinExtractor():
             data["version"] = options["version"]
         # injection risk
         for rv in resolved_variables:
-            if "src" in data and rv["key"] in data["src"] and "{{" in data["src"]:
-                data["undetermined_src"] = True
-                if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                    data["injection_risk"] = True
-                    if "injection_risk_variables" in data:
-                        data["injection_risk_variables"].append(rv["key"])
-                    else:
-                        data["injection_risk_variables"] = [rv["key"]]
-            if "dest" in data and rv["key"] in data["dest"] and "{{" in data["src"]:
-                data["undetermined_dest"] = True
-                if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                    data["injection_risk"] = True
-                    if "injection_risk_variables" in data:
-                        data["injection_risk_variables"].append(rv["key"])
-                    else:
-                        data["injection_risk_variables"] = [rv["key"]]
+            if "src" in data and type(data["src"]) is str:
+                if rv["key"] in data["src"] and "{{" in data["src"]:
+                    data["undetermined_src"] = True
+                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                        data["injection_risk"] = True
+                        if "injection_risk_variables" in data:
+                            data["injection_risk_variables"].append(rv["key"])
+                        else:
+                            data["injection_risk_variables"] = [rv["key"]]
+            if "dest" in data and type(data["dest"]) is str:
+                if rv["key"] in data["dest"] and "{{" in data["dest"]:
+                    data["undetermined_dest"] = True
+                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                        data["injection_risk"] = True
+                        if "injection_risk_variables" in data:
+                            data["injection_risk_variables"].append(rv["key"])
+                        else:
+                            data["injection_risk_variables"] = [rv["key"]]
         return data
     
     def iptables(self,options):
@@ -768,9 +770,9 @@ class BuiltinExtractor():
 
     def script(self,options, resolved_variables):
         data = {}
-        if type(options) is str:
+        if type(options) is not dict:
             data["cmd"] =  options
-        elif options is not None:
+        else:
             if "cmd" in options:
                 data["cmd"] =  options["cmd"]
         if "cmd" not in data:
@@ -822,9 +824,9 @@ class BuiltinExtractor():
 
     def shell(self,options, resolved_variables):
         data = {}
-        if type(options) is str:
+        if type(options) is not dict:
             data["cmd"] =  options
-        elif options is not None:
+        else:
             if "cmd" in options:
                 data["cmd"] =  options["cmd"]
         for rv in resolved_variables:
@@ -1044,8 +1046,11 @@ class BuiltinExtractor():
     
     def expect(self,options,resolved_variables):
         data = {}
-        if "command" in options:
-            data["cmd"] =  options["command"]
+        if type(options) is not dict:
+            data["cmd"] =  options
+        else:
+            if "command" in options:
+                data["cmd"] =  options["command"]
         for rv in resolved_variables:
             if "cmd" in data and type(data["cmd"]) is str:
                 if rv["key"] in data["cmd"] and "{{" in data["cmd"]:
