@@ -4,7 +4,7 @@ import sys
 import json
 import jsonpickle
 import logging
-from struct5 import ObjectList, detect_type, ExecutableType, Repository, Playbook
+from struct5 import ObjectList, detect_type, ExecutableType, Repository, Playbook, Role
 from tree import TreeNode, key_to_file_name, load_node_objects, TreeLoader, TreeNode, load_all_definitions
 from context import Context, resolve_module_options, get_all_variables
 
@@ -120,24 +120,38 @@ def resolve_variables(tree, node_objects):
         tasks.append(task.__dict__)
     return tasks
 
-def get_inventories(playbook_key, node_objects):
+def get_inventories(tree_root_key, node_objects):
+    tree_root_type = detect_type(tree_root_key)
     projects = node_objects.find_by_type("repository")
     inventories = []
     found = False
     for p in projects:
         if not isinstance(p, Repository):
             continue
-        for playbook in p.playbooks:
-            if isinstance(playbook, str):
-                if playbook == playbook_key:
-                    inventories = p.inventories
-                    found = True
-            elif isinstance(playbook, Playbook):
-                if playbook.key == playbook_key:
-                    inventories = p.inventories
-                    found = True
-            if found:
-                break
+        if tree_root_type == "playbook":
+            for playbook in p.playbooks:
+                if isinstance(playbook, str):
+                    if playbook == tree_root_key:
+                        inventories = p.inventories
+                        found = True
+                elif isinstance(playbook, Playbook):
+                    if playbook.key == tree_root_key:
+                        inventories = p.inventories
+                        found = True
+                if found:
+                    break
+        elif tree_root_type == "role":
+            for role in p.roles:
+                if isinstance(role, str):
+                    if role == tree_root_key:
+                        inventories = p.inventories
+                        found = True
+                elif isinstance(role, Role):
+                    if role.key == tree_root_key:
+                        inventories = p.inventories
+                        found = True
+                if found:
+                    break
         if found:
             break
     return inventories
