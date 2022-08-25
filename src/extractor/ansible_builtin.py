@@ -496,22 +496,24 @@ class BuiltinExtractor():
                 data["validate_certs"] = False
         # injection risk
         for rv in resolved_variables:
-            if rv["key"] in data["src"] and "{{" in data["src"]:
-                data["undetermined_src"] = True
-                if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                    data["injection_risk"] = True
-                    if "injection_risk_variables" in data:
-                        data["injection_risk_variables"].append(rv["key"])
-                    else:
-                        data["injection_risk_variables"] = [rv["key"]]
-            if rv["key"] in data["dest"] and "{{" in data["src"]:
-                data["undetermined_dest"] = True
-                if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                    data["injection_risk"] = True
-                    if "injection_risk_variables" in data:
-                        data["injection_risk_variables"].append(rv["key"])
-                    else:
-                        data["injection_risk_variables"] = [rv["key"]]
+            if "src" in data and type(data["src"]) is str:
+                if rv["key"] in data["src"] and "{{" in data["src"]:
+                    data["undetermined_src"] = True
+                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                        data["injection_risk"] = True
+                        if "injection_risk_variables" in data:
+                            data["injection_risk_variables"].append(rv["key"])
+                        else:
+                            data["injection_risk_variables"] = [rv["key"]]
+            if "dest" in data and type(data["dest"]) is str:
+                if rv["key"] in data["dest"] and "{{" in data["dest"]:
+                    data["undetermined_dest"] = True
+                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                        data["injection_risk"] = True
+                        if "injection_risk_variables" in data:
+                            data["injection_risk_variables"].append(rv["key"])
+                        else:
+                            data["injection_risk_variables"] = [rv["key"]]
         # unsecure src/dest
 
         return data
@@ -534,14 +536,15 @@ class BuiltinExtractor():
             if "argv" in options:
                 data["cmd"] =  options["argv"]
         for rv in resolved_variables:
-            if rv["key"] in data["cmd"] and "{{" in data["cmd"]:
-                data["undetermined_cmd"] = True
-                if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                    data["injection_risk"] = True
-                    if "injection_risk_variables" in data:
-                        data["injection_risk_variables"].append(rv["key"])
-                    else:
-                        data["injection_risk_variables"] = [rv["key"]]            
+            if "cmd" in data and type(data["cmd"]) is str:
+                if rv["key"] in data["cmd"] and "{{" in data["cmd"]:
+                    data["undetermined_cmd"] = True
+                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                        data["injection_risk"] = True
+                        if "injection_risk_variables" in data:
+                            data["injection_risk_variables"].append(rv["key"])
+                        else:
+                            data["injection_risk_variables"] = [rv["key"]]            
         return data
 
     def apt(self,options):
@@ -603,22 +606,24 @@ class BuiltinExtractor():
         if "mode" in options:
             data["mode"] = options["mode"]
         for rv in resolved_variables:
-            if rv["key"] in data["dest"] and "{{" in data["dest"]:
-                data["undetermined_dest"] = True
-                if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                    data["injection_risk"] = True
-                    if "injection_risk_variables" in data:
-                        data["injection_risk_variables"].append(rv["key"])
-                    else:
-                        data["injection_risk_variables"] = [rv["key"]]
-            if rv["key"] in data["src"] and "{{" in data["src"]:
-                data["undetermined_src"] = True
-                if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                    data["injection_risk"] = True
-                    if "injection_risk_variables" in data:
-                        data["injection_risk_variables"].append(rv["key"])
-                    else:
-                        data["injection_risk_variables"] = [rv["key"]]  
+            if "dest" in data and type(data["dest"]) is str:
+                if rv["key"] in data["dest"] and "{{" in data["dest"]:
+                    data["undetermined_dest"] = True
+                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                        data["injection_risk"] = True
+                        if "injection_risk_variables" in data:
+                            data["injection_risk_variables"].append(rv["key"])
+                        else:
+                            data["injection_risk_variables"] = [rv["key"]]
+            if "src" in data and type(data["src"]) is str:
+                if rv["key"] in data["src"] and "{{" in data["src"]:
+                    data["undetermined_src"] = True
+                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                        data["injection_risk"] = True
+                        if "injection_risk_variables" in data:
+                            data["injection_risk_variables"].append(rv["key"])
+                        else:
+                            data["injection_risk_variables"] = [rv["key"]]  
         return data
     
     def git(self,options, resolved_variables):
@@ -722,14 +727,15 @@ class BuiltinExtractor():
         if type(options) is str:
             data["cmd"] =  options
         for rv in resolved_variables:
-            if rv["key"] in data["cmd"] and "{{" in data["cmd"]:
-                data["undetermined_cmd"] = True
-                if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                    data["injection_risk"] = True
-                    if "injection_risk_variables" in data:
-                        data["injection_risk_variables"].append(rv["key"])
-                    else:
-                        data["injection_risk_variables"] = [rv["key"]]     
+            if "cmd" in data and type(data["cmd"]) is str:
+                if  rv["key"] in data["cmd"] and "{{" in data["cmd"]:
+                    data["undetermined_cmd"] = True
+                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                        data["injection_risk"] = True
+                        if "injection_risk_variables" in data:
+                            data["injection_risk_variables"].append(rv["key"])
+                        else:
+                            data["injection_risk_variables"] = [rv["key"]]     
         return data
     
     def replace(self,options):
@@ -767,15 +773,18 @@ class BuiltinExtractor():
         elif options is not None:
             if "cmd" in options:
                 data["cmd"] =  options["cmd"]
+        if "cmd" not in data:
+            return data
         for rv in resolved_variables:
-            if rv["key"] in data["cmd"] and "{{" in data["cmd"]:
-                data["undetermined_cmd"] = True
-                if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                    data["injection_risk"] = True
-                    if "injection_risk_variables" in data:
-                        data["injection_risk_variables"].append(rv["key"])
-                    else:
-                        data["injection_risk_variables"] = [rv["key"]]    
+            if "cmd" in data and type(data["cmd"]) is str:
+                if rv["key"] in data["cmd"] and "{{" in data["cmd"]:
+                    data["undetermined_cmd"] = True
+                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                        data["injection_risk"] = True
+                        if "injection_risk_variables" in data:
+                            data["injection_risk_variables"].append(rv["key"])
+                        else:
+                            data["injection_risk_variables"] = [rv["key"]]    
         return data
     
     # proxy for multiple more specific service manager modules
@@ -819,14 +828,15 @@ class BuiltinExtractor():
             if "cmd" in options:
                 data["cmd"] =  options["cmd"]
         for rv in resolved_variables:
-            if rv["key"] in data["cmd"] and "{{" in data["cmd"]:
-                data["undetermined_cmd"] = True
-                if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                    data["injection_risk"] = True
-                    if "injection_risk_variables" in data:
-                        data["injection_risk_variables"].append(rv["key"])
-                    else:
-                        data["injection_risk_variables"] = [rv["key"]]     
+            if "cmd" in data and type(data["cmd"]) is str:
+                if rv["key"] in data["cmd"] and "{{" in data["cmd"]:
+                    data["undetermined_cmd"] = True
+                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                        data["injection_risk"] = True
+                        if "injection_risk_variables" in data:
+                            data["injection_risk_variables"].append(rv["key"])
+                        else:
+                            data["injection_risk_variables"] = [rv["key"]]     
         return data
 
     def slurp(self,options):
@@ -905,14 +915,15 @@ class BuiltinExtractor():
             if "url" in options:
                 data["dest"] =  options["url"]
             for rv in resolved_variables:
-                if rv["key"] in data["dest"] and "{{" in data["dest"]:
-                    data["undetermined_dest"] = True
-                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                        data["injection_risk"] = True
-                        if "injection_risk_variables" in data:
-                            data["injection_risk_variables"].append(rv["key"])
-                        else:
-                            data["injection_risk_variables"] = [rv["key"]]  
+                if "dest" in data and type(data["dest"]) is str:
+                    if rv["key"] in data["dest"] and "{{" in data["dest"]:
+                        data["undetermined_dest"] = True
+                        if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                            data["injection_risk"] = True
+                            if "injection_risk_variables" in data:
+                                data["injection_risk_variables"].append(rv["key"])
+                            else:
+                                data["injection_risk_variables"] = [rv["key"]]  
         else:
             if "url" in options:
                 data["src"] =  options["url"]
@@ -922,6 +933,26 @@ class BuiltinExtractor():
                 data["validate_certs"] = options["validate_certs"]
             if "unsafe_writes" in options:
                 data["unsafe_writes"] = options["unsafe_writes"]
+            # injection risk
+            for rv in resolved_variables:
+                if "src" in data and type(data["src"]) is str:
+                    if rv["key"] in data["src"] and "{{" in data["src"]:
+                        data["undetermined_src"] = True
+                        if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                            data["injection_risk"] = True
+                            if "injection_risk_variables" in data:
+                                data["injection_risk_variables"].append(rv["key"])
+                            else:
+                                data["injection_risk_variables"] = [rv["key"]]
+                if "dest" in data and type(data["dest"]) is str:
+                    if rv["key"] in data["dest"] and "{{" in data["dest"]:
+                        data["undetermined_dest"] = True
+                        if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                            data["injection_risk"] = True
+                            if "injection_risk_variables" in data:
+                                data["injection_risk_variables"].append(rv["key"])
+                            else:
+                                data["injection_risk_variables"] = [rv["key"]]
         return data, category
     
     def validate_argument_spec(self,options):
@@ -973,22 +1004,24 @@ class BuiltinExtractor():
         if "validate_certs" in options:
             data["validate_certs"] = options["validate_certs"] 
         for rv in resolved_variables:
-            if rv["key"] in data["dest"] and "{{" in data["dest"]:
-                data["undetermined_dest"] = True
-                if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                    data["injection_risk"] = True
-                    if "injection_risk_variables" in data:
-                        data["injection_risk_variables"].append(rv["key"])
-                    else:
-                        data["injection_risk_variables"] = [rv["key"]]
-            if rv["key"] in data["src"] and "{{" in data["src"]:
-                data["undetermined_src"] = True
-                if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                    data["injection_risk"] = True
-                    if "injection_risk_variables" in data:
-                        data["injection_risk_variables"].append(rv["key"])
-                    else:
-                        data["injection_risk_variables"] = [rv["key"]]  
+            if "dest" in data and type(data["dest"]) is str:
+                if rv["key"] in data["dest"] and "{{" in data["dest"]:
+                    data["undetermined_dest"] = True
+                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                        data["injection_risk"] = True
+                        if "injection_risk_variables" in data:
+                            data["injection_risk_variables"].append(rv["key"])
+                        else:
+                            data["injection_risk_variables"] = [rv["key"]]
+            if "src" in data and type(data["src"]) is str:
+                if rv["key"] in data["src"] and "{{" in data["src"]:
+                    data["undetermined_src"] = True
+                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                        data["injection_risk"] = True
+                        if "injection_risk_variables" in data:
+                            data["injection_risk_variables"].append(rv["key"])
+                        else:
+                            data["injection_risk_variables"] = [rv["key"]]  
         return data
 
     def cron(self,options):
@@ -1014,14 +1047,15 @@ class BuiltinExtractor():
         if "command" in options:
             data["cmd"] =  options["command"]
         for rv in resolved_variables:
-            if rv["key"] in data["cmd"] and "{{" in data["cmd"]:
-                data["undetermined_cmd"] = True
-                if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                    data["injection_risk"] = True
-                    if "injection_risk_variables" in data:
-                        data["injection_risk_variables"].append(rv["key"])
-                    else:
-                        data["injection_risk_variables"] = [rv["key"]]    
+            if "cmd" in data and type(data["cmd"]) is str:
+                if rv["key"] in data["cmd"] and "{{" in data["cmd"]:
+                    data["undetermined_cmd"] = True
+                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                        data["injection_risk"] = True
+                        if "injection_risk_variables" in data:
+                            data["injection_risk_variables"].append(rv["key"])
+                        else:
+                            data["injection_risk_variables"] = [rv["key"]]    
         return data
     
     def dnf(self,options):
@@ -1070,14 +1104,15 @@ class BuiltinExtractor():
         if "file" not in data:
             return data
         for rv in resolved_variables:
-            if rv["key"] in data["file"] and "{{" in data["file"]:
-                data["undetermined_file"] = True
-            if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                data["injection_risk"] = True
-                if "injection_risk_variables" in data:
-                    data["injection_risk_variables"].append(rv["key"])
-                else:
-                    data["injection_risk_variables"] = [rv["key"]]  
+            if "file" in data and type(data["file"]) is str:
+                if rv["key"] in data["file"] and "{{" in data["file"]:
+                    data["undetermined_file"] = True
+                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                        data["injection_risk"] = True
+                        if "injection_risk_variables" in data:
+                            data["injection_risk_variables"].append(rv["key"])
+                        else:
+                            data["injection_risk_variables"] = [rv["key"]]  
         return data
 
     def find(self,options):
