@@ -4,7 +4,7 @@ import json
 import jsonpickle
 import logging
 from tabulate import tabulate
-from struct5 import ObjectList, detect_type, ExecutableType, Repository, Playbook
+from struct5 import ObjectList, detect_type, ExecutableType, Repository, Playbook, Task
 from tree import TreeNode, key_to_file_name, load_node_objects, TreeLoader, TreeNode, load_all_definitions
 from context import Context, resolve_module_options, get_all_variables
 
@@ -124,6 +124,23 @@ def check(tree: TreeNode, objects: ObjectList, verified_collections: list):
     findings = "all dependencies are verified" if only_verified else "depends on {} unverifeid collections".format(len(unverified_dependencies))
     resolution = "" if only_verified else "the following must be signed {}".format(unverified_dependencies)
     return ok, findings, resolution, t_obj
+
+def check_tasks(tasks: list, verified_collections: list):
+    if len(tasks) == 0:
+        return []
+    _tasks = [t for t in tasks]
+    if isinstance(tasks[0], Task):
+        _tasks = [t.__dict__ for t in tasks]
+    modules = [t.get("resolved_name", "") for t in _tasks if t.get("executable_type", "") == "Module" and t.get("resolved_name", "") != ""]
+    dependencies = [".".join(m.split(".")[:-1]) for m in modules if "." in m]
+    dependencies = list(set(dependencies))
+    dependencies = sorted(dependencies)
+    unverified_dependencies = [d for d in dependencies if d != "ansible.builtin" and d not in verified_collections]
+    only_verified = len(unverified_dependencies) == 0
+    ok = only_verified
+    findings = "all dependencies are verified" if only_verified else "depends on {} unverifeid collections".format(len(unverified_dependencies))
+    resolution = "" if only_verified else "the following must be signed {}".format(unverified_dependencies)
+    return ok, findings, resolution
 
 def main():
     parser = argparse.ArgumentParser(
