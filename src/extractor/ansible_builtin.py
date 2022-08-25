@@ -26,7 +26,7 @@ class BuiltinExtractor():
             res = {"category": "inbound_transfer" , "data": {},  "resolved_data": []}
             res["data"] = self.get_url(options, resolved_variables)
             for ro in resolved_options:
-                res["resolved_data"].append(self.get_url(resolved_options,resolved_variables))
+                res["resolved_data"].append(self.get_url(ro, resolved_variables))
             self.analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.fetch":
@@ -184,9 +184,9 @@ class BuiltinExtractor():
 
         if resolved_name == "ansible.builtin.git":
             res = {"category": "inbound_transfer" , "data": {},  "resolved_data": []}
-            res["data"] = self.git(options)
+            res["data"] = self.git(options, resolved_variables)
             for ro in resolved_options:
-                res["resolved_data"].append(self.git(ro))
+                res["resolved_data"].append(self.git(ro, resolved_variables))
             self.analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.group":
@@ -621,7 +621,7 @@ class BuiltinExtractor():
                         data["injection_risk_variables"] = [rv["key"]]  
         return data
     
-    def git(self,options):
+    def git(self,options, resolved_variables):
         data = {}
         if type(options) is not dict:
             return data
@@ -631,6 +631,24 @@ class BuiltinExtractor():
             data["dest"] = options["dest"]
         if "version" in options:
             data["version"] = options["version"]
+        # injection risk
+        for rv in resolved_variables:
+            if "src" in data and rv["key"] in data["src"] and "{{" in data["src"]:
+                data["undetermined_src"] = True
+                if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                    data["injection_risk"] = True
+                    if "injection_risk_variables" in data:
+                        data["injection_risk_variables"].append(rv["key"])
+                    else:
+                        data["injection_risk_variables"] = [rv["key"]]
+            if "dest" in data and rv["key"] in data["dest"] and "{{" in data["src"]:
+                data["undetermined_dest"] = True
+                if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
+                    data["injection_risk"] = True
+                    if "injection_risk_variables" in data:
+                        data["injection_risk_variables"].append(rv["key"])
+                    else:
+                        data["injection_risk_variables"] = [rv["key"]]
         return data
     
     def iptables(self,options):
