@@ -46,11 +46,11 @@ loop_task_option_names = [
     "loop",
     "with_list",
     "with_items",
+    "with_dict",
     # TODO: support the following
     "with_indexed_items",
     "with_flattened",
     "with_together",
-    "with_dict",
     "with_sequence",
     "with_subelements",
     "with_nested",

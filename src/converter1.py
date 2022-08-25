@@ -28,12 +28,12 @@ def convert(tree, node_objects):
         if node_type == "module":
             obj["fqcn"] = no.fqcn
         else:
-            if "name" in obj:
+            if hasattr(no, "name"):
                 obj["name"] = no.name
+            if hasattr(no, "fqcn"):
+                obj["fqcn"] = no.fqcn
 
             if node_type == "task":
-                obj["name"] = no.name
-
                 if no.executable_type == ExecutableType.MODULE_TYPE:
                     obj["resolved_name"] = no.resolved_name
 
@@ -68,34 +68,7 @@ def convert(tree, node_objects):
     tObj["dependent_module_collections"] = list(set([ no.collection for no in _no_in_this_tree.items if detect_type(no.key)=="module" and hasattr(no, "collection") and no.collection != ""]))
     # tObj["dependent_module_roles"] = list(set([ no["role"] for no in node_objects if detect_type(no["key"])=="Module" and "collection" not in no]))
 
-    
-    def add_context(node, context, contexts_per_task, depth_level=0):
-        current_context = context.copy()
-        node_type = detect_type(node.key)
-        obj = node_dict[node.key]
-        current_context.add(obj, depth_level)
-        if node_type == "task":
-            contexts_per_task.append((current_context, obj))
-        for c in node.children:
-            contexts_per_task = add_context(c, current_context, contexts_per_task, depth_level+1)
-        return contexts_per_task
-    
-    inventories = get_inventories(tree.key, node_objects)
-    initial_context = Context(inventories=inventories)
-    contexts_per_task = []
-    contexts_per_task = add_context(tree, initial_context, contexts_per_task)
-
-    contexts = []
-    for (ctx, task) in contexts_per_task:
-        resolved_options = resolve_module_options(ctx, task)
-        single_item = {
-            "context": ctx,
-            "task": task,
-            "resolved_options": resolved_options,
-        }
-        contexts.append(single_item)
-
-    return tObj, contexts
+    return tObj
 
 def get_inventories(playbook_key, node_objects):
     projects = node_objects.find_by_type("repository")
@@ -153,7 +126,7 @@ def main():
     parser.add_argument('-n', '--node-file', default="", help='path to node object json file')
     parser.add_argument('-r', '--root-dir', default="", help='path to definitions dir for root')
     parser.add_argument('-e', '--ext-dir', default="", help='path to definitions dir for ext')
-    parser.add_argument('-c', '--context-file', default="", help='path to context file (output)')
+    parser.add_argument('-o', '--output', default="", help='path to output file')
 
     args = parser.parse_args()
 
@@ -168,15 +141,14 @@ def main():
     trees = load_tree_json(args.tree_file)
     objects = load_node_objects(args.node_file, args.root_dir, args.ext_dir)
 
-    all_contexts = []
+    tree_object_lines = []
     for tree in trees:
-        t_obj, contexts = convert(tree, objects)
-        all_contexts.extend(contexts)
+        t_obj = convert(tree, objects)
+        tree_object_lines.append(json.dumps(t_obj))
         print(json.dumps(t_obj), flush=True)
 
-    if args.context_file != "":
-        with open(args.context_file, "w") as file:
-            file.write(jsonpickle.encode(all_contexts, make_refs=False))
+    if args.output != "":
+        open(args.output, "w").write("\n".join(tree_object_lines))
 
 if __name__ == "__main__":
     main()

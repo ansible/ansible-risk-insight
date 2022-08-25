@@ -138,7 +138,6 @@ def get_inventories(playbook_key, node_objects):
             break
     return inventories
 
-
 def load_tree_json(tree_path):
     trees = []
     with open(tree_path, "r") as file:
@@ -148,7 +147,6 @@ def load_tree_json(tree_path):
             tree = TreeNode.load(graph=src_dst_array)
             trees.append(tree)
     return trees
-
 
 def load_node_objects(node_path="", root_dir="", ext_dir=""):
     objects = ObjectList()
