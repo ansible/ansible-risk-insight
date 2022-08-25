@@ -1,6 +1,8 @@
 
 from multiprocessing.spawn import is_forking
 from re import T
+from unicodedata import category
+import json
 
 
 class BuiltinExtractor():
@@ -393,10 +395,10 @@ class BuiltinExtractor():
             self.analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.unarchive":
-            res = {"category": "outbound_transfer" , "data": {},  "resolved_data": []}
-            res["data"] = self.unarchive(options, resolved_variables)
-            for ro in resolved_options:
-                res["resolved_data"].append(self.unarchive(ro, resolved_variables))
+            res = {"category": "" , "data": {},  "resolved_data": []}
+            res["data"], res["category"] = self.unarchive(options, resolved_variables, resolved_options)
+            # for ro in resolved_options:
+            #     res["resolved_data"].append(self.unarchive(ro, resolved_variables))
             self.analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.uri":
@@ -991,40 +993,55 @@ class BuiltinExtractor():
         data = {}
         return data
     
-    def unarchive(self, options, resolved_variables):
+    def unarchive(self, options, resolved_variables, resolved_options):
+        category = ""
         data = {}
         if type(options) is not dict:
-            return data
+            return data, category
         if "dest" in options:
-            data["dest"] =  options["dest"]
+            data["dest"] = options["dest"]
+            data["dest"] = self.check_nested_variable(data["dest"], resolved_variables)
         if "src" in options:
             data["src"] = options["src"]
-        # if "remote_src" in options:  # if yes, don't copy
-        #     data["src"] = options["remote_src"]
+            data["src"] = self.check_nested_variable(data["src"], resolved_variables)
+        if "remote_src" in options:  # if yes, don't copy
+            data["remote_src"] = options["remote_src"]
         if "unsafe_writes" in options:
             data["unsafe_writes"] = options["unsafe_writes"]    
         if "validate_certs" in options:
             data["validate_certs"] = options["validate_certs"] 
+        
+        # set category
+        # if remote_src=yes and src contains :// => inbound_transfer
+        if "remote_src" in data and (data["remote_src"] == "yes" or data["remote_src"]):
+            if "src" in data and type(data["src"]) is str and "://" in data["src"]:
+                category = "inbound_transfer"
+        # check resolved option
+        for ro in resolved_options:
+            if "remote_src" in ro and (ro["remote_src"] == "yes" or ro["remote_src"]):
+                if "src" in ro and type(ro["src"]) is str and "://" in ro["src"]:
+                    category = "inbound_transfer"
+
         for rv in resolved_variables:
             if "dest" in data and type(data["dest"]) is str:
-                if rv["key"] in data["dest"] and "{{" in data["dest"]:
-                    data["undetermined_dest"] = True
-                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                        data["injection_risk"] = True
-                        if "injection_risk_variables" in data:
-                            data["injection_risk_variables"].append(rv["key"])
-                        else:
-                            data["injection_risk_variables"] = [rv["key"]]
+                data, undetermined = self.unarchive_resolved_variable_check(data, data["dest"], rv)
+                if undetermined:
+                    data["undetermined_dest"] = undetermined
+            elif "dest" in data and type(data["dest"]) is list:
+                for d in data["dest"]:
+                    data, undetermined = self.unarchive_resolved_variable_check(data, d, rv)
+                    if undetermined:
+                        data["undetermined_dest"] = undetermined
             if "src" in data and type(data["src"]) is str:
-                if rv["key"] in data["src"] and "{{" in data["src"]:
-                    data["undetermined_src"] = True
-                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                        data["injection_risk"] = True
-                        if "injection_risk_variables" in data:
-                            data["injection_risk_variables"].append(rv["key"])
-                        else:
-                            data["injection_risk_variables"] = [rv["key"]]  
-        return data
+                data, undetermined = self.unarchive_resolved_variable_check(data, data["src"], rv)
+                if undetermined:
+                    data["undetermined_src"] = undetermined
+            elif "src" in data and type(data["src"]) is list:
+                for d in data["src"]:
+                    data, undetermined = self.unarchive_resolved_variable_check(data, d, rv)
+                    if undetermined:
+                        data["undetermined_src"] = undetermined
+        return data, category
 
     def cron(self,options):
         data = {}
@@ -1206,3 +1223,28 @@ class BuiltinExtractor():
         data = {}
         return data
 
+    def check_nested_variable(self, value, resolved_variables):
+        # check nested variables
+        nested = []
+        for rv in resolved_variables:
+            if rv["key"] not in value:
+                return nested
+            if type(rv["value"]) is list:
+                for v in rv["value"]:
+                    key = "{{ " + rv["key"] + " }}"
+                    if type(v) is dict:
+                        v = json.dumps(v)
+                    nested.append(value.replace(key, v))
+        return nested
+
+    def unarchive_resolved_variable_check(self, data, dest, rv):
+        undetermined = False
+        if rv["key"] in dest and "{{" in dest:
+            undetermined = True
+            if rv["type"] in ["inventory_vars", "role_defaults", "role_vars", "special_vars"]:
+                data["injection_risk"] = True
+                if "injection_risk_variables" in data:
+                    data["injection_risk_variables"].append(rv["key"])
+                else:
+                    data["injection_risk_variables"] = [rv["key"]]
+        return data, undetermined
