@@ -3,13 +3,15 @@ from asyncio import tasks
 import os
 import json
 
-from struct5 import detect_type, key_delimiter
+from struct5 import detect_type, key_delimiter, ExecutableType
+from context import mutable_types
 from extractor.ansible_builtin import BuiltinExtractor
 from rule_dependency_check import check_tasks as check_dependency_by_tasks
 
 
 _inbound_transfer_key = "inbound_transfer"
 _outbound_transfer_key = "outbound_transfer"
+_mutable_import_key = "mutable_import"
 _cmd_exec_key = "cmd_exec"
 _dependency_key = "dependency"
 report_categories = [_inbound_transfer_key, _outbound_transfer_key]
@@ -18,13 +20,48 @@ non_execution_programs = ["tar", "gunzip", "unzip", "mv", "cp"]
 
 def make_summary(details: dict):
     summary = {}
-    summary["risk_found"] = False
+    summary["risk_found"] = False   # just default value
+
     inbound_count = len(details.get(_inbound_transfer_key, []))
     summary["inbound_count"] = inbound_count
+    inbound_src_mutable_count = len([d for d in details.get(_inbound_transfer_key, []) if d.get("is_src_mutable", False)])
+    inbound_src_domain_mutable_count = len([d for d in details.get(_inbound_transfer_key, []) if d.get("is_src_domain_mutable", False)])
+    inbound_src_domain_mutable_and_no_checksum_count = len([d for d in details.get(_inbound_transfer_key, []) if d.get("is_src_domain_mutable_and_no_checksum", False)])
+    inbound_src_domain_mutable_and_checksum_mutable_count = len([d for d in details.get(_inbound_transfer_key, []) if d.get("is_src_domain_mutable_and_checksum_mutable", False)])
+    inbound_src_entire_variable_count = len([d for d in details.get(_inbound_transfer_key, []) if d.get("is_src_entire_variable", False)])
+    inbound_dst_mutable_count = len([d for d in details.get(_inbound_transfer_key, []) if d.get("is_dst_mutable", False)])
+    inbound_both_mutable_count = len([d for d in details.get(_inbound_transfer_key, []) if d.get("is_src_mutable", False) and d.get("is_dst_mutable", False)])
+    summary["inbound_detail"] = {}
+    summary["inbound_detail"]["inbound_src_mutable_count"] = inbound_src_mutable_count
+    summary["inbound_detail"]["inbound_dst_mutable_count"] = inbound_dst_mutable_count
+    summary["inbound_detail"]["inbound_both_mutable_count"] = inbound_both_mutable_count
+    summary["inbound_detail"]["inbound_src_domain_mutable_count"] = inbound_src_domain_mutable_count
+    summary["inbound_detail"]["inbound_src_domain_mutable_and_no_checksum_count"] = inbound_src_domain_mutable_and_no_checksum_count
+    summary["inbound_detail"]["inbound_src_domain_mutable_and_checksum_mutable_count"] = inbound_src_domain_mutable_and_checksum_mutable_count
+    summary["inbound_detail"]["inbound_src_entire_variable_count"] = inbound_src_entire_variable_count
+
     inbound_execute_count = len([d for d in details.get(_inbound_transfer_key, []) if d.get("executed", False)])
     summary["inbound_execute_count"] = inbound_execute_count
+
     outbound_count = len(details.get(_outbound_transfer_key, []))
     summary["outbound_count"] = outbound_count
+    outbound_src_mutable_count = len([d for d in details.get(_outbound_transfer_key, []) if d.get("is_src_mutable", False)])
+    outbound_dst_mutable_count = len([d for d in details.get(_outbound_transfer_key, []) if d.get("is_dst_mutable", False)])
+    outbound_dst_domain_mutable_count = len([d for d in details.get(_outbound_transfer_key, []) if d.get("is_dst_domain_mutable", False)])
+    outbound_dst_entire_variable_count = len([d for d in details.get(_outbound_transfer_key, []) if d.get("is_dst_entire_variable", False)])
+    outbound_both_mutable_count = len([d for d in details.get(_outbound_transfer_key, []) if d.get("is_src_mutable", False) and d.get("is_dst_mutable", False)])
+    outbound_local_to_remote_count = len([d for d in details.get(_outbound_transfer_key, []) if d.get("is_local_to_remote", False)])
+    summary["outbound_detail"] = {}
+    summary["outbound_detail"]["outbound_src_mutable_count"] = outbound_src_mutable_count
+    summary["outbound_detail"]["outbound_dst_mutable_count"] = outbound_dst_mutable_count
+    summary["outbound_detail"]["outbound_both_mutable_count"] = outbound_both_mutable_count
+    summary["outbound_detail"]["outbound_dst_domain_mutable_count"] = outbound_dst_domain_mutable_count
+    summary["outbound_detail"]["outbound_dst_entire_variable_count"] = outbound_dst_entire_variable_count
+    summary["outbound_detail"]["outbound_local_to_remote_count"] = outbound_local_to_remote_count
+
+    # mutable_import_count = len(details.get(_mutable_import_key, []))
+    # summary["mutable_import_count"] = mutable_import_count
+
     dep_detail = details.get(_dependency_key, [])
     all_dependency_verified = None
     if len(dep_detail) > 0:
@@ -52,7 +89,7 @@ def make_findings(details: dict):
         is_src_mutable = d.get("is_src_mutable", False)
         is_dst_mutable = d.get("is_dst_mutable", False)
         is_executed = d.get("executed", False)
-        filepath = d.get("filepath", False)
+        filepath = d.get("filepath", "")
         level = RiskLevel.EMPTY
         message = ""
         if is_src_mutable and is_executed:
@@ -80,7 +117,7 @@ def make_findings(details: dict):
     for d in details.get(_outbound_transfer_key, []):
         is_src_mutable = d.get("is_src_mutable", False)
         is_dst_mutable = d.get("is_dst_mutable", False)
-        filepath = d.get("filepath", False)
+        filepath = d.get("filepath", "")
         level = RiskLevel.EMPTY
         message = ""
         if is_dst_mutable:
@@ -98,6 +135,17 @@ def make_findings(details: dict):
             "message": message,
             "file": filepath,
         })
+
+    # for d in details.get(_mutable_import_key, []):
+    #     filepath = d.get("filepath", "")
+    #     level = RiskLevel.HIGH
+    #     message = "ANY role can be executed by overwriting the variable"
+    #     findings.append({
+    #         "risk_level": level,
+    #         "message": message,
+    #         "file": filepath,
+    #     })
+
     
     dep_details = details.get(_dependency_key, [])
     if len(dep_details) > 0:
@@ -130,12 +178,35 @@ def inbound_details(details: list):
         is_dst_mutable = ad.get("data", {}).get("undetermined_dest", False)
         executed = ad.get("executed", False)
         filepath = task.get("defined_in", "")
+        is_src_domain_mutable = False
+        is_src_domain_mutable_and_no_checksum = False
+        is_src_domain_mutable_and_checksum_mutable = False
+        is_src_entire_variable = False
+        _src_list = []
+        if isinstance(raw_src, str): _src_list = [raw_src]
+        if isinstance(raw_src, list): _src_list = raw_src
+        for _src in _src_list:
+            if is_src_mutable:
+                if _src.startswith("{{") or "://{{" in _src:
+                    is_src_domain_mutable = True
+                    checksum = task.get("module_options", {}).get("checksum", "")
+                    if checksum == "":
+                        is_src_domain_mutable_and_no_checksum = True
+                    else:
+                        if "{{" in checksum:
+                            is_src_domain_mutable_and_checksum_mutable = True
+            if _src.startswith("{{") and _src.endswith("}}") and len(_src[:-2].split("}}")) == 1:
+                is_src_entire_variable = True
         detail_data_list.append({
             "src": raw_src,
             "resolved_src": resolved_src,
             "dst": raw_dst,
             "resolved_dst": resolved_dst,
             "is_src_mutable": is_src_mutable,
+            "is_src_domain_mutable": is_src_domain_mutable,
+            "is_src_domain_mutable_and_no_checksum": is_src_domain_mutable_and_no_checksum,
+            "is_src_domain_mutable_and_checksum_mutable": is_src_domain_mutable_and_checksum_mutable,
+            "is_src_entire_variable": is_src_entire_variable,
             "is_dst_mutable": is_dst_mutable,
             "executed": executed,
             "filepath": filepath,
@@ -155,14 +226,30 @@ def outbound_details(details: list):
         if len(resolved_dst) == 1: resolved_dst = resolved_dst[0]
         is_src_mutable = ad.get("data", {}).get("undetermined_src", False)
         is_dst_mutable = ad.get("data", {}).get("undetermined_dest", False)
+        # if remote_src is yes for ansible.builtin.copy, it just copy a file inside remote machine
+        is_local_to_remote = not task.get("module_options", {}).get("remote_src", False)
         filepath = task.get("defined_in", "")
+        is_dst_domain_mutable = False
+        is_dst_entire_variable = False
+        _dst_list = []
+        if isinstance(raw_dst, str): _dst_list = [raw_dst]
+        if isinstance(raw_dst, list): _dst_list = raw_dst
+        for _dst in _dst_list:
+            if is_src_mutable:
+                if _dst.startswith("{{") or "://{{" in _dst:
+                    is_dst_domain_mutable = True
+            if _dst.startswith("{{") and _dst.endswith("}}") and len(_dst[:-2].split("}}")) == 1:
+                is_dst_entire_variable = True
         detail_data_list.append({
             "src": raw_src,
             "resolved_src": resolved_src,
             "dst": raw_dst,
             "resolved_dst": resolved_dst,
+            "is_local_to_remote": is_local_to_remote,
             "is_src_mutable": is_src_mutable,
             "is_dst_mutable": is_dst_mutable,
+            "is_dst_domain_mutable": is_dst_domain_mutable,
+            "is_dst_entire_variable": is_dst_entire_variable,
             "filepath": filepath,
         })
     return detail_data_list
@@ -256,6 +343,26 @@ def is_executed(cmd_str, target):
             break
     return found
 
+def check_mutable_import(tasks: list):
+    detail_data_list = []
+    for task in tasks:
+        exec_type = task.get("executable_type", "")
+        if exec_type != ExecutableType.ROLE_TYPE:
+            continue
+        filepath = task.get("defined_in", "")
+        module_options = task.get("module_options", "")
+        resolved_variables = task.get("resolved_variables", [])
+        if len(resolved_variables) == 0:
+            continue
+        if len([v for v in resolved_variables if v.get("type", "") in mutable_types]) == 0:
+            continue
+        detail_data_list.append({
+            "option": module_options,
+            "resolved_variables": resolved_variables,
+            "filepath": filepath,
+        })
+    return detail_data_list
+
 def key2name(key: str):
     _type = detect_type(key)
     if _type == "playbook":
@@ -291,15 +398,9 @@ def gen_report(tasks_rv_data: list, verified_collections: list, check_mode: bool
             "findings": [],
             "details": {},
         }
-        details = {
-            _inbound_transfer_key: [],
-            _outbound_transfer_key: [],
-            _dependency_key: [],
-        }
         ad_tasks = {
             _inbound_transfer_key: [],
             _outbound_transfer_key: [],
-            _dependency_key: [],
         }
     
         tasks = single_tree_data.get("tasks", [])
@@ -318,6 +419,12 @@ def gen_report(tasks_rv_data: list, verified_collections: list, check_mode: bool
 
         ad_tasks[_inbound_transfer_key], inbound_exec_task_pairs = embed_inbound_exec(inbound_exec_datas, ad_tasks[_inbound_transfer_key])
         
+        details = {
+            _inbound_transfer_key: [],
+            _outbound_transfer_key: [],
+            # _mutable_import_key: [],
+            _dependency_key: [],
+        }
         for cat in report_categories:
             if len(ad_tasks[cat]) == 0:
                 continue
@@ -327,6 +434,9 @@ def gen_report(tasks_rv_data: list, verified_collections: list, check_mode: bool
             elif cat == _outbound_transfer_key:
                 details_per_cat = outbound_details(ad_tasks[cat])
             details[cat] = details_per_cat
+
+        # mutable_import_details = check_mutable_import(tasks)
+        # details[_mutable_import_key] = mutable_import_details
 
         verified, unverified = check_dependency_by_tasks(tasks, verified_collections)
         details[_dependency_key] = [{"verified_dependencies": verified, "unverified_dependencies": unverified}]

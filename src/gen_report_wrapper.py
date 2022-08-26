@@ -62,8 +62,10 @@ def main():
 
     output_dir = args.output
 
-    for tasks_rv_path in tasks_rv_path_list:
+    num = len(tasks_rv_path_list)
+    for i, tasks_rv_path in enumerate(tasks_rv_path_list):
         role_name = tasks_rv_path.split("/")[-2]
+        print("[{}/{}] {}".format(i+1, num, role_name))
         meta_report = {
             "role": role_name,
             "data": None,

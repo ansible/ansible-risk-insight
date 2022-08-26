@@ -43,6 +43,8 @@ class VariableType:
     PARTIAL_RESOLVE = "partial_resolve"
     FAILED_TO_RESOLVE = "failed_to_resolve"
 
+mutable_types = [VariableType.NORMAL, VariableType.ROLE_DEFAULTS, VariableType.ROLE_VARS, VariableType.INVENTORY_VARS]
+
 @dataclass
 class Context():
     chain: list = field(default_factory=list)
