@@ -127,7 +127,7 @@ def check(tree: TreeNode, objects: ObjectList, verified_collections: list):
 
 def check_tasks(tasks: list, verified_collections: list):
     if len(tasks) == 0:
-        return []
+        return [], []
     _tasks = [t for t in tasks]
     if isinstance(tasks[0], Task):
         _tasks = [t.__dict__ for t in tasks]
@@ -135,12 +135,9 @@ def check_tasks(tasks: list, verified_collections: list):
     dependencies = [".".join(m.split(".")[:-1]) for m in modules if "." in m]
     dependencies = list(set(dependencies))
     dependencies = sorted(dependencies)
+    verified_dependencies = [d for d in dependencies if d == "ansible.builtin" or d in verified_collections]
     unverified_dependencies = [d for d in dependencies if d != "ansible.builtin" and d not in verified_collections]
-    only_verified = len(unverified_dependencies) == 0
-    ok = only_verified
-    findings = "all dependencies are verified" if only_verified else "depends on {} unverifeid collections".format(len(unverified_dependencies))
-    resolution = "" if only_verified else "the following must be signed {}".format(unverified_dependencies)
-    return ok, findings, resolution
+    return verified_dependencies, unverified_dependencies
 
 def main():
     parser = argparse.ArgumentParser(
