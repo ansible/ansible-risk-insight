@@ -626,6 +626,26 @@ def is_executed(cmd_str, target):
             break
     return found
 
+def check_mutable_import(tasks: list):
+    detail_data_list = []
+    for task in tasks:
+        exec_type = task.get("executable_type", "")
+        if exec_type != ExecutableType.ROLE_TYPE:
+            continue
+        filepath = task.get("defined_in", "")
+        module_options = task.get("module_options", "")
+        resolved_variables = task.get("resolved_variables", [])
+        if len(resolved_variables) == 0:
+            continue
+        if len([v for v in resolved_variables if v.get("type", "") in mutable_types]) == 0:
+            continue
+        detail_data_list.append({
+            "option": module_options,
+            "resolved_variables": resolved_variables,
+            "filepath": filepath,
+        })
+    return detail_data_list
+
 def key2name(key: str):
     _type = detect_type(key)
     if _type == "playbook":
