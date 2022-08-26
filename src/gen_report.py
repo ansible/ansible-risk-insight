@@ -579,6 +579,53 @@ def check_mutable_import(tasks: list):
     return detail_data_list
 
 
+def is_primary_command_target(line, target):
+    parts = []
+    is_in_variable = False
+    concat_p = ""
+    for p in line.split(" "):
+        if "{{" in p and "}}" not in p:
+            is_in_variable = True
+        if "}}" in p:
+            is_in_variable = False
+        concat_p += " " + p if concat_p != "" else p
+        if not is_in_variable:
+            parts.append(concat_p)
+            concat_p = ""
+    current_index = 0
+    found_index = -1
+    for p in parts:
+        if current_index == 0:
+            program = p if "/" not in p else p.split("/")[-1]
+            # typically, the downloaded file is just unarchived without execution
+            # we do not count it as inbound_exec, so exit the loop here
+            if program in unarchive_programs:
+                break
+        if target in p:
+            found_index = current_index
+            break
+        if p.startswith("-"):
+            continue
+        current_index += 1
+    # "<target.sh> option1 option2" => found_index == 0
+    # python -u <target.py> ==> found_index == 1
+    is_primay_target = found_index >= 0 and found_index <= 1
+    return is_primay_target
+
+def is_executed(cmd_str, target):
+    lines = cmd_str.splitlines()
+    found = False
+    for line in lines:
+        if target not in line:
+            continue
+        if line.startswith(target):
+            found = True
+        if is_primary_command_target(line, target):
+            found = True
+        if found:
+            break
+    return found
+
 def key2name(key: str):
     _type = detect_type(key)
     if _type == "playbook":
