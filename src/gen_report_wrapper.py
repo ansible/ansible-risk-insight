@@ -38,11 +38,6 @@ def main():
         logging.error("\"--input\" is required")
         sys.exit(1)
 
-    if args.output == "":
-        logging.error("\"--output\" is required")
-        sys.exit(1)
-
-
     # TODO: from args
     verified_collections = []
 
@@ -61,6 +56,7 @@ def main():
         raise ValueError("failed to load the input file {} {}".format(args.input, e))
 
     output_dir = args.output
+    do_output = args.output != ""
 
     num = len(tasks_rv_path_list)
     for i, tasks_rv_path in enumerate(tasks_rv_path_list):
@@ -82,7 +78,8 @@ def main():
         if err is not None:
             meta_report["result"] = "failure"
             meta_report["error"] = err
-            save_meta_report(meta_report, make_report_file_path(output_dir, role_name))
+            if do_output:
+                save_meta_report(meta_report, make_report_file_path(output_dir, role_name))
             continue
 
         # step 2: generate report
@@ -94,12 +91,14 @@ def main():
         if err is not None:
             meta_report["result"] = "failure"
             meta_report["error"] = err
-            save_meta_report(meta_report, make_report_file_path(output_dir, role_name))
+            if do_output:
+                save_meta_report(meta_report, make_report_file_path(output_dir, role_name))
             continue
 
         meta_report["result"] = "success"
         meta_report["data"] = report
-        save_meta_report(meta_report, make_report_file_path(output_dir, role_name))
+        if do_output:
+            save_meta_report(meta_report, make_report_file_path(output_dir, role_name))
 
 if __name__ == "__main__":
     main()
