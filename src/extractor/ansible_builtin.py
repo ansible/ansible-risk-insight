@@ -398,7 +398,8 @@ class BuiltinExtractor():
             res = {"category": "" , "data": {},  "resolved_data": []}
             res["data"], res["category"] = self.unarchive(options, resolved_variables, resolved_options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.unarchive(ro, resolved_variables, resolved_options))
+                rores, _ = self.unarchive(ro, resolved_variables, resolved_options)
+                res["resolved_data"].append(rores)
             self.analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.uri":
