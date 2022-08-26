@@ -397,8 +397,8 @@ class BuiltinExtractor():
         if resolved_name == "ansible.builtin.unarchive":
             res = {"category": "" , "data": {},  "resolved_data": []}
             res["data"], res["category"] = self.unarchive(options, resolved_variables, resolved_options)
-            # for ro in resolved_options:
-            #     res["resolved_data"].append(self.unarchive(ro, resolved_variables))
+            for ro in resolved_options:
+                res["resolved_data"].append(self.unarchive(ro, resolved_variables, resolved_options))
             self.analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.uri":
@@ -499,23 +499,13 @@ class BuiltinExtractor():
         # injection risk
         for rv in resolved_variables:
             if "src" in data and type(data["src"]) is str:
-                if rv["key"] in data["src"] and "{{" in data["src"]:
-                    data["undetermined_src"] = True
-                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                        data["injection_risk"] = True
-                        if "injection_risk_variables" in data:
-                            data["injection_risk_variables"].append(rv["key"])
-                        else:
-                            data["injection_risk_variables"] = [rv["key"]]
+                data, undetermined = self.resolved_variable_check(data, data["src"], rv)
+                if undetermined:
+                    data["undetermined_src"] = True    
             if "dest" in data and type(data["dest"]) is str:
-                if rv["key"] in data["dest"] and "{{" in data["dest"]:
-                    data["undetermined_dest"] = True
-                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                        data["injection_risk"] = True
-                        if "injection_risk_variables" in data:
-                            data["injection_risk_variables"].append(rv["key"])
-                        else:
-                            data["injection_risk_variables"] = [rv["key"]]
+                data, undetermined = self.resolved_variable_check(data, data["dest"], rv)
+                if undetermined:
+                    data["undetermined_dest"] = True           
         # unsecure src/dest
 
         return data
@@ -539,14 +529,9 @@ class BuiltinExtractor():
                 data["cmd"] =  options["argv"]
         for rv in resolved_variables:
             if "cmd" in data and type(data["cmd"]) is str:
-                if rv["key"] in data["cmd"] and "{{" in data["cmd"]:
-                    data["undetermined_cmd"] = True
-                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                        data["injection_risk"] = True
-                        if "injection_risk_variables" in data:
-                            data["injection_risk_variables"].append(rv["key"])
-                        else:
-                            data["injection_risk_variables"] = [rv["key"]]            
+                data, undetermined = self.resolved_variable_check(data, data["cmd"], rv)
+                if undetermined:
+                    data["undetermined_cmd"] = True           
         return data
 
     def apt(self,options):
@@ -609,23 +594,13 @@ class BuiltinExtractor():
             data["mode"] = options["mode"]
         for rv in resolved_variables:
             if "dest" in data and type(data["dest"]) is str:
-                if rv["key"] in data["dest"] and "{{" in data["dest"]:
-                    data["undetermined_dest"] = True
-                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                        data["injection_risk"] = True
-                        if "injection_risk_variables" in data:
-                            data["injection_risk_variables"].append(rv["key"])
-                        else:
-                            data["injection_risk_variables"] = [rv["key"]]
+                data, undetermined = self.resolved_variable_check(data, data["dest"], rv)
+                if undetermined:
+                    data["undetermined_dest"] = True   
             if "src" in data and type(data["src"]) is str:
-                if rv["key"] in data["src"] and "{{" in data["src"]:
-                    data["undetermined_src"] = True
-                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                        data["injection_risk"] = True
-                        if "injection_risk_variables" in data:
-                            data["injection_risk_variables"].append(rv["key"])
-                        else:
-                            data["injection_risk_variables"] = [rv["key"]]  
+                data, undetermined = self.resolved_variable_check(data, data["src"], rv)
+                if undetermined:
+                    data["undetermined_src"] = True   
         return data
     
     def git(self,options, resolved_variables):
@@ -641,23 +616,13 @@ class BuiltinExtractor():
         # injection risk
         for rv in resolved_variables:
             if "src" in data and type(data["src"]) is str:
-                if rv["key"] in data["src"] and "{{" in data["src"]:
-                    data["undetermined_src"] = True
-                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                        data["injection_risk"] = True
-                        if "injection_risk_variables" in data:
-                            data["injection_risk_variables"].append(rv["key"])
-                        else:
-                            data["injection_risk_variables"] = [rv["key"]]
+                data, undetermined = self.resolved_variable_check(data, data["src"], rv)
+                if undetermined:
+                    data["undetermined_src"] = True   
             if "dest" in data and type(data["dest"]) is str:
-                if rv["key"] in data["dest"] and "{{" in data["dest"]:
-                    data["undetermined_dest"] = True
-                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                        data["injection_risk"] = True
-                        if "injection_risk_variables" in data:
-                            data["injection_risk_variables"].append(rv["key"])
-                        else:
-                            data["injection_risk_variables"] = [rv["key"]]
+                data, undetermined = self.resolved_variable_check(data, data["dest"], rv)
+                if undetermined:
+                    data["undetermined_dest"] = True   
         return data
     
     def iptables(self,options):
@@ -732,14 +697,9 @@ class BuiltinExtractor():
             data["cmd"] =  options
         for rv in resolved_variables:
             if "cmd" in data and type(data["cmd"]) is str:
-                if  rv["key"] in data["cmd"] and "{{" in data["cmd"]:
-                    data["undetermined_cmd"] = True
-                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                        data["injection_risk"] = True
-                        if "injection_risk_variables" in data:
-                            data["injection_risk_variables"].append(rv["key"])
-                        else:
-                            data["injection_risk_variables"] = [rv["key"]]     
+                data, undetermined = self.resolved_variable_check(data, data["cmd"], rv)
+                if undetermined:
+                    data["undetermined_cmd"] = True   
         return data
     
     def replace(self,options):
@@ -781,14 +741,9 @@ class BuiltinExtractor():
             return data
         for rv in resolved_variables:
             if "cmd" in data and type(data["cmd"]) is str:
-                if rv["key"] in data["cmd"] and "{{" in data["cmd"]:
-                    data["undetermined_cmd"] = True
-                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                        data["injection_risk"] = True
-                        if "injection_risk_variables" in data:
-                            data["injection_risk_variables"].append(rv["key"])
-                        else:
-                            data["injection_risk_variables"] = [rv["key"]]    
+                data, undetermined = self.resolved_variable_check(data, data["cmd"], rv)
+                if undetermined:
+                    data["undetermined_cmd"] = True     
         return data
     
     # proxy for multiple more specific service manager modules
@@ -833,14 +788,9 @@ class BuiltinExtractor():
                 data["cmd"] =  options["cmd"]
         for rv in resolved_variables:
             if "cmd" in data and type(data["cmd"]) is str:
-                if rv["key"] in data["cmd"] and "{{" in data["cmd"]:
-                    data["undetermined_cmd"] = True
-                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                        data["injection_risk"] = True
-                        if "injection_risk_variables" in data:
-                            data["injection_risk_variables"].append(rv["key"])
-                        else:
-                            data["injection_risk_variables"] = [rv["key"]]     
+                data, undetermined = self.resolved_variable_check(data, data["cmd"], rv)
+                if undetermined:
+                    data["undetermined_cmd"] = True   
         return data
 
     def slurp(self,options):
@@ -999,11 +949,21 @@ class BuiltinExtractor():
         if type(options) is not dict:
             return data, category
         if "dest" in options:
-            data["dest"] = options["dest"]
-            data["dest"] = self.check_nested_variable(data["dest"], resolved_variables)
+            dests = []
+            dests.append(options["dest"])
+            dests.extend(self.check_nest_variable(options["dest"], resolved_variables))
+            for ro in resolved_options:
+                if "dest" in ro and ro["dest"] not in dests:
+                    dests.append(ro["dest"])
+            data["dest"] = dests 
         if "src" in options:
-            data["src"] = options["src"]
-            data["src"] = self.check_nested_variable(data["src"], resolved_variables)
+            src = []
+            src.append(options["src"])
+            src.extend(self.check_nest_variable(options["src"], resolved_variables))
+            for ro in resolved_options:
+                if "src" in ro and ro["src"] not in src:
+                    src.append(ro["src"])
+            data["src"] = src 
         if "remote_src" in options:  # if yes, don't copy
             data["remote_src"] = options["remote_src"]
         if "unsafe_writes" in options:
@@ -1024,21 +984,21 @@ class BuiltinExtractor():
 
         for rv in resolved_variables:
             if "dest" in data and type(data["dest"]) is str:
-                data, undetermined = self.unarchive_resolved_variable_check(data, data["dest"], rv)
+                data, undetermined = self.resolved_variable_check(data, data["dest"], rv)
                 if undetermined:
                     data["undetermined_dest"] = undetermined
             elif "dest" in data and type(data["dest"]) is list:
                 for d in data["dest"]:
-                    data, undetermined = self.unarchive_resolved_variable_check(data, d, rv)
+                    data, undetermined = self.resolved_variable_check(data, d, rv)
                     if undetermined:
                         data["undetermined_dest"] = undetermined
             if "src" in data and type(data["src"]) is str:
-                data, undetermined = self.unarchive_resolved_variable_check(data, data["src"], rv)
+                data, undetermined = self.resolved_variable_check(data, data["src"], rv)
                 if undetermined:
                     data["undetermined_src"] = undetermined
             elif "src" in data and type(data["src"]) is list:
                 for d in data["src"]:
-                    data, undetermined = self.unarchive_resolved_variable_check(data, d, rv)
+                    data, undetermined = self.resolved_variable_check(data, d, rv)
                     if undetermined:
                         data["undetermined_src"] = undetermined
         return data, category
@@ -1070,14 +1030,9 @@ class BuiltinExtractor():
                 data["cmd"] =  options["command"]
         for rv in resolved_variables:
             if "cmd" in data and type(data["cmd"]) is str:
-                if rv["key"] in data["cmd"] and "{{" in data["cmd"]:
-                    data["undetermined_cmd"] = True
-                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                        data["injection_risk"] = True
-                        if "injection_risk_variables" in data:
-                            data["injection_risk_variables"].append(rv["key"])
-                        else:
-                            data["injection_risk_variables"] = [rv["key"]]    
+                data, undetermined = self.resolved_variable_check(data, data["cmd"], rv)
+                if undetermined:
+                    data["undetermined_cmd"] = True   
         return data
     
     def dnf(self,options):
@@ -1223,23 +1178,25 @@ class BuiltinExtractor():
         data = {}
         return data
 
-    def check_nested_variable(self, value, resolved_variables):
+    def check_nest_variable(self, value, resolved_variables):
         # check nested variables
-        nested = []
+        variables = []
         for rv in resolved_variables:
             if rv["key"] not in value:
-                return nested
+                continue
             if type(rv["value"]) is list:
                 for v in rv["value"]:
                     key = "{{ " + rv["key"] + " }}"
                     if type(v) is dict:
                         v = json.dumps(v)
-                    nested.append(value.replace(key, v))
-        return nested
+                    variables.append(value.replace(key, v))
+        return variables
 
-    def unarchive_resolved_variable_check(self, data, dest, rv):
+    def resolved_variable_check(self, data, value, rv):
         undetermined = False
-        if rv["key"] in dest and "{{" in dest:
+        if type(value) is not str:
+            return data, undetermined
+        if rv["key"] in value and "{{" in value:
             undetermined = True
             if rv["type"] in ["inventory_vars", "role_defaults", "role_vars", "special_vars"]:
                 data["injection_risk"] = True
