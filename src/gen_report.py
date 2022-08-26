@@ -1,4 +1,5 @@
 import argparse
+from asyncio import tasks
 import os
 import json
 
@@ -193,7 +194,6 @@ def make_summary(details: dict):
         summary["risk_found"] = True
 
     return summary
-
 
 class RiskLevel:
     EMPTY = ""
@@ -599,9 +599,9 @@ def is_primary_command_target(line, target):
             program = p if "/" not in p else p.split("/")[-1]
             # typically, the downloaded file is just unarchived without execution
             # we do not count it as inbound_exec, so exit the loop here
-            if program in unarchive_programs:
+            if program in non_execution_programs:
                 break
-        if target in p:
+        if p.startswith(target):
             found_index = current_index
             break
         if p.startswith("-"):
