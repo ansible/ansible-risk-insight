@@ -48,6 +48,10 @@ def indent(multi_line_txt, level=0):
 def make_display_report(fpath=""):
     report_data = []
     output_lines = []
+    output_lines.append("-" * 90)
+    output_lines.append("Ansible Risk Insight Report")
+    output_lines.append("-" * 90)
+
     with open(fpath, "r") as file:
         report_data = json.load(file)
 
@@ -113,14 +117,29 @@ def make_display_report(fpath=""):
         for f_type, findings in findings_per_type.items():
             if len(findings) == 0:
                 continue
-            output_lines.append("{}".format(f_type))
+            _tmp_lines = []
+            _tmp_lines.append("{}".format(f_type))
+            count_for_this_type = 0
             for finding in findings:
                 detail_block = indent(finding, 4)
                 if detail_block == "":
                     continue
-                output_lines.append(detail_block)
+                _tmp_lines.append(detail_block)
+                count_for_this_type += 1
+            if count_for_this_type > 0:
+                output_lines.extend(_tmp_lines)
         output_lines.append("-" * 90)
         count += 1
+
+    # dependency
+    output_lines.append("External Dependency")
+    output_lines.append("")
+    for single_tree_data in report_data:
+        root_type = single_tree_data.get("type", "")
+        root_name = single_tree_data.get("name", "")
+        unverified_dependencies = single_tree_data.get("details", {}).get("dependency", [])[0].get("unverified_dependencies", [])
+        output_lines.append(json.dumps({"type": root_type, "name": root_name, "external_dependencies": unverified_dependencies}))
+    output_lines.append("-" * 90)
     return "\n".join(output_lines)
 
 def main():
