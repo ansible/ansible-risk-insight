@@ -202,12 +202,10 @@ class RiskLevel:
     HIGH = "High"
     CRITICAL = "Critical"
 
-
 class FindingType:
     INBOUND = "InboundTransfer"
     OUTBOUND = "OutboundTransfer"
     DOWNLOAD_EXEC = "Download & Exec"
-
 
 def make_findings(details: dict):
     findings = []

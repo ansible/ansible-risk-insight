@@ -29,7 +29,6 @@ label_mappings = {
     "dependency": ["Type", "Name", "Verified", "Findings", "Resolution"],
 }
 
-
 def make_detail_output(finding_data):
     type = finding_data.get("type", "")
     output_lines = ""
