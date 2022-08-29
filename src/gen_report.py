@@ -101,19 +101,28 @@ def make_findings(details: dict):
         _task = d.get("task", {})
         line_nums = _task.get("line_num_in_file", [])
         yaml_lines = _task.get("yaml_lines", "")
+
+        exec_filepath = ""
+        _exec_task = {}
+        exec_line_nums = []
+        exec_yaml_lines = ""
+        if is_executed:
+            _exec_task = d.get("exec_task", {})
+            exec_filepath = _exec_task.get("defined_in", "")
+            exec_line_nums = _exec_task.get("line_num_in_file", "")
+            exec_yaml_lines = _exec_task.get("yaml_lines", "")
+
         level = RiskLevel.EMPTY
         message = ""
         message_detail = ""
         if is_src_mutable and is_executed:
             level = RiskLevel.CRITICAL
             message = "ANY file can be downloaded from ANY url and the file is executed by a task"
-            message_detail += "Risk: the variable \"{}\" can be changed, but this file is downloaded and executed.\n".format(raw_src)
-            message_detail += "Var Default: {}\n".format(resolved_src)
-            message_detail += "Resolution: Check the variable scope and make it more strict.\n"
+            message_detail += "Mutable Variables: \"{}\"".format(raw_src)
         elif is_src_mutable:
             level = RiskLevel.HIGH
             message = "ANY file can be downloaded from ANY url"
-            message_detail += "parameter \"{}\" (dst: {})".format(raw_src, resolved_dst)
+            message_detail += "\"{}\" --> \"{}\"".format(raw_src, resolved_dst)
         elif is_executed:
             level = RiskLevel.MEDIUM
             message = "a file is downloaded from remote and executed"
@@ -131,7 +140,8 @@ def make_findings(details: dict):
             "message_detail": message_detail,
             "file": filepath,
             "line_nums": line_nums,
-            "yaml_lines": yaml_lines,
+            "exec_file": exec_filepath,
+            "exec_line_nums": exec_line_nums,
         })
 
     for d in details.get(_outbound_transfer_key, []):
@@ -146,7 +156,7 @@ def make_findings(details: dict):
         if is_dst_mutable:
             level = RiskLevel.HIGH
             message = "ANY remote url can be specified as a destination of outbound file transfer" 
-            message_detail += "parameter \"{}\" (src: {})".format(raw_dst, resolved_src)
+            message_detail += "\"{}\" --> \"{}\"".format(resolved_src, raw_dst)
         elif is_src_mutable:
             level = RiskLevel.MEDIUM
             message = "ANY file can be transfered to remote"
@@ -189,7 +199,7 @@ def make_findings(details: dict):
 
     return findings
 
-def inbound_details(details: list):
+def inbound_details(details: list, inbound_exec_task_pairs: list):
     detail_data_list = []
     for (ad, task) in details:
         raw_src = ad.get("data", {}).get("src", "")
@@ -228,6 +238,13 @@ def inbound_details(details: list):
                             is_src_domain_mutable_and_checksum_mutable = True
             if _src.startswith("{{") and _src.endswith("}}") and len(_src[:-2].split("}}")) == 1:
                 is_src_entire_variable = True
+        paired_exec_task = {}
+        if is_executed:
+            inbound_task_key = task.get("key", "")
+            for (inbound_task, exec_task) in inbound_exec_task_pairs:
+                if inbound_task.get("key", "") == inbound_task_key:
+                    paired_exec_task = exec_task
+                    break
         detail_data_list.append({
             "src": raw_src,
             "resolved_src": resolved_src,
@@ -242,6 +259,7 @@ def inbound_details(details: list):
             "executed": executed,
             "filepath": filepath,
             "task": task,
+            "exec_task": paired_exec_task,
         })
     return detail_data_list
 
@@ -478,7 +496,7 @@ def gen_report(tasks_rv_data: list, verified_collections: list, check_mode: bool
                 continue
             details_per_cat = []
             if cat == _inbound_transfer_key:
-                details_per_cat = inbound_details(ad_tasks[cat])
+                details_per_cat = inbound_details(ad_tasks[cat], inbound_exec_task_pairs)
             elif cat == _outbound_transfer_key:
                 details_per_cat = outbound_details(ad_tasks[cat])
             details[cat] = details_per_cat
