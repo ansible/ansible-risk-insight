@@ -14,6 +14,7 @@ _outbound_transfer_key = "outbound_transfer"
 _mutable_import_key = "mutable_import"
 _cmd_exec_key = "cmd_exec"
 _dependency_key = "dependency"
+_used_in_playbooks_key = "used_in_playbooks"
 report_categories = [_inbound_transfer_key, _outbound_transfer_key]
 inbound_exec_categories = [_inbound_transfer_key, _cmd_exec_key]
 non_execution_programs = ["tar", "gunzip", "unzip", "mv", "cp"]
@@ -70,8 +71,7 @@ def make_summary(details: dict):
 
     if summary["inbound_count"] > 0 \
         or summary["inbound_execute_count"] > 0 \
-        or summary["outbound_count"] > 0 \
-        or not summary["all_dependency_verified"]:
+        or summary["outbound_count"] > 0:
         summary["risk_found"] = True
 
     return summary
@@ -83,21 +83,37 @@ class RiskLevel:
     HIGH = "High"
     CRITICAL = "Critical"
 
+class FindingType:
+    INBOUND = "InboundTransfer"
+    OUTBOUND = "OutboundTransfer"
+    DOWNLOAD_EXEC = "Download & Exec"
+
 def make_findings(details: dict):
     findings = []
     for d in details.get(_inbound_transfer_key, []):
+        raw_src = d.get("src", "")
+        resolved_src = d.get("resolved_src", "")
+        resolved_dst = d.get("resolved_dst", "")
         is_src_mutable = d.get("is_src_mutable", False)
         is_dst_mutable = d.get("is_dst_mutable", False)
         is_executed = d.get("executed", False)
         filepath = d.get("filepath", "")
+        _task = d.get("task", {})
+        line_nums = _task.get("line_num_in_file", [])
+        yaml_lines = _task.get("yaml_lines", "")
         level = RiskLevel.EMPTY
         message = ""
+        message_detail = ""
         if is_src_mutable and is_executed:
             level = RiskLevel.CRITICAL
             message = "ANY file can be downloaded from ANY url and the file is executed by a task"
+            message_detail += "Risk: the variable \"{}\" can be changed, but this file is downloaded and executed.\n".format(raw_src)
+            message_detail += "Var Default: {}\n".format(resolved_src)
+            message_detail += "Resolution: Check the variable scope and make it more strict.\n"
         elif is_src_mutable:
             level = RiskLevel.HIGH
             message = "ANY file can be downloaded from ANY url"
+            message_detail += "parameter \"{}\" (dst: {})".format(raw_src, resolved_dst)
         elif is_executed:
             level = RiskLevel.MEDIUM
             message = "a file is downloaded from remote and executed"
@@ -109,20 +125,28 @@ def make_findings(details: dict):
             message = "a file is downloaded from remote"
 
         findings.append({
+            "type": FindingType.DOWNLOAD_EXEC if is_executed else FindingType.INBOUND,
             "risk_level": level,
             "message": message,
+            "message_detail": message_detail,
             "file": filepath,
+            "line_nums": line_nums,
+            "yaml_lines": yaml_lines,
         })
 
     for d in details.get(_outbound_transfer_key, []):
+        raw_dst = d.get("dst", "")
+        resolved_src = d.get("resolved_src", "")
         is_src_mutable = d.get("is_src_mutable", False)
         is_dst_mutable = d.get("is_dst_mutable", False)
         filepath = d.get("filepath", "")
         level = RiskLevel.EMPTY
         message = ""
+        message_detail = ""
         if is_dst_mutable:
             level = RiskLevel.HIGH
             message = "ANY remote url can be specified as a destination of outbound file transfer" 
+            message_detail += "parameter \"{}\" (src: {})".format(raw_dst, resolved_src)
         elif is_src_mutable:
             level = RiskLevel.MEDIUM
             message = "ANY file can be transfered to remote"
@@ -131,8 +155,10 @@ def make_findings(details: dict):
             message = "a file is transfered to remote"
         
         findings.append({
+            "type": FindingType.OUTBOUND,
             "risk_level": level,
             "message": message,
+            "message_detail": message_detail,
             "file": filepath,
         })
 
@@ -147,19 +173,19 @@ def make_findings(details: dict):
     #     })
 
     
-    dep_details = details.get(_dependency_key, [])
-    if len(dep_details) > 0:
-        unverified_dependencies = dep_details[0].get("unverified_dependencies", [])
-        level = RiskLevel.EMPTY
-        message = ""
-        if len(unverified_dependencies) > 0:
-            level = RiskLevel.HIGH
-            message = "depending on unverified collections: {}".format(unverified_dependencies) 
-        if level != RiskLevel.EMPTY:
-            findings.append({
-                "risk_level": level,
-                "message": message,
-            })
+    # dep_details = details.get(_dependency_key, [])
+    # if len(dep_details) > 0:
+    #     unverified_dependencies = dep_details[0].get("unverified_dependencies", [])
+    #     level = RiskLevel.EMPTY
+    #     message = ""
+    #     if len(unverified_dependencies) > 0:
+    #         level = RiskLevel.HIGH
+    #         message = "depending on unverified collections: {}".format(unverified_dependencies) 
+    #     if level != RiskLevel.EMPTY:
+    #         findings.append({
+    #             "risk_level": level,
+    #             "message": message,
+    #         })
 
     return findings
 
@@ -184,7 +210,12 @@ def inbound_details(details: list):
         is_src_entire_variable = False
         _src_list = []
         if isinstance(raw_src, str): _src_list = [raw_src]
-        if isinstance(raw_src, list): _src_list = raw_src
+        if isinstance(raw_src, list):
+            if "{{ item }}" in raw_src:
+                _src_list = [s for s in raw_src if s != "{{ item }}" and "{{" in s]
+                raw_src = _src_list
+            else:
+                _src_list = raw_src
         for _src in _src_list:
             if is_src_mutable:
                 if _src.startswith("{{") or "://{{" in _src:
@@ -210,6 +241,7 @@ def inbound_details(details: list):
             "is_dst_mutable": is_dst_mutable,
             "executed": executed,
             "filepath": filepath,
+            "task": task,
         })
     return detail_data_list
 
@@ -251,6 +283,7 @@ def outbound_details(details: list):
             "is_dst_domain_mutable": is_dst_domain_mutable,
             "is_dst_entire_variable": is_dst_entire_variable,
             "filepath": filepath,
+            "task": task,
         })
     return detail_data_list
 
@@ -385,6 +418,10 @@ def gen_report(tasks_rv_data: list, verified_collections: list, check_mode: bool
     report = []
     # extractor
     extractor = BuiltinExtractor()
+
+    role_to_playbook_mappings = {
+
+    }
     for single_tree_data in tasks_rv_data:
         if not isinstance(single_tree_data, dict):
             continue
@@ -406,6 +443,16 @@ def gen_report(tasks_rv_data: list, verified_collections: list, check_mode: bool
         tasks = single_tree_data.get("tasks", [])
         inbound_exec_datas = []
         for task in tasks:
+            if tree_root_type == "playbook":
+                parts = task.get("defined_in").split("/")
+                if parts[0] == "roles":
+                    role_name = parts[1]
+                    _mappings = role_to_playbook_mappings.get(role_name, [])
+                    if tree_root_name not in _mappings:
+                        _mappings.append(tree_root_name)
+                    role_to_playbook_mappings[role_name] = _mappings
+                continue
+
             res = extractor.run(task)
             analyzed_data = res.get("analyzed_data", [])
             task["analyzed_data"] = analyzed_data
@@ -424,6 +471,7 @@ def gen_report(tasks_rv_data: list, verified_collections: list, check_mode: bool
             _outbound_transfer_key: [],
             # _mutable_import_key: [],
             _dependency_key: [],
+            _used_in_playbooks_key: [],
         }
         for cat in report_categories:
             if len(ad_tasks[cat]) == 0:
@@ -440,6 +488,7 @@ def gen_report(tasks_rv_data: list, verified_collections: list, check_mode: bool
 
         verified, unverified = check_dependency_by_tasks(tasks, verified_collections)
         details[_dependency_key] = [{"verified_dependencies": verified, "unverified_dependencies": unverified}]
+        details[_used_in_playbooks_key] = role_to_playbook_mappings.get(tree_root_name, [])
         single_report["details"] = details
 
         single_report["summary"] = make_summary(details)

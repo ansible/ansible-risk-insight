@@ -495,6 +495,9 @@ class Task(JSONSerializable, Resolvable):
     executable_type: str = ""
     collections_in_play: list = field(default_factory=list)
 
+    yaml_lines: str = ""
+    line_num_in_file: list = field(default_factory=list) # [begin, end]
+
     resolved_name: str = ""  # FQCN for Module and Role. Or a file path for TaskFile.  resolved later
     possible_candidates: list = field(default_factory=list) # candidates of resovled_name
 
@@ -530,6 +533,8 @@ class Task(JSONSerializable, Resolvable):
                 module_options = v
             else:
                 task_options.update({k: v})
+
+        self.set_yaml_lines(fullpath, task_name, module_name, module_options)
 
         # module_options can be passed as a string like below
         # 
@@ -626,6 +631,89 @@ class Task(JSONSerializable, Resolvable):
         self.loop = loop_info
         self.module = module_name
         self.module_options = module_options
+
+    def set_yaml_lines(self, fullpath="", task_name="", module_name="", module_options=None):
+        if module_name == "":
+            return
+        elif task_name == "" and module_options is None:
+            return
+        found_line_num = -1
+        lines = open(fullpath, "r").read().splitlines()
+        for i, line in enumerate(lines):
+            if task_name in line:
+                found_line_num = i
+                break
+            if "{}:".format(module_name) in line:
+                if isinstance(module_options, str):
+                    if module_options in line:
+                        found_line_num = i
+                        break
+                elif isinstance(module_options, dict):
+                    option_matched = False
+                    for key in module_options:
+                        if "{}:".format(key) in lines[i+1]:
+                            option_matched = True
+                            break
+                    if option_matched:
+                        found_line_num = i
+                        break
+        if found_line_num < 0:
+            return
+        found_line = lines[found_line_num]
+        is_top_of_block = found_line.replace(" ", "").startswith("-")
+        begin_line_num = found_line_num
+        indent_of_block = -1
+        if is_top_of_block:
+            indent_of_block = len(found_line.split("-")[0])
+        else:
+            found = False
+            found_line = ""
+            _indent_of_block = -1
+            parts = found_line.split(" ")
+            for i, p in enumerate(parts):
+                if p != "":
+                    break
+                _indent_of_block = i + 1
+            for i in range(len(lines)):
+                index = begin_line_num
+                _line = lines[index]
+                is_top_of_block = _line.replace(" ", "").startswith("-")
+                if is_top_of_block:
+                    _indent = len(_line.split("-")[0])
+                    if _indent < _indent_of_block:
+                        found = True
+                        found_line = _line
+                        break
+                begin_line_num -= 1
+                if begin_line_num < 0:
+                    break
+            if not found:
+                return
+            indent_of_block = len(found_line.split("-")[0])
+        index = begin_line_num + 1
+        end_found = False
+        end_line_num = -1
+        for i in range(len(lines)):
+            _line = lines[index]
+            is_top_of_block = _line.replace(" ", "").startswith("-")
+            if is_top_of_block:
+                _indent = len(_line.split("-")[0])
+                if _indent <= indent_of_block:
+                    end_found = True
+                    end_line_num = index - 1
+                    break
+            index += 1
+            if index >= len(lines):
+                end_found = True
+                end_line_num = index
+                break
+        if not end_found:
+            return
+        if begin_line_num < 0 or end_line_num > len(lines) or begin_line_num > end_line_num:
+            return
+        self.yaml_lines = "\n".join(lines[begin_line_num:end_line_num+1])
+        self.line_num_in_file = [begin_line_num+1, end_line_num+1]
+        return
 
     def set_key(self, parent_key="", parent_local_key=""):
         index_info = "[{}]".format(self.index)
