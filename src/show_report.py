@@ -1,7 +1,7 @@
 import argparse
 import json
 import yaml
-
+from tabulate import tabulate
 from gen_report import FindingType
 
 category_mappins = {
@@ -132,14 +132,23 @@ def make_display_report(fpath=""):
         count += 1
 
     # dependency
-    output_lines.append("External Dependency")
     output_lines.append("")
+    dep_table = [["TYPE", "NAME", "EXTERNAL DEPENDENCIES"]]
     for single_tree_data in report_data:
         root_type = single_tree_data.get("type", "")
         root_name = single_tree_data.get("name", "")
         unverified_dependencies = single_tree_data.get("details", {}).get("dependency", [])[0].get("unverified_dependencies", [])
-        output_lines.append(json.dumps({"type": root_type, "name": root_name, "external_dependencies": unverified_dependencies}))
-    output_lines.append("-" * 90)
+        if len(unverified_dependencies) == 0:
+            continue
+        single_row = [root_type, root_name, unverified_dependencies]
+        dep_table.append(single_row)
+
+    table_txt = "External Dependency\n"
+    if len(dep_table) > 1:
+        table_txt += tabulate(dep_table)
+    else:
+        table_txt +="    No playbooks/roles have external dependencies"
+    output_lines.extend(table_txt.splitlines())
     return "\n".join(output_lines)
 
 def main():
