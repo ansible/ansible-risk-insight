@@ -38,21 +38,10 @@ def make_detail_output(finding_data):
         output_lines += message_detail
     return output_lines
 
-
-def main():
-    parser = argparse.ArgumentParser(
-        prog='show_report.py',
-        description='Show report.json',
-        epilog='end',
-        add_help=True,
-    )
-
-    parser.add_argument('-i', '--input', default="", help='path to the input json (report.json)')
-
-    args = parser.parse_args()
-
+def make_display_report(fpath=""):
     report_data = []
-    with open(args.input, "r") as file:
+    output_lines = []
+    with open(fpath, "r") as file:
         report_data = json.load(file)
 
     total_playbook_num = len([d for d in report_data if d.get("type", "") == "playbook"])
@@ -60,15 +49,14 @@ def main():
     total_role_num = len([d for d in report_data if d.get("type", "") == "role"])
     risk_role_num = len([d for d in report_data if d.get("type", "") == "role" and d.get("summary", {}).get("risk_found", False)])
     
-    print("playbook:")
-    print("  total: {}".format(total_playbook_num))
-    print("  risk found: {}".format(risk_playbook_num))
-    print("role:")
-    print("  total: {}".format(total_role_num))
-    print("  risk found: {}".format(risk_role_num))
-    print("-" * 90)
+    output_lines.append("playbook:")
+    output_lines.append("  total: {}".format(total_playbook_num))
+    output_lines.append("  risk found: {}".format(risk_playbook_num))
+    output_lines.append("role:")
+    output_lines.append("  total: {}".format(total_role_num))
+    output_lines.append("  risk found: {}".format(risk_role_num))
+    output_lines.append("-" * 90)
 
-    final_report = []
     for single_tree_data in report_data:
         root_type = single_tree_data.get("type", "")
         root_name = single_tree_data.get("name", "")
@@ -96,16 +84,30 @@ def main():
             "called_by": called_by,
             "findings": findings_per_type,
         }
-        print("{} {}".format(single_report["type"].upper(), single_report["name"]))
-        print("called by: {}".format(single_report["called_by"]))
-        print("findings:")
+        output_lines.append("{} {}".format(single_report["type"].upper(), single_report["name"]))
+        output_lines.append("called by: {}".format(single_report["called_by"]))
+        output_lines.append("findings:")
         for f_type, findings in findings_per_type.items():
-            print("  {}".format(f_type))
+            output_lines.append("  {}".format(f_type))
             for finding in findings:
-                print("    {}".format(finding))
-        print("-" * 90)
+                output_lines.append("    {}".format(finding))
+        output_lines.append("-" * 90)
+    return "\n".join(output_lines)
 
-        final_report.append(single_report)
+def main():
+    parser = argparse.ArgumentParser(
+        prog='show_report.py',
+        description='Show report.json',
+        epilog='end',
+        add_help=True,
+    )
+
+    parser.add_argument('-i', '--input', default="", help='path to the input json (report.json)')
+
+    args = parser.parse_args()
+
+    report = make_display_report(args.input)
+    print(report)
 
 if __name__ == "__main__":
     main()
