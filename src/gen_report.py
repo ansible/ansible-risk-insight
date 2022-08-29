@@ -305,7 +305,6 @@ def make_findings(details: dict):
 
     return findings
 
-
 def inbound_details(details: list, inbound_exec_task_pairs: list):
     detail_data_list = []
     for (ad, task) in details:
