@@ -30,6 +30,7 @@ def main():
     parser.add_argument('-i', '--input', default="", help='path to the input file (e.g. \"galaxy_role_sorted_loaded.txt\")')
     parser.add_argument('-p', '--path', default="", help='path to role definitions dir (something like \"~/dev/ansible/var-ari-data/roles\")')
     parser.add_argument('-o', '--output', default="", help='path to the output dir (output file is \"role-<ROLE_NAME>-report.json\")')
+    parser.add_argument('-a', '--all_report', default="", help='path to a file including all reports')
     parser.add_argument('--check', action='store_true', help='show analyzed_data for checking')
 
     args = parser.parse_args()
@@ -44,6 +45,7 @@ def main():
     path_placeholder = "/Users/mue/galaxy/roles"
 
     tasks_rv_path_list = []
+    meta_reports = []
     try:
         with open(args.input, "r") as file:
             for line in file:
@@ -57,6 +59,7 @@ def main():
 
     output_dir = args.output
     do_output = args.output != ""
+    do_all_report = args.all_report != ""
 
     num = len(tasks_rv_path_list)
     for i, tasks_rv_path in enumerate(tasks_rv_path_list):
@@ -99,6 +102,15 @@ def main():
         meta_report["data"] = report
         if do_output:
             save_meta_report(meta_report, make_report_file_path(output_dir, role_name))
+    
+        if do_all_report:
+            meta_report["rank"] = i
+            meta_reports.append(meta_report)
+
+    if do_all_report:
+        with open(args.all_report, "w") as f:
+            for v in meta_reports:
+                f.write(json.dumps(v)+"\n")
 
 if __name__ == "__main__":
     main()
