@@ -1,4 +1,3 @@
-from lib2to3.pgen2.literals import escape
 import os
 import sys
 import copy
@@ -11,9 +10,9 @@ import logging
 from dataclasses import dataclass, field
 from struct5 import LoadType, Load, ObjectList
 from loader import detect_target_type, supported_target_types, get_loader_version, create_load_json_path, get_target_name
-from parser import load_name2target_name, Parser
-from tree import TreeLoader, TreeNode, load_node_objects, load_tree_json
-from variable_resolver import tree_to_task_list, resolve_variables
+from parser import Parser
+from tree import TreeLoader, TreeNode
+from variable_resolver import resolve_variables
 from gen_report import gen_report
 from show_report import make_display_report
 
