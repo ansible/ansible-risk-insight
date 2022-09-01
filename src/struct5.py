@@ -195,8 +195,6 @@ class Load(JSONSerializable):
         if output_path != "":
             with open(output_path, "w") as file:
                 file.write(json_str)
-        else:
-            print(json_str)
 
 def get_repo_root(filepath):
     git_root = ""
@@ -313,7 +311,7 @@ class Module(JSONSerializable, Resolvable):
         self.local_key = local_key
 
     def children_to_key(self):
-        pass
+        return self
 
     @property
     def resolver_targets(self):
@@ -465,6 +463,7 @@ class Collection(JSONSerializable, Resolvable):
 
         taskfile_keys = [tf.key if isinstance(tf, TaskFile) else tf for tf in self.taskfiles]
         self.taskfiles = sorted(taskfile_keys)
+        return self
 
     @property
     def resolver_targets(self):
@@ -740,7 +739,7 @@ class Task(JSONSerializable, Resolvable):
         return ""
 
     def children_to_key(self):
-        pass
+        return self
 
     @property
     def id(self):
@@ -819,6 +818,7 @@ class TaskFile(JSONSerializable, Resolvable):
     def children_to_key(self):
         task_keys = [t.key if isinstance(t, Task) else t for t in self.tasks]
         self.tasks = task_keys
+        return self
 
     @property
     def resolver_targets(self):
@@ -1084,6 +1084,7 @@ class Role(JSONSerializable, Resolvable):
 
         taskfile_keys = [tf.key if isinstance(tf, TaskFile) else tf for tf in self.taskfiles]
         self.taskfiles = sorted(taskfile_keys)
+        return self
 
     @property
     def resolver_targets(self):
@@ -1251,7 +1252,7 @@ class Play(JSONSerializable, Resolvable):
                     try:
                         rip.load(name=r_name, options=role_options, defined_in=path, role_index=i, play_index=index, role_name=role_name, collection_name=collection_name, collections_in_play=collections_in_play, basedir=basedir)
                     except:
-                        logging.exception("error while loading the role in playbook at {} (play_index={}, role_index={})".format(path, i, j))
+                        logging.exception("error while loading the role in playbook at {} (play_index={}, role_index={})".format(path, self.index, i))
                     roles.append(rip)
             elif k == "import_playbook":
                 if not isinstance(v, str):
@@ -1296,6 +1297,7 @@ class Play(JSONSerializable, Resolvable):
 
         post_task_keys = [t.key if isinstance(t, Task) else t for t in self.post_tasks]
         self.post_tasks = post_task_keys
+        return self
 
     @property
     def id(self):
@@ -1380,6 +1382,7 @@ class Playbook(JSONSerializable, Resolvable):
     def children_to_key(self):
         play_keys = [play.key if isinstance(play, Play) else play for play in self.plays]
         self.plays = play_keys
+        return self
 
     @property
     def resolver_targets(self):
@@ -1798,6 +1801,7 @@ class Repository(JSONSerializable, Resolvable):
 
         role_keys = [r.key if isinstance(r, Role) else r for r in self.roles]
         self.roles = sorted(role_keys)
+        return self
 
     @property
     def resolver_targets(self):

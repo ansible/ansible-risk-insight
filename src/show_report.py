@@ -70,7 +70,6 @@ def indent(multi_line_txt, level=0):
     ]
     return "\n".join(lines)
 
-
 def make_display_report(fpath="", detail_report=None):
     report_data = []
     output_lines = []
