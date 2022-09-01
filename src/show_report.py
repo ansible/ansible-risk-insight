@@ -45,15 +45,18 @@ def indent(multi_line_txt, level=0):
     lines = [" "*level + l for l in lines if l.replace(" ", "") != ""]
     return "\n".join(lines)
 
-def make_display_report(fpath=""):
+def make_display_report(fpath="", detail_report=None):
     report_data = []
     output_lines = []
     output_lines.append("-" * 90)
     output_lines.append("Ansible Risk Insight Report")
     output_lines.append("-" * 90)
 
-    with open(fpath, "r") as file:
-        report_data = json.load(file)
+    if fpath != "":
+        with open(fpath, "r") as file:
+            report_data = json.load(file)
+    elif detail_report is not None:
+        report_data = detail_report
 
     total_playbook_num = len([d for d in report_data if d.get("type", "") == "playbook"])
     # risk_playbook_num = len([d for d in report_data if d.get("type", "") == "playbook" and d.get("summary", {}).get("risk_found", False)])

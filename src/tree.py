@@ -170,39 +170,35 @@ def load_graph(graph_path):
             graph[src] = children
     return graph
 
-def load_single_definition(fpath):
-        obj_list = ObjectList()
-        if os.path.exists(fpath):
-            obj_list.from_json(fpath=fpath)
-        return obj_list
+def load_single_definition(defs: dict, key: str):
+    obj_list = ObjectList()
+    items = defs.get(key, [])
+    for item in items:
+        obj_list.add(item)
+    return obj_list
 
-def load_definitions(dir):
-    roles = load_single_definition(os.path.join(dir, "roles.json"))
-    taskfiles = load_single_definition(os.path.join(dir, "taskfiles.json"))
-    modules = load_single_definition(os.path.join(dir, "modules.json"))
-    playbooks = load_single_definition(os.path.join(dir, "playbooks.json"))
-    plays = load_single_definition(os.path.join(dir, "plays.json"))
-    tasks = load_single_definition(os.path.join(dir, "tasks.json"))
-    return roles, taskfiles, modules, playbooks, plays, tasks
+def load_definitions(defs: dict, types: list):
+    def_list = []
+    for type_key in types:
+        objs_per_type = load_single_definition(defs, type_key)
+        def_list.append(objs_per_type)
+    return def_list
 
-def load_all_definitions(base_dir, dependencies=[]):
-    mapping_files = []
-    if len(dependencies) == 0:
-        mapping_files = safe_glob(patterns=os.path.join(base_dir, "**", "mappings.json"), recursive=True)
+def load_all_definitions(definitions: dict, dependencies: list=[]):
+    _definitions = {}
+    if "mappings" in definitions:
+        _definitions = {"root": definitions}
     else:
-        mapping_files = [os.path.join(d, "mappings.json") for d in dependencies]
+        _definitions = definitions
     loaded = {}
     types = ["roles", "taskfiles", "modules", "playbooks", "plays", "tasks"]
-    for mapping_file_path in mapping_files:
-        path = os.path.dirname(mapping_file_path)
-        if os.path.isfile(path):
-            continue
-        def_tuple = load_definitions(path)
+    for _, definitions_per_artifact in _definitions.items():
+        def_list = load_definitions(definitions_per_artifact.get("definitions", {}), types)
         for i, type_key in enumerate(types):
             if type_key not in loaded:
-                loaded[type_key] = def_tuple[i]
+                loaded[type_key] = def_list[i]
             else:
-                loaded[type_key].merge(def_tuple[i])
+                loaded[type_key].merge(def_list[i])
     return loaded
 
 def load_mappings(fpath):
@@ -350,7 +346,32 @@ def resolve_playbook(playbook_ref, playbook_dict={}, play_key=""):
     return ""
 
 class TreeLoader(object):
-    def __init__(self, root, ext, index, tree, node):
+    def __init__(self, root_definitions, ext_definitions, index):
+
+        self.load_and_mapping = root_definitions.get("mappings", None)
+        self.playbook_mappings = self.load_and_mapping.playbooks
+        self.role_mappings = self.load_and_mapping.roles
+
+        dependencies = []
+        # TODO: dependency check, especially for collection dependencies for role
+
+        self.org_root_definitions = root_definitions
+        self.org_ext_definitions = ext_definitions
+
+        self.root_definitions = load_all_definitions(root_definitions)
+        self.ext_definitions = load_all_definitions(ext_definitions, dependencies)
+        self.add_builtin_modules()
+
+        self.dicts = make_dicts(self.root_definitions, self.ext_definitions)
+
+        self.tree_file = ""
+        self.node_file = ""
+
+        self.trees = []
+        self.node_objects = ObjectList()
+        return
+
+    def __init__backup(self, root, ext, index, tree, node):
 
         self.root_dir = root
         self.ext_dir = ext
@@ -403,9 +424,9 @@ class TreeLoader(object):
     def run(self):
         objects = ObjectList()
         if self.load_and_mapping.target_type == LoadType.PROJECT_TYPE:
-            projects = ObjectList()
-            projects.from_json(fpath=os.path.join(self.root_dir, "projects.json"))
-            objects.merge(projects)
+            p_defs = self.org_root_definitions.get("definitions", {}).get("projects", [])
+            if len(p_defs) > 0:
+                objects.add(p_defs[0])
             logging.info("  project loaded")
         logging.info("  start building playbook trees")
         for mapping in self.playbook_mappings:
@@ -435,6 +456,7 @@ class TreeLoader(object):
         if self.node_file != "":
             self.node_objects.dump(fpath=self.node_file)
             logging.info("  node file saved")
+        return self.trees, self.node_objects
 
     def _recursive_make_graph(self, key, graph, _objects):
         current_graph = [g for g in graph]

@@ -9,9 +9,14 @@ from struct5 import Module, Task, TaskFile, Role, Playbook, Play, Collection, Re
 
 
 class Parser():
-    def run(self, load_json_path="", output_dir=""):
+    def __init__(self, do_save=False):
+        self.do_save = do_save
+
+    def run(self, load_data=None, load_json_path="", output_dir=""):
         l = Load()
-        if load_json_path != "":
+        if load_data is not None:
+            l = load_data
+        elif load_json_path != "":
             if not os.path.exists(load_json_path):
                 raise ValueError("file not found: {}".format(load_json_path))
             l.from_json(open(load_json_path, "r").read())
@@ -123,7 +128,7 @@ class Parser():
         
         if output_dir == "":
             output_dir = os.path.dirname(load_json_path)
-        if not os.path.exists(output_dir):
+        if self.do_save and not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
 
         collections = []
@@ -142,37 +147,65 @@ class Parser():
             projects = [obj]
 
         if len(collections) > 0:
-            dump_object_list(collections, os.path.join(output_dir, "collections.json"))
+            collections = [c.children_to_key() for c in collections]
+            if self.do_save:
+                dump_object_list(collections, os.path.join(output_dir, "collections.json"))
         if len(projects) > 0:
-            dump_object_list(projects, os.path.join(output_dir, "projects.json"))
+            projects = [p.children_to_key() for p in projects]
+            if self.do_save:
+                dump_object_list(projects, os.path.join(output_dir, "projects.json"))
         if len(roles) > 0:
-            dump_object_list(roles, os.path.join(output_dir, "roles.json"))
+            roles = [r.children_to_key() for r in roles]
+            if self.do_save:
+                dump_object_list(roles, os.path.join(output_dir, "roles.json"))
         if len(taskfiles) > 0:
-            dump_object_list(taskfiles, os.path.join(output_dir, "taskfiles.json"))
+            taskfiles = [tf.children_to_key() for tf in taskfiles]
+            if self.do_save:
+                dump_object_list(taskfiles, os.path.join(output_dir, "taskfiles.json"))
         if len(modules) > 0:
-            dump_object_list(modules, os.path.join(output_dir, "modules.json"))
+            modules = [m.children_to_key() for m in modules]
+            if self.do_save:
+                dump_object_list(modules, os.path.join(output_dir, "modules.json"))
         if len(playbooks) > 0:
-            dump_object_list(playbooks, os.path.join(output_dir, "playbooks.json"))
+            playbooks = [p.children_to_key() for p in playbooks]
+            if self.do_save:
+                dump_object_list(playbooks, os.path.join(output_dir, "playbooks.json"))
         if len(plays) > 0:
-            dump_object_list(plays, os.path.join(output_dir, "plays.json"))
+            plays = [p.children_to_key() for p in plays]
+            if self.do_save:
+                dump_object_list(plays, os.path.join(output_dir, "plays.json"))
         if len(tasks) > 0:
-            dump_object_list(tasks, os.path.join(output_dir, "tasks.json"))
+            tasks = [t.children_to_key() for t in tasks]
+            if self.do_save:
+                dump_object_list(tasks, os.path.join(output_dir, "tasks.json"))
 
         # save mappings
         l.roles = mappings["roles"]
         l.taskfiles = mappings["taskfiles"]
         l.playbooks = mappings["playbooks"]
         l.modules = mappings["modules"]
-        mapping_path = os.path.join(output_dir, "mappings.json")
-        open(mapping_path, "w").write(l.dump())
 
-        return
+        if self.do_save:
+            mapping_path = os.path.join(output_dir, "mappings.json")
+            open(mapping_path, "w").write(l.dump())
+
+        definitions = {
+            "collections": collections,
+            "projects": projects,
+            "roles": roles,
+            "taskfiles": taskfiles,
+            "modules": modules,
+            "playbooks": playbooks,
+            "plays": plays,
+            "tasks": tasks,
+        }
+        load_and_mappings = l
+        return definitions, load_and_mappings
         
 def dump_object_list(obj_list, output_path):
     tmp_obj_list = copy.deepcopy(obj_list)
     lines = []
     for i in range(len(tmp_obj_list)):
-        tmp_obj_list[i].children_to_key()
         lines.append(tmp_obj_list[i].dump())
     open(output_path, "w").write("\n".join(lines))
     return
