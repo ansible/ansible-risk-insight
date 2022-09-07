@@ -32,7 +32,8 @@ class BuiltinExtractor():
             self.analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.fetch":
-            res = {"category": "inbound_transfer" , "data": {},  "resolved_data": []}
+            # res = {"category": "inbound_transfer" , "data": {},  "resolved_data": []}
+            res = {"category": "" , "data": {},  "resolved_data": []}
             res["data"] = self.fetch(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.fetch(ro))
@@ -102,7 +103,8 @@ class BuiltinExtractor():
             self.analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.copy":
-            res = {"category": "outbound_transfer" , "data": {},  "resolved_data": []}
+            # res = {"category": "outbound_transfer" , "data": {},  "resolved_data": []}
+            res = {"category": "" , "data": {},  "resolved_data": []}
             res["data"] = self.copy(options, resolved_variables)
             for ro in resolved_options:
                 res["resolved_data"].append(self.copy(ro, resolved_variables))
@@ -186,9 +188,10 @@ class BuiltinExtractor():
 
         if resolved_name == "ansible.builtin.git":
             res = {"category": "inbound_transfer" , "data": {},  "resolved_data": []}
-            res["data"] = self.git(options, resolved_variables)
+            res["data"], res["category"] = self.git(options, resolved_variables)
             for ro in resolved_options:
-                res["resolved_data"].append(self.git(ro, resolved_variables))
+                rd, c = self.git(ro, resolved_variables)
+                res["resolved_data"].append(rd)
             self.analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.group":
@@ -339,7 +342,7 @@ class BuiltinExtractor():
             self.analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.setup":
-            res = {"category": "inbound_transfer" , "data": {},  "resolved_data": []}
+            res = {"category": "" , "data": {},  "resolved_data": []}
             res["data"] = self.setup(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.setup(ro))
@@ -447,7 +450,7 @@ class BuiltinExtractor():
             self.analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.yum_repository":
-            res = {"category": "inbound_transfer" , "data": {},  "resolved_data": []}
+            res = {"category": "" , "data": {},  "resolved_data": []}
             res["data"] = self.yum_repository(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.yum_repository(ro))
@@ -604,8 +607,9 @@ class BuiltinExtractor():
                     data["undetermined_src"] = True   
         return data
     
-    def git(self,options, resolved_variables):
+    def git(self, options, resolved_variables):
         data = {}
+        category = "inbound_transfer"
         if type(options) is not dict:
             return data
         if "repo" in options:
@@ -614,6 +618,12 @@ class BuiltinExtractor():
             data["dest"] = options["dest"]
         if "version" in options:
             data["version"] = options["version"]
+        if "clone" in options and ( not options["clone"] or options["clone"] == "no"):
+            category = ""
+            return data, category
+        if "update" in options and ( not options["update"] or options["update"] == "no"):
+            category = ""
+            return data, category
         # injection risk
         for rv in resolved_variables:
             if "src" in data and type(data["src"]) is str:
@@ -624,7 +634,7 @@ class BuiltinExtractor():
                 data, undetermined = self.resolved_variable_check(data, data["dest"], rv)
                 if undetermined:
                     data["undetermined_dest"] = True   
-        return data
+        return data,category
     
     def iptables(self,options):
         data = {}
@@ -861,25 +871,20 @@ class BuiltinExtractor():
         return data
 
     def uri(self,options, resolved_variables):
-        category = "inbound_transfer"
+        category = ""
         data = {}
         if type(options) is not dict:
             return data, category
-        if "method" in options and ( options["method"] == "POST" or options["method"] == "DELETE"):
+        if "method" in options and (options["method"] == "POST" or options["method"] == "PUT" or options["method" == "PATCH"]):
             category = "outbound_transfer"
             if "url" in options:
                 data["dest"] =  options["url"]
             for rv in resolved_variables:
                 if "dest" in data and type(data["dest"]) is str:
-                    if rv["key"] in data["dest"] and "{{" in data["dest"]:
-                        data["undetermined_dest"] = True
-                        if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                            data["injection_risk"] = True
-                            if "injection_risk_variables" in data:
-                                data["injection_risk_variables"].append(rv["key"])
-                            else:
-                                data["injection_risk_variables"] = [rv["key"]]  
-        else:
+                    data, undetermined = self.resolved_variable_check(data, data["dest"], rv)
+                    if undetermined:
+                        data["undetermined_dest"] = True   
+        elif "method" in options and options["method"] == "GET":
             if "url" in options:
                 data["src"] =  options["url"]
             if "dest" in options:
@@ -892,22 +897,14 @@ class BuiltinExtractor():
             for rv in resolved_variables:
                 if "src" in data and type(data["src"]) is str:
                     if rv["key"] in data["src"] and "{{" in data["src"]:
-                        data["undetermined_src"] = True
-                        if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                            data["injection_risk"] = True
-                            if "injection_risk_variables" in data:
-                                data["injection_risk_variables"].append(rv["key"])
-                            else:
-                                data["injection_risk_variables"] = [rv["key"]]
+                        data, undetermined = self.resolved_variable_check(data, data["src"], rv)
+                        if undetermined:
+                            data["undetermined_src"] = True   
                 if "dest" in data and type(data["dest"]) is str:
                     if rv["key"] in data["dest"] and "{{" in data["dest"]:
-                        data["undetermined_dest"] = True
-                        if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                            data["injection_risk"] = True
-                            if "injection_risk_variables" in data:
-                                data["injection_risk_variables"].append(rv["key"])
-                            else:
-                                data["injection_risk_variables"] = [rv["key"]]
+                        data, undetermined = self.resolved_variable_check(data, data["dest"], rv)
+                        if undetermined:
+                            data["undetermined_dest"] = True 
         return data, category
     
     def validate_argument_spec(self,options):
@@ -953,17 +950,17 @@ class BuiltinExtractor():
             dests = []
             dests.append(options["dest"])
             dests.extend(self.check_nest_variable(options["dest"], resolved_variables))
-            for ro in resolved_options:
-                if "dest" in ro and ro["dest"] not in dests:
-                    dests.append(ro["dest"])
+            # for ro in resolved_options:
+            #     if "dest" in ro and ro["dest"] not in dests:
+            #         dests.append(ro["dest"])
             data["dest"] = dests 
         if "src" in options:
             src = []
             src.append(options["src"])
             src.extend(self.check_nest_variable(options["src"], resolved_variables))
-            for ro in resolved_options:
-                if "src" in ro and ro["src"] not in src:
-                    src.append(ro["src"])
+            # for ro in resolved_options:
+            #     if "src" in ro and ro["src"] not in src:
+            #         src.append(ro["src"])
             data["src"] = src 
         if "remote_src" in options:  # if yes, don't copy
             data["remote_src"] = options["remote_src"]
@@ -1083,14 +1080,9 @@ class BuiltinExtractor():
             return data
         for rv in resolved_variables:
             if "file" in data and type(data["file"]) is str:
-                if rv["key"] in data["file"] and "{{" in data["file"]:
-                    data["undetermined_file"] = True
-                    if rv["type"] == "role_defaults" or rv["type"] == "role_vars" or rv["type"] == "special_vars":
-                        data["injection_risk"] = True
-                        if "injection_risk_variables" in data:
-                            data["injection_risk_variables"].append(rv["key"])
-                        else:
-                            data["injection_risk_variables"] = [rv["key"]]  
+                data, undetermined = self.resolved_variable_check(data, data["file"], rv)
+                if undetermined:
+                    data["undetermined_file"] = True   
         return data
 
     def find(self,options):
@@ -1190,7 +1182,8 @@ class BuiltinExtractor():
                     key = "{{ " + rv["key"] + " }}"
                     if type(v) is dict:
                         v = json.dumps(v)
-                    variables.append(value.replace(key, v))
+                    if "{{" in v:
+                        variables.append(value.replace(key, v))
         return variables
 
     def resolved_variable_check(self, data, value, rv):
