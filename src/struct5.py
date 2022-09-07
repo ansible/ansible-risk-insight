@@ -1898,7 +1898,7 @@ def get_object(json_path, type, name, cache={}):
 
 # inherit Repository for convenience, but this is not a Repository but one or multiple Role / Collection
 @dataclass
-class GalacyArtifact(Repository):
+class GalaxyArtifact(Repository):
     type: str = "" # Role or Collection
     
     module_dict: dict = field(default_factory=dict) # make it easier to search a module
