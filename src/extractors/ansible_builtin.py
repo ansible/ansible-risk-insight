@@ -16,6 +16,7 @@ class AnsibleBuiltinExtractor(Extractor):
         resolved_name = task.get("resolved_name", "")
         options = task.get("module_options", {})
         resolved_options = task.get("resolved_module_options", {})
+        mutable_vars_per_mo = task.get("mutable_vars_per_mo", {})
         resolved_variables = task.get("resolved_variables", [])
 
         analyzed_data = []
@@ -26,10 +27,10 @@ class AnsibleBuiltinExtractor(Extractor):
                 "data": {},
                 "resolved_data": [],
             }
-            res["data"] = self.get_url(options, resolved_variables)
+            res["data"] = self.get_url(options, mutable_vars_per_mo)
             for ro in resolved_options:
                 res["resolved_data"].append(
-                    self.get_url(ro, resolved_variables)
+                    self.get_url(ro, mutable_vars_per_mo)
                 )
             analyzed_data.append(res)
 
@@ -213,10 +214,10 @@ class AnsibleBuiltinExtractor(Extractor):
                 "resolved_data": [],
             }
             res["data"], res["category"] = self.git(
-                options, resolved_variables
+                options, mutable_vars_per_mo
             )
             for ro in resolved_options:
-                rd, c = self.git(ro, resolved_variables)
+                rd, c = self.git(ro, mutable_vars_per_mo)
                 res["resolved_data"].append(rd)
             analyzed_data.append(res)
 
@@ -464,11 +465,11 @@ class AnsibleBuiltinExtractor(Extractor):
         if resolved_name == "ansible.builtin.unarchive":
             res = {"category": "", "data": {}, "resolved_data": []}
             res["data"], res["category"] = self.unarchive(
-                options, resolved_variables, resolved_options
+                options, resolved_options, mutable_vars_per_mo
             )
             for ro in resolved_options:
                 rores, _ = self.unarchive(
-                    ro, resolved_variables, resolved_options
+                    ro, resolved_options, mutable_vars_per_mo
                 )
                 res["resolved_data"].append(rores)
             analyzed_data.append(res)
@@ -480,10 +481,10 @@ class AnsibleBuiltinExtractor(Extractor):
                 "resolved_data": [],
             }
             res["data"], res["category"] = self.uri(
-                options, resolved_variables
+                options, mutable_vars_per_mo
             )
             for ro in resolved_options:
-                rd, c = self.uri(ro, resolved_variables)
+                rd, c = self.uri(ro, mutable_vars_per_mo)
                 res["resolved_data"].append(rd)
             analyzed_data.append(res)
 
@@ -560,15 +561,20 @@ class AnsibleBuiltinExtractor(Extractor):
         res = {"category": "privilege_escalation", "data": {"root": is_root}}
         return res
 
-    def get_url(self, options, resolved_variables):
+    def get_url(self, options, mutable_vars_per_mo):
         data = {}
+        mutable_vars_per_type = {}
         # original options
         if type(options) is not dict:
             return data
         if "url" in options:
             data["src"] = options["url"]
+            mutable_vars_per_type["src"] = mutable_vars_per_mo.get("url", [])
         if "dest" in options:
             data["dest"] = options["dest"]
+            mutable_vars_per_type["dest"] = mutable_vars_per_mo.get(
+                "dest", []
+            )
         if "mode" in options:
             # todo: check if octal number
             data["mode"] = options["mode"]
@@ -581,19 +587,21 @@ class AnsibleBuiltinExtractor(Extractor):
             ):
                 data["validate_certs"] = False
         # injection risk
-        for rv in resolved_variables:
-            if "src" in data and type(data["src"]) is str:
-                data, undetermined = self.resolved_variable_check(
-                    data, data["src"], rv
+        if "src" in data and type(data["src"]) is str:
+            mutable_vars = mutable_vars_per_type.get("src", [])
+            if len(mutable_vars) > 0:
+                data = self.embed_mutable_vars(
+                    data, mutable_vars, "undetermined_src", "mutable_src_vars"
                 )
-                if undetermined:
-                    data["undetermined_src"] = True
-            if "dest" in data and type(data["dest"]) is str:
-                data, undetermined = self.resolved_variable_check(
-                    data, data["dest"], rv
+        if "dest" in data and type(data["dest"]) is str:
+            mutable_vars = mutable_vars_per_type.get("dest", [])
+            if len(mutable_vars) > 0:
+                data = self.embed_mutable_vars(
+                    data,
+                    mutable_vars,
+                    "undetermined_dest",
+                    "mutable_dest_vars",
                 )
-                if undetermined:
-                    data["undetermined_dest"] = True
         # unsecure src/dest
 
         return data
@@ -700,15 +708,20 @@ class AnsibleBuiltinExtractor(Extractor):
                     data["undetermined_src"] = True
         return data
 
-    def git(self, options, resolved_variables):
+    def git(self, options, mutable_vars_per_mo):
         data = {}
         category = "inbound_transfer"
+        mutable_vars_per_type = {}
         if type(options) is not dict:
             return data
         if "repo" in options:
             data["src"] = options["repo"]
+            mutable_vars_per_type["src"] = mutable_vars_per_mo.get("repo", [])
         if "dest" in options:
             data["dest"] = options["dest"]
+            mutable_vars_per_type["dest"] = mutable_vars_per_mo.get(
+                "dest", []
+            )
         if "version" in options:
             data["version"] = options["version"]
         if "clone" in options and (
@@ -722,19 +735,21 @@ class AnsibleBuiltinExtractor(Extractor):
             category = ""
             return data, category
         # injection risk
-        for rv in resolved_variables:
-            if "src" in data and type(data["src"]) is str:
-                data, undetermined = self.resolved_variable_check(
-                    data, data["src"], rv
+        if "src" in data and type(data["src"]) is str:
+            mutable_vars = mutable_vars_per_type.get("src", [])
+            if len(mutable_vars) > 0:
+                data = self.embed_mutable_vars(
+                    data, mutable_vars, "undetermined_src", "mutable_src_vars"
                 )
-                if undetermined:
-                    data["undetermined_src"] = True
-            if "dest" in data and type(data["dest"]) is str:
-                data, undetermined = self.resolved_variable_check(
-                    data, data["dest"], rv
+        if "dest" in data and type(data["dest"]) is str:
+            mutable_vars = mutable_vars_per_type.get("dest", [])
+            if len(mutable_vars) > 0:
+                data = self.embed_mutable_vars(
+                    data,
+                    mutable_vars,
+                    "undetermined_dest",
+                    "mutable_dest_vars",
                 )
-                if undetermined:
-                    data["undetermined_dest"] = True
         return data, category
 
     def iptables(self, options):
@@ -975,9 +990,10 @@ class AnsibleBuiltinExtractor(Extractor):
             data["unsafe_writes"] = True
         return data
 
-    def uri(self, options, resolved_variables):
+    def uri(self, options, mutable_vars_per_mo):
         category = ""
         data = {}
+        mutable_vars_per_type = {}
         if type(options) is not dict:
             return data, category
         if "method" in options and (
@@ -988,38 +1004,52 @@ class AnsibleBuiltinExtractor(Extractor):
             category = "outbound_transfer"
             if "url" in options:
                 data["dest"] = options["url"]
-            for rv in resolved_variables:
-                if "dest" in data and type(data["dest"]) is str:
-                    data, undetermined = self.resolved_variable_check(
-                        data, data["dest"], rv
+                mutable_vars_per_type["dest"] = mutable_vars_per_mo.get(
+                    "url", []
+                )
+            if "dest" in data and type(data["dest"]) is str:
+                mutable_vars = mutable_vars_per_type.get("dest", [])
+                if len(mutable_vars) > 0:
+                    data = self.embed_mutable_vars(
+                        data,
+                        mutable_vars,
+                        "undetermined_dest",
+                        "mutable_dest_vars",
                     )
-                    if undetermined:
-                        data["undetermined_dest"] = True
         elif "method" in options and options["method"] == "GET":
             if "url" in options:
                 data["src"] = options["url"]
+                mutable_vars_per_type["src"] = mutable_vars_per_mo.get(
+                    "url", []
+                )
             if "dest" in options:
                 data["dest"] = options["dest"]
+                mutable_vars_per_type["dest"] = mutable_vars_per_mo.get(
+                    "dest", []
+                )
             if "validate_certs" in options:
                 data["validate_certs"] = options["validate_certs"]
             if "unsafe_writes" in options:
                 data["unsafe_writes"] = options["unsafe_writes"]
             # injection risk
-            for rv in resolved_variables:
-                if "src" in data and type(data["src"]) is str:
-                    if rv["key"] in data["src"] and "{{" in data["src"]:
-                        data, undetermined = self.resolved_variable_check(
-                            data, data["src"], rv
-                        )
-                        if undetermined:
-                            data["undetermined_src"] = True
-                if "dest" in data and type(data["dest"]) is str:
-                    if rv["key"] in data["dest"] and "{{" in data["dest"]:
-                        data, undetermined = self.resolved_variable_check(
-                            data, data["dest"], rv
-                        )
-                        if undetermined:
-                            data["undetermined_dest"] = True
+            if "src" in data and type(data["src"]) is str:
+                mutable_vars = mutable_vars_per_type.get("src", [])
+                if len(mutable_vars) > 0:
+                    data = self.embed_mutable_vars(
+                        data,
+                        mutable_vars,
+                        "undetermined_src",
+                        "mutable_src_vars",
+                    )
+            if "dest" in data and type(data["dest"]) is str:
+                mutable_vars = mutable_vars_per_type.get("dest", [])
+                if len(mutable_vars) > 0:
+                    data = self.embed_mutable_vars(
+                        data,
+                        mutable_vars,
+                        "undetermined_dest",
+                        "mutable_dest_vars",
+                    )
         return data, category
 
     def validate_argument_spec(self, options):
@@ -1056,31 +1086,20 @@ class AnsibleBuiltinExtractor(Extractor):
         data = {}
         return data
 
-    def unarchive(self, options, resolved_variables, resolved_options):
+    def unarchive(self, options, resolved_options, mutable_vars_per_mo):
         category = ""
         data = {}
+        mutable_vars_per_type = {}
         if type(options) is not dict:
             return data, category
         if "dest" in options:
-            dests = []
-            dests.append(options["dest"])
-            dests.extend(
-                self.check_nest_variable(options["dest"], resolved_variables)
+            data["dest"] = options["dest"]
+            mutable_vars_per_type["dest"] = mutable_vars_per_mo.get(
+                "dest", []
             )
-            # for ro in resolved_options:
-            #     if "dest" in ro and ro["dest"] not in dests:
-            #         dests.append(ro["dest"])
-            data["dest"] = dests
         if "src" in options:
-            src = []
-            src.append(options["src"])
-            src.extend(
-                self.check_nest_variable(options["src"], resolved_variables)
-            )
-            # for ro in resolved_options:
-            #     if "src" in ro and ro["src"] not in src:
-            #         src.append(ro["src"])
-            data["src"] = src
+            data["src"] = options["src"]
+            mutable_vars_per_type["src"] = mutable_vars_per_mo.get("src", [])
         if "remote_src" in options:  # if yes, don't copy
             data["remote_src"] = options["remote_src"]
         if "unsafe_writes" in options:
@@ -1111,33 +1130,21 @@ class AnsibleBuiltinExtractor(Extractor):
                 ):
                     category = "inbound_transfer"
 
-        for rv in resolved_variables:
-            if "dest" in data and type(data["dest"]) is str:
-                data, undetermined = self.resolved_variable_check(
-                    data, data["dest"], rv
+        if "src" in data and type(data["src"]) is str:
+            mutable_vars = mutable_vars_per_type.get("src", [])
+            if len(mutable_vars) > 0:
+                data = self.embed_mutable_vars(
+                    data, mutable_vars, "undetermined_src", "mutable_src_vars"
                 )
-                if undetermined:
-                    data["undetermined_dest"] = undetermined
-            elif "dest" in data and type(data["dest"]) is list:
-                for d in data["dest"]:
-                    data, undetermined = self.resolved_variable_check(
-                        data, d, rv
-                    )
-                    if undetermined:
-                        data["undetermined_dest"] = undetermined
-            if "src" in data and type(data["src"]) is str:
-                data, undetermined = self.resolved_variable_check(
-                    data, data["src"], rv
+        if "dest" in data and type(data["dest"]) is str:
+            mutable_vars = mutable_vars_per_type.get("dest", [])
+            if len(mutable_vars) > 0:
+                data = self.embed_mutable_vars(
+                    data,
+                    mutable_vars,
+                    "undetermined_dest",
+                    "mutable_dest_vars",
                 )
-                if undetermined:
-                    data["undetermined_src"] = undetermined
-            elif "src" in data and type(data["src"]) is list:
-                for d in data["src"]:
-                    data, undetermined = self.resolved_variable_check(
-                        data, d, rv
-                    )
-                    if undetermined:
-                        data["undetermined_src"] = undetermined
         return data, category
 
     def cron(self, options):
@@ -1344,3 +1351,19 @@ class AnsibleBuiltinExtractor(Extractor):
                 else:
                     data["injection_risk_variables"] = [rv["key"]]
         return data, undetermined
+
+    def embed_mutable_vars(self, data, mutable_vars, key="", vars_key=""):
+        if len(mutable_vars) == 0:
+            return data
+        data["injection_risk"] = True
+        injection_risk_vars = [mv for mv in mutable_vars if mv != ""]
+        if "injection_risk_variables" not in data:
+            data["injection_risk_variables"] = []
+        data["injection_risk_variables"].extend(injection_risk_vars)
+        if key != "":
+            data[key] = True
+        if vars_key != "":
+            if vars_key not in data:
+                data[vars_key] = []
+            data[vars_key].extend(injection_risk_vars)
+        return data

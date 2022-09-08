@@ -15,7 +15,6 @@ class OutboundTransferRule(Rule):
             for single_ad in analyzed_data:
                 if single_ad.get("category", "") == "outbound_transfer":
                     raw_src = single_ad.get("data", {}).get("src", "")
-                    raw_dst = single_ad.get("data", {}).get("dest", "")
                     resolved_dst = [
                         resolved.get("dest", "")
                         for resolved in single_ad.get("resolved_data", [])
@@ -28,10 +27,20 @@ class OutboundTransferRule(Rule):
                     is_mutable_dst = single_ad.get("data", {}).get(
                         "undetermined_dest", False
                     )
+                    mutable_dst_vars = single_ad.get("data", {}).get(
+                        "mutable_dest_vars", []
+                    )
+                    mutable_dst_vars = [
+                        "{{ " + mv + " }}" for mv in mutable_dst_vars
+                    ]
+                    if len(mutable_dst_vars) == 0:
+                        mutable_dst_vars = ""
+                    if len(mutable_dst_vars) == 1:
+                        mutable_dst_vars = mutable_dst_vars[0]
                     if is_mutable_dst:
                         matched_tasks.append(task)
                         message += "- From: {}\n".format(raw_src)
-                        message += "  To: {}\n".format(raw_dst)
+                        message += "  To: {}\n".format(mutable_dst_vars)
                         # message += "      (default value: {})\n".format(
                         #     resolved_dst
                         # )

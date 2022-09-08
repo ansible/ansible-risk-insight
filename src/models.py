@@ -287,6 +287,7 @@ class Task(JSONSerializable, Resolvable):
     possible_candidates: list = field(default_factory=list)
 
     resolved_variables: list = field(default_factory=list)
+    mutable_vars_per_mo: dict = field(default_factory=dict)
     resolved_module_options: dict = field(default_factory=dict)
 
     annotations: dict = field(default_factory=dict)

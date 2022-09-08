@@ -550,7 +550,7 @@ def load_playbook(path, role_name="", collection_name="", basedir=""):
                     .format(e.args[0])
                 )
     if data is None:
-        return
+        return pbObj
     if not isinstance(data, list):
         raise PlaybookFormatError(
             "playbook must be loaded as a list, but got {}".format(
@@ -781,7 +781,7 @@ def load_role(
 
     if not os.path.exists(tasks_dir_path):
         # a role possibly has no tasks
-        return
+        return roleObj
 
     modules = []
     module_files = search_module_files(fullpath, module_dir_paths)
@@ -1181,7 +1181,7 @@ def load_taskfile(path, role_name="", collection_name="", basedir=""):
 
     task_dicts = get_task_blocks(fpath=fullpath)
     if task_dicts is None:
-        return
+        return tfObj
     tasks = []
     for i, t_dict in enumerate(task_dicts):
         try:

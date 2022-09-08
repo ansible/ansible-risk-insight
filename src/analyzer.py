@@ -63,6 +63,10 @@ def analyze(tasks_rv_data: list):
             if extractor is None:
                 continue
             task_with_analyzed_data = extractor.analyze(task)
+            if task_with_analyzed_data.get("resolved_name", "").endswith(
+                ".unarchive"
+            ):
+                print("DEBUG 2", json.dumps(task_with_analyzed_data))
             tasks_rv_data[i]["tasks"][j] = task_with_analyzed_data
     return tasks_rv_data
 

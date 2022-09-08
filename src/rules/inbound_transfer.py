@@ -14,14 +14,7 @@ class InboundTransferRule(Rule):
             analyzed_data = task.get("analyzed_data", [])
             for single_ad in analyzed_data:
                 if single_ad.get("category", "") == "inbound_transfer":
-                    raw_src = single_ad.get("data", {}).get("src", "")
                     raw_dst = single_ad.get("data", {}).get("dest", "")
-                    if isinstance(raw_src, list):
-                        raw_src = [
-                            s
-                            for s in raw_src
-                            if s.replace(" ", "") != "{{item}}"
-                        ]
                     resolved_src = [
                         resolved.get("src", "")
                         for resolved in single_ad.get("resolved_data", [])
@@ -34,9 +27,19 @@ class InboundTransferRule(Rule):
                     is_mutable_src = single_ad.get("data", {}).get(
                         "undetermined_src", False
                     )
+                    mutable_src_vars = single_ad.get("data", {}).get(
+                        "mutable_src_vars", []
+                    )
+                    mutable_src_vars = [
+                        "{{ " + mv + " }}" for mv in mutable_src_vars
+                    ]
+                    if len(mutable_src_vars) == 0:
+                        mutable_src_vars = ""
+                    if len(mutable_src_vars) == 1:
+                        mutable_src_vars = mutable_src_vars[0]
                     if is_mutable_src:
                         matched_tasks.append(task)
-                        message += "- From: {}\n".format(raw_src)
+                        message += "- From: {}\n".format(mutable_src_vars)
                         # message += "      (default value: {})\n".format(
                         #     resolved_src
                         # )

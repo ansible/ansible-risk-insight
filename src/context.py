@@ -210,7 +210,11 @@ class Context:
             self.options.update(obj.options)
             self.chain.append({"obj": obj, "depth": depth_lvl})
 
-    def resolve_variable(self, var_name):
+    def resolve_variable(self, var_name, resolve_history=[]):
+        if var_name in resolve_history:
+            return None, VariableType.FAILED_TO_RESOLVE
+        _resolve_history = [rn for rn in resolve_history] + [var_name]
+
         v_type = VariableType.NORMAL
         if var_name in self.role_vars:
             v_type = VariableType.ROLE_VARS
@@ -222,10 +226,14 @@ class Context:
         val = self.variables.get(var_name, None)
         if val is not None:
             if isinstance(val, str):
-                return self.resolve_single_variable(val), v_type
+                return (
+                    self.resolve_single_variable(val, _resolve_history),
+                    v_type,
+                )
             elif isinstance(val, list):
                 resolved_val_list = [
-                    self.resolve_single_variable(vi) for vi in val
+                    self.resolve_single_variable(vi, _resolve_history)
+                    for vi in val
                 ]
                 return resolved_val_list, v_type
             else:
@@ -235,10 +243,14 @@ class Context:
         val = flattened_all_variables.get(var_name, None)
         if val is not None:
             if isinstance(val, str):
-                return self.resolve_single_variable(val), v_type
+                return (
+                    self.resolve_single_variable(val, _resolve_history),
+                    v_type,
+                )
             elif isinstance(val, list):
                 resolved_val_list = [
-                    self.resolve_single_variable(vi) for vi in val
+                    self.resolve_single_variable(vi, _resolve_history)
+                    for vi in val
                 ]
                 return resolved_val_list, v_type
             else:
@@ -257,10 +269,14 @@ class Context:
             if val is not None:
                 v_type = VariableType.INVENTORY_VARS
                 if isinstance(val, str):
-                    return self.resolve_single_variable(val), v_type
+                    return (
+                        self.resolve_single_variable(val, _resolve_history),
+                        v_type,
+                    )
                 elif isinstance(val, list):
                     resolved_val_list = [
-                        self.resolve_single_variable(vi) for vi in val
+                        self.resolve_single_variable(vi, _resolve_history)
+                        for vi in val
                     ]
                     return resolved_val_list, v_type
                 else:
@@ -284,7 +300,9 @@ class Context:
                 top_var_name in self.variables
                 or top_var_name in flattened_all_variables
             ):
-                _val, _v_type = self.resolve_variable(top_var_name)
+                _val, _v_type = self.resolve_variable(
+                    top_var_name, _resolve_history
+                )
                 if _v_type == VariableType.REGISTERED_VARS:
                     return _val, _v_type
                 if (
@@ -305,7 +323,7 @@ class Context:
 
         return None, VariableType.FAILED_TO_RESOLVE
 
-    def resolve_single_variable(self, txt):
+    def resolve_single_variable(self, txt, resolve_history=[]):
         if not isinstance(txt, str):
             return txt
         if "{{" in txt:
@@ -317,10 +335,12 @@ class Context:
                 original_block = var_name_in_txt.get("original", "")
                 var_name = var_name_in_txt.get("name", "")
                 default_var_name = var_name_in_txt.get("default", "")
-                var_val_in_txt, _ = self.resolve_variable(var_name)
+                var_val_in_txt, _ = self.resolve_variable(
+                    var_name, resolve_history
+                )
                 if var_val_in_txt is None and default_var_name != "":
                     var_val_in_txt, _ = self.resolve_variable(
-                        default_var_name
+                        default_var_name, resolve_history
                     )
                 if var_val_in_txt is None:
                     return txt
@@ -373,7 +393,6 @@ def resolved_vars_contains(resolved_vars, new_var):
     return False
 
 
-# TODO: support "item.key" from "with_dict"
 def resolve_module_options(context, task):
     resolved_vars = []
     variables_in_loop = []
@@ -407,18 +426,29 @@ def resolve_module_options(context, task):
                     resolved_vars.append(new_var)
                 if isinstance(resolved_vars_in_item, list):
                     for vi in resolved_vars_in_item:
-                        variables_in_loop.append({loop_key: vi})
+                        variables_in_loop.append(
+                            {
+                                loop_key: vi,
+                                "__v_type__": v_type,
+                                "__v_name__": var_name,
+                            }
+                        )
                 if isinstance(resolved_vars_in_item, dict):
                     for vi_key, vi_value in resolved_vars_in_item.items():
                         variables_in_loop.append(
                             {
                                 loop_key + ".key": vi_key,
                                 loop_key + ".value": vi_value,
+                                "__v_type__": v_type,
                             }
                         )
                 else:
                     variables_in_loop.append(
-                        {loop_key: resolved_vars_in_item}
+                        {
+                            loop_key: resolved_vars_in_item,
+                            "__v_type__": v_type,
+                            "__v_name__": var_name,
+                        }
                     )
         elif isinstance(loop_values, list):
             for v in loop_values:
@@ -440,11 +470,21 @@ def resolve_module_options(context, task):
                         resolved_vars.append(new_var)
                     if not isinstance(resolved_vars_in_item, list):
                         variables_in_loop.append(
-                            {loop_key: resolved_vars_in_item}
+                            {
+                                loop_key: resolved_vars_in_item,
+                                "__v_type__": v_type,
+                                "__v_name__": var_name,
+                            }
                         )
                         continue
                     for vi in resolved_vars_in_item:
-                        variables_in_loop.append({loop_key: vi})
+                        variables_in_loop.append(
+                            {
+                                loop_key: vi,
+                                "__v_type__": v_type,
+                                "__v_name__": var_name,
+                            }
+                        )
                 else:
                     if isinstance(v, dict):
                         tmp_variables = {}
@@ -462,6 +502,7 @@ def resolve_module_options(context, task):
             )
 
     resolved_opts_in_loop = []
+    mutable_vars_per_mo = {}
     for variables in variables_in_loop:
         resolved_opts = None
         if isinstance(task.module_options, dict):
@@ -481,6 +522,15 @@ def resolve_module_options(context, task):
                     var_name = var_name_dict.get("name", "")
                     default_var_name = var_name_dict.get("default", "")
                     resolved_var_val = variables.get(var_name, None)
+                    if resolved_var_val is not None:
+                        loop_var_type = variables.get("__v_type__", "")
+                        loop_var_name = variables.get("__v_name__", "")
+                        if loop_var_type in mutable_types:
+                            if module_opt_key not in mutable_vars_per_mo:
+                                mutable_vars_per_mo[module_opt_key] = []
+                            mutable_vars_per_mo[module_opt_key].append(
+                                loop_var_name
+                            )
                     if resolved_var_val is None:
                         resolved_var_val, v_type = context.resolve_variable(
                             var_name
@@ -495,6 +545,12 @@ def resolve_module_options(context, task):
                                 resolved_vars, new_var
                             ):
                                 resolved_vars.append(new_var)
+                            if v_type in mutable_types:
+                                if module_opt_key not in mutable_vars_per_mo:
+                                    mutable_vars_per_mo[module_opt_key] = []
+                                mutable_vars_per_mo[module_opt_key].append(
+                                    var_name
+                                )
                     if resolved_var_val is None and default_var_name != "":
                         resolved_var_val, v_type = context.resolve_variable(
                             default_var_name
@@ -509,6 +565,12 @@ def resolve_module_options(context, task):
                                 resolved_vars, new_var
                             ):
                                 resolved_vars.append(new_var)
+                            if v_type in mutable_types:
+                                if module_opt_key not in mutable_vars_per_mo:
+                                    mutable_vars_per_mo[module_opt_key] = []
+                                mutable_vars_per_mo[module_opt_key].append(
+                                    var_name
+                                )
                     if resolved_var_val is None:
                         new_var = {
                             "key": var_name,
@@ -534,6 +596,13 @@ def resolve_module_options(context, task):
                     var_name = var_name_dict.get("name", "")
                     default_var_name = var_name_dict.get("default", "")
                     resolved_var_val = variables.get(var_name, None)
+                    if resolved_var_val is not None:
+                        loop_var_type = variables.get("__v_type__", "")
+                        loop_var_name = variables.get("__v_name__", "")
+                        if loop_var_type in mutable_types:
+                            if "" not in mutable_vars_per_mo:
+                                mutable_vars_per_mo[""] = []
+                            mutable_vars_per_mo[""].append(loop_var_name)
                     if resolved_var_val is None:
                         resolved_var_val, v_type = context.resolve_variable(
                             var_name
@@ -548,6 +617,10 @@ def resolve_module_options(context, task):
                                 resolved_vars, new_var
                             ):
                                 resolved_vars.append(new_var)
+                            if v_type in mutable_types:
+                                if "" not in mutable_vars_per_mo:
+                                    mutable_vars_per_mo[""] = []
+                                mutable_vars_per_mo[""].append(var_name)
                     if resolved_var_val is None and default_var_name != "":
                         resolved_var_val, v_type = context.resolve_variable(
                             default_var_name
@@ -562,6 +635,10 @@ def resolve_module_options(context, task):
                                 resolved_vars, new_var
                             ):
                                 resolved_vars.append(new_var)
+                            if v_type in mutable_types:
+                                if "" not in mutable_vars_per_mo:
+                                    mutable_vars_per_mo[""] = []
+                                mutable_vars_per_mo[""].append(var_name)
                     if resolved_var_val is None:
                         new_var = {
                             "key": var_name,
@@ -581,7 +658,7 @@ def resolve_module_options(context, task):
         else:
             resolved_opts = task.module_options
         resolved_opts_in_loop.append(resolved_opts)
-    return resolved_opts_in_loop, resolved_vars
+    return resolved_opts_in_loop, resolved_vars, mutable_vars_per_mo
 
 
 def extract_variable_names(txt):
