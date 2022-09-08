@@ -5,7 +5,7 @@ from importlib import import_module
 from tabulate import tabulate
 from keyutil import detect_type, key_delimiter
 from analyzer import load_tasks_rv
-from rules.base import Rule
+from rules.base import Rule, subject_placeholder
 
 
 def indent(multi_line_txt, level=0):
@@ -32,9 +32,7 @@ def load_rules():
         if not rule_script_name.endswith(".py"):
             continue
         rule_script_name = rule_script_name.replace(".py", "")
-        rule_module_name = "{}.{}".format(
-            rule_dir, rule_script_name
-        )
+        rule_module_name = "{}.{}".format(rule_dir, rule_script_name)
         tmp_rule = import_module(rule_module_name)
         for _, val in vars(tmp_rule).items():
             if not inspect.isclass(val):
@@ -48,6 +46,17 @@ def load_rules():
                     continue
                 rules.append(instance)
     return rules
+
+
+def make_subject_str(playbook_num: int, role_num: int):
+    subject = ""
+    if playbook_num > 0 and role_num > 0:
+        subject = "playbooks/roles"
+    elif playbook_num > 0:
+        subject = "playbooks"
+    elif role_num > 0:
+        subject = "roles"
+    return subject
 
 
 def detect(tasks_rv_data: list):
@@ -64,7 +73,7 @@ def detect(tasks_rv_data: list):
     separate_report = {}
     role_to_playbook_mappings = {}
     risk_found_playbooks = set()
-    
+
     tmp_result_txt = ""
     for i, single_tree_data in enumerate(tasks_rv_data):
         if not isinstance(single_tree_data, dict):
@@ -89,7 +98,7 @@ def detect(tasks_rv_data: list):
         else:
             role_count["total"] += 1
 
-        do_report = False        
+        do_report = False
         tasks = single_tree_data.get("tasks", [])
         tmp_result_txt_alt = ""
         for rule in rules:
@@ -97,10 +106,15 @@ def detect(tasks_rv_data: list):
             matched, _, message = rule.check(tasks)
             if rule.separate_report:
                 if rule_name not in separate_report:
-                    separate_report[rule_name] = []
+                    separate_report[rule_name] = {
+                        "rule": rule,
+                        "matched": [],
+                    }
             if matched:
                 if rule.separate_report:
-                    separate_report[rule_name].append([tree_root_type, tree_root_name, message])
+                    separate_report[rule_name]["matched"].append(
+                        [tree_root_type, tree_root_name, message]
+                    )
                 else:
                     if not is_playbook:
                         do_report = True
@@ -113,7 +127,9 @@ def detect(tasks_rv_data: list):
             used_in_playbooks = role_to_playbook_mappings.get(
                 tree_root_name, []
             )
-            risk_found_playbooks = risk_found_playbooks.union(set(used_in_playbooks))
+            risk_found_playbooks = risk_found_playbooks.union(
+                set(used_in_playbooks)
+            )
             if len(used_in_playbooks) > 0:
                 tmp_result_txt += "(used_in: {})\n".format(used_in_playbooks)
             tmp_result_txt += tmp_result_txt_alt
@@ -135,19 +151,22 @@ def detect(tasks_rv_data: list):
     result_txt += "-" * 90 + "\n"
 
     result_txt += tmp_result_txt
-    
-    for label, table_data in separate_report.items():
+
+    for label, rule_data in separate_report.items():
+        rule = rule_data["rule"]
+        table_data = rule_data["matched"]
         result_txt += label + "\n"
-        subject = ""
-        if playbook_count["total"] > 0 and role_count["total"] > 0:
-            subject = "playbooks/roles"
-        elif playbook_count["total"] > 0:
-            subject = "playbooks"
-        elif role_count["total"] > 0:
-            subject = "roles"
-        table_txt = "  All {} are OK".format(subject)
+        placeholder = subject_placeholder
+        subject = make_subject_str(
+            playbook_count["total"], role_count["total"]
+        )
+        table_txt = "  All {} are OK".format(placeholder)
+        if rule.all_ok_message != "":
+            table_txt = "  {}".format(rule.all_ok_message)
         if len(table_data) > 0:
-            table_txt = tabulate(table_data, tablefmt='plain')
+            table_txt = tabulate(table_data, tablefmt="plain")
+        else:
+            table_txt = table_txt.replace(placeholder, subject)
         result_txt += indent(table_txt, 0) + "\n"
         result_txt += "-" * 90 + "\n"
     return result_txt

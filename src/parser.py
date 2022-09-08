@@ -41,7 +41,7 @@ class Parser:
                 obj = load_collection(
                     collection_dir=ld.path,
                     basedir=ld.path,
-                    load_children=False
+                    load_children=False,
                 )
             except Exception:
                 logging.exception(
@@ -176,7 +176,9 @@ class Parser:
             collections = [obj]
         elif ld.target_type == LoadType.ROLE_TYPE:
             role_path = "."
-            r = load_role(path=role_path, name=ld.target_name, basedir=ld.path)
+            r = load_role(
+                path=role_path, name=ld.target_name, basedir=ld.path
+            )
             roles.append(r)
             mappings["roles"].append([role_path, r.key])
         elif ld.target_type == LoadType.PLAYBOOK_TYPE:
