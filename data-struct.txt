@@ -1,0 +1,71 @@
+------
+[external dependencies installed by ansible galaxy]
+role_repo
+ - roles (list of role_ids)
+ - modules (list of module_ids)
+ * role_repo_id
+
+collection_repo .... a collection
+ * collection_id
+
+## xxxx_repoはansible_galaxy install後のdirectoryをinputにロードされる
+(loaded_role_repos, loaded_collection_repos)
+
+---------
+
+[scm-repo]
+scm-repo
+ - playbooks
+ - roles
+ - modules#
+ - role_repos (defined in requirement.yml)
+ - collection_repos (defined in requirement.yml)
+
+def defined_modules()
+ return xxx_modules
+
+def get_playbooks
+
+## scm_repoはexternal dependenciesのロードが済んでいる前提でロードされる
+
+scm-repo.init(scm-repo-dir, loaded_role_repos, loaded_collection_repos)
+
+scm-repo.dump() ----> json out
+
+------
+class list
+
+a playbook
+ - tasks  (list of task_ids)
+ * playbook_id
+ * source_path
+
+a role
+ def init(role_dir): 
+ 
+ - tasks (list of task_ids)
+ - modules (list of module_ids)
+ * name
+ * role_id
+ * defined_in: debops/debops/tree/master/ansible/roles/apt
+ * source: collection:debops.debops
+
+a collection
+ - collection_id
+ - playbooks (list of playbook_ids)
+ - roles  (list of role_ids)
+ - modules  (list of module_ids)
+
+a task
+ - module: ansible.builtin.apt
+ * task_id
+ * defined_in: ./tasks/main.yml#L21-L28
+ * parameters
+ * used_in: pointer to role (e.g. role_id)
+ 
+a module
+ * module_id
+ * fqcn: ansible.builtin.apt
+ * defined_in: path to plugin file
+ * collection: ansible.builtin
+ * module_category: package_management
