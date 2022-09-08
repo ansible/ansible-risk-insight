@@ -30,11 +30,11 @@ The location of the ARI common dir can be specified by env variable `ARI_DATA_DI
 
 ### Custom Extractor
 
-An Extractor implements a logic to derive finding from each individual task object. It implements [Extractor](src/extractors/base.py#L1-L9) class. Extractors are under /extractors directory. 
+An Extractor implements a logic to derive finding from each individual task object. It implements [Extractor](src/extractors/base.py#L1-L9) class. Extractors are under [/extractors](extractors/) directory. 
 - [ansible_builtin.py](src/extractors/ansible_builtin.py) : extractor for ansible.builtin modules
 - [sample_custom_extractor.py](src/extractors/ansible_builtin.py) : sample extractor for other modules 
 
 ### Custom Rule
-A Rule implements a logic to derive findings composed of multiple findings from a series of tasks. It implements [Rule](src/extractors/base.py#L1-L9) class. Rules are under /extractors directory. 
+A Rule implements a logic to derive findings composed of multiple findings from a series of tasks. It implements [Rule](src/extractors/base.py#L1-L9) class. Rules are under [/rules](rules/) directory. 
 
 
