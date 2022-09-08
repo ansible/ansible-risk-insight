@@ -6,7 +6,19 @@ import json
 from copy import deepcopy
 from dataclasses import dataclass, field
 from keyutil import detect_type, key_delimiter, object_delimiter
-from models import ObjectList, Playbook, Play, RoleInPlay, Role, Task, TaskFile, ExecutableType, Load, Module, LoadType
+from models import (
+    ObjectList,
+    Playbook,
+    Play,
+    RoleInPlay,
+    Role,
+    Task,
+    TaskFile,
+    ExecutableType,
+    Load,
+    Module,
+    LoadType,
+)
 from finder import get_builtin_module_names
 
 obj_type_dict = {
@@ -18,9 +30,12 @@ obj_type_dict = {
     "module": "modules",
 }
 
-module_name_re = re.compile(r'^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$')
-role_name_re = re.compile(r'^[a-z0-9_]+\.[a-z0-9_]+$')
-role_in_collection_name_re = re.compile(r'^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$')
+module_name_re = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$")
+role_name_re = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
+role_in_collection_name_re = re.compile(
+    r"^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$"
+)
+
 
 @dataclass
 class TreeNode(object):
@@ -31,7 +46,8 @@ class TreeNode(object):
 
     definition: dict = field(default_factory=dict)
 
-    # load a list of (src, dst) as a tree structure which is composed of multiple TreeNode
+    # load a list of (src, dst) as a tree structure
+    # which is composed of multiple TreeNode
     @staticmethod
     def load(path="", graph=[]):
         if path != "":
@@ -40,7 +56,10 @@ class TreeNode(object):
                 graph = json.load(file)
         root_key_cands = [pair[1] for pair in graph if pair[0] is None]
         if len(root_key_cands) != 1:
-            raise ValueError("tree array must have only one top with src == None, but found {}".format(len(root_key_cands)))
+            raise ValueError(
+                "tree array must have only one top with src == None, but"
+                " found {}".format(len(root_key_cands))
+            )
         root_key = root_key_cands[0]
         tree = TreeNode()
         tree, _ = tree.recursive_tree_load(root_key, graph)
@@ -62,19 +81,19 @@ class TreeNode(object):
     def to_str(self):
         src_dst_array = self.to_graph()
         return json.dumps(src_dst_array)
-    
+
     # return list of (src, dst)
     def to_graph(self):
         return self.recursive_graph_dump(None, self)
 
-    # return list of dst keys 
+    # return list of dst keys
     def to_keys(self):
         return [p[1] for p in self.to_graph()]
 
     # reutrn list of TreeNodes that are under this TreeNode
     def to_list(self):
         return self.recursive_convert_to_list(self)
-    
+
     def recursive_convert_to_list(self, node, nodelist=[]):
         current = [pair for pair in nodelist]
         current.append(node)
@@ -95,7 +114,9 @@ class TreeNode(object):
             if node_key == src_key:
                 children_keys.append(dst_key)
             for c_key in children_keys:
-                child_tree, sub_parent_keys = self.recursive_tree_load(c_key, src_dst_array, parent_keys)
+                child_tree, sub_parent_keys = self.recursive_tree_load(
+                    c_key, src_dst_array, parent_keys
+                )
                 n.children.append(child_tree)
                 new_parent_keys = new_parent_keys.union(sub_parent_keys)
         return n, new_parent_keys
@@ -106,7 +127,16 @@ class TreeNode(object):
         dst = node.key
         current.append((src, dst))
         for child_node in node.children:
-            is_included = len([(src, dst) for (src, dst) in current if src == child_node.key]) > 0
+            is_included = (
+                len(
+                    [
+                        (src, dst)
+                        for (src, dst) in current
+                        if src == child_node.key
+                    ]
+                )
+                > 0
+            )
             if is_included:
                 continue
             current = self.recursive_graph_dump(node, child_node, current)
@@ -118,33 +148,30 @@ class TreeNode(object):
         path_array = self.search_branch_to_key(end_key, self)
         path_array = [nodelist2branch(nodelist) for nodelist in path_array]
         return path_array
-        
+
     def search_branch_to_key(self, search_key, node, ancestors=[]):
         current = [n for n in ancestors]
         found = []
         if node.key == search_key:
             found = current + [node]
         for child_node in node.children:
-            found_in_child = self.search_branch_to_key(search_key, child_node, current + [node])
+            found_in_child = self.search_branch_to_key(
+                search_key, child_node, current + [node]
+            )
             found.extend(found_in_child)
         return found
-
-        
-    def get_all_paths(self):
-        all_paths = []
-        
 
     def copy(self):
         return deepcopy(self)
 
-
     @property
     def is_empty(self):
-        return self.key == "" and len(self.children)==0
+        return self.key == "" and len(self.children) == 0
 
     @property
     def has_definition(self):
-        return len(self.definition)==0
+        return len(self.definition) == 0
+
 
 def nodelist2branch(nodelist):
     if len(nodelist) == 0:
@@ -158,6 +185,7 @@ def nodelist2branch(nodelist):
         current = current.children[0]
     return t
 
+
 def load_graph(graph_path):
     graph = {}
     with open(graph_path, "r") as file:
@@ -170,12 +198,14 @@ def load_graph(graph_path):
             graph[src] = children
     return graph
 
+
 def load_single_definition(defs: dict, key: str):
     obj_list = ObjectList()
     items = defs.get(key, [])
     for item in items:
         obj_list.add(item)
     return obj_list
+
 
 def load_definitions(defs: dict, types: list):
     def_list = []
@@ -184,7 +214,8 @@ def load_definitions(defs: dict, types: list):
         def_list.append(objs_per_type)
     return def_list
 
-def load_all_definitions(definitions: dict, dependencies: list=[]):
+
+def load_all_definitions(definitions: dict, dependencies: list = []):
     _definitions = {}
     if "mappings" in definitions:
         _definitions = {"root": definitions}
@@ -193,7 +224,9 @@ def load_all_definitions(definitions: dict, dependencies: list=[]):
     loaded = {}
     types = ["roles", "taskfiles", "modules", "playbooks", "plays", "tasks"]
     for _, definitions_per_artifact in _definitions.items():
-        def_list = load_definitions(definitions_per_artifact.get("definitions", {}), types)
+        def_list = load_definitions(
+            definitions_per_artifact.get("definitions", {}), types
+        )
         for i, type_key in enumerate(types):
             if type_key not in loaded:
                 loaded[type_key] = def_list[i]
@@ -201,10 +234,12 @@ def load_all_definitions(definitions: dict, dependencies: list=[]):
                 loaded[type_key].merge(def_list[i])
     return loaded
 
+
 def load_mappings(fpath):
-    l = Load()
-    l.from_json(open(fpath, "r").read())
-    return l
+    ld = Load()
+    ld.from_json(open(fpath, "r").read())
+    return ld
+
 
 def make_dicts(root_definitions, ext_definitions):
     definitions = {
@@ -214,8 +249,12 @@ def make_dicts(root_definitions, ext_definitions):
         "playbooks": ObjectList(),
     }
     for type_key in definitions:
-        definitions[type_key].merge(root_definitions.get(type_key, ObjectList()))
-        definitions[type_key].merge(ext_definitions.get(type_key, ObjectList()))
+        definitions[type_key].merge(
+            root_definitions.get(type_key, ObjectList())
+        )
+        definitions[type_key].merge(
+            ext_definitions.get(type_key, ObjectList())
+        )
     dicts = {}
     for type_key, obj_list in definitions.items():
         for obj in obj_list.items:
@@ -225,17 +264,27 @@ def make_dicts(root_definitions, ext_definitions):
             dicts[type_key][obj_dict_key] = obj
     return dicts
 
+
 def resolve(obj, dicts):
     failed = False
     if isinstance(obj, Task):
         task = obj
         if task.executable != "":
             if task.executable_type == ExecutableType.MODULE_TYPE:
-                task.resolved_name = resolve_module(task.executable, dicts.get("modules", {}))
+                task.resolved_name = resolve_module(
+                    task.executable, dicts.get("modules", {})
+                )
             elif task.executable_type == ExecutableType.ROLE_TYPE:
-                task.resolved_name = resolve_role(task.executable, dicts.get("roles", {}), task.collection, task.collections_in_play)
+                task.resolved_name = resolve_role(
+                    task.executable,
+                    dicts.get("roles", {}),
+                    task.collection,
+                    task.collections_in_play,
+                )
             elif task.executable_type == ExecutableType.TASKFILE_TYPE:
-                task.resolved_name = resolve_taskfile(task.executable, dicts.get("taskfiles", {}), task.key)
+                task.resolved_name = resolve_taskfile(
+                    task.executable, dicts.get("taskfiles", {}), task.key
+                )
             if task.resolved_name == "":
                 failed = True
     elif isinstance(obj, Play):
@@ -243,11 +292,17 @@ def resolve(obj, dicts):
             roleinplay = obj.roles[i]
             if not isinstance(roleinplay, RoleInPlay):
                 continue
-            roleinplay.resolved_name = resolve_role(roleinplay.name, dicts.get("roles", {}), roleinplay.collection, roleinplay.collections_in_play)
+            roleinplay.resolved_name = resolve_role(
+                roleinplay.name,
+                dicts.get("roles", {}),
+                roleinplay.collection,
+                roleinplay.collections_in_play,
+            )
             obj.roles[i] = roleinplay
             if roleinplay.resolved_name == "":
                 failed = True
     return obj, failed
+
 
 def resolve_module(module_name, module_dict={}):
     module_key = ""
@@ -262,7 +317,10 @@ def resolve_module(module_name, module_dict={}):
                 break
     return module_key
 
-def resolve_role(role_name, role_dict={}, my_collection_name="", collections_in_play=[]):
+
+def resolve_role(
+    role_name, role_dict={}, my_collection_name="", collections_in_play=[]
+):
     role_key = ""
     if "." not in role_name and len(collections_in_play) > 0:
         for coll in collections_in_play:
@@ -288,17 +346,20 @@ def resolve_role(role_name, role_dict={}, my_collection_name="", collections_in_
                         break
     return role_key
 
+
 def resolve_taskfile(taskfile_ref, taskfile_dict={}, task_key=""):
     type_prefix = "task "
     parts = task_key[len(type_prefix):].split(object_delimiter)
     parent_key = ""
     task_defined_path = ""
     for p in parts[::-1]:
-        if p.startswith("playbook"+key_delimiter) or p.startswith("taskfile"+key_delimiter):
+        if p.startswith("playbook" + key_delimiter) or p.startswith(
+            "taskfile" + key_delimiter
+        ):
             task_defined_path = p.split(key_delimiter)[1]
             parent_key = task_key[len(type_prefix):].split(p)[0]
             break
-    
+
     # include/import tasks can have a path like "roles/xxxx/tasks/yyyy.yml"
     # then try to find roles directory
     if taskfile_ref.startswith("roles/"):
@@ -306,23 +367,28 @@ def resolve_taskfile(taskfile_ref, taskfile_dict={}, task_key=""):
             roles_parent_dir = task_defined_path.split("roles/")[0]
             fpath = os.path.join(roles_parent_dir, taskfile_ref)
             fpath = os.path.normpath(fpath)
-            taskfile_key = "taskfile {}taskfile{}{}".format(parent_key, key_delimiter, fpath)
+            taskfile_key = "taskfile {}taskfile{}{}".format(
+                parent_key, key_delimiter, fpath
+            )
             found_tf = taskfile_dict.get(taskfile_key, None)
             if found_tf is not None:
                 return found_tf.key
 
     task_dir = os.path.dirname(task_defined_path)
     fpath = os.path.join(task_dir, taskfile_ref)
-    # need to normalize path here because taskfile_ref can be smoething like "../some_taskfile.yml",
-    # but "tasks/some_dir/../some_taskfile.yml" cannot be found in the taskfile_dict
-    # it will be "tasks/some_taskfile.yml" by this normalize
+    # need to normalize path here because taskfile_ref can be
+    # something like "../some_taskfile.yml".
+    # it should be "tasks/some_taskfile.yml"
     fpath = os.path.normpath(fpath)
-    taskfile_key = "taskfile {}taskfile{}{}".format(parent_key, key_delimiter, fpath)
+    taskfile_key = "taskfile {}taskfile{}{}".format(
+        parent_key, key_delimiter, fpath
+    )
     found_tf = taskfile_dict.get(taskfile_key, None)
     if found_tf is not None:
         return found_tf.key
-    
+
     return ""
+
 
 def resolve_playbook(playbook_ref, playbook_dict={}, play_key=""):
     type_prefix = "play "
@@ -330,20 +396,24 @@ def resolve_playbook(playbook_ref, playbook_dict={}, play_key=""):
     parent_key = ""
     play_defined_path = ""
     for p in parts[::-1]:
-        if p.startswith("playbook"+key_delimiter):
+        if p.startswith("playbook" + key_delimiter):
             play_defined_path = p.split(key_delimiter)[1]
             parent_key = play_key[len(type_prefix):].split(p)[0]
             break
-    
+
     play_dir = os.path.dirname(play_defined_path)
     fpath = os.path.join(play_dir, playbook_ref)
-    # need to normalize path here because playbook_ref can be smoething like "../some_playbook.yml"
+    # need to normalize path here because playbook_ref can be
+    # something like "../some_playbook.yml"
     fpath = os.path.normpath(fpath)
-    playbook_key = "playbook {}playbook{}{}".format(parent_key, key_delimiter, fpath)
+    playbook_key = "playbook {}playbook{}{}".format(
+        parent_key, key_delimiter, fpath
+    )
     found_playbook = playbook_dict.get(playbook_key, None)
     if found_playbook is not None:
         return found_playbook.key
     return ""
+
 
 def init_builtin_modules():
     builtin_module_names = get_builtin_module_names()
@@ -351,11 +421,25 @@ def init_builtin_modules():
     for module_name in builtin_module_names:
         collection_name = "ansible.builtin"
         fqcn = "{}.{}".format(collection_name, module_name)
-        global_key = "module collection{}{}{}module{}{}".format(key_delimiter, collection_name, object_delimiter, key_delimiter, fqcn)
+        global_key = "module collection{}{}{}module{}{}".format(
+            key_delimiter,
+            collection_name,
+            object_delimiter,
+            key_delimiter,
+            fqcn,
+        )
         local_key = "module module{}{}".format(key_delimiter, "__builtin__")
-        m = Module(name=module_name, fqcn=fqcn, key=global_key, local_key=local_key, collection=collection_name, builtin=True)
+        m = Module(
+            name=module_name,
+            fqcn=fqcn,
+            key=global_key,
+            local_key=local_key,
+            collection=collection_name,
+            builtin=True,
+        )
         modules.append(m)
     return modules
+
 
 class TreeLoader(object):
     def __init__(self, root_definitions, ext_definitions, index):
@@ -365,13 +449,16 @@ class TreeLoader(object):
         self.role_mappings = self.load_and_mapping.roles
 
         dependencies = []
-        # TODO: dependency check, especially for collection dependencies for role
+        # TODO: dependency check, especially for
+        # collection dependencies for role
 
         self.org_root_definitions = root_definitions
         self.org_ext_definitions = ext_definitions
 
         self.root_definitions = load_all_definitions(root_definitions)
-        self.ext_definitions = load_all_definitions(ext_definitions, dependencies)
+        self.ext_definitions = load_all_definitions(
+            ext_definitions, dependencies
+        )
         self.add_builtin_modules()
 
         self.dicts = make_dicts(self.root_definitions, self.ext_definitions)
@@ -391,7 +478,9 @@ class TreeLoader(object):
         self.tree_file = tree
         self.node_file = node
 
-        self.load_and_mapping = load_mappings(os.path.join(self.root_dir, "mappings.json"))
+        self.load_and_mapping = load_mappings(
+            os.path.join(self.root_dir, "mappings.json")
+        )
         self.playbook_mappings = self.load_and_mapping.playbooks
         self.role_mappings = self.load_and_mapping.roles
 
@@ -400,7 +489,9 @@ class TreeLoader(object):
             index_data = json.load(open(self.index_file, "r"))
             target_type = index_data.get("target_type", "")
             out_path_in_index = index_data.get("out_path", "")
-            definitions_path = out_path_in_index.replace("/ext", "/definitions")
+            definitions_path = out_path_in_index.replace(
+                "/ext", "/definitions"
+            )
 
             dependency_list = index_data.get("generated_load_files", [])
             for dep in dependency_list:
@@ -409,23 +500,39 @@ class TreeLoader(object):
                     dep_name = dep.get("name", "")
                     if dep_type == "" or dep_name == "":
                         continue
-                    dependencies.append(os.path.join(definitions_path, "{}-{}".format(dep_type, dep_name)))
-                
+                    dependencies.append(
+                        os.path.join(
+                            definitions_path,
+                            "{}-{}".format(dep_type, dep_name),
+                        )
+                    )
+
             if target_type == LoadType.ROLE_TYPE:
                 collection_path = index_data.get("collection_path", "")
-                coll_definitions_path = os.path.join(collection_path, "definitions")
+                coll_definitions_path = os.path.join(
+                    collection_path, "definitions"
+                )
 
-                coll_dependency_list = index_data.get("dep_collection_load_files", [])
+                coll_dependency_list = index_data.get(
+                    "dep_collection_load_files", []
+                )
                 for dep in coll_dependency_list:
                     if isinstance(dep, dict):
                         dep_type = dep.get("type", "")
                         dep_name = dep.get("name", "")
                         if dep_type == "" or dep_name == "":
                             continue
-                        dependencies.append(os.path.join(coll_definitions_path, "{}-{}".format(dep_type, dep_name)))
+                        dependencies.append(
+                            os.path.join(
+                                coll_definitions_path,
+                                "{}-{}".format(dep_type, dep_name),
+                            )
+                        )
 
         self.root_definitions = load_all_definitions(self.root_dir)
-        self.ext_definitions = load_all_definitions(self.ext_dir, dependencies)
+        self.ext_definitions = load_all_definitions(
+            self.ext_dir, dependencies
+        )
         self.add_builtin_modules()
 
         self.dicts = make_dicts(self.root_definitions, self.ext_definitions)
@@ -436,7 +543,9 @@ class TreeLoader(object):
     def run(self):
         objects = ObjectList()
         if self.load_and_mapping.target_type == LoadType.PROJECT_TYPE:
-            p_defs = self.org_root_definitions.get("definitions", {}).get("projects", [])
+            p_defs = self.org_root_definitions.get("definitions", {}).get(
+                "projects", []
+            )
             if len(p_defs) > 0:
                 objects.add(p_defs[0])
             logging.info("  project loaded")
@@ -457,7 +566,7 @@ class TreeLoader(object):
             self.trees.append(tree)
         logging.info("  done")
         self.node_objects = objects
-        
+
         if self.tree_file != "":
             lines = []
             for t in self.trees:
@@ -485,10 +594,11 @@ class TreeLoader(object):
         children_keys = self._get_children_keys(obj)
         for c_key in children_keys:
             current_graph.append([key, c_key])
-            updated_graph = self._recursive_make_graph(c_key, current_graph, _objects)
+            updated_graph = self._recursive_make_graph(
+                c_key, current_graph, _objects
+            )
             current_graph = updated_graph
         return current_graph
-
 
     def find_playbooks(self):
         return [k for k in self.graph.keys() if k.startswith("Playbook ")]
@@ -497,7 +607,9 @@ class TreeLoader(object):
     def get_object(self, obj_key):
         obj_type = detect_type(obj_key)
         if obj_type == "":
-            raise ValueError("failed to detect object type from key \"{}\"".format(obj_key))
+            raise ValueError(
+                'failed to detect object type from key "{}"'.format(obj_key)
+            )
         type_key = obj_type_dict[obj_type]
         root_definitions = self.root_definitions.get(type_key, ObjectList())
         obj = root_definitions.find_by_key(obj_key)
@@ -522,18 +634,30 @@ class TreeLoader(object):
             children_keys = obj.plays
         elif isinstance(obj, Play):
             if obj.import_playbook != "":
-                resolved_playbook_key = resolve_playbook(obj.import_playbook, self.dicts["playbooks"], obj.key)
+                resolved_playbook_key = resolve_playbook(
+                    obj.import_playbook, self.dicts["playbooks"], obj.key
+                )
                 if resolved_playbook_key != "":
                     children_keys.append(resolved_playbook_key)
             children_keys.extend(obj.pre_tasks)
             children_keys.extend(obj.tasks)
             for rip in obj.roles:
-                resolved_role_key = resolve_role(rip.name, self.dicts["roles"], obj.collection, obj.collections_in_play)
+                resolved_role_key = resolve_role(
+                    rip.name,
+                    self.dicts["roles"],
+                    obj.collection,
+                    obj.collections_in_play,
+                )
                 if resolved_role_key != "":
                     children_keys.append(resolved_role_key)
             children_keys.extend(obj.post_tasks)
         elif isinstance(obj, Role):
-            main_taskfile_key = [tf for tf in obj.taskfiles if tf.split(key_delimiter)[-1].split("/")[-1] in ["main.yml", "main.yaml"]]
+            main_taskfile_key = [
+                tf
+                for tf in obj.taskfiles
+                if tf.split(key_delimiter)[-1].split("/")[-1]
+                in ["main.yml", "main.yaml"]
+            ]
             children_keys.extend(main_taskfile_key)
         elif isinstance(obj, TaskFile):
             children_keys = obj.tasks
@@ -541,11 +665,20 @@ class TreeLoader(object):
             executable_type = obj.executable_type
             resolved_key = ""
             if executable_type == ExecutableType.MODULE_TYPE:
-                resolved_key = resolve_module(obj.executable, self.dicts["modules"])
+                resolved_key = resolve_module(
+                    obj.executable, self.dicts["modules"]
+                )
             elif executable_type == ExecutableType.ROLE_TYPE:
-                resolved_key = resolve_role(obj.executable, self.dicts["roles"], obj.collection, obj.collections_in_play)
+                resolved_key = resolve_role(
+                    obj.executable,
+                    self.dicts["roles"],
+                    obj.collection,
+                    obj.collections_in_play,
+                )
             elif executable_type == ExecutableType.TASKFILE_TYPE:
-                resolved_key = resolve_taskfile(obj.executable, self.dicts["taskfiles"], obj.key)
+                resolved_key = resolve_taskfile(
+                    obj.executable, self.dicts["taskfiles"], obj.key
+                )
             if resolved_key != "":
                 children_keys.append(resolved_key)
         return children_keys
@@ -565,14 +698,16 @@ class TreeLoader(object):
             loaded[k] = obj
         return obj_list
 
+
 def dump_node_objects(obj_list, path=""):
     if path == "":
         lines = obj_list.dump()
-        for l in lines:
-            obj_dict = json.loads(l)
+        for line in lines:
+            obj_dict = json.loads(line)
             print(json.dumps(obj_dict, indent=2))
     else:
         obj_list.dump(fpath=path)
+
 
 def load_tree_json(tree_path):
     trees = []
@@ -584,38 +719,75 @@ def load_tree_json(tree_path):
             trees.append(tree)
     return trees
 
+
 def load_node_objects(node_list_file):
     obj_list = ObjectList().from_json(fpath=node_list_file)
     return obj_list
 
 
 def key_to_file_name(prefix, key):
-    return prefix + "___" + key.translate(str.maketrans({' ': '___', '/': '---', '.':'_dot_'}))+".json"
+    return (
+        prefix
+        + "___"
+        + key.translate(str.maketrans({" ": "___", "/": "---", ".": "_dot_"}))
+        + ".json"
+    )
+
 
 def main():
 
     logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser(
-        prog='tree.py',
-        description='make a tree of ansible nodes in graph.json and show/save it',
-        epilog='end',
+        prog="tree.py",
+        description=(
+            "make a tree of ansible nodes in graph.json and show/save it"
+        ),
+        epilog="end",
         add_help=True,
     )
 
-    parser.add_argument('-r', '--root', default="", help='path to the input definition dir for root')
-    parser.add_argument('-e', '--ext', default="", help='path to the input definition dir for ext')
-    parser.add_argument('-i', '--index', default="", help='path to the index.json file to specify the definitions to be loaded in the \"ext\" dir')
-    parser.add_argument('-t', '--tree', default="", help='path to the output tree file')
-    parser.add_argument('-n', '--node', default="array", help='path to the output node objects')
-    
+    parser.add_argument(
+        "-r",
+        "--root",
+        default="",
+        help="path to the input definition dir for root",
+    )
+    parser.add_argument(
+        "-e",
+        "--ext",
+        default="",
+        help="path to the input definition dir for ext",
+    )
+    parser.add_argument(
+        "-i",
+        "--index",
+        default="",
+        help=(
+            "path to the index.json file to specify the definitions to be"
+            ' loaded in the "ext" dir'
+        ),
+    )
+    parser.add_argument(
+        "-t", "--tree", default="", help="path to the output tree file"
+    )
+    parser.add_argument(
+        "-n",
+        "--node",
+        default="array",
+        help="path to the output node objects",
+    )
+
     args = parser.parse_args()
 
     logging.info("start initializing tree_loader")
-    tree_loader = TreeLoader(args.root, args.ext, args.index, args.tree, args.node)
+    tree_loader = TreeLoader(
+        args.root, args.ext, args.index, args.tree, args.node
+    )
     logging.info("done")
     logging.info("start building trees")
     tree_loader.run()
     logging.info("done")
+
 
 if __name__ == "__main__":
     main()

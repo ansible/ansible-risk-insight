@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import re
 import os
 import yaml
@@ -6,7 +6,7 @@ import logging
 from safe_glob import safe_glob
 from awx_utils import could_be_playbook, search_playbooks
 
-module_name_re = re.compile(r'^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$')
+module_name_re = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$")
 
 module_dir_patterns = [
     "library",
@@ -14,10 +14,8 @@ module_dir_patterns = [
     "plugins/actions",
 ]
 
-playbook_taskfile_dir_patterns = [
-    "tasks",
-    "playbooks"
-]
+playbook_taskfile_dir_patterns = ["tasks", "playbooks"]
+
 
 class Singleton(type):
     _instances = {}
@@ -27,22 +25,27 @@ class Singleton(type):
             cls._instances[cls] = super().__call__(*args, **kwargs)
         return cls._instances[cls]
 
+
 @dataclass(frozen=True)
 class TaskKeywordSet(metaclass=Singleton):
     task_keywords: set
+
 
 @dataclass(frozen=True)
 class BuiltinModuleSet(metaclass=Singleton):
     builtin_modules: set
 
-with open('task_keywords.txt', 'r') as f:
+
+with open("task_keywords.txt", "r") as f:
     TaskKeywordSet(set(f.read().splitlines()))
 
-with open('builtin-modules.txt', 'r') as f:
+with open("builtin-modules.txt", "r") as f:
     BuiltinModuleSet(set(f.read().splitlines()))
+
 
 def get_builtin_module_names():
     return BuiltinModuleSet().builtin_modules
+
 
 def find_module_name(data_block):
     keys = [k for k in data_block.keys()]
@@ -60,16 +63,20 @@ def find_module_name(data_block):
             return k
     return ""
 
+
 def get_task_blocks(fpath="", task_dict_list=None):
     d = None
     if fpath != "":
         if not os.path.exists(fpath):
             return None
-        with open(fpath , "r") as file:
+        with open(fpath, "r") as file:
             try:
                 d = yaml.safe_load(file)
             except Exception as e:
-                logging.error("failed to load this yaml file to get task blocks; {}".format(e.args[0]))
+                logging.error(
+                    "failed to load this yaml file to get task blocks; {}"
+                    .format(e.args[0])
+                )
                 return None
     elif task_dict_list is not None:
         d = task_dict_list
@@ -85,15 +92,17 @@ def get_task_blocks(fpath="", task_dict_list=None):
         tasks.extend(task_dict_loop)
     return tasks
 
+
 # extract all tasks by flattening block tasks recursively
-# a block task like below will be flattened like [some_module1, some_module2, some_module3]
-# 
+# a block task like below will be flattened
+# like [some_module1, some_module2, some_module3]
+#
 # - block:
 #     - some_module1:
 #     - block:
 #         - some_module2
 #         - some_module3
-# 
+#
 def flatten_block_tasks(task_dict):
     if task_dict is None:
         return []
@@ -109,7 +118,6 @@ def flatten_block_tasks(task_dict):
     else:
         tasks = [task_dict]
     return tasks
-
 
 
 def search_module_files(path, module_dir_paths=[]):
@@ -128,6 +136,7 @@ def search_module_files(path, module_dir_paths=[]):
                     file_list.append(os.path.join(dirpath, file))
     return file_list
 
+
 def find_module_dirs(role_root_dir):
     module_dirs = []
     for module_dir_pattern in module_dir_patterns:
@@ -136,18 +145,17 @@ def find_module_dirs(role_root_dir):
             module_dirs.append(moddir)
     return module_dirs
 
+
 def search_taskfiles_for_playbooks(path, taskfile_dir_paths=[]):
-    file_list = []
     # must copy the input here; otherwise, the added items are kept forever
     search_targets = [p for p in taskfile_dir_paths]
     for playbook_taskfile_dir_pattern in playbook_taskfile_dir_patterns:
-        search_targets.append(os.path.join(path, playbook_taskfile_dir_pattern))
+        search_targets.append(
+            os.path.join(path, playbook_taskfile_dir_pattern)
+        )
     candidates = []
     for search_target in search_targets:
-        patterns = [
-            search_target + "/**/*.yml",
-            search_target + "/**/*.yaml"
-        ]
+        patterns = [search_target + "/**/*.yml", search_target + "/**/*.yaml"]
         found = safe_glob(patterns, recursive=True)
         for f in found:
             # taskfiles in role will be loaded when the role is loaded, so skip
@@ -161,12 +169,16 @@ def search_taskfiles_for_playbooks(path, taskfile_dir_paths=[]):
                 try:
                     d = yaml.safe_load(file)
                 except Exception as e:
-                    logging.error("failed to load this yaml file to search task files; {}".format(e.args[0]))
+                    logging.error(
+                        "failed to load this yaml file to search task"
+                        " files; {}".format(e.args[0])
+                    )
             # if d cannot be loaded as tasks yaml file, skip it
             if d is None or not isinstance(d, list):
                 continue
             candidates.append(f)
     return candidates
+
 
 def search_inventory_files(path):
     inventory_file_patterns = [
@@ -182,8 +194,9 @@ def find_best_repo_root_path(path):
     playbooks = search_playbooks(path)
     # sort by directory depth to find the most top playbook
     playbooks = sorted(playbooks, key=lambda x: len(x.split(os.sep)))
-    # still "repo/xxxxx/sample1.yml" may come before "repo/playbooks/sample2.yml" because the depth are same,
-    # so specifically put "playbooks" or "playbook" ones on top of the list
+    # still "repo/xxxxx/sample1.yml" may come before
+    # "repo/playbooks/sample2.yml" because the depth are same,
+    # so specifically put "playbooks" or "playbook" ones first
     if len(playbooks) > 0:
         most_shallow_depth = len(playbooks[0].split(os.sep))
         playbooks_ordered = []
@@ -209,6 +222,7 @@ def find_best_repo_root_path(path):
         root_path = os.path.dirname(top_playbook_path)
     return root_path
 
+
 def find_collection_name_of_repo(path):
     found_galaxy_ymls = safe_glob(path + "/**/galaxy.yml", recursive=True)
     my_collection_name = ""
@@ -219,11 +233,13 @@ def find_collection_name_of_repo(path):
             try:
                 my_collection_info = yaml.safe_load(file)
             except Exception as e:
-                logging.error("failed to load this yaml file to read galaxy.yml; {}".format(e.args[0]))
+                logging.error(
+                    "failed to load this yaml file to read galaxy.yml; {}"
+                    .format(e.args[0])
+                )
         if my_collection_info is None:
             return ""
         namespace = my_collection_info.get("namespace", "")
         name = my_collection_info.get("name", "")
         my_collection_name = "{}.{}".format(namespace, name)
     return my_collection_name
-

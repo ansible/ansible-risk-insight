@@ -9,7 +9,13 @@ import tempfile
 import logging
 from dataclasses import dataclass, field
 from models import LoadType, Load, ObjectList
-from loader import detect_target_type, supported_target_types, get_loader_version, create_load_json_path, get_target_name
+from loader import (
+    detect_target_type,
+    supported_target_types,
+    get_loader_version,
+    create_load_json_path,
+    get_target_name,
+)
 from parser import Parser
 from model_loader import load_object
 from tree import TreeLoader, TreeNode
@@ -21,15 +27,21 @@ from show_report import make_display_report
 logging.basicConfig()
 logging.getLogger().setLevel(logging.INFO)
 
+
 class Config:
-    data_dir: str = os.environ.get("ARI_DATA_DIR", os.path.join(os.environ["HOME"], ".ari/data"))
+    data_dir: str = os.environ.get(
+        "ARI_DATA_DIR", os.path.join(os.environ["HOME"], ".ari/data")
+    )
+
 
 config = Config()
+
 
 class ContainerType:
     COLLECTION = "collection"
     ROLE = "role"
     PROJECT = "project"
+
 
 @dataclass
 class DataContainer(object):
@@ -66,12 +78,39 @@ class DataContainer(object):
         type_root = self.type + "s"
         self.path_mappings = {
             "src": os.path.join(self.root_dir, type_root, "src"),
-            "root_load": os.path.join(self.root_dir, type_root, "root", "{}-{}-load-root.json".format(self.type, self.name)),
-            "root_definitions": os.path.join(self.root_dir, type_root, "root", "definitions", self.type, self.name),
-            "ext_load": os.path.join(self.root_dir, type_root, "ext", "load-{}-{}.json".format(self.type, self.name)),
-            "ext_definitions": os.path.join(self.root_dir, type_root, "definitions"),
-            "index": os.path.join(self.root_dir, type_root, "{}-{}-index-ext.json".format(self.type, self.name)),
-            "install_log": os.path.join(self.root_dir, type_root, "{}-{}-install.log".format(self.type, self.name)),
+            "root_load": os.path.join(
+                self.root_dir,
+                type_root,
+                "root",
+                "{}-{}-load-root.json".format(self.type, self.name),
+            ),
+            "root_definitions": os.path.join(
+                self.root_dir,
+                type_root,
+                "root",
+                "definitions",
+                self.type,
+                self.name,
+            ),
+            "ext_load": os.path.join(
+                self.root_dir,
+                type_root,
+                "ext",
+                "load-{}-{}.json".format(self.type, self.name),
+            ),
+            "ext_definitions": os.path.join(
+                self.root_dir, type_root, "definitions"
+            ),
+            "index": os.path.join(
+                self.root_dir,
+                type_root,
+                "{}-{}-index-ext.json".format(self.type, self.name),
+            ),
+            "install_log": os.path.join(
+                self.root_dir,
+                type_root,
+                "{}-{}-install.log".format(self.type, self.name),
+            ),
         }
 
     def load(self):
@@ -122,17 +161,27 @@ class DataContainer(object):
         dst_src_dir = ""
         if install_type == "galaxy":
             # ansible-galaxy install
-            print("installing a {} <{}> from galaxy".format(self.type, self.name))
-            install_msg = install_galaxy_target(self.name, self.type, tmp_src_dir)
+            print(
+                "installing a {} <{}> from galaxy".format(
+                    self.type, self.name
+                )
+            )
+            install_msg = install_galaxy_target(
+                self.name, self.type, tmp_src_dir
+            )
             dependency_dir = tmp_src_dir
             dst_src_dir = self.src
 
         elif install_type == "github":
             # ansible-galaxy install
             print("cloning {} from github".format(self.name))
-            install_msg = install_github_target(self.name, self.type, tmp_src_dir)
+            install_msg = install_github_target(
+                self.name, self.type, tmp_src_dir
+            )
             if self.dependency_dir == "":
-                raise ValueError("dependency dir is required for project type")
+                raise ValueError(
+                    "dependency dir is required for project type"
+                )
             dependency_dir = self.dependency_dir
             dst_src_dir = os.path.join(self.src, escape_url(self.name))
 
@@ -142,22 +191,35 @@ class DataContainer(object):
         self.install_log = install_msg
 
         print("crawl content")
-        dep_type, target_path_list = detect_target_type(dependency_dir, is_ext)
+        dep_type, target_path_list = detect_target_type(
+            dependency_dir, is_ext
+        )
 
         dst_dependency_dir = ""
         if install_type == "github":
             type_root = dep_type + "s"
             dst_dependency_dir = os.path.join(self.root_dir, type_root, "src")
 
-        logging.info("the detected target type: \"{}\", found targets: {}".format(self.type, len(target_path_list)))
+        logging.info(
+            'the detected target type: "{}", found targets: {}'.format(
+                self.type, len(target_path_list)
+            )
+        )
         if self.type not in supported_target_types:
             logging.error("this target type is not supported")
             sys.exit(1)
 
         tmp_load_files_dir = os.path.join(tmpdir, "ext")
         collection_search_path = os.path.join(config.data_dir, "collections")
-        index_data = self.create_index_data(is_ext, dep_type, target_path_list, dependency_dir, collection_search_path, tmp_load_files_dir)
-        if index_data.get("out_path","") == "":
+        index_data = self.create_index_data(
+            is_ext,
+            dep_type,
+            target_path_list,
+            dependency_dir,
+            collection_search_path,
+            tmp_load_files_dir,
+        )
+        if index_data.get("out_path", "") == "":
             raise ValueError("no out_path in index file")
 
         if not os.path.exists(dst_src_dir):
@@ -190,10 +252,19 @@ class DataContainer(object):
             ext_name = load_file_info.get("name", "")
             target_path = ""
             if ext_type == ContainerType.ROLE:
-                target_path = os.path.join(self.root_dir, "roles", "src", ext_name)
+                target_path = os.path.join(
+                    self.root_dir, "roles", "src", ext_name
+                )
             elif ext_type == ContainerType.COLLECTION:
                 parts = ext_name.split(".")
-                target_path = os.path.join(self.root_dir, "collections", "src", "ansible_collections", parts[0], parts[1])
+                target_path = os.path.join(
+                    self.root_dir,
+                    "collections",
+                    "src",
+                    "ansible_collections",
+                    parts[0],
+                    parts[1],
+                )
             target_list.append((ext_type, ext_name, target_path))
         type_root = self.type + "s"
         ext_dir = os.path.join(self.root_dir, type_root, "ext")
@@ -211,7 +282,9 @@ class DataContainer(object):
         elif self.type == ContainerType.PROJECT:
             dst_src_dir = os.path.join(self.src, escape_url(self.name))
             root_target_list = [(self.type, self.name, dst_src_dir)]
-        root_load_data_list = self.create_load_files(False, root_target_list, root_dir)
+        root_load_data_list = self.create_load_files(
+            False, root_target_list, root_dir
+        )
         self.root_load = root_load_data_list[0]
         return
 
@@ -220,14 +293,20 @@ class DataContainer(object):
 
     def set_definitions(self, ext_definitions_dir, root_definitions_dir):
         print("decomposing files")
-        self.ext_definitions = self.load_definitions(True, ext_definitions_dir)
-        self.root_definitions = self.load_definitions(False, root_definitions_dir)
-    
+        self.ext_definitions = self.load_definitions(
+            True, ext_definitions_dir
+        )
+        self.root_definitions = self.load_definitions(
+            False, root_definitions_dir
+        )
+
     def get_definitions(self):
         return self.root_definitions, self.ext_definitions
 
     def set_trees(self):
-        trees, node_objects = self.tree(self.root_definitions, self.ext_definitions, self.index)
+        trees, node_objects = self.tree(
+            self.root_definitions, self.ext_definitions, self.index
+        )
         self.trees = trees
         self.node_objects = node_objects
         return
@@ -278,11 +357,15 @@ class DataContainer(object):
         return dep_num, ext_counts, root_counts
 
     def setup_tmp_dir(self):
-        if self.tmp_install_dir is None or not os.path.exists(self.tmp_install_dir.name):
+        if self.tmp_install_dir is None or not os.path.exists(
+            self.tmp_install_dir.name
+        ):
             self.tmp_install_dir = tempfile.TemporaryDirectory()
 
     def clean_tmp_dir(self):
-        if self.tmp_install_dir is not None and os.path.exists(self.tmp_install_dir.name):
+        if self.tmp_install_dir is not None and os.path.exists(
+            self.tmp_install_dir.name
+        ):
             self.tmp_install_dir.cleanup()
             self.tmp_install_dir = None
 
@@ -298,21 +381,40 @@ class DataContainer(object):
         loader_version = get_loader_version()
 
         load_list = []
-        for i, (target_type, target_name, target_path) in enumerate(target_list):
-            print("[{}/{}] {} {}".format(i+1, num, target_type, target_name))
+        for i, (target_type, target_name, target_path) in enumerate(
+            target_list
+        ):
+            print(
+                "[{}/{}] {} {}".format(i + 1, num, target_type, target_name)
+            )
 
             if not os.path.exists(target_path):
-                raise ValueError("No such file or directory: {}".format(target_path))
+                raise ValueError(
+                    "No such file or directory: {}".format(target_path)
+                )
             print("target_name", target_name)
             print("target_type", target_type)
             print("path", target_path)
             print("loader_version", loader_version)
-            l = Load(target_name=target_name, target_type=target_type, path=target_path, loader_version=loader_version)
-            load_object(l)
-            load_list.append(l)
+            ld = Load(
+                target_name=target_name,
+                target_type=target_type,
+                path=target_path,
+                loader_version=loader_version,
+            )
+            load_object(ld)
+            load_list.append(ld)
         return load_list
 
-    def create_index_data(self, is_ext, dep_type, target_path_list, src_dir, collection_search_path, output_path):
+    def create_index_data(
+        self,
+        is_ext,
+        dep_type,
+        target_path_list,
+        src_dir,
+        collection_search_path,
+        output_path,
+    ):
         target_type = self.type
         index_data = {
             "in_path": src_dir,
@@ -329,31 +431,41 @@ class DataContainer(object):
 
             for target_path in target_path_list:
                 dep_name = get_target_name(dep_type, target_path)
-                load_json_path = create_load_json_path(dep_type, dep_name, output_path)
+                load_json_path = create_load_json_path(
+                    dep_type, dep_name, output_path
+                )
                 lf = load_json_path.replace(output_path, "")
                 if lf.startswith("/"):
                     lf = lf[1:]
-                generated_load_files.append({
-                    "file": lf,
-                    "name": dep_name,
-                    "type": dep_type,
-                })
+                generated_load_files.append(
+                    {
+                        "file": lf,
+                        "name": dep_name,
+                        "type": dep_type,
+                    }
+                )
         else:
-            generated_load_files = [{
-                "file": output_path,
-                "name": "",
-                "type": ""
-                }]
+            generated_load_files = [
+                {"file": output_path, "name": "", "type": ""}
+            ]
         index_data["generated_load_files"] = generated_load_files
 
         dep_collection_load_files = []
         if target_type == LoadType.ROLE_TYPE:
-            dep_collection_load_files = self.find_load_files_for_dependency_collections(target_path_list, collection_search_path)
-            index_data["dep_collection_load_files"] = dep_collection_load_files
+            dep_collection_load_files = (
+                self.find_load_files_for_dependency_collections(
+                    target_path_list, collection_search_path
+                )
+            )
+            index_data[
+                "dep_collection_load_files"
+            ] = dep_collection_load_files
 
         return index_data
 
-    def find_load_files_for_dependency_collections(self, role_path_list, collection_search_path):
+    def find_load_files_for_dependency_collections(
+        self, role_path_list, collection_search_path
+    ):
         dep_collections = []
         for role_path in role_path_list:
             _metadata_path_cand1 = os.path.join(role_path, "meta/main.yml")
@@ -368,12 +480,14 @@ class DataContainer(object):
             metadata = {}
             try:
                 metadata = yaml.safe_load(open(metadata_path, "r"))
-            except:
+            except Exception:
                 pass
             dep_collection_key = "collections"
             if dep_collection_key not in metadata:
                 continue
-            dep_collections_in_this_role = metadata.get(dep_collection_key, [])
+            dep_collections_in_this_role = metadata.get(
+                dep_collection_key, []
+            )
             if not isinstance(dep_collections_in_this_role, list):
                 continue
             dep_collections.extend(dep_collections_in_this_role)
@@ -382,23 +496,46 @@ class DataContainer(object):
             if not isinstance(dep_collection, str):
                 continue
             collection_name = dep_collection
-            index_file = os.path.join(collection_search_path, "collection-{}-index-ext.json".format(collection_name))
+            index_file = os.path.join(
+                collection_search_path,
+                "collection-{}-index-ext.json".format(collection_name),
+            )
             if not os.path.exists(index_file):
                 continue
             index_data = json.load(open(index_file, "r"))
-            _load_files_for_this_collection = index_data.get("generated_load_files", [])
+            _load_files_for_this_collection = index_data.get(
+                "generated_load_files", []
+            )
             for load_data in _load_files_for_this_collection:
                 load_path = load_data.get("file", "")
-                already_included = len([True for l in load_files if l.get("file", "") == load_path]) > 0
+                already_included = (
+                    len(
+                        [
+                            True
+                            for load_file in load_files
+                            if load_file.get("file", "") == load_path
+                        ]
+                    )
+                    > 0
+                )
                 if load_path != "" and not already_included:
                     load_files.append(load_data)
         return load_files
 
     def load_definitions(self, is_ext, output_path):
-        
+
         profiles = []
         if is_ext:
-            profiles = [(l, os.path.join(output_path, "{}-{}".format(l.target_type, l.target_name))) for l in self.ext_load]
+            profiles = [
+                (
+                    ld,
+                    os.path.join(
+                        output_path,
+                        "{}-{}".format(ld.target_type, ld.target_name),
+                    ),
+                )
+                for ld in self.ext_load
+            ]
         else:
             profiles = [(self.root_load, output_path)]
 
@@ -412,9 +549,13 @@ class DataContainer(object):
         all_definitions = {}
         p = Parser()
         for i, (load_data, output_dir) in enumerate(profiles):
-            print("[{}/{}] {}       ".format(i+1, num, load_data.target_name))
+            print(
+                "[{}/{}] {}       ".format(i + 1, num, load_data.target_name)
+            )
             key = "{}-{}".format(load_data.target_type, load_data.target_name)
-            definitions, mappings = p.run(load_data=load_data, output_dir=output_dir)
+            definitions, mappings = p.run(
+                load_data=load_data, output_dir=output_dir
+            )
             if is_ext:
                 all_definitions[key] = {
                     "definitions": definitions,
@@ -447,7 +588,7 @@ class DataContainer(object):
         with open(path1, "r") as f1:
             js1 = json.load(f1)
             js2 = copy.deepcopy(js1)
-            p1 = js1.get("path","")
+            p1 = js1.get("path", "")
             p2 = p1.replace(src1, src2, 1)
             js2["path"] = p2
 
@@ -460,8 +601,12 @@ class DataContainer(object):
                 pass
                 # os.makedirs(p2)
 
-            def copytree(src,dst):
-                if src == "" or not os.path.exists(src) or not os.path.isdir(src):
+            def copytree(src, dst):
+                if (
+                    src == ""
+                    or not os.path.exists(src)
+                    or not os.path.isdir(src)
+                ):
                     raise ValueError("src {} is not directory".format(src))
                 if dst == "" or ".." in dst:
                     raise ValueError("dst {} is invalid".format(dst))
@@ -490,14 +635,16 @@ class DataContainer(object):
             raise ValueError("{} is not directory".format(dir2))
 
         if not os.path.exists(dir1) or not os.path.isdir(dir1):
-            raise ValueError("{} is invalid definition directory".format(dir1))
+            raise ValueError(
+                "{} is invalid definition directory".format(dir1)
+            )
 
         js2 = None
         map1 = os.path.join(dir1, "mappings.json")
         with open(map1, "r") as f1:
             js1 = json.load(f1)
             js2 = copy.deepcopy(js1)
-            p1 = js1.get("path","")
+            p1 = js1.get("path", "")
             p2 = p1.replace(src1, src2, 1)
             js2["path"] = p2
 
@@ -532,20 +679,39 @@ class DataContainer(object):
 
 
 def install_galaxy_target(target, target_type, output_dir):
-    if target_type != ContainerType.COLLECTION and target_type != ContainerType.ROLE:
+    if (
+        target_type != ContainerType.COLLECTION
+        and target_type != ContainerType.ROLE
+    ):
         raise ValueError("Invalid target_type: {}".format(target_type))
-    proc = subprocess.run("ansible-galaxy {} install {} -p {}".format(target_type, target, output_dir), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    proc = subprocess.run(
+        "ansible-galaxy {} install {} -p {}".format(
+            target_type, target, output_dir
+        ),
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
     install_msg = proc.stdout
-    print('STDOUT: {}'.format(install_msg))
+    print("STDOUT: {}".format(install_msg))
     return proc.stdout
+
 
 def install_github_target(target, target_type, output_dir):
     if target_type != ContainerType.PROJECT:
         raise ValueError("Invalid target_type: {}".format(target_type))
-    proc = subprocess.run("git clone {} {}".format(target, output_dir), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    proc = subprocess.run(
+        "git clone {} {}".format(target, output_dir),
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
     install_msg = proc.stdout
-    print('STDOUT: {}'.format(install_msg))
+    print("STDOUT: {}".format(install_msg))
     return proc.stdout
+
 
 def escape_url(url: str):
     base_url = url.split("?")[0]
@@ -559,5 +725,10 @@ if __name__ == "__main__":
     dependency_dir = ""
     if len(sys.argv) >= 4:
         dependency_dir = sys.argv[3]
-    c = DataContainer(type=target_type, name=target_name, root_dir=config.data_dir, dependency_dir=dependency_dir)
+    c = DataContainer(
+        type=target_type,
+        name=target_name,
+        root_dir=config.data_dir,
+        dependency_dir=dependency_dir,
+    )
     c.load()

@@ -5,55 +5,85 @@ import json
 import logging
 import copy
 import joblib
-from models import Module, Task, TaskFile, Role, Playbook, Play, Collection, Repository, Load, LoadType
-from model_loader import load_collection, load_module, load_playbook, load_repository, load_role, load_taskfile
+from models import (
+    Load,
+    LoadType,
+)
+from model_loader import (
+    load_collection,
+    load_module,
+    load_playbook,
+    load_repository,
+    load_role,
+    load_taskfile,
+)
 
-class Parser():
+
+class Parser:
     def __init__(self, do_save=False):
         self.do_save = do_save
 
     def run(self, load_data=None, load_json_path="", output_dir=""):
-        l = Load()
+        ld = Load()
         if load_data is not None:
-            l = load_data
+            ld = load_data
         elif load_json_path != "":
             if not os.path.exists(load_json_path):
                 raise ValueError("file not found: {}".format(load_json_path))
-            l.from_json(open(load_json_path, "r").read())
-        
+            ld.from_json(open(load_json_path, "r").read())
+
         collection_name = ""
         role_name = ""
         obj = None
-        if l.target_type == LoadType.COLLECTION_TYPE:
-            collection_name = l.target_name
+        if ld.target_type == LoadType.COLLECTION_TYPE:
+            collection_name = ld.target_name
             try:
-                obj = load_collection(collection_dir=l.path, basedir=l.path, load_children=False)
-            except:
-                logging.exception("failed to load the collection {}".format(collection_name))
+                obj = load_collection(
+                    collection_dir=ld.path,
+                    basedir=ld.path,
+                    load_children=False
+                )
+            except Exception:
+                logging.exception(
+                    "failed to load the collection {}".format(collection_name)
+                )
                 return
-        elif l.target_type == LoadType.ROLE_TYPE:
-            role_name = l.target_name
+        elif ld.target_type == LoadType.ROLE_TYPE:
+            role_name = ld.target_name
             try:
-                obj = load_role(path=l.path, basedir=l.path, load_children=False)
-            except:
-                logging.exception("failed to load the role {}".format(role_name))
+                obj = load_role(
+                    path=ld.path, basedir=ld.path, load_children=False
+                )
+            except Exception:
+                logging.exception(
+                    "failed to load the role {}".format(role_name)
+                )
                 return
-        elif l.target_type == LoadType.PROJECT_TYPE:
-            repo_name = l.target_name
+        elif ld.target_type == LoadType.PROJECT_TYPE:
+            repo_name = ld.target_name
             try:
-                obj = load_repository(path=l.path, basedir=l.path)
-            except:
-                logging.exception("failed to load the project {}".format(repo_name))
+                obj = load_repository(path=ld.path, basedir=ld.path)
+            except Exception:
+                logging.exception(
+                    "failed to load the project {}".format(repo_name)
+                )
                 return
-        elif l.target_type == LoadType.PLAYBOOK_TYPE:
-            playbook_name = l.target_name
+        elif ld.target_type == LoadType.PLAYBOOK_TYPE:
+            playbook_name = ld.target_name
             try:
-                obj = load_playbook(path=l.path, role_name="", collection_name="", basedir=l.path)
-            except:
-                logging.exception("failed to load the playbook {}".format(playbook_name))
+                obj = load_playbook(
+                    path=ld.path,
+                    role_name="",
+                    collection_name="",
+                    basedir=ld.path,
+                )
+            except Exception:
+                logging.exception(
+                    "failed to load the playbook {}".format(playbook_name)
+                )
                 return
         else:
-            raise ValueError("unsupported type: {}".format(l.target_type))
+            raise ValueError("unsupported type: {}".format(ld.target_type))
 
         mappings = {
             "roles": [],
@@ -62,29 +92,43 @@ class Parser():
             "playbooks": [],
         }
         roles = []
-        for role_path in l.roles:
+        for role_path in ld.roles:
             try:
-                r = load_role(path=role_path, collection_name=collection_name, basedir=l.path)
+                r = load_role(
+                    path=role_path,
+                    collection_name=collection_name,
+                    basedir=ld.path,
+                )
                 roles.append(r)
-            except:
+            except Exception:
                 continue
             mappings["roles"].append([role_path, r.key])
 
         taskfiles = [tf for r in roles for tf in r.taskfiles]
-        for taskfile_path in l.taskfiles:
+        for taskfile_path in ld.taskfiles:
             try:
-                tf = load_taskfile(path=taskfile_path, role_name=role_name, collection_name=collection_name, basedir=l.path)
-            except:
+                tf = load_taskfile(
+                    path=taskfile_path,
+                    role_name=role_name,
+                    collection_name=collection_name,
+                    basedir=ld.path,
+                )
+            except Exception:
                 continue
             taskfiles.append(tf)
             mappings["taskfiles"].append([taskfile_path, tf.key])
 
         playbooks = [p for r in roles for p in r.playbooks]
-        for playbook_path in l.playbooks:
+        for playbook_path in ld.playbooks:
             p = None
             try:
-                p = load_playbook(path=playbook_path, role_name=role_name, collection_name=collection_name, basedir=l.path)
-            except:
+                p = load_playbook(
+                    path=playbook_path,
+                    role_name=role_name,
+                    collection_name=collection_name,
+                    basedir=ld.path,
+                )
+            except Exception:
                 continue
             playbooks.append(p)
             mappings["playbooks"].append([playbook_path, p.key])
@@ -100,11 +144,16 @@ class Parser():
         tasks.extend(post_tasks_in_plays)
 
         modules = [m for r in roles for m in r.modules]
-        for module_path in l.modules:
+        for module_path in ld.modules:
             m = None
             try:
-                m = load_module(module_file_path=module_path, role_name=role_name, collection_name=collection_name, basedir=l.path)
-            except:
+                m = load_module(
+                    module_file_path=module_path,
+                    role_name=role_name,
+                    collection_name=collection_name,
+                    basedir=ld.path,
+                )
+            except Exception:
                 continue
             modules.append(m)
             mappings["modules"].append([module_path, m.key])
@@ -115,7 +164,7 @@ class Parser():
         logging.debug("playbooks: {}".format(len(playbooks)))
         logging.debug("plays: {}".format(len(plays)))
         logging.debug("tasks: {}".format(len(tasks)))
-        
+
         if output_dir == "":
             output_dir = os.path.dirname(load_json_path)
         if self.do_save and not os.path.exists(output_dir):
@@ -123,60 +172,76 @@ class Parser():
 
         collections = []
         projects = []
-        if l.target_type == LoadType.COLLECTION_TYPE:
+        if ld.target_type == LoadType.COLLECTION_TYPE:
             collections = [obj]
-        elif l.target_type == LoadType.ROLE_TYPE:
+        elif ld.target_type == LoadType.ROLE_TYPE:
             role_path = "."
-            r = load_role(path=role_path, name=l.target_name, basedir=l.path)
+            r = load_role(path=role_path, name=ld.target_name, basedir=ld.path)
             roles.append(r)
             mappings["roles"].append([role_path, r.key])
-        elif l.target_type == LoadType.PLAYBOOK_TYPE:
+        elif ld.target_type == LoadType.PLAYBOOK_TYPE:
             playbooks = [obj]
-        elif l.target_type == LoadType.PROJECT_TYPE:
+        elif ld.target_type == LoadType.PROJECT_TYPE:
             projects = [obj]
 
         if len(collections) > 0:
             collections = [c.children_to_key() for c in collections]
             if self.do_save:
-                dump_object_list(collections, os.path.join(output_dir, "collections.json"))
+                dump_object_list(
+                    collections, os.path.join(output_dir, "collections.json")
+                )
         if len(projects) > 0:
             projects = [p.children_to_key() for p in projects]
             if self.do_save:
-                dump_object_list(projects, os.path.join(output_dir, "projects.json"))
+                dump_object_list(
+                    projects, os.path.join(output_dir, "projects.json")
+                )
         if len(roles) > 0:
             roles = [r.children_to_key() for r in roles]
             if self.do_save:
-                dump_object_list(roles, os.path.join(output_dir, "roles.json"))
+                dump_object_list(
+                    roles, os.path.join(output_dir, "roles.json")
+                )
         if len(taskfiles) > 0:
             taskfiles = [tf.children_to_key() for tf in taskfiles]
             if self.do_save:
-                dump_object_list(taskfiles, os.path.join(output_dir, "taskfiles.json"))
+                dump_object_list(
+                    taskfiles, os.path.join(output_dir, "taskfiles.json")
+                )
         if len(modules) > 0:
             modules = [m.children_to_key() for m in modules]
             if self.do_save:
-                dump_object_list(modules, os.path.join(output_dir, "modules.json"))
+                dump_object_list(
+                    modules, os.path.join(output_dir, "modules.json")
+                )
         if len(playbooks) > 0:
             playbooks = [p.children_to_key() for p in playbooks]
             if self.do_save:
-                dump_object_list(playbooks, os.path.join(output_dir, "playbooks.json"))
+                dump_object_list(
+                    playbooks, os.path.join(output_dir, "playbooks.json")
+                )
         if len(plays) > 0:
             plays = [p.children_to_key() for p in plays]
             if self.do_save:
-                dump_object_list(plays, os.path.join(output_dir, "plays.json"))
+                dump_object_list(
+                    plays, os.path.join(output_dir, "plays.json")
+                )
         if len(tasks) > 0:
             tasks = [t.children_to_key() for t in tasks]
             if self.do_save:
-                dump_object_list(tasks, os.path.join(output_dir, "tasks.json"))
+                dump_object_list(
+                    tasks, os.path.join(output_dir, "tasks.json")
+                )
 
         # save mappings
-        l.roles = mappings["roles"]
-        l.taskfiles = mappings["taskfiles"]
-        l.playbooks = mappings["playbooks"]
-        l.modules = mappings["modules"]
+        ld.roles = mappings["roles"]
+        ld.taskfiles = mappings["taskfiles"]
+        ld.playbooks = mappings["playbooks"]
+        ld.modules = mappings["modules"]
 
         if self.do_save:
             mapping_path = os.path.join(output_dir, "mappings.json")
-            open(mapping_path, "w").write(l.dump())
+            open(mapping_path, "w").write(ld.dump())
 
         definitions = {
             "collections": collections,
@@ -188,9 +253,10 @@ class Parser():
             "plays": plays,
             "tasks": tasks,
         }
-        load_and_mappings = l
+        load_and_mappings = ld
         return definitions, load_and_mappings
-        
+
+
 def dump_object_list(obj_list, output_path):
     tmp_obj_list = copy.deepcopy(obj_list)
     lines = []
@@ -198,6 +264,7 @@ def dump_object_list(obj_list, output_path):
         lines.append(tmp_obj_list[i].dump())
     open(output_path, "w").write("\n".join(lines))
     return
+
 
 def load_name2target_name(path):
     filename = os.path.basename(path)
@@ -208,24 +275,48 @@ def load_name2target_name(path):
         target_name = target_name[len(prefix):]
     return target_name
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        prog='parser.py',
-        description='parse collection/role and its children and output definition json',
-        epilog='end',
+        prog="parser.py",
+        description=(
+            "parse collection/role and its children and output definition"
+            " json"
+        ),
+        epilog="end",
         add_help=True,
     )
 
-    parser.add_argument('-l', '--load-path', default="", help='load json path/dir')
-    parser.add_argument('-i', '--index-path', default="", help='if specified, load files in this index.json (--load-path will be ignored)')
-    parser.add_argument('--root', action='store_true', help='enable this if the target is the root')
-    parser.add_argument('--ext', action='store_true', help='enable this if the target is the external dependency(s)')
-    parser.add_argument('-o', '--output-dir', default="", help='path to the output dir')
-    
+    parser.add_argument(
+        "-l", "--load-path", default="", help="load json path/dir"
+    )
+    parser.add_argument(
+        "-i",
+        "--index-path",
+        default="",
+        help=(
+            "if specified, load files in this index.json (--load-path will be"
+            " ignored)"
+        ),
+    )
+    parser.add_argument(
+        "--root",
+        action="store_true",
+        help="enable this if the target is the root",
+    )
+    parser.add_argument(
+        "--ext",
+        action="store_true",
+        help="enable this if the target is the external dependency(s)",
+    )
+    parser.add_argument(
+        "-o", "--output-dir", default="", help="path to the output dir"
+    )
+
     args = parser.parse_args()
 
     if not args.root and not args.ext:
-        logging.error("either \"--root\" or \"--ext\" must be specified")
+        logging.error('either "--root" or "--ext" must be specified')
         sys.exit(1)
     is_ext = args.ext
 
@@ -234,11 +325,13 @@ if __name__ == "__main__":
         sys.exit(1)
 
     if args.root and args.load_path == "":
-        logging.error("\"--load-path\" must be specified for \"--root\" mode")
+        logging.error('"--load-path" must be specified for "--root" mode')
         sys.exit(1)
 
     if args.root and not os.path.isfile(args.load_path):
-        logging.error("\"--load-path\" must be a single .json file for \"--root\" mode")
+        logging.error(
+            '"--load-path" must be a single .json file for "--root" mode'
+        )
         sys.exit(1)
 
     if args.load_path != "" and not os.path.exists(args.load_path):
@@ -255,34 +348,66 @@ if __name__ == "__main__":
             with open(args.index_path, "r") as file:
                 index_data = json.load(file)
                 load_dir = index_data.get("out_path", "")
-                load_json_name_list = index_data.get("generated_load_files", [])
-                load_json_name_list = [f.get("file", "") if isinstance(f, dict) else f for f in load_json_name_list]
-                load_json_path_list = [os.path.join(load_dir, f) for f in load_json_name_list]
+                load_json_name_list = index_data.get(
+                    "generated_load_files", []
+                )
+                load_json_name_list = [
+                    f.get("file", "") if isinstance(f, dict) else f
+                    for f in load_json_name_list
+                ]
+                load_json_path_list = [
+                    os.path.join(load_dir, f) for f in load_json_name_list
+                ]
         else:
             files = os.listdir(args.index_path)
-            index_json_path_list = [os.path.join(args.index_path, fname) for fname in files if fname.startswith("index-") and fname.endswith(".json")]
+            index_json_path_list = [
+                os.path.join(args.index_path, fname)
+                for fname in files
+                if fname.startswith("index-") and fname.endswith(".json")
+            ]
             for i in index_json_path_list:
                 with open(i, "r") as file:
                     index_data = json.load(file)
                     load_dir = index_data.get("out_path", "")
-                    load_json_name_list = index_data.get("generated_load_files", [])
-                    load_json_name_list = [f.get("file", "") if isinstance(f, dict) else f for f in load_json_name_list]
-                    tmp_load_json_list = [os.path.join(load_dir, f) for f in load_json_name_list]
-                    for l in tmp_load_json_list:
-                        if l not in load_json_path_list:
-                            load_json_path_list.append(l)
+                    load_json_name_list = index_data.get(
+                        "generated_load_files", []
+                    )
+                    load_json_name_list = [
+                        f.get("file", "") if isinstance(f, dict) else f
+                        for f in load_json_name_list
+                    ]
+                    tmp_load_json_list = [
+                        os.path.join(load_dir, f) for f in load_json_name_list
+                    ]
+                    for load_json_path in tmp_load_json_list:
+                        if load_json_path not in load_json_path_list:
+                            load_json_path_list.append(load_json_path)
     elif args.load_path != "":
         if os.path.isfile(args.load_path):
             load_json_path_list = [args.load_path]
         else:
             files = os.listdir(args.load_path)
-            load_json_path_list = [os.path.join(args.load_path, fname) for fname in files if fname.startswith("load-") and fname.endswith(".json")]
+            load_json_path_list = [
+                os.path.join(args.load_path, fname)
+                for fname in files
+                if fname.startswith("load-") and fname.endswith(".json")
+            ]
 
     if len(load_json_path_list) == 0:
         logging.info("no load json files found. exitting.")
         sys.exit()
 
-    profiles = [(load_json_path, os.path.join(args.output_dir, load_name2target_name(load_json_path)) if is_ext else args.output_dir) for load_json_path in load_json_path_list]
+    profiles = [
+        (
+            load_json_path,
+            os.path.join(
+                args.output_dir, load_name2target_name(load_json_path)
+            )
+            if is_ext
+            else args.output_dir,
+        )
+        for load_json_path in load_json_path_list
+    ]
 
     num = len(profiles)
     if num == 0:
@@ -290,7 +415,7 @@ if __name__ == "__main__":
         sys.exit()
     else:
         logging.info("start parsing {} target(s)".format(num))
-    
+
     p = Parser()
 
     def parse_single(single_input):
@@ -298,10 +423,15 @@ if __name__ == "__main__":
         num = single_input[1]
         load_json_path = single_input[2]
         output_dir = single_input[3]
-        print("[{}/{}] {}       ".format(i+1, num, load_json_path))
+        print("[{}/{}] {}       ".format(i + 1, num, load_json_path))
 
         p.run(load_json_path=load_json_path, output_dir=output_dir)
 
-    parallel_input_list = [(i, num, load_json_path, output_dir) for i, (load_json_path, output_dir) in enumerate(profiles)]
-    _ = joblib.Parallel(n_jobs=-1)(joblib.delayed(parse_single)(single_input) for single_input in parallel_input_list)
-    
+    parallel_input_list = [
+        (i, num, load_json_path, output_dir)
+        for i, (load_json_path, output_dir) in enumerate(profiles)
+    ]
+    _ = joblib.Parallel(n_jobs=-1)(
+        joblib.delayed(parse_single)(single_input)
+        for single_input in parallel_input_list
+    )

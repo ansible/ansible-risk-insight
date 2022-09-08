@@ -1,4 +1,15 @@
-from models import Module, Collection, Task, TaskFile, Role, RoleInPlay, Playbook, Play, Repository, ObjectList
+from models import (
+    Module,
+    Collection,
+    Task,
+    TaskFile,
+    Role,
+    RoleInPlay,
+    Playbook,
+    Play,
+    Repository,
+    ObjectList,
+)
 
 
 class Resolver:
