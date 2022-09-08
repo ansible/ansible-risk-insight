@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 from rules.base import Rule
 
 
@@ -63,6 +64,59 @@ class DownloadExecRule(Rule):
         matched = len(matched_tasks) > 0
         message = message[:-1] if message.endswith("\n") else message
         return matched, matched_tasks, message
+=======
+
+non_execution_programs = ["tar", "gunzip", "unzip", "mv", "cp"]
+
+
+def rule_download_and_exec(tasks: list):
+    # list downloaded files from "inbound_transfer" tasks
+    download_files_and_tasks = []
+    for task in tasks:
+        analyzed_data = task.get("analyzed_data", [])
+        for single_ad in analyzed_data:
+            if single_ad.get("category", "") == "inbound_transfer":
+                src = single_ad.get("data", {}).get("src", "")
+                dst = single_ad.get("data", {}).get("dest", "")
+                if isinstance(dst, str) and dst != "":
+                    download_files_and_tasks.append((dst, task, src))
+                elif isinstance(dst, list) and len(dst) > 0:
+                    for _d in dst:
+                        download_files_and_tasks.append((_d, task, src))
+    # check if the downloaded files are executed in "cmd_exec" tasks
+    matched_tasks = []
+    message = ""
+    for task in tasks:
+        analyzed_data = task.get("analyzed_data", [])
+        for single_ad in analyzed_data:
+            if single_ad.get("category", "") == "cmd_exec":
+                cmd_str = single_ad.get("data", {}).get("cmd", "")
+                for (
+                    downloaded_file,
+                    download_task,
+                    download_src,
+                ) in download_files_and_tasks:
+                    if _is_executed(cmd_str, downloaded_file):
+                        matched_tasks.append((download_task, task))
+                        message += "Download block: {}, line: {}\n".format(
+                            download_task.get("defined_in", ""),
+                            _make_line_num_expr(
+                                download_task.get("line_num_in_file", [])
+                            ),
+                        )
+                        message += "Exec block: {}, line: {}\n".format(
+                            task.get("defined_in", ""),
+                            _make_line_num_expr(
+                                task.get("line_num_in_file", [])
+                            ),
+                        )
+                        message += 'Mutable Variables: "{}"\n'.format(
+                            download_src
+                        )
+    matched = len(matched_tasks) > 0
+    message = message[:-1] if message.endswith("\n") else message
+    return matched, matched_tasks, message
+>>>>>>> f4e25374 (add rules & anlyzer & risk_detector)
 
 
 def _make_line_num_expr(line_num_parts: list):
