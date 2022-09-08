@@ -151,9 +151,9 @@ def get_object(json_path, type, name, cache={}):
     cached = cache.get(json_path, None)
     if cached is None:
         if not os.path.exists(json_path):
-            raise ValueError("the json path \"{}\" not found".format(json_path))
+            raise ValueError('the json path "{}" not found'.format(json_path))
         basename = os.path.basename(json_path)
-        
+
         if basename.startswith("role-"):
             json_type = "role"
             with open(json_path, "r") as file:
@@ -246,9 +246,10 @@ def get_all_variables(var_dict={}):
             var_name = name
             all_vars[var_name] = node
         return all_vars
-    
+
     all_vars = _recursive_extract("", var_dict)
     return all_vars
+
 
 class VariableType:
     NORMAL = "normal"
@@ -261,7 +262,14 @@ class VariableType:
     PARTIAL_RESOLVE = "partial_resolve"
     FAILED_TO_RESOLVE = "failed_to_resolve"
 
-mutable_types = [VariableType.NORMAL, VariableType.ROLE_DEFAULTS, VariableType.ROLE_VARS, VariableType.INVENTORY_VARS]
+
+mutable_types = [
+    VariableType.NORMAL,
+    VariableType.ROLE_DEFAULTS,
+    VariableType.ROLE_VARS,
+    VariableType.INVENTORY_VARS,
+]
+
 
 @dataclass
 class Context:
@@ -449,6 +457,7 @@ class Context:
 
     def copy(self):
         return copy.deepcopy(self)
+
 
 def resolved_vars_contains(resolved_vars, new_var):
     if not isinstance(new_var, dict):

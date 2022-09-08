@@ -29,6 +29,7 @@ label_mappings = {
     "dependency": ["Type", "Name", "Verified", "Findings", "Resolution"],
 }
 
+
 def make_detail_output(finding_data):
     type = finding_data.get("type", "")
     output_lines = ""
@@ -69,6 +70,7 @@ def indent(multi_line_txt, level=0):
         " " * level + line for line in lines if line.replace(" ", "") != ""
     ]
     return "\n".join(lines)
+
 
 def make_display_report(fpath="", detail_report=None):
     report_data = []

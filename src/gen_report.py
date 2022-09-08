@@ -1,5 +1,4 @@
 import argparse
-from asyncio import tasks
 import os
 import json
 
@@ -195,6 +194,7 @@ def make_summary(details: dict):
 
     return summary
 
+
 class RiskLevel:
     EMPTY = ""
     LOW = "Low"
@@ -202,10 +202,12 @@ class RiskLevel:
     HIGH = "High"
     CRITICAL = "Critical"
 
+
 class FindingType:
     INBOUND = "InboundTransfer"
     OUTBOUND = "OutboundTransfer"
     DOWNLOAD_EXEC = "Download & Exec"
+
 
 def make_findings(details: dict):
     findings = []
@@ -304,6 +306,7 @@ def make_findings(details: dict):
         )
 
     return findings
+
 
 def inbound_details(details: list, inbound_exec_task_pairs: list):
     detail_data_list = []
@@ -594,8 +597,7 @@ def is_primary_command_target(line, target):
     for p in parts:
         if current_index == 0:
             program = p if "/" not in p else p.split("/")[-1]
-            # typically, the downloaded file is just unarchived without execution
-            # we do not count it as inbound_exec, so exit the loop here
+            # filter out some specific non-exec patterns
             if program in non_execution_programs:
                 break
         if p.startswith(target):
@@ -608,6 +610,7 @@ def is_primary_command_target(line, target):
     # python -u <target.py> ==> found_index == 1
     is_primay_target = found_index >= 0 and found_index <= 1
     return is_primay_target
+
 
 def is_executed(cmd_str, target):
     lines = cmd_str.splitlines()
@@ -623,6 +626,7 @@ def is_executed(cmd_str, target):
             break
     return found
 
+
 def check_mutable_import(tasks: list):
     detail_data_list = []
     for task in tasks:
@@ -634,14 +638,26 @@ def check_mutable_import(tasks: list):
         resolved_variables = task.get("resolved_variables", [])
         if len(resolved_variables) == 0:
             continue
-        if len([v for v in resolved_variables if v.get("type", "") in mutable_types]) == 0:
+        if (
+            len(
+                [
+                    v
+                    for v in resolved_variables
+                    if v.get("type", "") in mutable_types
+                ]
+            )
+            == 0
+        ):
             continue
-        detail_data_list.append({
-            "option": module_options,
-            "resolved_variables": resolved_variables,
-            "filepath": filepath,
-        })
+        detail_data_list.append(
+            {
+                "option": module_options,
+                "resolved_variables": resolved_variables,
+                "filepath": filepath,
+            }
+        )
     return detail_data_list
+
 
 def key2name(key: str):
     _type = detect_type(key)

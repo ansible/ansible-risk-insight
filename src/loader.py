@@ -22,6 +22,7 @@ collection_manifest_json = "MANIFEST.json"
 role_meta_main_yml = "meta/main.yml"
 role_meta_main_yaml = "meta/main.yaml"
 
+
 def detect_target_type(path, is_ext):
     if os.path.isfile(path):
         # need further check?
@@ -62,6 +63,7 @@ def detect_target_type(path, is_ext):
         return LoadType.PROJECT_TYPE, [path]
     return LoadType.UNKNOWN_TYPE, []
 
+
 # remove a dir which is a sub directory of another dir in the list
 def remove_subdirectories(dir_list):
     sorted_dir_list = sorted(dir_list)
@@ -71,6 +73,7 @@ def remove_subdirectories(dir_list):
             continue
         new_dir_list.append(dir)
     return new_dir_list
+
 
 def trim_suffix(txt, suffix_patterns=[]):
     if isinstance(suffix_patterns, str):
@@ -118,6 +121,7 @@ def get_target_name(target_type, target_path):
     elif target_type == LoadType.PLAYBOOK_TYPE:
         target_name = filepath_to_target_name(target_path)
     return target_name
+
 
 def filepath_to_target_name(filepath):
     return filepath.translate(
@@ -282,4 +286,3 @@ if __name__ == "__main__":
 
         with open(args.index_path, "w") as file:
             json.dump(index_data, file)
-

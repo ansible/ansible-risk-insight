@@ -302,6 +302,7 @@ class FQCNResolver(Resolver):
                     return True
         return role_fqcn in set(self.role_dict.keys())
 
+
 def get_dependency_names(raw_dependencies):
     if not isinstance(raw_dependencies, dict):
         return [], []
@@ -332,14 +333,17 @@ def get_dependency_names(raw_dependencies):
 
 
 def get_all_dependencies(target_path, known_dependencies={}):
-    # TODO: if target is not there, should do install & load & parse for it dynamically?
+    # TODO: if target is not there, should do install
+    # and then load & parse for it dynamically?
     if not os.path.exists(target_path):
         return {"roles": [], "collections": []}
     target = os.path.basename(os.path.normpath(target_path))
     basedir = os.path.dirname(os.path.normpath(target_path))
     target_type = target.split("-")[0]
 
-    target_key = target_type + "s" # role --> roles, collection --> collections
+    target_key = (
+        target_type + "s"
+    )  # role --> roles, collection --> collections
     if target in known_dependencies.get(target_key, []):
         return {"roles": [], "collections": []}
 
@@ -359,23 +363,30 @@ def get_all_dependencies(target_path, known_dependencies={}):
 
     dependencies = {}
     dependencies["roles"] = dep_roles
-    dependencies["collections"] = dep_colls        
+    dependencies["collections"] = dep_colls
 
     for role_name in dependencies["roles"]:
         sub_target_path = os.path.join(basedir, "role-{}".format(role_name))
-        sub_dependencies = get_all_dependencies(target_path=sub_target_path, known_dependencies=dependencies)
+        sub_dependencies = get_all_dependencies(
+            target_path=sub_target_path, known_dependencies=dependencies
+        )
         dependencies["roles"].extend(sub_dependencies["roles"])
         dependencies["collections"].extend(sub_dependencies["collections"])
 
     for collection_name in dependencies["collections"]:
-        sub_target_path = os.path.join(basedir, "collection-{}".format(collection_name))
-        sub_dependencies = get_all_dependencies(target_path=sub_target_path, known_dependencies=dependencies)
+        sub_target_path = os.path.join(
+            basedir, "collection-{}".format(collection_name)
+        )
+        sub_dependencies = get_all_dependencies(
+            target_path=sub_target_path, known_dependencies=dependencies
+        )
         dependencies["roles"].extend(sub_dependencies["roles"])
         dependencies["collections"].extend(sub_dependencies["collections"])
 
     dependencies["roles"] = sorted(dependencies["roles"])
     dependencies["collections"] = sorted(dependencies["collections"])
     return dependencies
+
 
 def load_definitions(target_path):
     roles_path = os.path.join(target_path, "roles.json")
@@ -392,6 +403,7 @@ def load_definitions(target_path):
         modules.from_json(fpath=modules_path)
     return roles, taskfiles, modules
 
+
 def make_dicts(target_path, dependencies, galaxy_dir="", save_marged=False):
     basedir = ""
     if galaxy_dir == "":
@@ -399,29 +411,48 @@ def make_dicts(target_path, dependencies, galaxy_dir="", save_marged=False):
     else:
         basedir = galaxy_dir
     roles, taskfiles, modules = load_definitions(target_path=target_path)
-    
+
     req_path_list = []
     for role_name in dependencies.get("roles", []):
-        req_path_list.append(os.path.join(basedir, "role-{}".format(role_name)))
+        req_path_list.append(
+            os.path.join(basedir, "role-{}".format(role_name))
+        )
     for collection_name in dependencies.get("collections", []):
-        req_path_list.append(os.path.join(basedir, "collection-{}".format(collection_name)))
+        req_path_list.append(
+            os.path.join(basedir, "collection-{}".format(collection_name))
+        )
 
     for sub_target_path in req_path_list:
-        sub_roles, sub_taskfiles, sub_modules = load_definitions(target_path=sub_target_path)
+        sub_roles, sub_taskfiles, sub_modules = load_definitions(
+            target_path=sub_target_path
+        )
         roles.merge(sub_roles)
         taskfiles.merge(sub_taskfiles)
         modules.merge(sub_modules)
-    
+
     if save_marged:
         os.makedirs(os.path.join(target_path, "merged"), exist_ok=True)
         roles.dump(fpath=os.path.join(target_path, "merged", "roles.json"))
-        taskfiles.dump(fpath=os.path.join(target_path, "merged", "taskfiles.json"))
-        modules.dump(fpath=os.path.join(target_path, "merged", "modules.json"))
+        taskfiles.dump(
+            fpath=os.path.join(target_path, "merged", "taskfiles.json")
+        )
+        modules.dump(
+            fpath=os.path.join(target_path, "merged", "modules.json")
+        )
 
         # TODO: handle playbook, play and tasks correctly
-        shutil.copyfile(os.path.join(target_path, "playbooks.json"), os.path.join(target_path, "merged/playbooks.json"))
-        shutil.copyfile(os.path.join(target_path, "plays.json"), os.path.join(target_path, "merged/plays.json"))
-        shutil.copyfile(os.path.join(target_path, "tasks.json"), os.path.join(target_path, "merged/tasks.json"))
+        shutil.copyfile(
+            os.path.join(target_path, "playbooks.json"),
+            os.path.join(target_path, "merged/playbooks.json"),
+        )
+        shutil.copyfile(
+            os.path.join(target_path, "plays.json"),
+            os.path.join(target_path, "merged/plays.json"),
+        )
+        shutil.copyfile(
+            os.path.join(target_path, "tasks.json"),
+            os.path.join(target_path, "merged/tasks.json"),
+        )
 
     role_dict = {}
     for r in roles.items:

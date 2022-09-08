@@ -42,6 +42,7 @@ class ContainerType:
     ROLE = "role"
     PROJECT = "project"
 
+
 @dataclass
 class DataContainer(object):
     type: str = ""

@@ -93,6 +93,7 @@ def tree_to_task_list(tree, node_objects):
     tasks, _ = getSubTree(tree)
     return tasks
 
+
 def resolve_variables(tree, node_objects):
     node_dict = {}
     for no in node_objects.items:
@@ -139,6 +140,7 @@ def resolve_variables(tree, node_objects):
         tasks.append(task.__dict__)
     return tasks
 
+
 def get_inventories(tree_root_key, node_objects):
     tree_root_type = detect_type(tree_root_key)
     projects = node_objects.find_by_type("repository")
@@ -175,6 +177,7 @@ def get_inventories(tree_root_key, node_objects):
             break
     return inventories
 
+
 def load_tree_json(tree_path):
     trees = []
     with open(tree_path, "r") as file:
@@ -184,6 +187,7 @@ def load_tree_json(tree_path):
             tree = TreeNode.load(graph=src_dst_array)
             trees.append(tree)
     return trees
+
 
 def load_node_objects(node_path="", root_dir="", ext_dir=""):
     objects = ObjectList()
@@ -254,6 +258,7 @@ def main():
         tasks_rv_lines.append(line)
     tasks_rv_path = os.path.join(args.out_dir, "tasks_rv.json")
     open(tasks_rv_path, "w").write("\n".join(tasks_rv_lines))
+
 
 if __name__ == "__main__":
     main()

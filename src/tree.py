@@ -182,6 +182,7 @@ def nodelist2branch(nodelist):
         current = current.children[0]
     return t
 
+
 def load_graph(graph_path):
     graph = {}
     with open(graph_path, "r") as file:
@@ -260,6 +261,7 @@ def make_dicts(root_definitions, ext_definitions):
             dicts[type_key][obj_dict_key] = obj
     return dicts
 
+
 def resolve(obj, dicts):
     failed = False
     if isinstance(obj, Task):
@@ -297,6 +299,7 @@ def resolve(obj, dicts):
             if roleinplay.resolved_name == "":
                 failed = True
     return obj, failed
+
 
 def resolve_module(module_name, module_dict={}):
     module_key = ""
@@ -407,6 +410,7 @@ def resolve_playbook(playbook_ref, playbook_dict={}, play_key=""):
     if found_playbook is not None:
         return found_playbook.key
     return ""
+
 
 def init_builtin_modules():
     builtin_module_names = get_builtin_module_names()
@@ -691,6 +695,7 @@ class TreeLoader(object):
             loaded[k] = obj
         return obj_list
 
+
 def dump_node_objects(obj_list, path=""):
     if path == "":
         lines = obj_list.dump()
@@ -699,6 +704,7 @@ def dump_node_objects(obj_list, path=""):
             print(json.dumps(obj_dict, indent=2))
     else:
         obj_list.dump(fpath=path)
+
 
 def load_tree_json(tree_path):
     trees = []
@@ -709,6 +715,7 @@ def load_tree_json(tree_path):
             tree = TreeNode.load(graph=src_dst_array)
             trees.append(tree)
     return trees
+
 
 def load_node_objects(node_list_file):
     obj_list = ObjectList().from_json(fpath=node_list_file)
@@ -777,6 +784,7 @@ def main():
     logging.info("start building trees")
     tree_loader.run()
     logging.info("done")
+
 
 if __name__ == "__main__":
     main()

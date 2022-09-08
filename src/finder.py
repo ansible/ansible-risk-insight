@@ -25,9 +25,11 @@ class Singleton(type):
             cls._instances[cls] = super().__call__(*args, **kwargs)
         return cls._instances[cls]
 
+
 @dataclass(frozen=True)
 class TaskKeywordSet(metaclass=Singleton):
     task_keywords: set
+
 
 @dataclass(frozen=True)
 class BuiltinModuleSet(metaclass=Singleton):
@@ -60,6 +62,7 @@ def find_module_name(data_block):
         if k not in task_keywords and not k.startswith("with_"):
             return k
     return ""
+
 
 def get_task_blocks(fpath="", task_dict_list=None):
     d = None
@@ -133,6 +136,7 @@ def search_module_files(path, module_dir_paths=[]):
                     file_list.append(os.path.join(dirpath, file))
     return file_list
 
+
 def find_module_dirs(role_root_dir):
     module_dirs = []
     for module_dir_pattern in module_dir_patterns:
@@ -175,6 +179,7 @@ def search_taskfiles_for_playbooks(path, taskfile_dir_paths=[]):
             candidates.append(f)
     return candidates
 
+
 def search_inventory_files(path):
     inventory_file_patterns = [
         os.path.join(path, "**/group_vars", "*"),
@@ -216,6 +221,7 @@ def find_best_repo_root_path(path):
     else:
         root_path = os.path.dirname(top_playbook_path)
     return root_path
+
 
 def find_collection_name_of_repo(path):
     found_galaxy_ymls = safe_glob(path + "/**/galaxy.yml", recursive=True)

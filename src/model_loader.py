@@ -252,6 +252,7 @@ def load_inventory(path, basedir=""):
     invObj.variables = data
     return invObj
 
+
 def load_inventories(path, basedir=""):
 
     if not os.path.exists(path):
@@ -516,6 +517,7 @@ def load_roleinplay(
     ripObj.collections_in_play = collections_in_play
 
     return ripObj
+
 
 def load_playbook(path, role_name="", collection_name="", basedir=""):
     pbObj = Playbook()
@@ -842,6 +844,7 @@ def load_role(
 
     return roleObj
 
+
 def load_roles(path, basedir="", load_children=True):
     if path == "":
         return []
@@ -871,6 +874,7 @@ def load_roles(path, basedir="", load_children=True):
     if not load_children:
         roles = sorted(roles)
     return roles
+
 
 def load_requirements(path):
     requirements = {}
@@ -1148,6 +1152,7 @@ def load_task(
 
     return taskObj
 
+
 def load_taskfile(path, role_name="", collection_name="", basedir=""):
     tfObj = TaskFile()
 
@@ -1235,6 +1240,7 @@ def load_taskfiles(path, basedir="", load_children=True):
     if not load_children:
         taskfiles = sorted(taskfiles)
     return taskfiles
+
 
 def load_collection(collection_dir, basedir="", load_children=True):
     colObj = Collection()
