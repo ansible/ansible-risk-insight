@@ -17,7 +17,11 @@ class InboundTransferRule(Rule):
                     raw_src = single_ad.get("data", {}).get("src", "")
                     raw_dst = single_ad.get("data", {}).get("dest", "")
                     if isinstance(raw_src, list):
-                        raw_src = [s for s in raw_src if s.replace(" ", "") != "{{item}}"]
+                        raw_src = [
+                            s
+                            for s in raw_src
+                            if s.replace(" ", "") != "{{item}}"
+                        ]
                     resolved_src = [
                         resolved.get("src", "")
                         for resolved in single_ad.get("resolved_data", [])

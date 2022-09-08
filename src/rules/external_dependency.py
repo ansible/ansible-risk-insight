@@ -1,4 +1,4 @@
-from rules.base import Rule
+from rules.base import Rule, subject_placeholder
 
 
 class ExternalDependencyRule(Rule):
@@ -6,6 +6,9 @@ class ExternalDependencyRule(Rule):
     enabled: bool = True
     allow_list: list = []
     separate_report: bool = True
+    all_ok_message = "No {} depend on external dependencies".format(
+        subject_placeholder
+    )
 
     # IN: tasks with "analyzed_data" (i.e. output from analyzer.py)
     # OUT: matched: bool, matched_tasks: list[task | tuple[task]], message: str
@@ -33,7 +36,7 @@ class ExternalDependencyRule(Rule):
                     external_dependencies.append(collection_name)
                     matched_tasks.append(task)
         external_dependencies = sorted(external_dependencies)
-            
+
         matched = len(external_dependencies) > 0
         message = str(external_dependencies)
         return matched, matched_tasks, message

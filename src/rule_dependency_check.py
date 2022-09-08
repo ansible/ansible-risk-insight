@@ -5,10 +5,7 @@ import logging
 from tabulate import tabulate
 from keyutil import detect_type
 from models import ObjectList, ExecutableType, Repository, Playbook, Task
-from tree import (
-    TreeNode,
-    load_all_definitions
-)
+from tree import TreeNode, load_all_definitions
 
 
 def convert(tree, node_objects):

@@ -523,7 +523,6 @@ class Play(JSONSerializable, Resolvable):
 
     role: str = ""
     collection: str = ""
-
     import_module: str = ""
     import_playbook: str = ""
     pre_tasks: list = field(default_factory=list)
@@ -560,7 +559,6 @@ class Play(JSONSerializable, Resolvable):
     @property
     def resolver_targets(self):
         return self.pre_tasks + self.tasks + self.roles
-
 
 @dataclass
 class Playbook(JSONSerializable, Resolvable):
@@ -639,7 +637,6 @@ class Repository(JSONSerializable, Resolvable):
 
     installed_roles_path: str = ""
     installed_roles: list = field(default_factory=list)
-
     modules: list = field(default_factory=list)
     taskfiles: list = field(default_factory=list)
 

@@ -252,11 +252,11 @@ def load_inventory(path, basedir=""):
     invObj.variables = data
     return invObj
 
+
 def load_inventories(path, basedir=""):
 
     if not os.path.exists(path):
         return []
-
     inventories = []
     inventory_file_paths = search_inventory_files(path)
     if len(inventory_file_paths) > 0:
@@ -306,7 +306,6 @@ def load_play(
     pbObj.role = role_name
     pbObj.collection = collection_name
     pbObj.set_key(parent_key, parent_local_key)
-
     play_name = data_block.get("name", "")
     collections_in_play = data_block.get("collections", [])
     pre_tasks = []
@@ -654,7 +653,6 @@ def load_role(
         vars_dir_path = os.path.join(fullpath, "vars")
         tasks_dir_path = os.path.join(fullpath, "tasks")
         includes_dir_path = os.path.join(fullpath, "includes")
-
     if os.path.exists(meta_file_path):
         with open(meta_file_path, "r") as file:
             try:
@@ -973,12 +971,10 @@ def load_modules(path, basedir="", collection_name="", load_children=True):
         return []
     if not os.path.exists(path):
         return []
-
     module_files = search_module_files(path)
 
     if len(module_files) == 0:
         return []
-
     modules = []
     for module_file_path in module_files:
         m = None
