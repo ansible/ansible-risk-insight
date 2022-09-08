@@ -5,9 +5,9 @@ import re
 import json
 from copy import deepcopy
 from dataclasses import dataclass, field
-from struct5 import ObjectList, Playbook, Play, Repository, RoleInPlay, Role, Task, TaskFile, ExecutableType, Load, Module, BuiltinModuleSet, object_delimiter, key_delimiter, detect_type, safe_glob, LoadType
-
-
+from keyutil import detect_type, key_delimiter, object_delimiter
+from models import ObjectList, Playbook, Play, RoleInPlay, Role, Task, TaskFile, ExecutableType, Load, Module, LoadType
+from finder import get_builtin_module_names
 
 obj_type_dict = {
     "playbook": "playbooks",
@@ -345,6 +345,18 @@ def resolve_playbook(playbook_ref, playbook_dict={}, play_key=""):
         return found_playbook.key
     return ""
 
+def init_builtin_modules():
+    builtin_module_names = get_builtin_module_names()
+    modules = []
+    for module_name in builtin_module_names:
+        collection_name = "ansible.builtin"
+        fqcn = "{}.{}".format(collection_name, module_name)
+        global_key = "module collection{}{}{}module{}{}".format(key_delimiter, collection_name, object_delimiter, key_delimiter, fqcn)
+        local_key = "module module{}{}".format(key_delimiter, "__builtin__")
+        m = Module(name=module_name, fqcn=fqcn, key=global_key, local_key=local_key, collection=collection_name, builtin=True)
+        modules.append(m)
+    return modules
+
 class TreeLoader(object):
     def __init__(self, root_definitions, ext_definitions, index):
 
@@ -498,14 +510,9 @@ class TreeLoader(object):
         return None
 
     def add_builtin_modules(self):
-        builtin_module_names = BuiltinModuleSet().builtin_modules
         obj_list = ObjectList()
-        for module_name in builtin_module_names:
-            collection_name = "ansible.builtin"
-            fqcn = "{}.{}".format(collection_name, module_name)
-            global_key = "module collection{}{}{}module{}{}".format(key_delimiter, collection_name, object_delimiter, key_delimiter, fqcn)
-            local_key = "module module{}{}".format(key_delimiter, "__builtin__")
-            m = Module(name=module_name, fqcn=fqcn, key=global_key, local_key=local_key, collection=collection_name, builtin=True)
+        builtin_modules = init_builtin_modules()
+        for m in builtin_modules:
             obj_list.add(m)
         self.ext_definitions["modules"].merge(obj_list)
 

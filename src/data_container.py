@@ -8,9 +8,10 @@ import yaml
 import tempfile
 import logging
 from dataclasses import dataclass, field
-from struct5 import LoadType, Load, ObjectList
+from models import LoadType, Load, ObjectList
 from loader import detect_target_type, supported_target_types, get_loader_version, create_load_json_path, get_target_name
 from parser import Parser
+from model_loader import load_object
 from tree import TreeLoader, TreeNode
 from variable_resolver import resolve_variables
 from gen_report import gen_report
@@ -307,7 +308,7 @@ class DataContainer(object):
             print("path", target_path)
             print("loader_version", loader_version)
             l = Load(target_name=target_name, target_type=target_type, path=target_path, loader_version=loader_version)
-            l.run()
+            load_object(l)
             load_list.append(l)
         return load_list
 

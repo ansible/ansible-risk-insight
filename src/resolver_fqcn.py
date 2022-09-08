@@ -4,10 +4,10 @@ import json
 import argparse
 import joblib
 import shutil
-from struct5 import BuiltinModuleSet, ObjectList, Role, Collection, Load
+from models import ObjectList, Role, Collection, Load
 from resolver import Resolver
 import logging
-
+from finder import get_builtin_module_names
 
 module_name_re = re.compile(r'^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$')
 role_name_re = re.compile(r'^[a-z0-9_]+\.[a-z0-9_]+$')
@@ -169,7 +169,7 @@ class FQCNResolver(Resolver):
             for m in self.repo.modules:
                 if m.name == module_name:
                     return m.fqcn
-        builtin_modules = BuiltinModuleSet().builtin_modules
+        builtin_modules = get_builtin_module_names()
         fqcn = ""
         if module_name in builtin_modules:
             fqcn = "ansible.builtin.{}".format(module_name)

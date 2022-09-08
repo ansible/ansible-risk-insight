@@ -3,10 +3,12 @@ from asyncio import tasks
 import os
 import json
 
-from struct5 import detect_type, key_delimiter, ExecutableType
+from keyutil import detect_type, key_delimiter
+
 from context import mutable_types
 from extractor.ansible_builtin import BuiltinExtractor
 from rule_dependency_check import check_tasks as check_dependency_by_tasks
+from models import ExecutableType
 
 
 _inbound_transfer_key = "inbound_transfer"

@@ -7,7 +7,7 @@ import logging
 import git
 import datetime
 import joblib
-from struct5 import Load, LoadType
+from models import Load, LoadType
 from safe_glob import safe_glob
 
 

@@ -4,7 +4,8 @@ import json
 import jsonpickle
 import logging
 from tabulate import tabulate
-from struct5 import ObjectList, detect_type, ExecutableType, Repository, Playbook, Task
+from keyutil import detect_type
+from models import ObjectList, ExecutableType, Repository, Playbook, Task
 from tree import TreeNode, key_to_file_name, load_node_objects, TreeLoader, TreeNode, load_all_definitions
 from context import Context, resolve_module_options, get_all_variables
 

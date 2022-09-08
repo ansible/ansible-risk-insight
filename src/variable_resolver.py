@@ -2,11 +2,12 @@ import argparse
 import os
 import sys
 import json
-import jsonpickle
 import logging
-from struct5 import ObjectList, detect_type, ExecutableType, Repository, Playbook, Role
-from tree import TreeNode, key_to_file_name, load_node_objects, TreeLoader, TreeNode, load_all_definitions
-from context import Context, resolve_module_options, get_all_variables
+from keyutil import detect_type
+from models import ObjectList, ExecutableType, Repository, Playbook, Role
+from tree import TreeNode, load_node_objects, TreeNode, load_all_definitions
+from context import Context, resolve_module_options
+
 
 def tree_to_task_list(tree, node_objects):
     node_dict = {}

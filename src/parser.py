@@ -5,8 +5,8 @@ import json
 import logging
 import copy
 import joblib
-from struct5 import Module, Task, TaskFile, Role, Playbook, Play, Collection, Repository, Load, BuiltinModuleSet, LoadType
-
+from models import Module, Task, TaskFile, Role, Playbook, Play, Collection, Repository, Load, LoadType
+from model_loader import load_collection, load_module, load_playbook, load_repository, load_role, load_taskfile
 
 class Parser():
     def __init__(self, do_save=False):
@@ -26,40 +26,32 @@ class Parser():
         obj = None
         if l.target_type == LoadType.COLLECTION_TYPE:
             collection_name = l.target_name
-            c = Collection()
             try:
-                c.load(collection_dir=l.path, basedir=l.path, load_children=False)
+                obj = load_collection(collection_dir=l.path, basedir=l.path, load_children=False)
             except:
                 logging.exception("failed to load the collection {}".format(collection_name))
                 return
-            obj = c
         elif l.target_type == LoadType.ROLE_TYPE:
             role_name = l.target_name
-            r = Role()
             try:
-                r.load(path=l.path, basedir=l.path, load_children=False)
+                obj = load_role(path=l.path, basedir=l.path, load_children=False)
             except:
                 logging.exception("failed to load the role {}".format(role_name))
                 return
-            obj = r
         elif l.target_type == LoadType.PROJECT_TYPE:
             repo_name = l.target_name
-            repo = Repository()
             try:
-                repo.load(path=l.path, basedir=l.path)
+                obj = load_repository(path=l.path, basedir=l.path)
             except:
                 logging.exception("failed to load the project {}".format(repo_name))
                 return
-            obj = repo
         elif l.target_type == LoadType.PLAYBOOK_TYPE:
             playbook_name = l.target_name
-            p = Playbook()
             try:
-                p.load(path=l.path, role_name="", collection_name="", basedir=l.path)
+                obj = load_playbook(path=l.path, role_name="", collection_name="", basedir=l.path)
             except:
                 logging.exception("failed to load the playbook {}".format(playbook_name))
                 return
-            obj = p
         else:
             raise ValueError("unsupported type: {}".format(l.target_type))
 
@@ -71,19 +63,17 @@ class Parser():
         }
         roles = []
         for role_path in l.roles:
-            r = Role()
             try:
-                r.load(path=role_path, collection_name=collection_name, basedir=l.path)
+                r = load_role(path=role_path, collection_name=collection_name, basedir=l.path)
+                roles.append(r)
             except:
                 continue
-            roles.append(r)
             mappings["roles"].append([role_path, r.key])
 
         taskfiles = [tf for r in roles for tf in r.taskfiles]
         for taskfile_path in l.taskfiles:
-            tf = TaskFile()
             try:
-                tf.load(path=taskfile_path, role_name=role_name, collection_name=collection_name, basedir=l.path)
+                tf = load_taskfile(path=taskfile_path, role_name=role_name, collection_name=collection_name, basedir=l.path)
             except:
                 continue
             taskfiles.append(tf)
@@ -91,9 +81,9 @@ class Parser():
 
         playbooks = [p for r in roles for p in r.playbooks]
         for playbook_path in l.playbooks:
-            p = Playbook()
+            p = None
             try:
-                p.load(path=playbook_path, role_name=role_name, collection_name=collection_name, basedir=l.path)
+                p = load_playbook(path=playbook_path, role_name=role_name, collection_name=collection_name, basedir=l.path)
             except:
                 continue
             playbooks.append(p)
@@ -111,9 +101,9 @@ class Parser():
 
         modules = [m for r in roles for m in r.modules]
         for module_path in l.modules:
-            m = Module()
+            m = None
             try:
-                m.load(module_file_path=module_path, role_name=role_name, collection_name=collection_name, basedir=l.path)
+                m = load_module(module_file_path=module_path, role_name=role_name, collection_name=collection_name, basedir=l.path)
             except:
                 continue
             modules.append(m)
@@ -137,8 +127,7 @@ class Parser():
             collections = [obj]
         elif l.target_type == LoadType.ROLE_TYPE:
             role_path = "."
-            r = Role()
-            r.load(path=role_path, name=l.target_name, basedir=l.path)
+            r = load_role(path=role_path, name=l.target_name, basedir=l.path)
             roles.append(r)
             mappings["roles"].append([role_path, r.key])
         elif l.target_type == LoadType.PLAYBOOK_TYPE:

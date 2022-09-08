@@ -7,13 +7,102 @@ import subprocess
 import logging
 import copy
 from dataclasses import dataclass, field
-from struct5 import get_object, Repository, Playbook, Play, Role, Collection, TaskFile, Task, PlaybookFormatError, InventoryType
+from models import PlaybookFormatError, Repository, Playbook, Play, Role, Collection, TaskFile, Task, InventoryType
 from resolver_fqcn import FQCNResolver
+from model_loader import load_playbook, load_repository
 
 
 ansible_special_variables = open("ansible_variables.txt", "r").read().splitlines()
 _special_var_value = "__ansible_special_variable__"
 variable_block_re = re.compile(r'{{[^}]+}}')
+
+def get_object(json_path, type, name, cache={}):
+    json_type = ""
+    json_str = ""
+    cached = cache.get(json_path, None)
+    if cached is None:
+        if not os.path.exists(json_path):
+            raise ValueError("the json path \"{}\" not found".format(json_path))
+        basename = os.path.basename(json_path)
+        
+        if basename.startswith("role-"):
+            json_type = "role"
+            with open(json_path, "r") as file:
+                json_str = file.read()
+        elif basename.startswith("collection-"):
+            json_type = "collection"
+            with open(json_path, "r") as file:
+                json_str = file.read()
+        if json_str == "":
+            raise ValueError("json data is empty")
+        cache.update({json_path: (json_type, json_str)})
+    else:
+        json_type, json_str = cached[0], cached[1]
+    if json_type == "role":
+        r = Role()
+        r.from_json(json_str)
+        if type == "collection":
+            raise ValueError("collection cannot be gotten in a role")
+        if type == "role":
+            return r
+        elif type == "playbook":
+            raise ValueError("playbook cannot be gotten in a role")
+        elif type == "taskfile":
+            for tf in r.taskfiles:
+                if tf.defined_in == name:
+                    return tf
+        elif type == "task":
+            for tf in r.taskfiles:
+                for t in tf.tasks:
+                    if t.id == name:
+                        return t
+        elif type == "module":
+            for m in r.modules:
+                if m.fqcn == name:
+                    return m
+        return None
+    elif json_type == "collection":
+        c = Collection()
+        c.from_json(json_str)
+        if type == "collection":
+            return c
+        if type == "role":
+            for r in c.roles:
+                if r.fqcn == name:
+                    return r
+        elif type == "playbook":
+            for p in c.playbooks:
+                if p.defined_in == name:
+                    return p
+        elif type == "taskfile":
+            for tf in c.taskfiles:
+                if tf.defined_in == name:
+                    return tf
+            for r in c.roles:
+                for tf in r.taskfiles:
+                    if tf.defined_in == name:
+                        return tf
+        elif type == "task":
+            for p in c.playbooks:
+                for t in p.tasks:
+                    if t.id == name:
+                        return t
+            for tf in c.taskfiles:
+                for t in tf.tasks:
+                    if t.id == name:
+                        return t
+            for r in c.roles:
+                for tf in r.taskfiles:
+                    for t in tf.tasks:
+                        if t.id == name:
+                            return t
+        elif type == "module":
+            for m in c.modules:
+                if m.fqcn == name:
+                    return m
+        return None
+    return None
+
 
 def get_all_variables(var_dict={}):
     def _recursive_extract(name, node):
@@ -433,8 +522,7 @@ class CallChain():
             playbook_repo_root = get_git_root(playbook_dir)
             scm_repo_path = playbook_repo_root
         if scm_repo_path != "":
-            repo = Repository()
-            repo.load(scm_repo_path)
+            repo = load_repository(scm_repo_path)
 
             self.scm_repo_path = scm_repo_path
             self.scm_repo = repo
@@ -636,9 +724,9 @@ class CallChain():
         fpath = self.name
         if not os.path.exists(fpath):
             raise ValueError("file not found; {}".format(fpath))
-        p = Playbook()
+        p = None
         try:
-            p.load(fpath)
+            p = load_playbook(fpath)
         except PlaybookFormatError as e:
             logging.warning("this file is not in a playbook format, maybe not a playbook file: {}".format(e.args[0]))
         except:
