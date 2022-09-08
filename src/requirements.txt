@@ -1,0 +1,7 @@
+gitdb==4.0.9
+GitPython==3.1.27
+joblib==1.1.0
+jsonpickle==2.2.0
+PyYAML==6.0
+smmap==5.0.0
+tabulate==0.8.10
