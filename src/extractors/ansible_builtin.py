@@ -1,24 +1,24 @@
 import json
+from extractors.base import Extractor
 
 
-class BuiltinExtractor:
-    def __init__(self):
-        self.analyzed_task = {}
-        self.analyzed_data = []
+class AnsibleBuiltinExtractor(Extractor):
+    name: str = "ansible.builtin"
+    enabled: bool = True
 
-    def run(self, task):
-        self.reset()
-        if "resolved_name" not in task:
-            return
-        if "module_options" not in task:
-            return
-        resolved_name = task["resolved_name"]
-        self.analyzed_task["resolved_name"] = resolved_name
-        self.analyzed_task["key"] = task["key"]
-        options = task["module_options"]
-        resolved_options = task["resolved_module_options"]
-        resolved_variables = task["resolved_variables"]
+    def match(self, task: dict) -> bool:
+        resolved_name = task.get("resolved_name", "")
+        return resolved_name.startswith("ansible.builtin.")
 
+    def analyze(self, task: dict) -> dict:
+        if not self.match(task):
+            return task
+        resolved_name = task.get("resolved_name", "")
+        options = task.get("module_options", {})
+        resolved_options = task.get("resolved_module_options", {})
+        resolved_variables = task.get("resolved_variables", [])
+
+        analyzed_data = []
         # builtin modules
         if resolved_name == "ansible.builtin.get_url":
             res = {
@@ -31,18 +31,14 @@ class BuiltinExtractor:
                 res["resolved_data"].append(
                     self.get_url(ro, resolved_variables)
                 )
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.fetch":
-            res = {
-                "category": "inbound_transfer",
-                "data": {},
-                "resolved_data": [],
-            }
+            res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.fetch(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.fetch(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.command":
             res = {"category": "cmd_exec", "data": {}, "resolved_data": []}
@@ -51,7 +47,7 @@ class BuiltinExtractor:
                 res["resolved_data"].append(
                     self.command(ro, resolved_variables)
                 )
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.apt":
             res = {
@@ -62,74 +58,70 @@ class BuiltinExtractor:
             res["data"] = self.apt(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.apt(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.add_host":
             res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.add_host(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.add_host(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.apt_key":
             res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.apt_key(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.apt_key(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.apt_repository":
             res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.apt_repository(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.apt_repository(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.assemble":
             res = {"category": "file_change", "data": {}, "resolved_data": []}
             res["data"] = self.assemble(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.assemble(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.assert":
             res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.builtin_assert(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.builtin_assert(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.async_status":
             res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.async_status(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.async_status(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.blockinfile":
             res = {"category": "file_change", "data": {}, "resolved_data": []}
             res["data"] = self.blockinfile(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.blockinfile(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.copy":
-            res = {
-                "category": "outbound_transfer",
-                "data": {},
-                "resolved_data": [],
-            }
+            res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.copy(options, resolved_variables)
             for ro in resolved_options:
                 res["resolved_data"].append(self.copy(ro, resolved_variables))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.cron":
             res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.cron(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.cron(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.debconf":
             res = {
@@ -140,14 +132,14 @@ class BuiltinExtractor:
             res["data"] = self.debconf(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.debconf(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.debug":
             res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.debug(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.debug(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.dnf":
             res = {
@@ -158,7 +150,7 @@ class BuiltinExtractor:
             res["data"] = self.dnf(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.dnf(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.dpkg_selections":
             res = {
@@ -169,7 +161,7 @@ class BuiltinExtractor:
             res["data"] = self.dpkg_selections(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.dpkg_selections(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.expect":
             res = {"category": "cmd_exec", "data": {}, "resolved_data": []}
@@ -178,41 +170,41 @@ class BuiltinExtractor:
                 res["resolved_data"].append(
                     self.expect(ro, resolved_variables)
                 )
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.fail":
             res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.fail(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.fail(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.file":
             res = {"category": "file_change", "data": {}, "resolved_data": []}
             res["data"] = self.file(options, resolved_variables)
             for ro in resolved_options:
                 res["resolved_data"].append(self.file(ro, resolved_variables))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.find":
             res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.find(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.find(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.gather_facts":
             res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.gather_facts(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.gather_facts(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.getent":
             res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.getent(options)
             res["resolved_data"] = self.getent(resolved_options)
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.git":
             res = {
@@ -220,31 +212,34 @@ class BuiltinExtractor:
                 "data": {},
                 "resolved_data": [],
             }
-            res["data"] = self.git(options, resolved_variables)
+            res["data"], res["category"] = self.git(
+                options, resolved_variables
+            )
             for ro in resolved_options:
-                res["resolved_data"].append(self.git(ro, resolved_variables))
-            self.analyzed_data.append(res)
+                rd, c = self.git(ro, resolved_variables)
+                res["resolved_data"].append(rd)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.group":
             res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.group(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.group(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.group_by":
             res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.group_by(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.group_by(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.hostname":
             res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.hostname(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.hostname(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.iptables":
             res = {
@@ -255,7 +250,7 @@ class BuiltinExtractor:
             res["data"] = self.iptables(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.iptables(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.known_hosts":
             res = {
@@ -266,21 +261,21 @@ class BuiltinExtractor:
             res["data"] = self.known_hosts(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.known_hosts(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.lineinfile":
             res = {"category": "file_change", "data": {}, "resolved_data": []}
             res["data"] = self.lineinfile(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.lineinfile(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.meta":
             res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.meta(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.meta(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.package":
             res = {
@@ -291,28 +286,28 @@ class BuiltinExtractor:
             res["data"] = self.package(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.package(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.package_facts":
             res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.package_facts(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.package_facts(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.pause":
             res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.pause(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.pause(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.ping":
             res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.ping(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.ping(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.pip":
             res = {
@@ -323,35 +318,35 @@ class BuiltinExtractor:
             res["data"] = self.pip(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.pip(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.raw":
             res = {"category": "cmd_exec", "data": {}, "resolved_data": []}
             res["data"] = self.raw(options, resolved_variables)
             for ro in resolved_options:
                 res["resolved_data"].append(self.raw(ro, resolved_variables))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.reboot":
             res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.reboot(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.reboot(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.replace":
             res = {"category": "file_change", "data": {}, "resolved_data": []}
             res["data"] = self.replace(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.replace(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.rpm_key":
             res = {"category": "file_change", "data": {}, "resolved_data": []}
             res["data"] = self.rpm_key(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.rpm_key(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.script":
             res = {"category": "cmd_exec", "data": {}, "resolved_data": []}
@@ -360,7 +355,7 @@ class BuiltinExtractor:
                 res["resolved_data"].append(
                     self.script(ro, resolved_variables)
                 )
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.service":
             res = {
@@ -371,39 +366,35 @@ class BuiltinExtractor:
             res["data"] = self.service(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.service(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.service_facts":
             res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.service_facts(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.service_facts(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.set_fact":
             res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.set_fact(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.set_fact(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.set_stats":
             res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.set_stats(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.set_stats(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.setup":
-            res = {
-                "category": "inbound_transfer",
-                "data": {},
-                "resolved_data": [],
-            }
+            res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.setup(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.setup(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.slurp":
             res = {
@@ -414,14 +405,14 @@ class BuiltinExtractor:
             res["data"] = self.slurp(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.slurp(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.stat":
             res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.stat(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.stat(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.subversion":
             res = {
@@ -432,7 +423,7 @@ class BuiltinExtractor:
             res["data"] = self.subversion(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.subversion(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.sysvinit":
             res = {
@@ -443,7 +434,7 @@ class BuiltinExtractor:
             res["data"] = self.sysvinit(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.sysvinit(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.systemd":
             res = {
@@ -454,21 +445,21 @@ class BuiltinExtractor:
             res["data"] = self.systemd(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.systemd(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.tempfile":
             res = {"category": "file_change", "data": {}, "resolved_data": []}
             res["data"] = self.tempfile(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.tempfile(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.template":
             res = {"category": "file_change", "data": {}, "resolved_data": []}
             res["data"] = self.template(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.template(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.unarchive":
             res = {"category": "", "data": {}, "resolved_data": []}
@@ -480,7 +471,7 @@ class BuiltinExtractor:
                     ro, resolved_variables, resolved_options
                 )
                 res["resolved_data"].append(rores)
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.uri":
             res = {
@@ -494,28 +485,28 @@ class BuiltinExtractor:
             for ro in resolved_options:
                 rd, c = self.uri(ro, resolved_variables)
                 res["resolved_data"].append(rd)
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.user":
             res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.user(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.user(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.validate_argument_spec":
             res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.validate_argument_spec(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.validate_argument_spec(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.wait_for":
             res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.wait_for(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.wait_for(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.wait_for_connection":
             res = {"category": "", "data": {}, "resolved_data": []}
@@ -523,7 +514,7 @@ class BuiltinExtractor:
             for ro in resolved_options:
                 res["resolved_data"].append(self.wait_for_connection(ro))
             res = self.wait_for_connection(task)
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.yum":
             res = {
@@ -534,18 +525,14 @@ class BuiltinExtractor:
             res["data"] = self.yum(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.yum(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.yum_repository":
-            res = {
-                "category": "inbound_transfer",
-                "data": {},
-                "resolved_data": [],
-            }
+            res = {"category": "", "data": {}, "resolved_data": []}
             res["data"] = self.yum_repository(options)
             for ro in resolved_options:
                 res["resolved_data"].append(self.yum_repository(ro))
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
         if resolved_name == "ansible.builtin.shell":
             res = {"category": "cmd_exec", "data": {}, "resolved_data": []}
@@ -554,20 +541,17 @@ class BuiltinExtractor:
                 res["resolved_data"].append(
                     self.shell(ro, resolved_variables)
                 )
-            self.analyzed_data.append(res)
+            analyzed_data.append(res)
 
-        if len(self.analyzed_data) != 0:
+        if len(analyzed_data) != 0:
             # root
             res = self.root(task)
             if res["data"]["root"]:
-                self.analyzed_data.append(res)
+                analyzed_data.append(res)
 
-        self.analyzed_task["analyzed_data"] = self.analyzed_data
-        return self.analyzed_task
+        task["analyzed_data"] = analyzed_data
 
-    def reset(self):
-        self.analyzed_task = {}
-        self.analyzed_data = []
+        return task
 
     def root(self, task):
         is_root = False
@@ -718,6 +702,7 @@ class BuiltinExtractor:
 
     def git(self, options, resolved_variables):
         data = {}
+        category = "inbound_transfer"
         if type(options) is not dict:
             return data
         if "repo" in options:
@@ -726,6 +711,16 @@ class BuiltinExtractor:
             data["dest"] = options["dest"]
         if "version" in options:
             data["version"] = options["version"]
+        if "clone" in options and (
+            not options["clone"] or options["clone"] == "no"
+        ):
+            category = ""
+            return data, category
+        if "update" in options and (
+            not options["update"] or options["update"] == "no"
+        ):
+            category = ""
+            return data, category
         # injection risk
         for rv in resolved_variables:
             if "src" in data and type(data["src"]) is str:
@@ -740,7 +735,7 @@ class BuiltinExtractor:
                 )
                 if undetermined:
                     data["undetermined_dest"] = True
-        return data
+        return data, category
 
     def iptables(self, options):
         data = {}
@@ -780,8 +775,6 @@ class BuiltinExtractor:
             data["file"] = options["path"]
         if "state" in options and options["state"] == "absent":
             data["delete"] = True
-        # if "regexp" in options:
-        #     self.analyzed_data["file_change"][""] = options["regexp"]
         if "line" in options:
             data["content"] = options["line"]
         if "mode" in options:
@@ -983,33 +976,26 @@ class BuiltinExtractor:
         return data
 
     def uri(self, options, resolved_variables):
-        category = "inbound_transfer"
+        category = ""
         data = {}
         if type(options) is not dict:
             return data, category
         if "method" in options and (
-            options["method"] == "POST" or options["method"] == "DELETE"
+            options["method"] == "POST"
+            or options["method"] == "PUT"
+            or options["method"] == "PATCH"
         ):
             category = "outbound_transfer"
             if "url" in options:
                 data["dest"] = options["url"]
             for rv in resolved_variables:
                 if "dest" in data and type(data["dest"]) is str:
-                    if rv["key"] in data["dest"] and "{{" in data["dest"]:
+                    data, undetermined = self.resolved_variable_check(
+                        data, data["dest"], rv
+                    )
+                    if undetermined:
                         data["undetermined_dest"] = True
-                        if (
-                            rv["type"] == "role_defaults"
-                            or rv["type"] == "role_vars"
-                            or rv["type"] == "special_vars"
-                        ):
-                            data["injection_risk"] = True
-                            if "injection_risk_variables" in data:
-                                data["injection_risk_variables"].append(
-                                    rv["key"]
-                                )
-                            else:
-                                data["injection_risk_variables"] = [rv["key"]]
-        else:
+        elif "method" in options and options["method"] == "GET":
             if "url" in options:
                 data["src"] = options["url"]
             if "dest" in options:
@@ -1022,34 +1008,18 @@ class BuiltinExtractor:
             for rv in resolved_variables:
                 if "src" in data and type(data["src"]) is str:
                     if rv["key"] in data["src"] and "{{" in data["src"]:
-                        data["undetermined_src"] = True
-                        if (
-                            rv["type"] == "role_defaults"
-                            or rv["type"] == "role_vars"
-                            or rv["type"] == "special_vars"
-                        ):
-                            data["injection_risk"] = True
-                            if "injection_risk_variables" in data:
-                                data["injection_risk_variables"].append(
-                                    rv["key"]
-                                )
-                            else:
-                                data["injection_risk_variables"] = [rv["key"]]
+                        data, undetermined = self.resolved_variable_check(
+                            data, data["src"], rv
+                        )
+                        if undetermined:
+                            data["undetermined_src"] = True
                 if "dest" in data and type(data["dest"]) is str:
                     if rv["key"] in data["dest"] and "{{" in data["dest"]:
-                        data["undetermined_dest"] = True
-                        if (
-                            rv["type"] == "role_defaults"
-                            or rv["type"] == "role_vars"
-                            or rv["type"] == "special_vars"
-                        ):
-                            data["injection_risk"] = True
-                            if "injection_risk_variables" in data:
-                                data["injection_risk_variables"].append(
-                                    rv["key"]
-                                )
-                            else:
-                                data["injection_risk_variables"] = [rv["key"]]
+                        data, undetermined = self.resolved_variable_check(
+                            data, data["dest"], rv
+                        )
+                        if undetermined:
+                            data["undetermined_dest"] = True
         return data, category
 
     def validate_argument_spec(self, options):
@@ -1097,9 +1067,9 @@ class BuiltinExtractor:
             dests.extend(
                 self.check_nest_variable(options["dest"], resolved_variables)
             )
-            for ro in resolved_options:
-                if "dest" in ro and ro["dest"] not in dests:
-                    dests.append(ro["dest"])
+            # for ro in resolved_options:
+            #     if "dest" in ro and ro["dest"] not in dests:
+            #         dests.append(ro["dest"])
             data["dest"] = dests
         if "src" in options:
             src = []
@@ -1107,9 +1077,9 @@ class BuiltinExtractor:
             src.extend(
                 self.check_nest_variable(options["src"], resolved_variables)
             )
-            for ro in resolved_options:
-                if "src" in ro and ro["src"] not in src:
-                    src.append(ro["src"])
+            # for ro in resolved_options:
+            #     if "src" in ro and ro["src"] not in src:
+            #         src.append(ro["src"])
             data["src"] = src
         if "remote_src" in options:  # if yes, don't copy
             data["remote_src"] = options["remote_src"]
@@ -1250,18 +1220,11 @@ class BuiltinExtractor:
             return data
         for rv in resolved_variables:
             if "file" in data and type(data["file"]) is str:
-                if rv["key"] in data["file"] and "{{" in data["file"]:
+                data, undetermined = self.resolved_variable_check(
+                    data, data["file"], rv
+                )
+                if undetermined:
                     data["undetermined_file"] = True
-                    if (
-                        rv["type"] == "role_defaults"
-                        or rv["type"] == "role_vars"
-                        or rv["type"] == "special_vars"
-                    ):
-                        data["injection_risk"] = True
-                        if "injection_risk_variables" in data:
-                            data["injection_risk_variables"].append(rv["key"])
-                        else:
-                            data["injection_risk_variables"] = [rv["key"]]
         return data
 
     def find(self, options):
@@ -1359,7 +1322,8 @@ class BuiltinExtractor:
                     key = "{{ " + rv["key"] + " }}"
                     if type(v) is dict:
                         v = json.dumps(v)
-                    variables.append(value.replace(key, v))
+                    if "{{" in v:
+                        variables.append(value.replace(key, v))
         return variables
 
     def resolved_variable_check(self, data, value, rv):

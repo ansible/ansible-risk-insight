@@ -1,7 +1,36 @@
 import argparse
+import os
 import json
+import inspect
+from importlib import import_module
+from extractors.base import Extractor
 
-from extractor.ansible_builtin import BuiltinExtractor
+
+def load_extractors():
+    extractor_dir = "extractors"
+    extractors = []
+    extractor_script_names = os.listdir(extractor_dir)
+    for extractor_script_name in extractor_script_names:
+        if not extractor_script_name.endswith(".py"):
+            continue
+        extractor_script_name = extractor_script_name.replace(".py", "")
+        extractor_module_name = "{}.{}".format(
+            extractor_dir, extractor_script_name
+        )
+        tmp_extractor = import_module(extractor_module_name)
+
+        for _, val in vars(tmp_extractor).items():
+            if not inspect.isclass(val):
+                continue
+            instance = val()
+            if isinstance(instance, Extractor):
+                # skip base class
+                if type(instance) == Extractor:
+                    continue
+                if not instance.enabled:
+                    continue
+                extractors.append(instance)
+    return extractors
 
 
 def load_tasks_rv(path: str):
@@ -18,18 +47,23 @@ def load_tasks_rv(path: str):
 
 def analyze(tasks_rv_data: list):
     # extractor
-    extractor = BuiltinExtractor()
+    extractors = load_extractors()
 
-    for single_tree_data in tasks_rv_data:
+    for i, single_tree_data in enumerate(tasks_rv_data):
         if not isinstance(single_tree_data, dict):
             continue
         if "tasks" not in single_tree_data:
             continue
-        for task in single_tree_data["tasks"]:
-            res = extractor.run(task)
-            analyzed_data = res.get("analyzed_data", [])
-            task["analyzed_data"] = analyzed_data
-
+        for j, task in enumerate(single_tree_data["tasks"]):
+            extractor = None
+            for _ext in extractors:
+                if _ext.match(task):
+                    extractor = _ext
+                    break
+            if extractor is None:
+                continue
+            task_with_analyzed_data = extractor.analyze(task)
+            tasks_rv_data[i]["tasks"][j] = task_with_analyzed_data
     return tasks_rv_data
 
 

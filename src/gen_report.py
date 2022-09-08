@@ -5,7 +5,7 @@ import json
 from keyutil import detect_type, key_delimiter
 
 from context import mutable_types
-from extractor.ansible_builtin import BuiltinExtractor
+from extractors.ansible_builtin import AnsibleBuiltinExtractor
 from rule_dependency_check import check_tasks as check_dependency_by_tasks
 from models import ExecutableType
 
@@ -604,7 +604,7 @@ def gen_report(
 ):
     report = []
     # extractor
-    extractor = BuiltinExtractor()
+    extractor = AnsibleBuiltinExtractor()
 
     role_to_playbook_mappings = {}
     for single_tree_data in tasks_rv_data:

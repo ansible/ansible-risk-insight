@@ -1,9 +1,11 @@
 import argparse
 import os
+import inspect
 from importlib import import_module
-
+from tabulate import tabulate
 from keyutil import detect_type, key_delimiter
 from analyzer import load_tasks_rv
+from rules.base import Rule
 
 
 def indent(multi_line_txt, level=0):
@@ -22,57 +24,133 @@ def key2name(key: str):
         return key.split(key_delimiter)[-1]
 
 
-def get_rules(rule_dir: str = ""):
-    rule_module_prefix = ""
-    if rule_dir == "":
-        rule_dir = "rules"
-        rule_module_prefix = "rules"
-    else:
-        rule_module_prefix = rule_dir.replace("/", ".")
-        rule_module_prefix = (
-            rule_module_prefix[:-1]
-            if rule_module_prefix.endswith(".")
-            else rule_module_prefix
-        )
-    rules = {}
+def load_rules():
+    rule_dir = "rules"
+    rules = []
     rule_script_names = os.listdir(rule_dir)
     for rule_script_name in rule_script_names:
         if not rule_script_name.endswith(".py"):
             continue
         rule_script_name = rule_script_name.replace(".py", "")
         rule_module_name = "{}.{}".format(
-            rule_module_prefix, rule_script_name
+            rule_dir, rule_script_name
         )
         tmp_rule = import_module(rule_module_name)
-        for key, val in vars(tmp_rule).items():
-            if key.startswith("rule_") and callable(val):
-                if rule_module_name not in rules:
-                    rules[rule_module_name] = {}
-                rules[rule_module_name][key] = val
+        for _, val in vars(tmp_rule).items():
+            if not inspect.isclass(val):
+                continue
+            instance = val()
+            if isinstance(instance, Rule):
+                # skip base class
+                if type(instance) == Rule:
+                    continue
+                if not instance.enabled:
+                    continue
+                rules.append(instance)
     return rules
 
 
 def detect(tasks_rv_data: list):
-    rules = get_rules()
+    rules = load_rules()
+    result_txt = ""
+    result_txt += "-" * 90 + "\n"
+    result_txt += "Ansible Risk Insight Report\n"
+    result_txt += "-" * 90 + "\n"
+    report_num = 1
+
+    playbook_count = {"total": 0, "risk": 0}
+    role_count = {"total": 0, "risk": 0}
+
+    separate_report = {}
+    role_to_playbook_mappings = {}
+    risk_found_playbooks = set()
+    
+    tmp_result_txt = ""
     for i, single_tree_data in enumerate(tasks_rv_data):
         if not isinstance(single_tree_data, dict):
             continue
         tree_root_key = single_tree_data.get("root_key", "")
         tree_root_type = detect_type(tree_root_key)
         tree_root_name = key2name(tree_root_key)
-        print(
-            "#{} {} - {}".format(
-                i + 1, tree_root_type.upper(), tree_root_name
-            )
-        )
+
+        is_playbook = tree_root_type == "playbook"
+        if is_playbook:
+            playbook_count["total"] += 1
+
+            tasks = single_tree_data.get("tasks", [])
+            for task in tasks:
+                parts = task.get("defined_in").split("/")
+                if parts[0] == "roles":
+                    role_name = parts[1]
+                    _mappings = role_to_playbook_mappings.get(role_name, [])
+                    if tree_root_name not in _mappings:
+                        _mappings.append(tree_root_name)
+                    role_to_playbook_mappings[role_name] = _mappings
+        else:
+            role_count["total"] += 1
+
+        do_report = False        
         tasks = single_tree_data.get("tasks", [])
-        for _, rule_module in rules.items():
-            for rule_func_name, rule_func in rule_module.items():
-                rule_name = rule_func_name.replace("rule_", "")
-                matched, matched_tasks, messge = rule_func(tasks)
-                if matched:
-                    print(rule_name.upper())
-                    print(indent(messge, 4))
+        tmp_result_txt_alt = ""
+        for rule in rules:
+            rule_name = rule.name
+            matched, _, message = rule.check(tasks)
+            if rule.separate_report:
+                if rule_name not in separate_report:
+                    separate_report[rule_name] = []
+            if matched:
+                if rule.separate_report:
+                    separate_report[rule_name].append([tree_root_type, tree_root_name, message])
+                else:
+                    if not is_playbook:
+                        do_report = True
+                        tmp_result_txt_alt += rule_name + "\n"
+                        tmp_result_txt_alt += indent(message, 0) + "\n"
+        if do_report and tmp_result_txt_alt != "":
+            tmp_result_txt += "#{} {} - {}\n".format(
+                report_num, tree_root_type.upper(), tree_root_name
+            )
+            used_in_playbooks = role_to_playbook_mappings.get(
+                tree_root_name, []
+            )
+            risk_found_playbooks = risk_found_playbooks.union(set(used_in_playbooks))
+            if len(used_in_playbooks) > 0:
+                tmp_result_txt += "(used_in: {})\n".format(used_in_playbooks)
+            tmp_result_txt += tmp_result_txt_alt
+            tmp_result_txt += "-" * 90 + "\n"
+            report_num += 1
+            if is_playbook:
+                playbook_count["risk"] += 1
+            else:
+                role_count["risk"] += 1
+
+    if playbook_count["total"] > 0:
+        result_txt += "Playbooks\n"
+        result_txt += "  Total: {}\n".format(playbook_count["total"])
+        result_txt += "  Risk Found: {}\n".format(len(risk_found_playbooks))
+    if role_count["total"] > 0:
+        result_txt += "Roles\n"
+        result_txt += "  Total: {}\n".format(role_count["total"])
+        result_txt += "  Risk Found: {}\n".format(role_count["risk"])
+    result_txt += "-" * 90 + "\n"
+
+    result_txt += tmp_result_txt
+    
+    for label, table_data in separate_report.items():
+        result_txt += label + "\n"
+        subject = ""
+        if playbook_count["total"] > 0 and role_count["total"] > 0:
+            subject = "playbooks/roles"
+        elif playbook_count["total"] > 0:
+            subject = "playbooks"
+        elif role_count["total"] > 0:
+            subject = "roles"
+        table_txt = "  All {} are OK".format(subject)
+        if len(table_data) > 0:
+            table_txt = tabulate(table_data, tablefmt='plain')
+        result_txt += indent(table_txt, 0) + "\n"
+        result_txt += "-" * 90 + "\n"
+    return result_txt
 
 
 def main():

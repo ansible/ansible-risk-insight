@@ -250,7 +250,7 @@ def load_inventory(path, basedir=""):
                     )
                 )
     invObj.variables = data
-
+    return invObj
 
 def load_inventories(path, basedir=""):
 

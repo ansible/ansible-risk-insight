@@ -20,8 +20,8 @@ from parser import Parser
 from model_loader import load_object
 from tree import TreeLoader, TreeNode
 from variable_resolver import resolve_variables
-from gen_report import gen_report
-from show_report import make_display_report
+from analyzer import analyze
+from risk_detector import detect
 
 
 logging.basicConfig()
@@ -64,8 +64,8 @@ class DataContainer(object):
     node_objects: ObjectList = ObjectList()
 
     tasks_rv: list = field(default_factory=list)
+    tasks_rva: list = field(default_factory=list)
 
-    detail_report: list = field(default_factory=list)
     report_to_display: str = ""
 
     # TODO: remove attributes below once refactoring is done
@@ -127,14 +127,13 @@ class DataContainer(object):
         self.set_definitions(ext_definitions_dir, root_definitions_dir)
         self.set_trees()
         self.set_resolved()
-        self.set_detail_report()
+        self.set_analyzed()
         self.set_report()
         dep_num, ext_counts, root_counts = self.count_definitions()
         print("# of dependencies:", dep_num)
         print("ext definitions:", ext_counts)
         print("root definitions:", root_counts)
 
-        print("---- ARI report ----")
         print(self.report_to_display)
         return
 
@@ -325,16 +324,16 @@ class DataContainer(object):
     def get_tasks_rv(self):
         return self.tasks_rv
 
-    def set_detail_report(self):
-        report = gen_report(self.tasks_rv, [], False)
-        self.detail_report = report
+    def set_analyzed(self):
+        tasks_rva = analyze(self.tasks_rv)
+        self.tasks_rva = tasks_rva
         return
 
-    def get_detail_report(self):
-        return self.detail_report
+    def get_analyzed(self):
+        return self.tasks_rva
 
     def set_report(self):
-        report_txt = make_display_report(detail_report=self.detail_report)
+        report_txt = detect(self.tasks_rva)
         self.report_to_display = report_txt
         return
 
