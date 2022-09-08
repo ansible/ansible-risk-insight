@@ -95,7 +95,6 @@ def set_collection_key(obj):
     obj.key = global_key
     obj.local_key = local_key
 
-
 def set_task_key(obj, parent_key="", parent_local_key=""):
     index_info = "[{}]".format(obj.index)
     _parent_key = parent_key.split(" ")[-1]

@@ -408,7 +408,6 @@ def resolve_playbook(playbook_ref, playbook_dict={}, play_key=""):
         return found_playbook.key
     return ""
 
-
 def init_builtin_modules():
     builtin_module_names = get_builtin_module_names()
     modules = []

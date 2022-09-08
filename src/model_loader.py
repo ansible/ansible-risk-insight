@@ -256,7 +256,6 @@ def load_inventories(path, basedir=""):
 
     if not os.path.exists(path):
         return []
-
     inventories = []
     inventory_file_paths = search_inventory_files(path)
     if len(inventory_file_paths) > 0:
@@ -306,7 +305,6 @@ def load_play(
     pbObj.role = role_name
     pbObj.collection = collection_name
     pbObj.set_key(parent_key, parent_local_key)
-
     play_name = data_block.get("name", "")
     collections_in_play = data_block.get("collections", [])
     pre_tasks = []
@@ -519,7 +517,6 @@ def load_roleinplay(
 
     return ripObj
 
-
 def load_playbook(path, role_name="", collection_name="", basedir=""):
     pbObj = Playbook()
     fullpath = ""
@@ -654,7 +651,6 @@ def load_role(
         vars_dir_path = os.path.join(fullpath, "vars")
         tasks_dir_path = os.path.join(fullpath, "tasks")
         includes_dir_path = os.path.join(fullpath, "includes")
-
     if os.path.exists(meta_file_path):
         with open(meta_file_path, "r") as file:
             try:
@@ -846,7 +842,6 @@ def load_role(
 
     return roleObj
 
-
 def load_roles(path, basedir="", load_children=True):
     if path == "":
         return []
@@ -876,7 +871,6 @@ def load_roles(path, basedir="", load_children=True):
     if not load_children:
         roles = sorted(roles)
     return roles
-
 
 def load_requirements(path):
     requirements = {}
@@ -973,12 +967,10 @@ def load_modules(path, basedir="", collection_name="", load_children=True):
         return []
     if not os.path.exists(path):
         return []
-
     module_files = search_module_files(path)
 
     if len(module_files) == 0:
         return []
-
     modules = []
     for module_file_path in module_files:
         m = None
@@ -1156,7 +1148,6 @@ def load_task(
 
     return taskObj
 
-
 def load_taskfile(path, role_name="", collection_name="", basedir=""):
     tfObj = TaskFile()
 
@@ -1244,7 +1235,6 @@ def load_taskfiles(path, basedir="", load_children=True):
     if not load_children:
         taskfiles = sorted(taskfiles)
     return taskfiles
-
 
 def load_collection(collection_dir, basedir="", load_children=True):
     colObj = Collection()

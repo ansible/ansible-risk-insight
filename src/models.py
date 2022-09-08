@@ -69,14 +69,12 @@ class Resolvable(object):
     def resolver_targets(self):
         raise NotImplementedError
 
-
 class LoadType:
     PROJECT_TYPE = "project"
     COLLECTION_TYPE = "collection"
     ROLE_TYPE = "role"
     PLAYBOOK_TYPE = "playbook"
     UNKNOWN_TYPE = "unknown"
-
 
 @dataclass
 class Load(JSONSerializable):
@@ -92,7 +90,6 @@ class Load(JSONSerializable):
     taskfiles: list = field(default_factory=list)
     modules: list = field(default_factory=list)
 
-
 # def get_repo_root(filepath):
 #     git_root = ""
 #     try:
@@ -102,7 +99,6 @@ class Load(JSONSerializable):
 #         # this path may not be a git repository
 #         return ""
 #     return git_root
-
 
 @dataclass
 class ObjectList(Resolvable):
@@ -176,7 +172,6 @@ class ObjectList(Resolvable):
     def resolver_targets(self):
         return self.items
 
-
 @dataclass
 class Module(JSONSerializable, Resolvable):
     type: str = "module"
@@ -201,7 +196,6 @@ class Module(JSONSerializable, Resolvable):
     @property
     def resolver_targets(self):
         return None
-
 
 @dataclass
 class Collection(JSONSerializable, Resolvable):
@@ -251,12 +245,10 @@ class Collection(JSONSerializable, Resolvable):
     def resolver_targets(self):
         return self.playbooks + self.taskfiles + self.roles + self.modules
 
-
 class ExecutableType:
     MODULE_TYPE = "Module"
     ROLE_TYPE = "Role"
     TASKFILE_TYPE = "TaskFile"
-
 
 @dataclass
 class Task(JSONSerializable, Resolvable):
@@ -400,7 +392,6 @@ class Task(JSONSerializable, Resolvable):
     def resolver_targets(self):
         return None
 
-
 @dataclass
 class TaskFile(JSONSerializable, Resolvable):
     type: str = "taskfile"
@@ -432,7 +423,6 @@ class TaskFile(JSONSerializable, Resolvable):
     @property
     def resolver_targets(self):
         return self.tasks
-
 
 @dataclass
 class Role(JSONSerializable, Resolvable):
@@ -487,7 +477,6 @@ class Role(JSONSerializable, Resolvable):
     def resolver_targets(self):
         return self.taskfiles + self.modules
 
-
 @dataclass
 class RoleInPlay(JSONSerializable, Resolvable):
     type: str = "roleinplay"
@@ -511,7 +500,6 @@ class RoleInPlay(JSONSerializable, Resolvable):
     def resolver_targets(self):
         return None
 
-
 @dataclass
 class Play(JSONSerializable, Resolvable):
     type: str = "play"
@@ -523,7 +511,6 @@ class Play(JSONSerializable, Resolvable):
 
     role: str = ""
     collection: str = ""
-
     import_module: str = ""
     import_playbook: str = ""
     pre_tasks: list = field(default_factory=list)
@@ -560,7 +547,6 @@ class Play(JSONSerializable, Resolvable):
     @property
     def resolver_targets(self):
         return self.pre_tasks + self.tasks + self.roles
-
 
 @dataclass
 class Playbook(JSONSerializable, Resolvable):
@@ -600,12 +586,10 @@ class Playbook(JSONSerializable, Resolvable):
         else:
             return self.roles + self.tasks
 
-
 class InventoryType:
     GROUP_VARS_TYPE = "group_vars"
     HOST_VARS_TYPE = "host_vars"
     UNKNOWN_TYPE = ""
-
 
 @dataclass
 class Inventory(JSONSerializable):
@@ -639,7 +623,6 @@ class Repository(JSONSerializable, Resolvable):
 
     installed_roles_path: str = ""
     installed_roles: list = field(default_factory=list)
-
     modules: list = field(default_factory=list)
     taskfiles: list = field(default_factory=list)
 
