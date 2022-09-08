@@ -17,17 +17,31 @@ class DownloadExecRule(Rule):
             analyzed_data = task.get("analyzed_data", [])
             for single_ad in analyzed_data:
                 if single_ad.get("category", "") == "inbound_transfer":
-                    src = single_ad.get("data", {}).get("src", "")
                     dst = single_ad.get("data", {}).get("dest", "")
-                    if isinstance(src, list):
-                        src = [
-                            s for s in src if s.replace(" ", "") != "{{item}}"
-                        ]
+                    is_mutable_src = single_ad.get("data", {}).get(
+                        "undetermined_src", False
+                    )
+                    if not is_mutable_src:
+                        continue
+                    mutable_src_vars = single_ad.get("data", {}).get(
+                        "mutable_src_vars", []
+                    )
+                    mutable_src_vars = [
+                        "{{ " + mv + " }}" for mv in mutable_src_vars
+                    ]
+                    if len(mutable_src_vars) == 0:
+                        mutable_src_vars = ""
+                    if len(mutable_src_vars) == 1:
+                        mutable_src_vars = mutable_src_vars[0]
                     if isinstance(dst, str) and dst != "":
-                        download_files_and_tasks.append((dst, task, src))
+                        download_files_and_tasks.append(
+                            (dst, task, mutable_src_vars)
+                        )
                     elif isinstance(dst, list) and len(dst) > 0:
                         for _d in dst:
-                            download_files_and_tasks.append((_d, task, src))
+                            download_files_and_tasks.append(
+                                (_d, task, mutable_src_vars)
+                            )
         # check if the downloaded files are executed in "cmd_exec" tasks
         matched_tasks = []
         message = ""
@@ -37,10 +51,12 @@ class DownloadExecRule(Rule):
             for single_ad in analyzed_data:
                 if single_ad.get("category", "") == "cmd_exec":
                     cmd_str = single_ad.get("data", {}).get("cmd", "")
+                    if isinstance(cmd_str, list):
+                        cmd_str = " ".join(cmd_str)
                     for i, (
                         downloaded_file,
                         download_task,
-                        download_src,
+                        download_mutable_src_vars,
                     ) in enumerate(download_files_and_tasks):
                         if i in found:
                             continue
@@ -63,8 +79,8 @@ class DownloadExecRule(Rule):
                                     task.get("line_num_in_file", [])
                                 ),
                             )
-                            message += '  Mutable Variables: "{}"\n'.format(
-                                download_src
+                            message += "  Mutable Variables: {}\n".format(
+                                download_mutable_src_vars
                             )
         matched = len(matched_tasks) > 0
         message = message[:-1] if message.endswith("\n") else message

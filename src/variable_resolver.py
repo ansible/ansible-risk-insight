@@ -133,10 +133,13 @@ def resolve_variables(tree, node_objects):
 
     tasks = []
     for (ctx, task) in contexts_per_task:
-        resolved_options, resolved_variables = resolve_module_options(
-            ctx, task
-        )
+        (
+            resolved_options,
+            resolved_variables,
+            mutable_vars_per_mo,
+        ) = resolve_module_options(ctx, task)
         task.resolved_variables = resolved_variables
+        task.mutable_vars_per_mo = mutable_vars_per_mo
         task.resolved_module_options = resolved_options
         tasks.append(task.__dict__)
     return tasks
