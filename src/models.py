@@ -560,6 +560,7 @@ class Play(JSONSerializable, Resolvable):
     def resolver_targets(self):
         return self.pre_tasks + self.tasks + self.roles
 
+
 @dataclass
 class Playbook(JSONSerializable, Resolvable):
     type: str = "playbook"
