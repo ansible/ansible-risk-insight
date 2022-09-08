@@ -191,7 +191,6 @@ if __name__ == "__main__":
         sys.exit()
     else:
         logging.info("start loading {} {}(s)".format(num, target_type))
-
     output_path = args.output_path
     loader_version = get_loader_version()
 

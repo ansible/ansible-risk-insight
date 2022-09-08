@@ -88,7 +88,6 @@ def tree_to_task_list(tree, node_objects):
             no.resolved_name = resolved_name
             tasks.append(no.__dict__)
         tasks.extend(children_tasks)
-
         return tasks, resolved_name
 
     tasks, _ = getSubTree(tree)
@@ -99,7 +98,6 @@ def resolve_variables(tree, node_objects):
     node_dict = {}
     for no in node_objects.items:
         node_dict[no.key] = no
-
     def add_context(node, context, contexts_per_task, depth_level=0):
         current_context = context.copy()
         node_type = detect_type(node.key)
