@@ -98,6 +98,7 @@ def resolve_variables(tree, node_objects):
     node_dict = {}
     for no in node_objects.items:
         node_dict[no.key] = no
+
     def add_context(node, context, contexts_per_task, depth_level=0):
         current_context = context.copy()
         node_type = detect_type(node.key)

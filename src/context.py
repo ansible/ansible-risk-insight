@@ -20,112 +20,6 @@ _special_var_value = "__ansible_special_variable__"
 variable_block_re = re.compile(r"{{[^}]+}}")
 
 
-def get_object(json_path, type, name, cache={}):
-    json_type = ""
-    json_str = ""
-    cached = cache.get(json_path, None)
-    if cached is None:
-        if not os.path.exists(json_path):
-            raise ValueError('the json path "{}" not found'.format(json_path))
-        basename = os.path.basename(json_path)
-
-        if basename.startswith("role-"):
-            json_type = "role"
-            with open(json_path, "r") as file:
-                json_str = file.read()
-        elif basename.startswith("collection-"):
-            json_type = "collection"
-            with open(json_path, "r") as file:
-                json_str = file.read()
-        if json_str == "":
-            raise ValueError("json data is empty")
-        cache.update({json_path: (json_type, json_str)})
-    else:
-        json_type, json_str = cached[0], cached[1]
-    if json_type == "role":
-        r = Role()
-        r.from_json(json_str)
-        if type == "collection":
-            raise ValueError("collection cannot be gotten in a role")
-        if type == "role":
-            return r
-        elif type == "playbook":
-            raise ValueError("playbook cannot be gotten in a role")
-        elif type == "taskfile":
-            for tf in r.taskfiles:
-                if tf.defined_in == name:
-                    return tf
-        elif type == "task":
-            for tf in r.taskfiles:
-                for t in tf.tasks:
-                    if t.id == name:
-                        return t
-        elif type == "module":
-            for m in r.modules:
-                if m.fqcn == name:
-                    return m
-        return None
-    elif json_type == "collection":
-        c = Collection()
-        c.from_json(json_str)
-        if type == "collection":
-            return c
-        if type == "role":
-            for r in c.roles:
-                if r.fqcn == name:
-                    return r
-        elif type == "playbook":
-            for p in c.playbooks:
-                if p.defined_in == name:
-                    return p
-        elif type == "taskfile":
-            for tf in c.taskfiles:
-                if tf.defined_in == name:
-                    return tf
-            for r in c.roles:
-                for tf in r.taskfiles:
-                    if tf.defined_in == name:
-                        return tf
-        elif type == "task":
-            for p in c.playbooks:
-                for t in p.tasks:
-                    if t.id == name:
-                        return t
-            for tf in c.taskfiles:
-                for t in tf.tasks:
-                    if t.id == name:
-                        return t
-            for r in c.roles:
-                for tf in r.taskfiles:
-                    for t in tf.tasks:
-                        if t.id == name:
-                            return t
-        elif type == "module":
-            for m in c.modules:
-                if m.fqcn == name:
-                    return m
-        return None
-    return None
-
-
-def get_all_variables(var_dict={}):
-    def _recursive_extract(name, node):
-        all_vars = {}
-        if isinstance(node, dict):
-            for k, v in node.items():
-                var_name = "{}.{}".format(name, k) if name != "" else k
-                all_vars[var_name] = v
-                child_node_vars = _recursive_extract(var_name, v)
-                all_vars.update(child_node_vars)
-        else:
-            var_name = name
-            all_vars[var_name] = node
-        return all_vars
-
-    all_vars = _recursive_extract("", var_dict)
-    return all_vars
-
-
 class VariableType:
     NORMAL = "normal"
     LOOP_VAR = "loop_var"
@@ -144,6 +38,7 @@ mutable_types = [
     VariableType.ROLE_VARS,
     VariableType.INVENTORY_VARS,
 ]
+
 
 def get_object(json_path, type, name, cache={}):
     json_type = ""
@@ -458,24 +353,6 @@ class Context:
     def copy(self):
         return copy.deepcopy(self)
 
-
-def resolved_vars_contains(resolved_vars, new_var):
-    if not isinstance(new_var, dict):
-        return False
-    new_var_key = new_var.get("key", "")
-    if new_var_key == "":
-        return False
-    if not isinstance(resolved_vars, list):
-        return False
-    for var in resolved_vars:
-        if not isinstance(var, dict):
-            continue
-        var_key = var.get("key", "")
-        if var_key == "":
-            continue
-        if var_key == new_var_key:
-            return True
-    return False
 
 def resolved_vars_contains(resolved_vars, new_var):
     if not isinstance(new_var, dict):
