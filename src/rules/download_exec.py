@@ -10,7 +10,7 @@ class DownloadExecRule(Rule):
 
     # IN: tasks with "analyzed_data" (i.e. output from analyzer.py)
     # OUT: matched: bool, matched_tasks: list[task | tuple[task]], message: str
-    def check(self, tasks: list):
+    def check(self, tasks: list, **kwargs):
         # list downloaded files from "inbound_transfer" tasks
         download_files_and_tasks = []
         for task in tasks:

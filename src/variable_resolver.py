@@ -99,50 +99,46 @@ def resolve_variables(tree, node_objects):
     for no in node_objects.items:
         node_dict[no.key] = no
 
-    def add_context(node, context, contexts_per_task, depth_level=0):
+    def traverse_and_resolve(node, context, depth_level=0, resolved_tasks=[]):
         current_context = context.copy()
         node_type = detect_type(node.key)
         obj = node_dict[node.key]
         current_context.add(obj, depth_level)
         if node_type == "task":
+            task = obj
             # insert "resolved_name" to task obj
             if len(node.children) > 0:
                 c = node.children[0]
                 c_obj = node_dict.get(c.key, None)
                 if c_obj is not None:
-                    if obj.executable_type == ExecutableType.MODULE_TYPE:
-                        obj.resolved_name = c_obj.fqcn
-                    elif obj.executable_type == ExecutableType.ROLE_TYPE:
-                        obj.resolved_name = c_obj.fqcn
-                    elif obj.executable_type == ExecutableType.TASKFILE_TYPE:
-                        obj.resolved_name = c_obj.key
-            contexts_per_task.append((current_context, obj))
+                    if task.executable_type == ExecutableType.MODULE_TYPE:
+                        task.resolved_name = c_obj.fqcn
+                    elif task.executable_type == ExecutableType.ROLE_TYPE:
+                        task.resolved_name = c_obj.fqcn
+                    elif task.executable_type == ExecutableType.TASKFILE_TYPE:
+                        task.resolved_name = c_obj.key
+            (
+                resolved_options,
+                resolved_variables,
+                mutable_vars_per_mo,
+            ) = resolve_module_options(current_context, task)
+            task.resolved_variables = resolved_variables
+            task.mutable_vars_per_mo = mutable_vars_per_mo
+            task.resolved_module_options = resolved_options
+            resolved_tasks.append(task.__dict__)
         for c in node.children:
-            contexts_per_task = add_context(
-                c, current_context, contexts_per_task, depth_level + 1
+            resolved_tasks, current_context = traverse_and_resolve(
+                c, current_context, depth_level + 1, resolved_tasks
             )
-            current_context = contexts_per_task[-1][0]
-        return contexts_per_task
+        return resolved_tasks, current_context
 
     # if load type is "project", it might have inventories
     # otherwise, it will be just an empty list
     inventories = get_inventories(tree.key, node_objects)
     initial_context = Context(inventories=inventories)
-    contexts_per_task = []
-    contexts_per_task = add_context(tree, initial_context, contexts_per_task)
+    resolved_tasks, _ = traverse_and_resolve(tree, initial_context)
 
-    tasks = []
-    for (ctx, task) in contexts_per_task:
-        (
-            resolved_options,
-            resolved_variables,
-            mutable_vars_per_mo,
-        ) = resolve_module_options(ctx, task)
-        task.resolved_variables = resolved_variables
-        task.mutable_vars_per_mo = mutable_vars_per_mo
-        task.resolved_module_options = resolved_options
-        tasks.append(task.__dict__)
-    return tasks
+    return resolved_tasks
 
 
 def get_inventories(tree_root_key, node_objects):

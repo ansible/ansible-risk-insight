@@ -168,6 +168,7 @@ mutable_types = [
 
 @dataclass
 class Context:
+    keep_obj: bool = False
     chain: list = field(default_factory=list)
     variables: dict = field(default_factory=dict)
     options: dict = field(default_factory=dict)
@@ -179,12 +180,8 @@ class Context:
     def add(self, obj, depth_lvl=0):
         if isinstance(obj, Playbook):
             self.variables.update(obj.variables)
-            self.options.update(obj.options)
-            self.chain.append({"obj": obj, "depth": depth_lvl})
         elif isinstance(obj, Play):
             self.variables.update(obj.variables)
-            self.options.update(obj.options)
-            self.chain.append({"obj": obj, "depth": depth_lvl})
         elif isinstance(obj, Role):
             self.variables.update(obj.default_variables)
             self.variables.update(obj.variables)
@@ -192,23 +189,23 @@ class Context:
                 self.role_defaults.append(var_name)
             for var_name in obj.variables:
                 self.role_vars.append(var_name)
-            self.options.update(obj.options)
-            self.chain.append({"obj": obj, "depth": depth_lvl})
         elif isinstance(obj, Collection):
             self.variables.update(obj.variables)
-            self.options.update(obj.options)
-            self.chain.append({"obj": obj, "depth": depth_lvl})
         elif isinstance(obj, TaskFile):
             self.variables.update(obj.variables)
-            self.options.update(obj.options)
-            self.chain.append({"obj": obj, "depth": depth_lvl})
         elif isinstance(obj, Task):
             self.variables.update(obj.variables)
             self.variables.update(obj.registered_variables)
             for var_name in obj.registered_variables:
                 self.registered_vars.append(var_name)
-            self.options.update(obj.options)
-            self.chain.append({"obj": obj, "depth": depth_lvl})
+        else:
+            # Module
+            return
+        self.options.update(obj.options)
+        chain_node = {"key": obj.key, "depth": depth_lvl}
+        if self.keep_obj:
+            chain_node["obj"] = obj
+        self.chain.append(chain_node)
 
     def resolve_variable(self, var_name, resolve_history=[]):
         if var_name in resolve_history:
@@ -494,6 +491,12 @@ def resolve_module_options(context, task):
                         variables_in_loop.append(tmp_variables)
                     else:
                         variables_in_loop.append({loop_key: v})
+        elif isinstance(loop_values, dict):
+            tmp_variables = {}
+            for k, v in loop_values.items():
+                key = "{}.{}".format(loop_key, k)
+                tmp_variables.update({key: v})
+            variables_in_loop.append(tmp_variables)
         else:
             raise ValueError(
                 "loop_values of type {} is not supported yet".format(

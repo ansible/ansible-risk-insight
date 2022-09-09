@@ -24,17 +24,28 @@ from analyzer import analyze
 from risk_detector import detect
 
 
-logging.basicConfig()
-logging.getLogger().setLevel(logging.INFO)
-
-
 class Config:
     data_dir: str = os.environ.get(
         "ARI_DATA_DIR", os.path.join(os.environ["HOME"], ".ari/data")
     )
+    log_level: str = os.environ.get(
+        "ARI_LOG_LEVEL", "info"
+    ).lower()
+
+
+log_level_map = {
+    "error": logging.ERROR,
+    "warning": logging.WARNING,
+    "info": logging.INFO,
+    "debug": logging.DEBUG,
+}
 
 
 config = Config()
+
+
+logging.basicConfig()
+logging.getLogger().setLevel(log_level_map[config.log_level])
 
 
 class ContainerType:
@@ -116,19 +127,27 @@ class DataContainer(object):
     def load(self):
         src_location = self.path_mappings.get("src", "")
         self.set_src(src_location)
+        logging.debug("set_src() done")
         try:
             self.setup_tmp_dir()
             self.install()
+            logging.debug("install() done")
         finally:
             self.clean_tmp_dir()
         self.set_load()
+        logging.debug("set_load() done")
         ext_definitions_dir = self.path_mappings.get("ext_definitions", "")
         root_definitions_dir = self.path_mappings.get("root_definitions", "")
         self.set_definitions(ext_definitions_dir, root_definitions_dir)
+        logging.debug("set_definitions() done")
         self.set_trees()
+        logging.debug("set_trees() done")
         self.set_resolved()
+        logging.debug("set_resolved() done")
         self.set_analyzed()
+        logging.debug("set_analyzed() done")
         self.set_report()
+        logging.debug("set_report() done")
         dep_num, ext_counts, root_counts = self.count_definitions()
         print("# of dependencies:", dep_num)
         print("ext definitions:", ext_counts)
@@ -333,7 +352,9 @@ class DataContainer(object):
         return self.tasks_rva
 
     def set_report(self):
-        report_txt = detect(self.tasks_rva)
+        coll_type = ContainerType.COLLECTION
+        coll_name = self.name if self.type == coll_type else ""
+        report_txt = detect(self.tasks_rva, collection_name=coll_name)
         self.report_to_display = report_txt
         return
 
@@ -665,15 +686,18 @@ class DataContainer(object):
 
     def resolve(self, trees, node_objects):
         tasks_rv = []
-        for tree in trees:
+        num = len(trees)
+        for i, tree in enumerate(trees):
             if not isinstance(tree, TreeNode):
                 continue
+            root_key = tree.key
             tasks = resolve_variables(tree, node_objects)
             d = {
                 "root_key": tree.key,
                 "tasks": tasks,
             }
             tasks_rv.append(d)
+            logging.debug("resolve_variables() {}/{} ({}) done".format(i+1, num, root_key))
         return tasks_rv
 
 

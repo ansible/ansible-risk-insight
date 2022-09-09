@@ -12,7 +12,13 @@ class ExternalDependencyRule(Rule):
 
     # IN: tasks with "analyzed_data" (i.e. output from analyzer.py)
     # OUT: matched: bool, matched_tasks: list[task | tuple[task]], message: str
-    def check(self, tasks: list):
+    def check(self, tasks: list, **kwargs):
+        collection_name = kwargs.get("collection_name", "")
+        if collection_name != "":
+            self.allow_list.append(collection_name)
+        allow_list = kwargs.get("allow_list", [])
+        if len(allow_list) > 0:
+            self.allow_list.extend(allow_list)
         matched_tasks = []
         message = ""
         external_dependencies = []

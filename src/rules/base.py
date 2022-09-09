@@ -7,5 +7,5 @@ class Rule(object):
     separate_report: bool = False
     all_ok_message: str = ""
 
-    def check(self, tasks: list):
+    def check(self, tasks: list, **kwargs):
         raise ValueError("this is a base class method")
