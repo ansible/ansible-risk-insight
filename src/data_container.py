@@ -84,6 +84,7 @@ class DataContainer(object):
     path_mappings: dict = field(default_factory=dict)
 
     dependency_dir: str = ""
+    do_save: bool = False
 
     def __post_init__(self):
         type_root = self.type + "s"
@@ -128,12 +129,15 @@ class DataContainer(object):
         src_location = self.path_mappings.get("src", "")
         self.set_src(src_location)
         logging.debug("set_src() done")
-        try:
-            self.setup_tmp_dir()
-            self.install()
-            logging.debug("install() done")
-        finally:
-            self.clean_tmp_dir()
+        if self.isinstalled():
+            self.load_index()
+        else:
+            try:
+                self.setup_tmp_dir()
+                self.install()
+                logging.debug("install() done")
+            finally:
+                self.clean_tmp_dir()
         self.set_load()
         logging.debug("set_load() done")
         ext_definitions_dir = self.path_mappings.get("ext_definitions", "")
@@ -161,6 +165,16 @@ class DataContainer(object):
 
     def get_src(self):
         return self.src
+
+    def isinstalled(self):
+        index_location = self.path_mappings.get("index", "")
+        return os.path.exists(index_location)
+
+    def load_index(self):
+        index_location = self.path_mappings.get("index", "")
+        with open(index_location, "r") as f:
+            self.index = json.load(f)
+        return os.path.exists(index_location)
 
     def install(self):
         tmpdir = self.tmp_install_dir.name
@@ -253,6 +267,13 @@ class DataContainer(object):
         index_data["out_path"] = dst_load_files_dir
         self.index = index_data
         logging.debug("index: {}".format(json.dumps(self.index)))
+
+        index_location = self.path_mappings.get("index", "")
+        index_dir = os.path.dirname(os.path.abspath(index_location))
+        if not os.path.exists(index_dir):
+            os.makedirs(index_dir)
+        with open(index_location, "w") as f:
+            json.dump(self.index, f, indent=2)
 
         self.move_src(tmp_src_dir, dst_src_dir)
         if dst_dependency_dir != "":
@@ -567,7 +588,7 @@ class DataContainer(object):
             logging.info("start parsing {} target(s)".format(num))
 
         all_definitions = {}
-        p = Parser()
+        p = Parser(do_save=self.do_save)
         for i, (load_data, output_dir) in enumerate(profiles):
             print(
                 "[{}/{}] {}       ".format(i + 1, num, load_data.target_name)
