@@ -1,5 +1,6 @@
 import argparse
 import os
+import logging
 import inspect
 from importlib import import_module
 from tabulate import tabulate
@@ -59,8 +60,11 @@ def make_subject_str(playbook_num: int, role_num: int):
     return subject
 
 
-def detect(tasks_rv_data: list):
+def detect(tasks_rv_data: list, collection_name: str = ""):
     rules = load_rules()
+    extra_check_args = {}
+    if collection_name != "":
+        extra_check_args["collection_name"] = collection_name
     result_txt = ""
     result_txt += "-" * 90 + "\n"
     result_txt += "Ansible Risk Insight Report\n"
@@ -75,6 +79,7 @@ def detect(tasks_rv_data: list):
     risk_found_playbooks = set()
 
     tmp_result_txt = ""
+    num = len(tasks_rv_data)
     for i, single_tree_data in enumerate(tasks_rv_data):
         if not isinstance(single_tree_data, dict):
             continue
@@ -103,7 +108,7 @@ def detect(tasks_rv_data: list):
         tmp_result_txt_alt = ""
         for rule in rules:
             rule_name = rule.name
-            matched, _, message = rule.check(tasks)
+            matched, _, message = rule.check(tasks, **extra_check_args)
             if rule.separate_report:
                 if rule_name not in separate_report:
                     separate_report[rule_name] = {
@@ -139,6 +144,7 @@ def detect(tasks_rv_data: list):
                 playbook_count["risk"] += 1
             else:
                 role_count["risk"] += 1
+        logging.debug("detect() {}/{} done".format(i+1, num))
 
     if playbook_count["total"] > 0:
         result_txt += "Playbooks\n"

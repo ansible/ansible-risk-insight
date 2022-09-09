@@ -7,7 +7,7 @@ class SampleCustomRule(Rule):
 
     # IN: tasks with "analyzed_data" (i.e. output from analyzer.py)
     # OUT: matched: bool, matched_tasks: list[task | tuple[task]], message: str
-    def check(self, tasks: list):
+    def check(self, tasks: list, **kwargs):
         # this sample rule checks if each task has a name
         matched_tasks = []
         message = ""

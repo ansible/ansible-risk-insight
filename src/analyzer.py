@@ -1,6 +1,7 @@
 import argparse
 import os
 import json
+import logging
 import inspect
 from importlib import import_module
 from extractors.base import Extractor
@@ -49,6 +50,7 @@ def analyze(tasks_rv_data: list):
     # extractor
     extractors = load_extractors()
 
+    num = len(tasks_rv_data)
     for i, single_tree_data in enumerate(tasks_rv_data):
         if not isinstance(single_tree_data, dict):
             continue
@@ -63,11 +65,8 @@ def analyze(tasks_rv_data: list):
             if extractor is None:
                 continue
             task_with_analyzed_data = extractor.analyze(task)
-            if task_with_analyzed_data.get("resolved_name", "").endswith(
-                ".unarchive"
-            ):
-                print("DEBUG 2", json.dumps(task_with_analyzed_data))
             tasks_rv_data[i]["tasks"][j] = task_with_analyzed_data
+        logging.debug("analyze() {}/{} done".format(i+1, num))
     return tasks_rv_data
 
 
