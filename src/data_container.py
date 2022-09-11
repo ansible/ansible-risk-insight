@@ -60,7 +60,6 @@ class DataContainer(object):
     name: str = ""
     id: str = ""
 
-    src: str = ""
     install_log: str = ""
     tmp_install_dir: tempfile.TemporaryDirectory = None
 
@@ -87,17 +86,10 @@ class DataContainer(object):
     do_save: bool = False
     _parser: Parser = None
 
-
     def __post_init__(self):
         type_root = self.type + "s"
         self.path_mappings = {
             "src": os.path.join(self.root_dir, type_root, "src"),
-            "root_load": os.path.join(
-                self.root_dir,
-                type_root,
-                "root",
-                "{}-{}-load-root.json".format(self.type, self.name),
-            ),
             "root_definitions": os.path.join(
                 self.root_dir,
                 type_root,
@@ -105,12 +97,6 @@ class DataContainer(object):
                 "definitions",
                 type_root,
                 self.name,
-            ),
-            "ext_load": os.path.join(
-                self.root_dir,
-                type_root,
-                "ext",
-                "load-{}-{}.json".format(self.type, self.name),
             ),
             "ext_definitions": {
                 ContainerType.ROLE: os.path.join(self.root_dir, "roles", "definitions"),
@@ -129,9 +115,6 @@ class DataContainer(object):
         }
 
     def load(self):
-        src_location = self.path_mappings.get("src", "")
-        self.set_src(src_location)
-        logging.debug("set_src() done")
         if self.isinstalled():
             self.load_index()
         else:
@@ -152,13 +135,12 @@ class DataContainer(object):
         for i, load_file_info in enumerate(load_file_info_list):
             ext_type = load_file_info.get("type", "")
             ext_name = load_file_info.get("name", "")
-            ext_path = self.get_source_path(ext_type, ext_name)
             if i == 0:
                 logging.info("start loading {} {}(s)".format(ext_count, ext_type))
             logging.info(
                 "[{}/{}] {} {}".format(i + 1, ext_count, ext_type, ext_name)
             )
-            self.load_definition_ext(ext_type, ext_name, ext_path)
+            self.load_definition_ext(ext_type, ext_name)
 
         logging.debug("load_definition_ext() done")
 
@@ -181,11 +163,8 @@ class DataContainer(object):
         print(self.report_to_display)
         return
 
-    def set_src(self, src_location):
-        self.src = src_location
-
-    def get_src(self):
-        return self.src
+    def get_src_root(self):
+        return self.path_mappings.get("src", "")
 
     def isinstalled(self):
         index_location = self.path_mappings.get("index", "")
@@ -223,7 +202,7 @@ class DataContainer(object):
                 self.name, self.type, tmp_src_dir
             )
             dependency_dir = tmp_src_dir
-            dst_src_dir = self.src
+            dst_src_dir = self.get_src_root()
 
         elif install_type == "github":
             # ansible-galaxy install
@@ -236,7 +215,8 @@ class DataContainer(object):
                     "dependency dir is required for project type"
                 )
             dependency_dir = self.dependency_dir
-            dst_src_dir = os.path.join(self.src, escape_url(self.name))
+            src_root = self.get_src_root()
+            dst_src_dir = os.path.join(src_root, escape_url(self.name))
 
         with open(tmp_install_log, "w") as f:
             f.write(install_msg)
@@ -359,7 +339,8 @@ class DataContainer(object):
             target_path = self.get_source_path(ext_type, ext_name)
             root_load_data = self.create_load_file(ext_type, ext_name, target_path)
         elif self.type == ContainerType.PROJECT:
-            dst_src_dir = os.path.join(self.src, escape_url(self.name))
+            src_root = self.get_src_root()
+            dst_src_dir = os.path.join(src_root, escape_url(self.name))
             root_load_data = self.create_load_file(self.type, self.name, dst_src_dir)
         return root_load_data
 
@@ -572,7 +553,8 @@ class DataContainer(object):
                     load_files.append(load_data)
         return load_files
 
-    def load_definition_ext(self, target_type, target_name, target_path):
+    def load_definition_ext(self, target_type, target_name):
+        target_path = self.get_source_path(target_type, target_name)
         ld = self.create_load_file(target_type, target_name, target_path)
         output_dir = self.get_definition_path(ld.target_type, ld.target_name)
         defs_and_maps = self._parser.run(
@@ -581,41 +563,6 @@ class DataContainer(object):
 
         key = "{}-{}".format(target_type, target_name)
         self.ext_definitions[key] = defs_and_maps
-
-    # def load_definitions_ext(self):
-
-    #     load_file_info_list = self.index.get("generated_load_files", [])
-
-    #     all_definitions = {}
-
-    #     self._parser = Parser(do_save=self.do_save)
-
-    #     num = len(load_file_info_list)
-    #     if num == 0:
-    #         logging.info("no target dirs found. exitting.")
-    #         sys.exit()
-    #     else:
-    #         load_file_info = load_file_info_list[0]
-    #         target_type = load_file_info.get("type", "")
-    #         logging.info("start loading {} {}(s)".format(num, target_type))
-
-    #     for i, load_file_info in enumerate(
-    #         load_file_info_list
-    #     ):
-
-    #         target_type = load_file_info.get("type", "")
-    #         target_name = load_file_info.get("name", "")
-    #         target_path = self.get_source_path(target_type, target_name)
-
-    #         print(
-    #             "[{}/{}] {} {}".format(i + 1, num, target_type, target_name)
-    #         )
-
-    #         defs_and_maps = self._load_definition_ext(target_type, target_name, target_path)
-    #         key = "{}-{}".format(target_type, target_name)
-    #         all_definitions[key] = defs_and_maps
-
-    #     return all_definitions
 
     def load_definitions_root(self):
 
