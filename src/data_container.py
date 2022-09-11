@@ -64,8 +64,6 @@ class DataContainer(object):
     tmp_install_dir: tempfile.TemporaryDirectory = None
 
     index: dict = field(default_factory=dict)
-    _root_load: Load = Load()
-    _ext_load: list = field(default_factory=list)
 
     root_definitions: dict = field(default_factory=dict)
     ext_definitions: dict = field(default_factory=dict)
@@ -115,26 +113,22 @@ class DataContainer(object):
         }
 
     def load(self):
-        if self.isinstalled():
+        if self.is_src_installed():
             self.load_index()
+            logging.debug("load_index() done")
         else:
-            try:
-                self.setup_tmp_dir()
-                self.install()
-                logging.debug("install() done")
-            finally:
-                self.clean_tmp_dir()
+            self.src_install()
+            logging.debug("install() done")
 
-        load_file_info_list = self.index.get("generated_load_files", [])
-        ext_count = len(load_file_info_list)
+
+        ext_list = self.get_ext_list()
+        ext_count = len(ext_list)
         if ext_count == 0:
             logging.info("no target dirs found. exitting.")
             sys.exit()
 
         self._parser = Parser(do_save=self.do_save)
-        for i, load_file_info in enumerate(load_file_info_list):
-            ext_type = load_file_info.get("type", "")
-            ext_name = load_file_info.get("name", "")
+        for i, (ext_type, ext_name) in enumerate(ext_list):
             if i == 0:
                 logging.info("start loading {} {}(s)".format(ext_count, ext_type))
             logging.info(
@@ -166,7 +160,7 @@ class DataContainer(object):
     def get_src_root(self):
         return self.path_mappings.get("src", "")
 
-    def isinstalled(self):
+    def is_src_installed(self):
         index_location = self.path_mappings.get("index", "")
         return os.path.exists(index_location)
 
@@ -175,6 +169,23 @@ class DataContainer(object):
         with open(index_location, "r") as f:
             self.index = json.load(f)
         return os.path.exists(index_location)
+
+    def get_ext_list(self):
+        load_file_info_list = self.index.get("generated_load_files", [])
+        ext_list = []
+        for load_file_info in load_file_info_list:
+            ext_type = load_file_info.get("type", "")
+            ext_name = load_file_info.get("name", "")
+            if ext_type != "" and ext_name != "":
+                ext_list.append((ext_type, ext_name))
+        return ext_list
+
+    def src_install(self):
+        try:
+            self.setup_tmp_dir()
+            self.install()
+        finally:
+            self.clean_tmp_dir()
 
     def install(self):
         tmpdir = self.tmp_install_dir.name
@@ -348,7 +359,7 @@ class DataContainer(object):
         return self.root_definitions, self.ext_definitions
 
     def set_trees(self):
-        trees, node_objects = self.tree(
+        trees, node_objects = tree(
             self.root_definitions, self.ext_definitions, self.index
         )
         self.trees = trees
@@ -359,14 +370,11 @@ class DataContainer(object):
         return self.trees, self.node_objects
 
     def set_resolved(self):
-        tasks_rv = self.resolve(self.trees, self.node_objects)
+        tasks_rv = resolve(self.trees, self.node_objects)
         self.tasks_rv = tasks_rv
         return
 
     def get_resolved(self):
-        return self.get_tasks_rv()
-
-    def get_tasks_rv(self):
         return self.tasks_rv
 
     def set_analyzed(self):
@@ -557,12 +565,12 @@ class DataContainer(object):
         target_path = self.get_source_path(target_type, target_name)
         ld = self.create_load_file(target_type, target_name, target_path)
         output_dir = self.get_definition_path(ld.target_type, ld.target_name)
-        defs_and_maps = self._parser.run(
+        defs_and_load = self._parser.run(
             load_data=ld, output_dir=output_dir, use_cache=True
         )
 
         key = "{}-{}".format(target_type, target_name)
-        self.ext_definitions[key] = defs_and_maps
+        self.ext_definitions[key] = defs_and_load
 
     def load_definitions_root(self):
 
@@ -574,10 +582,10 @@ class DataContainer(object):
 
         print("{}       ".format(root_load.target_name))
 
-        defs_and_maps = p.run(
+        defs_and_load = p.run(
             load_data=root_load, output_dir=output_path
         )
-        self.root_definitions = defs_and_maps
+        self.root_definitions = defs_and_load
 
     def move_index(self, path1, path2, params):
         with open(path1, "r") as f1:
@@ -666,30 +674,30 @@ class DataContainer(object):
         with open(map2, "w") as f2:
             json.dump(js2, f2)
 
-    def tree(self, root_definitions, ext_definitions, index):
-        tl = TreeLoader(root_definitions, ext_definitions, index)
-        trees, node_objects = tl.run()
-        if trees is None:
-            raise ValueError("failed to get trees")
-        if node_objects is None:
-            raise ValueError("failed to get node_objects")
-        return trees, node_objects
+def tree(root_definitions, ext_definitions, index):
+    tl = TreeLoader(root_definitions, ext_definitions, index)
+    trees, node_objects = tl.run()
+    if trees is None:
+        raise ValueError("failed to get trees")
+    if node_objects is None:
+        raise ValueError("failed to get node_objects")
+    return trees, node_objects
 
-    def resolve(self, trees, node_objects):
-        tasks_rv = []
-        num = len(trees)
-        for i, tree in enumerate(trees):
-            if not isinstance(tree, TreeNode):
-                continue
-            root_key = tree.key
-            tasks = resolve_variables(tree, node_objects)
-            d = {
-                "root_key": tree.key,
-                "tasks": tasks,
-            }
-            tasks_rv.append(d)
-            logging.debug("resolve_variables() {}/{} ({}) done".format(i+1, num, root_key))
-        return tasks_rv
+def resolve(trees, node_objects):
+    tasks_rv = []
+    num = len(trees)
+    for i, tree in enumerate(trees):
+        if not isinstance(tree, TreeNode):
+            continue
+        root_key = tree.key
+        tasks = resolve_variables(tree, node_objects)
+        d = {
+            "root_key": tree.key,
+            "tasks": tasks,
+        }
+        tasks_rv.append(d)
+        logging.debug("resolve_variables() {}/{} ({}) done".format(i+1, num, root_key))
+    return tasks_rv
 
 
 def install_galaxy_target(target, target_type, output_dir):
