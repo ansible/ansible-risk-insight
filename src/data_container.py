@@ -65,8 +65,8 @@ class DataContainer(object):
     tmp_install_dir: tempfile.TemporaryDirectory = None
 
     index: dict = field(default_factory=dict)
-    root_load: Load = Load()
-    ext_load: list = field(default_factory=list)
+    _root_load: Load = Load()
+    _ext_load: list = field(default_factory=list)
 
     root_definitions: dict = field(default_factory=dict)
     ext_definitions: dict = field(default_factory=dict)
@@ -85,6 +85,8 @@ class DataContainer(object):
 
     dependency_dir: str = ""
     do_save: bool = False
+    _parser: Parser = None
+
 
     def __post_init__(self):
         type_root = self.type + "s"
@@ -101,7 +103,7 @@ class DataContainer(object):
                 type_root,
                 "root",
                 "definitions",
-                self.type,
+                type_root,
                 self.name,
             ),
             "ext_load": os.path.join(
@@ -110,9 +112,10 @@ class DataContainer(object):
                 "ext",
                 "load-{}-{}.json".format(self.type, self.name),
             ),
-            "ext_definitions": os.path.join(
-                self.root_dir, type_root, "definitions"
-            ),
+            "ext_definitions": {
+                ContainerType.ROLE: os.path.join(self.root_dir, "roles", "definitions"),
+                ContainerType.COLLECTION: os.path.join(self.root_dir, "collections", "definitions")
+            },
             "index": os.path.join(
                 self.root_dir,
                 type_root,
@@ -138,12 +141,30 @@ class DataContainer(object):
                 logging.debug("install() done")
             finally:
                 self.clean_tmp_dir()
-        self.set_load()
-        logging.debug("set_load() done")
-        ext_definitions_dir = self.path_mappings.get("ext_definitions", "")
-        root_definitions_dir = self.path_mappings.get("root_definitions", "")
-        self.set_definitions(ext_definitions_dir, root_definitions_dir)
-        logging.debug("set_definitions() done")
+
+        load_file_info_list = self.index.get("generated_load_files", [])
+        ext_count = len(load_file_info_list)
+        if ext_count == 0:
+            logging.info("no target dirs found. exitting.")
+            sys.exit()
+
+        self._parser = Parser(do_save=self.do_save)
+        for i, load_file_info in enumerate(load_file_info_list):
+            ext_type = load_file_info.get("type", "")
+            ext_name = load_file_info.get("name", "")
+            ext_path = self.get_source_path(ext_type, ext_name)
+            if i == 0:
+                logging.info("start loading {} {}(s)".format(ext_count, ext_type))
+            logging.info(
+                "[{}/{}] {} {}".format(i + 1, ext_count, ext_type, ext_name)
+            )
+            self.load_definition_ext(ext_type, ext_name, ext_path)
+
+        logging.debug("load_definition_ext() done")
+
+        self.load_definitions_root()
+        logging.debug("load_definitions_root() done")
+
         self.set_trees()
         logging.debug("set_trees() done")
         self.set_resolved()
@@ -283,61 +304,64 @@ class DataContainer(object):
     def get_index(self):
         return self.index
 
-    def set_load(self):
+    def _get_target_list(self):
         load_file_info_list = self.index.get("generated_load_files", [])
         target_list = []
         for load_file_info in load_file_info_list:
             ext_type = load_file_info.get("type", "")
             ext_name = load_file_info.get("name", "")
-            target_path = ""
-            if ext_type == ContainerType.ROLE:
-                target_path = os.path.join(
-                    self.root_dir, "roles", "src", ext_name
-                )
-            elif ext_type == ContainerType.COLLECTION:
-                parts = ext_name.split(".")
-                target_path = os.path.join(
-                    self.root_dir,
-                    "collections",
-                    "src",
-                    "ansible_collections",
-                    parts[0],
-                    parts[1],
-                )
+            target_path = self.get_source_path(ext_type, ext_name)
             target_list.append((ext_type, ext_name, target_path))
-        type_root = self.type + "s"
-        ext_dir = os.path.join(self.root_dir, type_root, "ext")
+        return target_list
 
-        load_data_list = self.create_load_files(True, target_list, ext_dir)
-        self.ext_load = load_data_list
+    def get_definition_path(self, ext_type, ext_name):
+        target_path = ""
+        if ext_type == ContainerType.ROLE:
+            target_path = os.path.join(
+                self.path_mappings.get("ext_definitions",{}).get(ContainerType.ROLE, ""),
+                ext_name
+            )
+        elif ext_type == ContainerType.COLLECTION:
+            target_path = os.path.join(
+                self.path_mappings.get("ext_definitions",{}).get(ContainerType.COLLECTION, ""),
+                ext_name
+            )
+        else:
+            raise ValueError("Invalid ext_type")
+        return target_path
 
-        root_target_list = []
-        root_dir = os.path.join(self.root_dir, type_root, "root")
+    def get_source_path(self, ext_type, ext_name):
+        target_path = ""
+        if ext_type == ContainerType.ROLE:
+            target_path = os.path.join(
+                self.root_dir, "roles", "src", ext_name
+            )
+        elif ext_type == ContainerType.COLLECTION:
+            parts = ext_name.split(".")
+            target_path = os.path.join(
+                self.root_dir,
+                "collections",
+                "src",
+                "ansible_collections",
+                parts[0],
+                parts[1],
+            )
+        else:
+            raise ValueError("Invalid ext_type")
+        return target_path
+
+
+    def _set_load_root(self):
+        root_load_data = None
         if self.type in [ContainerType.ROLE, ContainerType.COLLECTION]:
-            for (ext_type, ext_name, target_path) in target_list:
-                if ext_type == self.type and ext_name == self.name:
-                    root_target_list = [(ext_type, ext_name, target_path)]
-                    break
+            ext_type = self.type
+            ext_name = self.name
+            target_path = self.get_source_path(ext_type, ext_name)
+            root_load_data = self.create_load_file(ext_type, ext_name, target_path)
         elif self.type == ContainerType.PROJECT:
             dst_src_dir = os.path.join(self.src, escape_url(self.name))
-            root_target_list = [(self.type, self.name, dst_src_dir)]
-        root_load_data_list = self.create_load_files(
-            False, root_target_list, root_dir
-        )
-        self.root_load = root_load_data_list[0]
-        return
-
-    def get_load(self):
-        return self.root_load, self.ext_load
-
-    def set_definitions(self, ext_definitions_dir, root_definitions_dir):
-        print("decomposing files")
-        self.ext_definitions = self.load_definitions(
-            True, ext_definitions_dir
-        )
-        self.root_definitions = self.load_definitions(
-            False, root_definitions_dir
-        )
+            root_load_data = self.create_load_file(self.type, self.name, dst_src_dir)
+        return root_load_data
 
     def get_definitions(self):
         return self.root_definitions, self.ext_definitions
@@ -410,42 +434,27 @@ class DataContainer(object):
             self.tmp_install_dir.cleanup()
             self.tmp_install_dir = None
 
-    def create_load_files(self, is_ext, target_list, output_path):
-        num = len(target_list)
-        if num == 0:
-            logging.info("no target dirs found. exitting.")
-            sys.exit()
-        else:
-            target_type = target_list[0][0]
-            logging.info("start loading {} {}(s)".format(num, target_type))
+    def create_load_file(self, target_type, target_name, target_path):
 
         loader_version = get_loader_version()
 
-        load_list = []
-        for i, (target_type, target_name, target_path) in enumerate(
-            target_list
-        ):
-            print(
-                "[{}/{}] {} {}".format(i + 1, num, target_type, target_name)
+        if not os.path.exists(target_path):
+            raise ValueError(
+                "No such file or directory: {}".format(target_path)
             )
+        print("target_name", target_name)
+        print("target_type", target_type)
+        print("path", target_path)
+        print("loader_version", loader_version)
+        ld = Load(
+            target_name=target_name,
+            target_type=target_type,
+            path=target_path,
+            loader_version=loader_version,
+        )
+        load_object(ld)
+        return ld
 
-            if not os.path.exists(target_path):
-                raise ValueError(
-                    "No such file or directory: {}".format(target_path)
-                )
-            print("target_name", target_name)
-            print("target_type", target_type)
-            print("path", target_path)
-            print("loader_version", loader_version)
-            ld = Load(
-                target_name=target_name,
-                target_type=target_type,
-                path=target_path,
-                loader_version=loader_version,
-            )
-            load_object(ld)
-            load_list.append(ld)
-        return load_list
 
     def create_index_data(
         self,
@@ -563,51 +572,65 @@ class DataContainer(object):
                     load_files.append(load_data)
         return load_files
 
-    def load_definitions(self, is_ext, output_path):
+    def load_definition_ext(self, target_type, target_name, target_path):
+        ld = self.create_load_file(target_type, target_name, target_path)
+        output_dir = self.get_definition_path(ld.target_type, ld.target_name)
+        defs_and_maps = self._parser.run(
+            load_data=ld, output_dir=output_dir, use_cache=True
+        )
 
-        profiles = []
-        if is_ext:
-            profiles = [
-                (
-                    ld,
-                    os.path.join(
-                        output_path,
-                        "{}-{}".format(ld.target_type, ld.target_name),
-                    ),
-                )
-                for ld in self.ext_load
-            ]
-        else:
-            profiles = [(self.root_load, output_path)]
+        key = "{}-{}".format(target_type, target_name)
+        self.ext_definitions[key] = defs_and_maps
 
-        num = len(profiles)
-        if num == 0:
-            logging.info("no load json files found. exitting.")
-            sys.exit()
-        else:
-            logging.info("start parsing {} target(s)".format(num))
+    # def load_definitions_ext(self):
 
-        all_definitions = {}
+    #     load_file_info_list = self.index.get("generated_load_files", [])
+
+    #     all_definitions = {}
+
+    #     self._parser = Parser(do_save=self.do_save)
+
+    #     num = len(load_file_info_list)
+    #     if num == 0:
+    #         logging.info("no target dirs found. exitting.")
+    #         sys.exit()
+    #     else:
+    #         load_file_info = load_file_info_list[0]
+    #         target_type = load_file_info.get("type", "")
+    #         logging.info("start loading {} {}(s)".format(num, target_type))
+
+    #     for i, load_file_info in enumerate(
+    #         load_file_info_list
+    #     ):
+
+    #         target_type = load_file_info.get("type", "")
+    #         target_name = load_file_info.get("name", "")
+    #         target_path = self.get_source_path(target_type, target_name)
+
+    #         print(
+    #             "[{}/{}] {} {}".format(i + 1, num, target_type, target_name)
+    #         )
+
+    #         defs_and_maps = self._load_definition_ext(target_type, target_name, target_path)
+    #         key = "{}-{}".format(target_type, target_name)
+    #         all_definitions[key] = defs_and_maps
+
+    #     return all_definitions
+
+    def load_definitions_root(self):
+
+        output_path = self.path_mappings.get("root_definitions", "")
+        print("output_path={}".format(output_path))
+        root_load = self._set_load_root()
+
         p = Parser(do_save=self.do_save)
-        for i, (load_data, output_dir) in enumerate(profiles):
-            print(
-                "[{}/{}] {}       ".format(i + 1, num, load_data.target_name)
-            )
-            key = "{}-{}".format(load_data.target_type, load_data.target_name)
-            definitions, mappings = p.run(
-                load_data=load_data, output_dir=output_dir
-            )
-            if is_ext:
-                all_definitions[key] = {
-                    "definitions": definitions,
-                    "mappings": mappings,
-                }
-            else:
-                all_definitions = {
-                    "definitions": definitions,
-                    "mappings": mappings,
-                }
-        return all_definitions
+
+        print("{}       ".format(root_load.target_name))
+
+        defs_and_maps = p.run(
+            load_data=root_load, output_dir=output_path
+        )
+        self.root_definitions = defs_and_maps
 
     def move_index(self, path1, path2, params):
         with open(path1, "r") as f1:
@@ -764,15 +787,15 @@ def escape_url(url: str):
 
 
 if __name__ == "__main__":
-    target_type = sys.argv[1]
-    target_name = sys.argv[2]
-    dependency_dir = ""
+    __target_type = sys.argv[1]
+    __target_name = sys.argv[2]
+    __dependency_dir = ""
     if len(sys.argv) >= 4:
-        dependency_dir = sys.argv[3]
+        __dependency_dir = sys.argv[3]
     c = DataContainer(
-        type=target_type,
-        name=target_name,
+        type=__target_type,
+        name=__target_name,
         root_dir=config.data_dir,
-        dependency_dir=dependency_dir,
+        dependency_dir=__dependency_dir,
     )
     c.load()
