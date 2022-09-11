@@ -127,24 +127,21 @@ def get_object(json_path, type, name, cache={}):
         return None
     return None
 
-
-def get_all_variables(var_dict={}):
-    def _recursive_extract(name, node):
-        all_vars = {}
+def find_variable(var_name, var_dict={}):
+    def _visitor(vname, nname, node):
+        if nname == vname:
+            return node
         if isinstance(node, dict):
             for k, v in node.items():
-                var_name = "{}.{}".format(name, k) if name != "" else k
-                all_vars[var_name] = v
-                child_node_vars = _recursive_extract(var_name, v)
-                all_vars.update(child_node_vars)
+                nname2 = "{}.{}".format(nname, k) if nname != "" else k
+                if vname.startswith("{}.".format(nname2)):
+                    vname2 = vname[(len(nname)+1):]
+                    return _visitor(vname2, nname2, v)
+            return None
         else:
-            var_name = name
-            all_vars[var_name] = node
-        return all_vars
+            return None
 
-    all_vars = _recursive_extract("", var_dict)
-    return all_vars
-
+    return _visitor(var_name, "", var_dict)
 
 class VariableType:
     NORMAL = "normal"
@@ -236,8 +233,7 @@ class Context:
             else:
                 return val, v_type
 
-        flattened_all_variables = get_all_variables(self.variables)
-        val = flattened_all_variables.get(var_name, None)
+        val = find_variable(var_name, self.variables)
         if val is not None:
             if isinstance(val, str):
                 return (
@@ -261,8 +257,7 @@ class Context:
             and iv.name == "all"
         ]
         for iv in inventory_for_all:
-            all_variables_in_this_iv = get_all_variables(iv.variables)
-            val = all_variables_in_this_iv.get(var_name, None)
+            val = find_variable(var_name, iv.variables)
             if val is not None:
                 v_type = VariableType.INVENTORY_VARS
                 if isinstance(val, str):
@@ -293,9 +288,10 @@ class Context:
             top_var_name = parts[0]
             sub_var_name = parts[1] if len(parts) >= 2 else ""
             rest_parts = ".".join(parts[1:]) if len(parts) >= 2 else ""
+            top_var = find_variable(top_var_name)
             if (
                 top_var_name in self.variables
-                or top_var_name in flattened_all_variables
+                or top_var != None
             ):
                 _val, _v_type = self.resolve_variable(
                     top_var_name, _resolve_history
@@ -307,8 +303,9 @@ class Context:
                     and isinstance(_val, dict)
                     and sub_var_name in _val
                 ):
-                    flattened_variables = get_all_variables(_val)
-                    val = flattened_variables.get(rest_parts, None)
+                    # flattened_variables = get_all_variables(_val)
+                    # val = flattened_variables.get(rest_parts, None)
+                    val = find_variable(rest_parts, _val)
                     if val is not None:
                         return val, _v_type
 
@@ -368,7 +365,17 @@ class Context:
         return "".join(lines)
 
     def copy(self):
-        return copy.deepcopy(self)
+        return Context(
+            keep_obj = self.keep_obj,
+            chain = copy.copy(self.chain),
+            variables = copy.copy(self.variables),
+            options= copy.copy(self.options),
+            inventories = copy.copy(self.inventories),
+            role_defaults = copy.copy(self.role_defaults),
+            role_vars = copy.copy(self.role_vars),
+            registered_vars = copy.copy(self.registered_vars)
+        )
+        # return copy.deepcopy(self)
 
 
 def resolved_vars_contains(resolved_vars, new_var):
