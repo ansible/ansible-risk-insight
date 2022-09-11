@@ -503,7 +503,7 @@ class TreeLoader(object):
                     dependencies.append(
                         os.path.join(
                             definitions_path,
-                            "{}-{}".format(dep_type, dep_name),
+                            dep_name,
                         )
                     )
 
@@ -525,7 +525,7 @@ class TreeLoader(object):
                         dependencies.append(
                             os.path.join(
                                 coll_definitions_path,
-                                "{}-{}".format(dep_type, dep_name),
+                                dep_name,
                             )
                         )
 
