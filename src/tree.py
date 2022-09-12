@@ -525,6 +525,7 @@ class TreeLoader(object):
         #                     )
         #                 )
 
+
         self.root_definitions = load_all_definitions(self.root_dir)
         self.ext_definitions = load_all_definitions(self.ext_dir)
         self.add_builtin_modules()
