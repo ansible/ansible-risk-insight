@@ -1,4 +1,3 @@
-import argparse
 import logging
 import os
 import re
@@ -215,7 +214,7 @@ def load_definitions(defs: dict, types: list):
     return def_list
 
 
-def load_all_definitions(definitions: dict, dependencies: list = []):
+def load_all_definitions(definitions: dict):
     _definitions = {}
     if "mappings" in definitions:
         _definitions = {"root": definitions}
@@ -442,13 +441,12 @@ def init_builtin_modules():
 
 
 class TreeLoader(object):
-    def __init__(self, root_definitions, ext_definitions, index):
+    def __init__(self, root_definitions, ext_definitions):
 
         self.load_and_mapping = root_definitions.get("mappings", None)
         self.playbook_mappings = self.load_and_mapping.playbooks
         self.role_mappings = self.load_and_mapping.roles
 
-        dependencies = []
         # TODO: dependency check, especially for
         # collection dependencies for role
 
@@ -456,9 +454,7 @@ class TreeLoader(object):
         self.org_ext_definitions = ext_definitions
 
         self.root_definitions = load_all_definitions(root_definitions)
-        self.ext_definitions = load_all_definitions(
-            ext_definitions, dependencies
-        )
+        self.ext_definitions = load_all_definitions(ext_definitions)
         self.add_builtin_modules()
 
         self.dicts = make_dicts(self.root_definitions, self.ext_definitions)
@@ -484,55 +480,53 @@ class TreeLoader(object):
         self.playbook_mappings = self.load_and_mapping.playbooks
         self.role_mappings = self.load_and_mapping.roles
 
-        dependencies = []
-        if self.index_file != "":
-            index_data = json.load(open(self.index_file, "r"))
-            target_type = index_data.get("target_type", "")
-            out_path_in_index = index_data.get("out_path", "")
-            definitions_path = out_path_in_index.replace(
-                "/ext", "/definitions"
-            )
+        # dependencies = []
+        # if self.index_file != "":
+        #     index_data = json.load(open(self.index_file, "r"))
+        #     target_type = index_data.get("target_type", "")
+        #     out_path_in_index = index_data.get("out_path", "")
+        #     definitions_path = out_path_in_index.replace(
+        #         "/ext", "/definitions"
+        #     )
 
-            dependency_list = index_data.get("generated_load_files", [])
-            for dep in dependency_list:
-                if isinstance(dep, dict):
-                    dep_type = dep.get("type", "")
-                    dep_name = dep.get("name", "")
-                    if dep_type == "" or dep_name == "":
-                        continue
-                    dependencies.append(
-                        os.path.join(
-                            definitions_path,
-                            dep_name,
-                        )
-                    )
+        #     dependency_list = index_data.get("generated_load_files", [])
+        #     for dep in dependency_list:
+        #         if isinstance(dep, dict):
+        #             dep_type = dep.get("type", "")
+        #             dep_name = dep.get("name", "")
+        #             if dep_type == "" or dep_name == "":
+        #                 continue
+        #             dependencies.append(
+        #                 os.path.join(
+        #                     definitions_path,
+        #                     dep_name,
+        #                 )
+        #             )
 
-            if target_type == LoadType.ROLE_TYPE:
-                collection_path = index_data.get("collection_path", "")
-                coll_definitions_path = os.path.join(
-                    collection_path, "definitions"
-                )
+        #     if target_type == LoadType.ROLE_TYPE:
+        #         collection_path = index_data.get("collection_path", "")
+        #         coll_definitions_path = os.path.join(
+        #             collection_path, "definitions"
+        #         )
 
-                coll_dependency_list = index_data.get(
-                    "dep_collection_load_files", []
-                )
-                for dep in coll_dependency_list:
-                    if isinstance(dep, dict):
-                        dep_type = dep.get("type", "")
-                        dep_name = dep.get("name", "")
-                        if dep_type == "" or dep_name == "":
-                            continue
-                        dependencies.append(
-                            os.path.join(
-                                coll_definitions_path,
-                                dep_name,
-                            )
-                        )
+        #         coll_dependency_list = index_data.get(
+        #             "dep_collection_load_files", []
+        #         )
+        #         for dep in coll_dependency_list:
+        #             if isinstance(dep, dict):
+        #                 dep_type = dep.get("type", "")
+        #                 dep_name = dep.get("name", "")
+        #                 if dep_type == "" or dep_name == "":
+        #                     continue
+        #                 dependencies.append(
+        #                     os.path.join(
+        #                         coll_definitions_path,
+        #                         dep_name,
+        #                     )
+        #                 )
 
         self.root_definitions = load_all_definitions(self.root_dir)
-        self.ext_definitions = load_all_definitions(
-            self.ext_dir, dependencies
-        )
+        self.ext_definitions = load_all_definitions(self.ext_dir)
         self.add_builtin_modules()
 
         self.dicts = make_dicts(self.root_definitions, self.ext_definitions)
@@ -721,7 +715,8 @@ def load_tree_json(tree_path):
 
 
 def load_node_objects(node_list_file):
-    obj_list = ObjectList().from_json(fpath=node_list_file)
+    obj_list = ObjectList()
+    obj_list.from_json(fpath=node_list_file)
     return obj_list
 
 
@@ -734,60 +729,60 @@ def key_to_file_name(prefix, key):
     )
 
 
-def main():
+# def main():
 
-    logging.basicConfig(level=logging.INFO)
-    parser = argparse.ArgumentParser(
-        prog="tree.py",
-        description=(
-            "make a tree of ansible nodes in graph.json and show/save it"
-        ),
-        epilog="end",
-        add_help=True,
-    )
+#     logging.basicConfig(level=logging.INFO)
+#     parser = argparse.ArgumentParser(
+#         prog="tree.py",
+#         description=(
+#             "make a tree of ansible nodes in graph.json and show/save it"
+#         ),
+#         epilog="end",
+#         add_help=True,
+#     )
 
-    parser.add_argument(
-        "-r",
-        "--root",
-        default="",
-        help="path to the input definition dir for root",
-    )
-    parser.add_argument(
-        "-e",
-        "--ext",
-        default="",
-        help="path to the input definition dir for ext",
-    )
-    parser.add_argument(
-        "-i",
-        "--index",
-        default="",
-        help=(
-            "path to the index.json file to specify the definitions to be"
-            ' loaded in the "ext" dir'
-        ),
-    )
-    parser.add_argument(
-        "-t", "--tree", default="", help="path to the output tree file"
-    )
-    parser.add_argument(
-        "-n",
-        "--node",
-        default="array",
-        help="path to the output node objects",
-    )
+#     parser.add_argument(
+#         "-r",
+#         "--root",
+#         default="",
+#         help="path to the input definition dir for root",
+#     )
+#     parser.add_argument(
+#         "-e",
+#         "--ext",
+#         default="",
+#         help="path to the input definition dir for ext",
+#     )
+#     parser.add_argument(
+#         "-i",
+#         "--index",
+#         default="",
+#         help=(
+#             "path to the index.json file to specify the definitions to be"
+#             ' loaded in the "ext" dir'
+#         ),
+#     )
+#     parser.add_argument(
+#         "-t", "--tree", default="", help="path to the output tree file"
+#     )
+#     parser.add_argument(
+#         "-n",
+#         "--node",
+#         default="array",
+#         help="path to the output node objects",
+#     )
 
-    args = parser.parse_args()
+#     args = parser.parse_args()
 
-    logging.info("start initializing tree_loader")
-    tree_loader = TreeLoader(
-        args.root, args.ext, args.index, args.tree, args.node
-    )
-    logging.info("done")
-    logging.info("start building trees")
-    tree_loader.run()
-    logging.info("done")
+#     logging.info("start initializing tree_loader")
+#     tree_loader = TreeLoader(
+#         args.root, args.ext, args.index, args.tree, args.node
+#     )
+#     logging.info("done")
+#     logging.info("start building trees")
+#     tree_loader.run()
+#     logging.info("done")
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
