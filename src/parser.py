@@ -306,15 +306,6 @@ def _dump_object_list(obj_list, output_path):
     open(output_path, "w").write("\n".join(lines))
     return
 
-def load_object_list(cls, input_path):
-    obj_list = []
-    if os.path.exists(input_path):
-        with open(input_path, "r") as f:
-            for line in f:
-                obj = cls()
-                obj.from_json(line)
-                obj_list.append(obj)
-    return obj_list
 
 def _load_object_list(cls, input_path):
     obj_list = []
