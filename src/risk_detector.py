@@ -11,9 +11,7 @@ from rules.base import Rule, subject_placeholder
 
 def indent(multi_line_txt, level=0):
     lines = multi_line_txt.splitlines()
-    lines = [
-        " " * level + line for line in lines if line.replace(" ", "") != ""
-    ]
+    lines = [" " * level + line for line in lines if line.replace(" ", "") != ""]
     return "\n".join(lines)
 
 
@@ -129,12 +127,8 @@ def detect(tasks_rv_data: list, collection_name: str = ""):
             tmp_result_txt += "#{} {} - {}\n".format(
                 report_num, tree_root_type.upper(), tree_root_name
             )
-            used_in_playbooks = role_to_playbook_mappings.get(
-                tree_root_name, []
-            )
-            risk_found_playbooks = risk_found_playbooks.union(
-                set(used_in_playbooks)
-            )
+            used_in_playbooks = role_to_playbook_mappings.get(tree_root_name, [])
+            risk_found_playbooks = risk_found_playbooks.union(set(used_in_playbooks))
             if len(used_in_playbooks) > 0:
                 tmp_result_txt += "(used_in: {})\n".format(used_in_playbooks)
             tmp_result_txt += tmp_result_txt_alt
@@ -144,7 +138,7 @@ def detect(tasks_rv_data: list, collection_name: str = ""):
                 playbook_count["risk"] += 1
             else:
                 role_count["risk"] += 1
-        logging.debug("detect() {}/{} done".format(i+1, num))
+        logging.debug("detect() {}/{} done".format(i + 1, num))
 
     if playbook_count["total"] > 0:
         result_txt += "Playbooks\n"
@@ -163,9 +157,7 @@ def detect(tasks_rv_data: list, collection_name: str = ""):
         table_data = rule_data["matched"]
         result_txt += label + "\n"
         placeholder = subject_placeholder
-        subject = make_subject_str(
-            playbook_count["total"], role_count["total"]
-        )
+        subject = make_subject_str(playbook_count["total"], role_count["total"])
         table_txt = "  All {} are OK".format(placeholder)
         if rule.all_ok_message != "":
             table_txt = "  {}".format(rule.all_ok_message)
@@ -192,9 +184,7 @@ def main():
         default="",
         help="path to the input json (tasks_rv.json)",
     )
-    parser.add_argument(
-        "-o", "--output", default="", help="path to the output json"
-    )
+    parser.add_argument("-o", "--output", default="", help="path to the output json")
     parser.add_argument(
         "-v", "--verbose", default="", help="show details during the process"
     )

@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-import copy
 import json
 import jsonpickle
 import logging
@@ -128,7 +127,17 @@ class ObjectList(Resolvable):
         items = [jsonpickle.decode(obj_str) for obj_str in lines]
         self.items = items
         self._update_dict()
-        return copy.deepcopy(self)
+        # return copy.deepcopy(self)
+
+    # def from_json(cls, json_str="", fpath=""):
+    #     if fpath != "":
+    #         json_str = open(fpath, "r").read()
+    #     lines = json_str.splitlines()
+    #     items = [jsonpickle.decode(obj_str) for obj_str in lines]
+    #     objlist = ObjectList()
+    #     objlist.items = items
+    #     objlist._update_dict()
+    #     return objlist
 
     def add(self, obj):
         self.items.append(obj)

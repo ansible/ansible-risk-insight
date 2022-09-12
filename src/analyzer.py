@@ -15,9 +15,7 @@ def load_extractors():
         if not extractor_script_name.endswith(".py"):
             continue
         extractor_script_name = extractor_script_name.replace(".py", "")
-        extractor_module_name = "{}.{}".format(
-            extractor_dir, extractor_script_name
-        )
+        extractor_module_name = "{}.{}".format(extractor_dir, extractor_script_name)
         tmp_extractor = import_module(extractor_module_name)
 
         for _, val in vars(tmp_extractor).items():
@@ -66,7 +64,7 @@ def analyze(tasks_rv_data: list):
                 continue
             task_with_analyzed_data = extractor.analyze(task)
             tasks_rv_data[i]["tasks"][j] = task_with_analyzed_data
-        logging.debug("analyze() {}/{} done".format(i+1, num))
+        logging.debug("analyze() {}/{} done".format(i + 1, num))
     return tasks_rv_data
 
 
@@ -84,9 +82,7 @@ def main():
         default="",
         help="path to the input json (tasks_rv.json)",
     )
-    parser.add_argument(
-        "-o", "--output", default="", help="path to the output json"
-    )
+    parser.add_argument("-o", "--output", default="", help="path to the output json")
 
     args = parser.parse_args()
 
@@ -94,9 +90,7 @@ def main():
     tasks_rv_data = analyze(tasks_rv_data)
 
     if args.output != "":
-        lines = [
-            json.dumps(single_tree_data) for single_tree_data in tasks_rv_data
-        ]
+        lines = [json.dumps(single_tree_data) for single_tree_data in tasks_rv_data]
         with open(args.output, mode="wt") as file:
             file.write("\n".join(lines))
 
