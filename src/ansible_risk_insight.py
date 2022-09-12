@@ -13,5 +13,6 @@ if __name__ == "__main__":
         name=target_name,
         root_dir=config.data_dir,
         dependency_dir=dependency_dir,
+        do_save=True
     )
     c.load()

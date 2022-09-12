@@ -351,12 +351,14 @@ def get_all_dependencies(target_path, known_dependencies={}):
     raw_dependencies = {}
     if target_type == "collection":
         collections_path = os.path.join(target_path, "collections.json")
-        collections = ObjectList().from_json(fpath=collections_path)
+        collections = ObjectList()
+        collections.from_json(fpath=collections_path)
         c = collections.items[0]
         raw_dependencies = c.dependency
     elif target_type == "role":
         roles_path = os.path.join(target_path, "roles.json")
-        roles = ObjectList().from_json(fpath=roles_path)
+        roles = ObjectList()
+        roles.from_json(fpath=roles_path)
         r = roles.items[0]
         raw_dependencies = r.dependency
 
@@ -523,12 +525,14 @@ def main():
         resolver = FQCNResolver(dicts=dicts)
 
         plays_path = os.path.join(target_path, "plays.json")
-        plays = ObjectList().from_json(fpath=plays_path)
+        plays = ObjectList()
+        plays.from_json(fpath=plays_path)
         plays.resolve(resolver)
         plays.dump(fpath=plays_path)
 
         tasks_path = os.path.join(target_path, "tasks.json")
-        tasks = ObjectList().from_json(fpath=tasks_path)
+        tasks = ObjectList()
+        tasks.from_json(fpath=tasks_path)
         tasks.resolve(resolver)
         tasks.dump(fpath=tasks_path)
 

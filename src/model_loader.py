@@ -1379,7 +1379,7 @@ def load_collection(collection_dir, basedir="", load_children=True):
     return colObj
 
 
-def load_object(loadObj, output_path=""):
+def load_object(loadObj):
     target_type = loadObj.target_type
     path = loadObj.path
     obj = None
@@ -1405,8 +1405,3 @@ def load_object(loadObj, output_path=""):
     if hasattr(obj, "modules"):
         loadObj.modules = obj.modules
     loadObj.timestamp = datetime.datetime.utcnow().isoformat()
-
-    json_str = loadObj.dump()
-    if output_path != "":
-        with open(output_path, "w") as file:
-            file.write(json_str)
