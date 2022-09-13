@@ -9,17 +9,19 @@ import logging
 from dataclasses import dataclass, field
 from models import (
     Load,
+    LoadType,
     ObjectList,
 )
 
 from loader import (
-    detect_target_type,
-    supported_target_types,
     get_loader_version,
     get_target_name,
+    remove_subdirectories,
+    trim_suffix,
 )
 from parser import Parser
 from model_loader import load_object
+from safe_glob import safe_glob
 from tree import TreeLoader, TreeNode
 from variable_resolver import resolve_variables
 from analyzer import analyze
@@ -31,6 +33,10 @@ class Config:
     log_level: str = os.environ.get("ARI_LOG_LEVEL", "info").lower()
 
 
+collection_manifest_json = "MANIFEST.json"
+role_meta_main_yml = "meta/main.yml"
+role_meta_main_yaml = "meta/main.yaml"
+
 log_level_map = {
     "error": logging.ERROR,
     "warning": logging.WARNING,
@@ -38,6 +44,12 @@ log_level_map = {
     "debug": logging.DEBUG,
 }
 
+supported_target_types = [
+    LoadType.PROJECT_TYPE,
+    LoadType.COLLECTION_TYPE,
+    LoadType.ROLE_TYPE,
+    LoadType.PLAYBOOK_TYPE,
+]
 
 config = Config()
 
@@ -76,41 +88,83 @@ class DataContainer(object):
 
     # TODO: remove attributes below once refactoring is done
     root_dir: str = ""
-    path_mappings: dict = field(default_factory=dict)
+    __path_mappings: dict = field(default_factory=dict)
 
     dependency_dir: str = ""
     do_save: bool = False
     _parser: Parser = None
 
     def __post_init__(self):
-        type_root = self.type + "s"
-        self.path_mappings = {
-            "src": os.path.join(self.root_dir, type_root, "src"),
-            "root_definitions": os.path.join(
-                self.root_dir,
-                type_root,
-                "root",
-                "definitions",
-                type_root,
-                self.name,
-            ),
-            "ext_definitions": {
-                ContainerType.ROLE: os.path.join(self.root_dir, "roles", "definitions"),
-                ContainerType.COLLECTION: os.path.join(
-                    self.root_dir, "collections", "definitions"
+        if self.type == LoadType.COLLECTION_TYPE or self.type == LoadType.ROLE_TYPE:
+            type_root = self.type + "s"
+            self.__path_mappings = {
+                "src": os.path.join(self.root_dir, type_root, "src"),
+                "root_definitions": os.path.join(
+                    self.root_dir,
+                    type_root,
+                    "root",
+                    "definitions",
+                    type_root,
+                    self.name,
                 ),
-            },
-            "index": os.path.join(
-                self.root_dir,
-                type_root,
-                "{}-{}-index-ext.json".format(self.type, self.name),
-            ),
-            "install_log": os.path.join(
-                self.root_dir,
-                type_root,
-                "{}-{}-install.log".format(self.type, self.name),
-            ),
-        }
+                "ext_definitions": {
+                    ContainerType.ROLE: os.path.join(
+                        self.root_dir, "roles", "definitions"
+                    ),
+                    ContainerType.COLLECTION: os.path.join(
+                        self.root_dir, "collections", "definitions"
+                    ),
+                },
+                "index": os.path.join(
+                    self.root_dir,
+                    type_root,
+                    "{}-{}-index-ext.json".format(self.type, self.name),
+                ),
+                "install_log": os.path.join(
+                    self.root_dir,
+                    type_root,
+                    "{}-{}-install.log".format(self.type, self.name),
+                ),
+            }
+
+        elif self.type == LoadType.PROJECT_TYPE:
+            type_root = self.type + "s"
+            proj_name = escape_url(self.name)
+            self.__path_mappings = {
+                "src": os.path.join(self.root_dir, type_root, proj_name, "src"),
+                "root_definitions": os.path.join(
+                    self.root_dir,
+                    type_root,
+                    proj_name,
+                    "definitions",
+                ),
+                "ext_definitions": {
+                    ContainerType.ROLE: os.path.join(
+                        self.root_dir, "roles", "definitions"
+                    ),
+                    ContainerType.COLLECTION: os.path.join(
+                        self.root_dir, "collections", "definitions"
+                    ),
+                },
+                "index": os.path.join(
+                    self.root_dir,
+                    type_root,
+                    proj_name,
+                    "index-ext.json",
+                ),
+                "install_log": os.path.join(
+                    self.root_dir,
+                    type_root,
+                    proj_name,
+                    "{}-{}-install.log".format(self.type, proj_name),
+                ),
+                "dependencies": os.path.join(
+                    self.root_dir, type_root, proj_name, "dependencies"
+                ),
+            }
+
+        else:
+            raise ValueError("Unsupported type: {}".format(self.type))
 
     def load(self):
         if self.is_src_installed():
@@ -155,20 +209,19 @@ class DataContainer(object):
         return
 
     def get_src_root(self):
-        return self.path_mappings.get("src", "")
+        return self.__path_mappings["src"]
 
     def is_src_installed(self):
-        index_location = self.path_mappings.get("index", "")
+        index_location = self.__path_mappings["index"]
         return os.path.exists(index_location)
 
     def load_index(self):
-        index_location = self.path_mappings.get("index", "")
+        index_location = self.__path_mappings["index"]
         with open(index_location, "r") as f:
             self.index = json.load(f)
-        return os.path.exists(index_location)
 
     def __save_index(self):
-        index_location = self.path_mappings.get("index", "")
+        index_location = self.__path_mappings["index"]
         index_dir = os.path.dirname(os.path.abspath(index_location))
         if not os.path.exists(index_dir):
             os.makedirs(index_dir)
@@ -194,58 +247,39 @@ class DataContainer(object):
 
     def install(self):
         tmp_src_dir = os.path.join(self.tmp_install_dir.name, "src")
-        is_ext = True
-
-        install_type = ""
-        if self.type in [ContainerType.COLLECTION, ContainerType.ROLE]:
-            install_type = "galaxy"
-        elif self.type == ContainerType.PROJECT:
-            install_type = "github"
 
         install_msg = ""
         dependency_dir = ""
         dst_src_dir = ""
-        if install_type == "galaxy":
+
+        if self.type in [ContainerType.COLLECTION, ContainerType.ROLE]:
+            # install_type = "galaxy"
             # ansible-galaxy install
             print("installing a {} <{}> from galaxy".format(self.type, self.name))
             install_msg = install_galaxy_target(self.name, self.type, tmp_src_dir)
             dependency_dir = tmp_src_dir
             dst_src_dir = self.get_src_root()
 
-        elif install_type == "github":
+        elif self.type == ContainerType.PROJECT:
+            # install_type = "github"
             # ansible-galaxy install
             print("cloning {} from github".format(self.name))
             install_msg = install_github_target(self.name, self.type, tmp_src_dir)
             if self.dependency_dir == "":
                 raise ValueError("dependency dir is required for project type")
             dependency_dir = self.dependency_dir
-            src_root = self.get_src_root()
-            dst_src_dir = os.path.join(src_root, escape_url(self.name))
+            dst_src_dir = os.path.join(self.get_src_root(), escape_url(self.name))
+
+        else:
+            raise ValueError("unsupported container type")
 
         self.install_log = install_msg
         print(self.install_log)
         self.__save_install_log()
 
-        print("crawl content")
-        dep_type, target_path_list = detect_target_type(dependency_dir, is_ext)
-
-        logging.info(
-            'the detected target type: "{}", found targets: {}'.format(
-                self.type, len(target_path_list)
-            )
-        )
-        if self.type not in supported_target_types:
-            logging.error("this target type is not supported")
-            sys.exit(1)
-
-        index_data = self.create_index_data(
-            is_ext,
-            dep_type,
-            target_path_list,
-        )
+        self.set_index(dependency_dir)
 
         print("moving index")
-        self.index = index_data
         logging.debug("index: {}".format(json.dumps(self.index)))
         self.__save_index()
 
@@ -253,23 +287,63 @@ class DataContainer(object):
             os.makedirs(dst_src_dir)
         self.move_src(tmp_src_dir, dst_src_dir)
 
-        dst_dependency_dir = ""
-        if install_type == "github":
-            type_root = dep_type + "s"
-            dst_dependency_dir = os.path.join(self.root_dir, type_root, "src")
-
-        if dst_dependency_dir != "":
+        if self.type == ContainerType.PROJECT:
+            dst_dependency_dir = self.__path_mappings["dependencies"]
+            if not os.path.exists(dst_dependency_dir):
+                os.makedirs(dst_dependency_dir)
             self.move_src(dependency_dir, dst_dependency_dir)
+
         return
+
+    def set_index(self, path):
+        print("crawl content")
+        dep_type = LoadType.UNKNOWN_TYPE
+        target_path_list = []
+        if os.path.isfile(path):
+            # need further check?
+            dep_type = LoadType.PLAYBOOK_TYPE
+            target_path_list.append = [path]
+        elif os.path.exists(os.path.join(path, collection_manifest_json)):
+            dep_type = LoadType.COLLECTION_TYPE
+            target_path_list = [path]
+        elif os.path.exists(os.path.join(path, role_meta_main_yml)):
+            dep_type = LoadType.ROLE_TYPE
+            target_path_list = [path]
+        else:
+            dep_type, target_path_list = find_ext_dependencies(path)
+
+        logging.info(
+            'the detected target type: "{}", found targets: {}'.format(
+                self.type, len(target_path_list)
+            )
+        )
+
+        if self.type not in supported_target_types:
+            logging.error("this target type is not supported")
+            sys.exit(1)
+
+        list = []
+        for target_path in target_path_list:
+            ext_name = get_target_name(dep_type, target_path)
+            list.append(
+                {
+                    "name": ext_name,
+                    "type": dep_type,
+                }
+            )
+
+        index_data = {
+            "dependencies": list,
+            "path_mappings": self.__path_mappings,
+        }
+
+        self.index = index_data
 
     def __save_install_log(self):
         tmpdir = self.tmp_install_dir.name
         tmp_install_log = os.path.join(tmpdir, "install.log")
         with open(tmp_install_log, "w") as f:
             f.write(self.install_log)
-
-    # def get_index(self):
-    #     return self.index
 
     def _get_target_list(self):
         dep_list = self.index.get("dependencies", [])
@@ -285,16 +359,12 @@ class DataContainer(object):
         target_path = ""
         if ext_type == ContainerType.ROLE:
             target_path = os.path.join(
-                self.path_mappings.get("ext_definitions", {}).get(
-                    ContainerType.ROLE, ""
-                ),
+                self.__path_mappings["ext_definitions"][ContainerType.ROLE],
                 ext_name,
             )
         elif ext_type == ContainerType.COLLECTION:
             target_path = os.path.join(
-                self.path_mappings.get("ext_definitions", {}).get(
-                    ContainerType.COLLECTION, ""
-                ),
+                self.__path_mappings["ext_definitions"][ContainerType.COLLECTION],
                 ext_name,
             )
         else:
@@ -433,94 +503,8 @@ class DataContainer(object):
             list = [{"name": "", "type": ""}]
         return {
             "dependencies": list,
-            "path_mappings": self.path_mappings,
+            "path_mappings": self.__path_mappings,
         }
-
-    # def create_index_data(
-    #     self,
-    #     is_ext,
-    #     dep_type,
-    #     target_path_list,
-    # ):
-    #     index_data = {
-    #         "generated_load_files": [],
-    #     }
-
-    #     generated_load_files = []
-    #     if is_ext:
-    #         for target_path in target_path_list:
-    #             dep_name = get_target_name(dep_type, target_path)
-    #             generated_load_files.append(
-    #                 {
-    #                     "name": dep_name,
-    #                     "type": dep_type,
-    #                 }
-    #             )
-    #     else:
-    #         generated_load_files = [
-    #             {"name": "", "type": ""}
-    #         ]
-    #     index_data["generated_load_files"] = generated_load_files
-    #     return index_data
-
-    # def find_load_files_for_dependency_collections(
-    #     self, role_path_list, collection_search_path
-    # ):
-    #     dep_collections = []
-    #     for role_path in role_path_list:
-    #         _metadata_path_cand1 = os.path.join(role_path, "meta/main.yml")
-    #         _metadata_path_cand2 = os.path.join(role_path, "meta/main.yaml")
-    #         metadata_path = ""
-    #         if os.path.exists(_metadata_path_cand1):
-    #             metadata_path = _metadata_path_cand1
-    #         elif os.path.exists(_metadata_path_cand2):
-    #             metadata_path = _metadata_path_cand2
-    #         if metadata_path == "":
-    #             continue
-    #         metadata = {}
-    #         try:
-    #             metadata = yaml.safe_load(open(metadata_path, "r"))
-    #         except Exception:
-    #             pass
-    #         dep_collection_key = "collections"
-    #         if dep_collection_key not in metadata:
-    #             continue
-    #         dep_collections_in_this_role = metadata.get(
-    #             dep_collection_key, []
-    #         )
-    #         if not isinstance(dep_collections_in_this_role, list):
-    #             continue
-    #         dep_collections.extend(dep_collections_in_this_role)
-    #     load_files = []
-    #     for dep_collection in dep_collections:
-    #         if not isinstance(dep_collection, str):
-    #             continue
-    #         collection_name = dep_collection
-    #         index_file = os.path.join(
-    #             collection_search_path,
-    #             "collection-{}-index-ext.json".format(collection_name),
-    #         )
-    #         if not os.path.exists(index_file):
-    #             continue
-    #         index_data = json.load(open(index_file, "r"))
-    #         _load_files_for_this_collection = index_data.get(
-    #             "generated_load_files", []
-    #         )
-    #         for load_data in _load_files_for_this_collection:
-    #             load_path = load_data.get("file", "")
-    #             already_included = (
-    #                 len(
-    #                     [
-    #                         True
-    #                         for load_file in load_files
-    #                         if load_file.get("file", "") == load_path
-    #                     ]
-    #                 )
-    #                 > 0
-    #             )
-    #             if load_path != "" and not already_included:
-    #                 load_files.append(load_data)
-    #     return load_files
 
     def load_definition_ext(self, target_type, target_name):
         target_path = self.get_source_path(target_type, target_name)
@@ -549,7 +533,7 @@ class DataContainer(object):
 
     def load_definitions_root(self):
 
-        output_dir = self.path_mappings.get("root_definitions", "")
+        output_dir = self.__path_mappings["root_definitions"]
         root_load = self._set_load_root()
 
         p = Parser(do_save=self.do_save)
@@ -729,3 +713,32 @@ if __name__ == "__main__":
         dependency_dir=__dependency_dir,
     )
     c.load()
+
+
+def find_ext_dependencies(path):
+
+    collection_meta_files = safe_glob(
+        os.path.join(path, "**", collection_manifest_json), recursive=True
+    )
+    if len(collection_meta_files) > 0:
+        collection_path_list = [
+            trim_suffix(f, ["/" + collection_manifest_json])
+            for f in collection_meta_files
+        ]
+        collection_path_list = remove_subdirectories(collection_path_list)
+        return LoadType.COLLECTION_TYPE, collection_path_list
+    role_meta_files = safe_glob(
+        [
+            os.path.join(path, "**", role_meta_main_yml),
+            os.path.join(path, "**", role_meta_main_yaml),
+        ],
+        recursive=True,
+    )
+    if len(role_meta_files) > 0:
+        role_path_list = [
+            trim_suffix(f, ["/" + role_meta_main_yml, "/" + role_meta_main_yaml])
+            for f in role_meta_files
+        ]
+        role_path_list = remove_subdirectories(role_path_list)
+        return LoadType.ROLE_TYPE, role_path_list
+    return LoadType.UNKNOWN_TYPE, []
