@@ -409,6 +409,21 @@ class DataContainer(object):
         trees, node_objects = tree(self.root_definitions, self.ext_definitions)
         self.trees = trees
         self.node_objects = node_objects
+
+        if self.do_save:
+            root_def_dir = self.__path_mappings["root_definitions"]
+            tree_rel_file = os.path.join(root_def_dir, "tree.json")
+            tree_nobj_file = os.path.join(root_def_dir, "node_objects.json")
+            if tree_rel_file != "":
+                lines = []
+                for t in self.trees:
+                    d = {"key": t.key, "tree": t.to_graph()}
+                    lines.append(json.dumps(d))
+                open(tree_rel_file, "w").write("\n".join(lines))
+                logging.info("  tree file saved")
+            if tree_nobj_file != "":
+                self.node_objects.dump(fpath=tree_nobj_file)
+                logging.info("  node file saved")
         return
 
     def get_trees(self):
