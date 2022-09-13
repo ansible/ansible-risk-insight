@@ -2,7 +2,8 @@ import os
 import re
 import copy
 from dataclasses import dataclass, field
-from models import (
+from pathlib import Path
+from .models import (
     Playbook,
     Play,
     Role,
@@ -12,8 +13,8 @@ from models import (
     InventoryType,
 )
 
-
-ansible_special_variables = open("ansible_variables.txt", "r").read().splitlines()
+p = Path(__file__).resolve().parent
+ansible_special_variables = open(p / "ansible_variables.txt", "r").read().splitlines()
 _special_var_value = "__ansible_special_variable__"
 variable_block_re = re.compile(r"{{[^}]+}}")
 

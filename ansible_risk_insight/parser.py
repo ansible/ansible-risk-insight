@@ -1,7 +1,7 @@
 import os
 import logging
 import copy
-from models import (
+from .models import (
     Collection,
     Load,
     LoadType,
@@ -13,7 +13,7 @@ from models import (
     Task,
     TaskFile,
 )
-from model_loader import (
+from .model_loader import (
     load_collection,
     load_module,
     load_playbook,

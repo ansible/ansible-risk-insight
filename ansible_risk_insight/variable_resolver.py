@@ -3,10 +3,10 @@ import os
 import sys
 import json
 import logging
-from keyutil import detect_type
-from models import ObjectList, ExecutableType, Repository, Playbook, Role
-from tree import TreeNode, load_all_definitions
-from context import Context, resolve_module_options
+from .keyutil import detect_type
+from .models import ObjectList, ExecutableType, Repository, Playbook, Role
+from .tree import TreeNode, load_all_definitions
+from .context import Context, resolve_module_options
 
 
 def tree_to_task_list(tree, node_objects):

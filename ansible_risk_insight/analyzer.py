@@ -4,32 +4,16 @@ import json
 import logging
 import inspect
 from importlib import import_module
-from extractors.base import Extractor
+from pathlib import Path
+from .extractors.base import Extractor
+from ansible_risk_insight import extractors
 
 
 def load_extractors():
-    extractor_dir = "extractors"
-    extractors = []
-    extractor_script_names = os.listdir(extractor_dir)
-    for extractor_script_name in extractor_script_names:
-        if not extractor_script_name.endswith(".py"):
-            continue
-        extractor_script_name = extractor_script_name.replace(".py", "")
-        extractor_module_name = "{}.{}".format(extractor_dir, extractor_script_name)
-        tmp_extractor = import_module(extractor_module_name)
-
-        for _, val in vars(tmp_extractor).items():
-            if not inspect.isclass(val):
-                continue
-            instance = val()
-            if isinstance(instance, Extractor):
-                # skip base class
-                if type(instance) == Extractor:
-                    continue
-                if not instance.enabled:
-                    continue
-                extractors.append(instance)
-    return extractors
+    _extractors = []
+    for extractor in extractors.__all__:
+        _extractors.append(getattr(extractors, extractor)())
+    return _extractors
 
 
 def load_tasks_rv(path: str):
@@ -57,7 +41,7 @@ def analyze(tasks_rv_data: list):
         for j, task in enumerate(single_tree_data["tasks"]):
             extractor = None
             for _ext in extractors:
-                if _ext.match(task):
+                if _ext.match(task=task):
                     extractor = _ext
                     break
             if extractor is None:
