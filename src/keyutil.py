@@ -133,10 +133,12 @@ def get_obj_info_by_key(key):
             if not skip:
                 s2 = s1[idx1 + 1 :]
                 idx2 = s2.find(key_delimiter)
+                obj_type = s2[:idx2]
+                info["obj_type"] = obj_type
                 skip = skip or idx2 < 0
             if not skip:
-                index_info = s2[idx2 + 1 :]
-                info["index_info"] = index_info
+                obj_key = s2[idx2 + 1 :]
+                info["obj_key"] = obj_key
         elif obj_type == "taskfile" or obj_type == "playbook":
             idx1 = s1.find(key_delimiter)
             skip = skip or idx1 < 0

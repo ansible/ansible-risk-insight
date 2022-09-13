@@ -3,60 +3,52 @@ import pathlib
 import json
 import git
 from models import LoadType
-from safe_glob import safe_glob
-
-
-supported_target_types = [
-    LoadType.PROJECT_TYPE,
-    LoadType.COLLECTION_TYPE,
-    LoadType.ROLE_TYPE,
-    LoadType.PLAYBOOK_TYPE,
-]
 
 collection_manifest_json = "MANIFEST.json"
 role_meta_main_yml = "meta/main.yml"
 role_meta_main_yaml = "meta/main.yaml"
 
 
-def detect_target_type(path, is_ext):
-    if os.path.isfile(path):
-        # need further check?
-        return LoadType.PLAYBOOK_TYPE, [path]
+# def detect_target_type(path, is_ext):
 
-    if os.path.exists(os.path.join(path, collection_manifest_json)):
-        return LoadType.COLLECTION_TYPE, [path]
-    if os.path.exists(os.path.join(path, role_meta_main_yml)):
-        return LoadType.ROLE_TYPE, [path]
-    if is_ext:
-        collection_meta_files = safe_glob(
-            os.path.join(path, "**", collection_manifest_json), recursive=True
-        )
-        if len(collection_meta_files) > 0:
-            collection_path_list = [
-                trim_suffix(f, ["/" + collection_manifest_json])
-                for f in collection_meta_files
-            ]
-            collection_path_list = remove_subdirectories(collection_path_list)
-            return LoadType.COLLECTION_TYPE, collection_path_list
-        role_meta_files = safe_glob(
-            [
-                os.path.join(path, "**", role_meta_main_yml),
-                os.path.join(path, "**", role_meta_main_yaml),
-            ],
-            recursive=True,
-        )
-        if len(role_meta_files) > 0:
-            role_path_list = [
-                trim_suffix(
-                    f, ["/" + role_meta_main_yml, "/" + role_meta_main_yaml]
-                )
-                for f in role_meta_files
-            ]
-            role_path_list = remove_subdirectories(role_path_list)
-            return LoadType.ROLE_TYPE, role_path_list
-    else:
-        return LoadType.PROJECT_TYPE, [path]
-    return LoadType.UNKNOWN_TYPE, []
+#     if os.path.isfile(path):
+#         # need further check?
+#         return LoadType.PLAYBOOK_TYPE, [path]
+
+#     if os.path.exists(os.path.join(path, collection_manifest_json)):
+#         return LoadType.COLLECTION_TYPE, [path]
+#     if os.path.exists(os.path.join(path, role_meta_main_yml)):
+#         return LoadType.ROLE_TYPE, [path]
+#     if is_ext:
+#         collection_meta_files = safe_glob(
+#             os.path.join(path, "**", collection_manifest_json), recursive=True
+#         )
+#         if len(collection_meta_files) > 0:
+#             collection_path_list = [
+#                 trim_suffix(f, ["/" + collection_manifest_json])
+#                 for f in collection_meta_files
+#             ]
+#             collection_path_list = remove_subdirectories(collection_path_list)
+#             return LoadType.COLLECTION_TYPE, collection_path_list
+#         role_meta_files = safe_glob(
+#             [
+#                 os.path.join(path, "**", role_meta_main_yml),
+#                 os.path.join(path, "**", role_meta_main_yaml),
+#             ],
+#             recursive=True,
+#         )
+#         if len(role_meta_files) > 0:
+#             role_path_list = [
+#                 trim_suffix(
+#                     f, ["/" + role_meta_main_yml, "/" + role_meta_main_yaml]
+#                 )
+#                 for f in role_meta_files
+#             ]
+#             role_path_list = remove_subdirectories(role_path_list)
+#             return LoadType.ROLE_TYPE, role_path_list
+#     else:
+#         return LoadType.PROJECT_TYPE, [path]
+#     return LoadType.UNKNOWN_TYPE, []
 
 
 # remove a dir which is a sub directory of another dir in the list
@@ -88,13 +80,6 @@ def get_loader_version():
     return sha
 
 
-def create_load_json_path(target_type, target_name, output_dir):
-    load_json_path = os.path.join(
-        output_dir, "load-{}-{}.json".format(target_type, target_name)
-    )
-    return load_json_path
-
-
 def get_target_name(target_type, target_path):
     target_name = ""
     if target_type == LoadType.PROJECT_TYPE:
@@ -105,9 +90,7 @@ def get_target_name(target_type, target_path):
         metadata = {}
         with open(meta_file, "r") as file:
             metadata = json.load(file)
-        collection_namespace = metadata.get("collection_info", {}).get(
-            "namespace", ""
-        )
+        collection_namespace = metadata.get("collection_info", {}).get("namespace", "")
         collection_name = metadata.get("collection_info", {}).get("name", "")
         target_name = "{}.{}".format(collection_namespace, collection_name)
     elif target_type == LoadType.ROLE_TYPE:
@@ -119,9 +102,7 @@ def get_target_name(target_type, target_path):
 
 
 def filepath_to_target_name(filepath):
-    return filepath.translate(
-        str.maketrans({" ": "___", "/": "---", ".": "_dot_"})
-    )
+    return filepath.translate(str.maketrans({" ": "___", "/": "---", ".": "_dot_"}))
 
 
 # if __name__ == "__main__":
