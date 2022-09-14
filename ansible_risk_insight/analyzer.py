@@ -1,11 +1,6 @@
 import argparse
-import os
 import json
 import logging
-import inspect
-from importlib import import_module
-from pathlib import Path
-from .extractors.base import Extractor
 from ansible_risk_insight import extractors
 
 

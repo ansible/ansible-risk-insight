@@ -432,6 +432,16 @@ class DataContainer(object):
     def set_resolved(self):
         tasks_rv = resolve(self.trees, self.node_objects)
         self.tasks_rv = tasks_rv
+
+        if self.do_save:
+            root_def_dir = self.__path_mappings["root_definitions"]
+            tasks_rv_path = os.path.join(root_def_dir, "tasks_rv.json")
+            tasks_rv_lines = []
+            for d in tasks_rv:
+                line = json.dumps(d)
+                tasks_rv_lines.append(line)
+
+            open(tasks_rv_path, "w").write("\n".join(tasks_rv_lines))
         return
 
     def get_resolved(self):
@@ -440,6 +450,17 @@ class DataContainer(object):
     def set_analyzed(self):
         tasks_rva = analyze(self.tasks_rv)
         self.tasks_rva = tasks_rva
+
+        if self.do_save:
+            root_def_dir = self.__path_mappings["root_definitions"]
+            tasks_rva_path = os.path.join(root_def_dir, "tasks_rva.json")
+            tasks_rva_lines = []
+            for d in tasks_rva:
+                line = json.dumps(d)
+                tasks_rva_lines.append(line)
+
+            open(tasks_rva_path, "w").write("\n".join(tasks_rva_lines))
+
         return
 
     def get_analyzed(self):

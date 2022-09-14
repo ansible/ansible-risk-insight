@@ -38,50 +38,34 @@ def tree_to_task_list(tree, node_objects):
 
         # obj["children_types"] = list(children_per_type.keys())
         if "playbook" in children_per_type:
-            tasks_per_children = [
-                getSubTree(c) for c in children_per_type["playbook"]
-            ]
+            tasks_per_children = [getSubTree(c) for c in children_per_type["playbook"]]
             for (_tasks, _) in tasks_per_children:
                 children_tasks.extend(_tasks)
         if "play" in children_per_type:
-            tasks_per_children = [
-                getSubTree(c) for c in children_per_type["play"]
-            ]
+            tasks_per_children = [getSubTree(c) for c in children_per_type["play"]]
             for (_tasks, _) in tasks_per_children:
                 children_tasks.extend(_tasks)
         if "role" in children_per_type:
-            tasks_per_children = [
-                getSubTree(c) for c in children_per_type["role"]
-            ]
+            tasks_per_children = [getSubTree(c) for c in children_per_type["role"]]
             for (_tasks, _) in tasks_per_children:
                 children_tasks.extend(_tasks)
             if node_type == "task":
                 fqcns = [fqcn for (_, fqcn) in tasks_per_children]
                 resolved_name = fqcns[0] if len(fqcns) > 0 else ""
         if "taskfile" in children_per_type:
-            tasks_per_children = [
-                getSubTree(c) for c in children_per_type["taskfile"]
-            ]
+            tasks_per_children = [getSubTree(c) for c in children_per_type["taskfile"]]
             for (_tasks, _) in tasks_per_children:
                 children_tasks.extend(_tasks)
             if node_type == "task":
-                _tf_path_list = [
-                    _tf_path for (_, _tf_path) in tasks_per_children
-                ]
-                resolved_name = (
-                    _tf_path_list[0] if len(_tf_path_list) > 0 else ""
-                )
+                _tf_path_list = [_tf_path for (_, _tf_path) in tasks_per_children]
+                resolved_name = _tf_path_list[0] if len(_tf_path_list) > 0 else ""
         if "task" in children_per_type:
-            tasks_per_children = [
-                getSubTree(c) for c in children_per_type["task"]
-            ]
+            tasks_per_children = [getSubTree(c) for c in children_per_type["task"]]
             for (_tasks, _) in tasks_per_children:
                 children_tasks.extend(_tasks)
         if "module" in children_per_type:
             if node_type == "task":
-                fqcns = [
-                    getSubTree(c)[1] for c in children_per_type["module"]
-                ]
+                fqcns = [getSubTree(c)[1] for c in children_per_type["module"]]
                 resolved_name = fqcns[0] if len(fqcns) > 0 else ""
 
         if node_type == "task":
@@ -210,9 +194,7 @@ def main():
         add_help=True,
     )
 
-    parser.add_argument(
-        "-t", "--tree-file", default="", help="path to tree json file"
-    )
+    parser.add_argument("-t", "--tree-file", default="", help="path to tree json file")
     parser.add_argument(
         "-n", "--node-file", default="", help="path to node object json file"
     )
@@ -225,9 +207,7 @@ def main():
     parser.add_argument(
         "-e", "--ext-dir", default="", help="path to definitions dir for ext"
     )
-    parser.add_argument(
-        "-o", "--out-dir", default="", help="path to output dir"
-    )
+    parser.add_argument("-o", "--out-dir", default="", help="path to output dir")
 
     args = parser.parse_args()
 
@@ -237,8 +217,7 @@ def main():
 
     if args.node_file == "" and (args.root_dir == "" or args.ext_dir == ""):
         logging.error(
-            '"--root-dir" and "--ext-dir" are required when "--node-file" is'
-            " empty"
+            '"--root-dir" and "--ext-dir" are required when "--node-file" is' " empty"
         )
         sys.exit(1)
 
