@@ -1,6 +1,6 @@
-import sys
 import argparse
 from .data_container import DataContainer, config
+
 
 def main():
     parser = argparse.ArgumentParser(description='TODO')

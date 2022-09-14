@@ -27,7 +27,7 @@ ansible-risk-insight collection <collection_name>
 
 All intermediate files are installed under a temporary directory.
 The src dir which includes dependency collections and roles are moved under command dir for ARI to avoid repeated install from Galaxy repository.
-The location of the ARI common dir can be specified by env variable `ARI_DATA_DIR` (default = <home_dir>/.ari)
+The location of the ARI common dir can be specified by env variable `ARI_DATA_DIR` (default = /tmp/ari-data)
 
 ## Extensibility
 
