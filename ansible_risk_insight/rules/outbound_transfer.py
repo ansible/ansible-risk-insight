@@ -1,4 +1,4 @@
-from rules.base import Rule
+from .base import Rule
 
 
 class OutboundTransferRule(Rule):

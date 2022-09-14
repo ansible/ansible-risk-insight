@@ -1,10 +1,12 @@
 from dataclasses import dataclass
+from pathlib import Path
 import re
 import os
 import yaml
 import logging
-from safe_glob import safe_glob
-from awx_utils import could_be_playbook, search_playbooks
+from .safe_glob import safe_glob
+from .awx_utils import could_be_playbook, search_playbooks
+
 
 module_name_re = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$")
 
@@ -35,11 +37,11 @@ class TaskKeywordSet(metaclass=Singleton):
 class BuiltinModuleSet(metaclass=Singleton):
     builtin_modules: set
 
-
-with open("task_keywords.txt", "r") as f:
+p = Path(__file__).resolve().parent
+with open(p / "task_keywords.txt", "r") as f:
     TaskKeywordSet(set(f.read().splitlines()))
 
-with open("builtin-modules.txt", "r") as f:
+with open(p / "builtin-modules.txt", "r") as f:
     BuiltinModuleSet(set(f.read().splitlines()))
 
 

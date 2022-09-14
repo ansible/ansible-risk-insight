@@ -1,5 +1,5 @@
 import json
-from extractors.base import Extractor
+from .base import Extractor
 
 
 class AnsibleBuiltinExtractor(Extractor):
