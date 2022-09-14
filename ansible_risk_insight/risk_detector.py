@@ -2,11 +2,13 @@ import argparse
 import os
 import logging
 import inspect
+from pathlib import Path
 from importlib import import_module
 from tabulate import tabulate
-from keyutil import detect_type, key_delimiter
-from analyzer import load_tasks_rv
-from rules.base import Rule, subject_placeholder
+from .keyutil import detect_type, key_delimiter
+from .analyzer import load_tasks_rv
+from .rules.base import Rule, subject_placeholder
+from ansible_risk_insight import rules
 
 
 def indent(multi_line_txt, level=0):
@@ -24,27 +26,10 @@ def key2name(key: str):
 
 
 def load_rules():
-    rule_dir = "rules"
-    rules = []
-    rule_script_names = os.listdir(rule_dir)
-    for rule_script_name in rule_script_names:
-        if not rule_script_name.endswith(".py"):
-            continue
-        rule_script_name = rule_script_name.replace(".py", "")
-        rule_module_name = "{}.{}".format(rule_dir, rule_script_name)
-        tmp_rule = import_module(rule_module_name)
-        for _, val in vars(tmp_rule).items():
-            if not inspect.isclass(val):
-                continue
-            instance = val()
-            if isinstance(instance, Rule):
-                # skip base class
-                if type(instance) == Rule:
-                    continue
-                if not instance.enabled:
-                    continue
-                rules.append(instance)
-    return rules
+    _rules = []
+    for rule in rules.__all__:
+        _rules.append(getattr(rules, rule)())
+    return _rules
 
 
 def make_subject_str(playbook_num: int, role_num: int):

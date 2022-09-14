@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 import json
 import jsonpickle
 import logging
-from keyutil import (
+from .keyutil import (
     set_collection_key,
     set_module_key,
     set_play_key,

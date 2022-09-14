@@ -1,4 +1,4 @@
-from rules.base import Rule, subject_placeholder
+from .base import Rule, subject_placeholder
 
 
 class ExternalDependencyRule(Rule):

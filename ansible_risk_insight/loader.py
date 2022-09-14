@@ -2,7 +2,7 @@ import os
 import pathlib
 import json
 import git
-from models import LoadType
+from .models import LoadType
 
 collection_manifest_json = "MANIFEST.json"
 role_meta_main_yml = "meta/main.yml"

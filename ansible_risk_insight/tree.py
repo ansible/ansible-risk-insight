@@ -4,8 +4,8 @@ import re
 import json
 from copy import deepcopy
 from dataclasses import dataclass, field
-from keyutil import detect_type, key_delimiter, object_delimiter
-from models import (
+from .keyutil import detect_type, key_delimiter, object_delimiter
+from .models import (
     ObjectList,
     Playbook,
     Play,
@@ -18,7 +18,7 @@ from models import (
     Module,
     LoadType,
 )
-from finder import get_builtin_module_names
+from .finder import get_builtin_module_names
 
 obj_type_dict = {
     "playbook": "playbooks",

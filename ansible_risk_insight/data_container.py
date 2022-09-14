@@ -7,25 +7,25 @@ import json
 import tempfile
 import logging
 from dataclasses import dataclass, field
-from models import (
+from .models import (
     Load,
     LoadType,
     ObjectList,
 )
 
-from loader import (
+from .loader import (
     get_loader_version,
     get_target_name,
     remove_subdirectories,
     trim_suffix,
 )
-from parser import Parser
-from model_loader import load_object
-from safe_glob import safe_glob
-from tree import TreeLoader, TreeNode
-from variable_resolver import resolve_variables
-from analyzer import analyze
-from risk_detector import detect
+from .parser import Parser
+from .model_loader import load_object
+from .safe_glob import safe_glob
+from .tree import TreeLoader, TreeNode
+from .variable_resolver import resolve_variables
+from .analyzer import analyze
+from .risk_detector import detect
 
 
 class Config:

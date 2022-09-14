@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ansible-risk-insight"
+description = "My package description"
+readme = "README.rst"
+requires-python = ">=3.7"
+keywords = ["one", "two"]
+# license = {text = "Apache License 2.0"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "gitdb",
+    "GitPython",
+    "joblib",
+    "jsonpickle",
+    "PyYAML",
+    "smmap",
+    "tabulate",
+]
+dynamic = ["version"]
+
+[project.scripts]
+ansible-risk-insight = "ansible_risk_insight:main"

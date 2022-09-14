@@ -1,4 +1,4 @@
-from rules.base import Rule
+from .base import Rule
 
 
 non_execution_programs: list = ["tar", "gunzip", "unzip", "mv", "cp"]

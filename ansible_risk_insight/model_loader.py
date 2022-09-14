@@ -4,8 +4,8 @@ import logging
 import os
 import re
 import yaml
-from safe_glob import safe_glob
-from models import (
+from .safe_glob import safe_glob
+from .models import (
     ExecutableType,
     Inventory,
     InventoryType,
@@ -22,7 +22,7 @@ from models import (
     TaskFormatError,
     Collection,
 )
-from finder import (
+from .finder import (
     find_best_repo_root_path,
     find_collection_name_of_repo,
     find_module_name,
@@ -32,7 +32,7 @@ from finder import (
     search_module_files,
     search_taskfiles_for_playbooks,
 )
-from awx_utils import could_be_playbook
+from .awx_utils import could_be_playbook
 
 # collection info direcotry can be something like
 #   "brightcomputing.bcm-9.1.11+41615.gitfab9053.info"
