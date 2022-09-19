@@ -1,13 +1,10 @@
 import argparse
 import os
 import logging
-import inspect
-from pathlib import Path
-from importlib import import_module
 from tabulate import tabulate
 from .keyutil import detect_type, key_delimiter
 from .analyzer import load_tasks_rv
-from .rules.base import Rule, subject_placeholder
+from .rules.base import subject_placeholder
 from ansible_risk_insight import rules
 
 
@@ -100,18 +97,14 @@ def detect(tasks_rv_data: list, collection_name: str = ""):
                     }
             if matched:
                 if rule.separate_report:
-                    separate_report[rule_name]["matched"].append(
-                        [tree_root_type, tree_root_name, message]
-                    )
+                    separate_report[rule_name]["matched"].append([tree_root_type, tree_root_name, message])
                 else:
                     if not is_playbook:
                         do_report = True
                         tmp_result_txt_alt += rule_name + "\n"
                         tmp_result_txt_alt += indent(message, 0) + "\n"
         if do_report and tmp_result_txt_alt != "":
-            tmp_result_txt += "#{} {} - {}\n".format(
-                report_num, tree_root_type.upper(), tree_root_name
-            )
+            tmp_result_txt += "#{} {} - {}\n".format(report_num, tree_root_type.upper(), tree_root_name)
             used_in_playbooks = role_to_playbook_mappings.get(tree_root_name, [])
             risk_found_playbooks = risk_found_playbooks.union(set(used_in_playbooks))
             if len(used_in_playbooks) > 0:
@@ -170,9 +163,7 @@ def main():
         help="path to the input json (tasks_rv.json)",
     )
     parser.add_argument("-o", "--output", default="", help="path to the output json")
-    parser.add_argument(
-        "-v", "--verbose", default="", help="show details during the process"
-    )
+    parser.add_argument("-v", "--verbose", default="", help="show details during the process")
 
     args = parser.parse_args()
 

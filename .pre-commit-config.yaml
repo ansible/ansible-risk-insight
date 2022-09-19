@@ -1,0 +1,24 @@
+repos:
+- repo: "https://github.com/ambv/black"
+  rev: "stable"
+  hooks:
+  - id: "black"
+    language_version: "python3"
+    args:
+      - --line-length=150
+      - --include='\.pyi?$'
+      - --exclude="""\.git |
+        \.hg|
+        \.mypy_cache|
+        \.tox|
+        \.venv|
+        _build|
+        buck-out|
+        build|
+        dist
+        """
+
+- repo: "https://github.com/pre-commit/pre-commit-hooks"
+  rev: "v1.2.3"
+  hooks:
+  - id: "flake8"
