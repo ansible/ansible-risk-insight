@@ -25,6 +25,7 @@ dynamic = ["version"]
 
 [project.scripts]
 ansible-risk-insight = "ansible_risk_insight:main"
+ari = "ansible_risk_insight:main"
 
 [tool.black]
 line-length = 150
