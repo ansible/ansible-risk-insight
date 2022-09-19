@@ -25,3 +25,24 @@ dynamic = ["version"]
 
 [project.scripts]
 ansible-risk-insight = "ansible_risk_insight:main"
+
+[tool.black]
+line-length = 150
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.flake8]
+ignore = "E203, W503,"
+max-line-length = 150
