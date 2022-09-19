@@ -108,12 +108,8 @@ class DataContainer(object):
                     self.name,
                 ),
                 "ext_definitions": {
-                    ContainerType.ROLE: os.path.join(
-                        self.root_dir, "roles", "definitions"
-                    ),
-                    ContainerType.COLLECTION: os.path.join(
-                        self.root_dir, "collections", "definitions"
-                    ),
+                    ContainerType.ROLE: os.path.join(self.root_dir, "roles", "definitions"),
+                    ContainerType.COLLECTION: os.path.join(self.root_dir, "collections", "definitions"),
                 },
                 "index": os.path.join(
                     self.root_dir,
@@ -139,12 +135,8 @@ class DataContainer(object):
                     "definitions",
                 ),
                 "ext_definitions": {
-                    ContainerType.ROLE: os.path.join(
-                        self.root_dir, "roles", "definitions"
-                    ),
-                    ContainerType.COLLECTION: os.path.join(
-                        self.root_dir, "collections", "definitions"
-                    ),
+                    ContainerType.ROLE: os.path.join(self.root_dir, "roles", "definitions"),
+                    ContainerType.COLLECTION: os.path.join(self.root_dir, "collections", "definitions"),
                 },
                 "index": os.path.join(
                     self.root_dir,
@@ -158,9 +150,7 @@ class DataContainer(object):
                     proj_name,
                     "{}-{}-install.log".format(self.type, proj_name),
                 ),
-                "dependencies": os.path.join(
-                    self.root_dir, type_root, proj_name, "dependencies"
-                ),
+                "dependencies": os.path.join(self.root_dir, type_root, proj_name, "dependencies"),
             }
 
         else:
@@ -275,14 +265,15 @@ class DataContainer(object):
 
         self.install_log = install_msg
         print(self.install_log)
-        self.__save_install_log()
+        if self.do_save:
+            self.__save_install_log()
 
         self.set_index(dependency_dir)
 
         print("moving index")
         logging.debug("index: {}".format(json.dumps(self.index)))
-        self.__save_index()
-
+        if self.do_save:
+            self.__save_index()
         if not os.path.exists(dst_src_dir):
             os.makedirs(dst_src_dir)
         self.move_src(tmp_src_dir, dst_src_dir)
@@ -312,11 +303,7 @@ class DataContainer(object):
         else:
             dep_type, target_path_list = find_ext_dependencies(path)
 
-        logging.info(
-            'the detected target type: "{}", found targets: {}'.format(
-                self.type, len(target_path_list)
-            )
-        )
+        logging.info('the detected target type: "{}", found targets: {}'.format(self.type, len(target_path_list)))
 
         if self.type not in supported_target_types:
             logging.error("this target type is not supported")
@@ -492,15 +479,11 @@ class DataContainer(object):
         return dep_num, ext_counts, root_counts
 
     def setup_tmp_dir(self):
-        if self.tmp_install_dir is None or not os.path.exists(
-            self.tmp_install_dir.name
-        ):
+        if self.tmp_install_dir is None or not os.path.exists(self.tmp_install_dir.name):
             self.tmp_install_dir = tempfile.TemporaryDirectory()
 
     def clean_tmp_dir(self):
-        if self.tmp_install_dir is not None and os.path.exists(
-            self.tmp_install_dir.name
-        ):
+        if self.tmp_install_dir is not None and os.path.exists(self.tmp_install_dir.name):
             self.tmp_install_dir.cleanup()
             self.tmp_install_dir = None
 
@@ -694,9 +677,7 @@ def resolve(trees, node_objects):
             "tasks": tasks,
         }
         tasks_rv.append(d)
-        logging.debug(
-            "resolve_variables() {}/{} ({}) done".format(i + 1, num, root_key)
-        )
+        logging.debug("resolve_variables() {}/{} ({}) done".format(i + 1, num, root_key))
     return tasks_rv
 
 
@@ -753,14 +734,9 @@ if __name__ == "__main__":
 
 def find_ext_dependencies(path):
 
-    collection_meta_files = safe_glob(
-        os.path.join(path, "**", collection_manifest_json), recursive=True
-    )
+    collection_meta_files = safe_glob(os.path.join(path, "**", collection_manifest_json), recursive=True)
     if len(collection_meta_files) > 0:
-        collection_path_list = [
-            trim_suffix(f, ["/" + collection_manifest_json])
-            for f in collection_meta_files
-        ]
+        collection_path_list = [trim_suffix(f, ["/" + collection_manifest_json]) for f in collection_meta_files]
         collection_path_list = remove_subdirectories(collection_path_list)
         return LoadType.COLLECTION_TYPE, collection_path_list
     role_meta_files = safe_glob(
@@ -771,10 +747,7 @@ def find_ext_dependencies(path):
         recursive=True,
     )
     if len(role_meta_files) > 0:
-        role_path_list = [
-            trim_suffix(f, ["/" + role_meta_main_yml, "/" + role_meta_main_yaml])
-            for f in role_meta_files
-        ]
+        role_path_list = [trim_suffix(f, ["/" + role_meta_main_yml, "/" + role_meta_main_yaml]) for f in role_meta_files]
         role_path_list = remove_subdirectories(role_path_list)
         return LoadType.ROLE_TYPE, role_path_list
     return LoadType.UNKNOWN_TYPE, []
