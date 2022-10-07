@@ -113,9 +113,7 @@ class ObjectList(Resolvable):
         return self.to_json(fpath=fpath)
 
     def to_json(self, fpath=""):
-        lines = [
-            jsonpickle.encode(obj, make_refs=False) for obj in self.items
-        ]
+        lines = [jsonpickle.encode(obj, make_refs=False) for obj in self.items]
         json_str = "\n".join(lines)
         if fpath != "":
             open(fpath, "w").write(json_str)
@@ -147,26 +145,17 @@ class ObjectList(Resolvable):
 
     def merge(self, obj_list):
         if not isinstance(obj_list, ObjectList):
-            raise ValueError(
-                "obj_list must be an instance of ObjectList, but got {}"
-                .format(type(obj_list).__name__)
-            )
+            raise ValueError("obj_list must be an instance of ObjectList, but got {}".format(type(obj_list).__name__))
         self.items.extend(obj_list.items)
         self._update_dict()
         return
 
     def find_by_attr(self, key, val):
-        found = [
-            obj for obj in self.items if obj.__dict__.get(key, None) == val
-        ]
+        found = [obj for obj in self.items if obj.__dict__.get(key, None) == val]
         return found
 
     def find_by_type(self, type):
-        return [
-            obj
-            for obj in self.items
-            if hasattr(obj, "type") and obj.type == type
-        ]
+        return [obj for obj in self.items if hasattr(obj, "type") and obj.type == type]
 
     def find_by_key(self, key):
         return self._dict.get(key, None)
@@ -237,23 +226,16 @@ class Collection(JSONSerializable, Resolvable):
         set_collection_key(self)
 
     def children_to_key(self):
-        module_keys = [
-            m.key if isinstance(m, Module) else m for m in self.modules
-        ]
+        module_keys = [m.key if isinstance(m, Module) else m for m in self.modules]
         self.modules = sorted(module_keys)
 
-        playbook_keys = [
-            p.key if isinstance(p, Playbook) else p for p in self.playbooks
-        ]
+        playbook_keys = [p.key if isinstance(p, Playbook) else p for p in self.playbooks]
         self.playbooks = sorted(playbook_keys)
 
         role_keys = [r.key if isinstance(r, Role) else r for r in self.roles]
         self.roles = sorted(role_keys)
 
-        taskfile_keys = [
-            tf.key if isinstance(tf, TaskFile) else tf
-            for tf in self.taskfiles
-        ]
+        taskfile_keys = [tf.key if isinstance(tf, TaskFile) else tf for tf in self.taskfiles]
         self.taskfiles = sorted(taskfile_keys)
         return self
 
@@ -278,7 +260,6 @@ class VariableAnnotation(Annotation):
     resolved_module_options: dict = field(default_factory=dict)
     resolved_variables: list = field(default_factory=list)
     mutable_vars_per_mo: dict = field(default_factory=dict)
-    
 
 
 @dataclass
@@ -323,9 +304,7 @@ class Task(JSONSerializable, Resolvable):
     # candidates of resovled_name
     possible_candidates: list = field(default_factory=list)
 
-    def set_yaml_lines(
-        self, fullpath="", task_name="", module_name="", module_options=None
-    ):
+    def set_yaml_lines(self, fullpath="", task_name="", module_name="", module_options=None):
         if module_name == "":
             return
         elif task_name == "" and module_options is None:
@@ -402,11 +381,7 @@ class Task(JSONSerializable, Resolvable):
                 break
         if not end_found:
             return
-        if (
-            begin_line_num < 0
-            or end_line_num > len(lines)
-            or begin_line_num > end_line_num
-        ):
+        if begin_line_num < 0 or end_line_num > len(lines) or begin_line_num > end_line_num:
             return
         self.yaml_lines = "\n".join(lines[begin_line_num : end_line_num + 1])
         self.line_num_in_file = [begin_line_num + 1, end_line_num + 1]
@@ -517,20 +492,13 @@ class Role(JSONSerializable, Resolvable):
         set_role_key(self)
 
     def children_to_key(self):
-        module_keys = [
-            m.key if isinstance(m, Module) else m for m in self.modules
-        ]
+        module_keys = [m.key if isinstance(m, Module) else m for m in self.modules]
         self.modules = sorted(module_keys)
 
-        playbook_keys = [
-            p.key if isinstance(p, Playbook) else p for p in self.playbooks
-        ]
+        playbook_keys = [p.key if isinstance(p, Playbook) else p for p in self.playbooks]
         self.playbooks = sorted(playbook_keys)
 
-        taskfile_keys = [
-            tf.key if isinstance(tf, TaskFile) else tf
-            for tf in self.taskfiles
-        ]
+        taskfile_keys = [tf.key if isinstance(tf, TaskFile) else tf for tf in self.taskfiles]
         self.taskfiles = sorted(taskfile_keys)
         return self
 
@@ -589,17 +557,13 @@ class Play(JSONSerializable, Resolvable):
         set_play_key(self, parent_key, parent_local_key)
 
     def children_to_key(self):
-        pre_task_keys = [
-            t.key if isinstance(t, Task) else t for t in self.pre_tasks
-        ]
+        pre_task_keys = [t.key if isinstance(t, Task) else t for t in self.pre_tasks]
         self.pre_tasks = pre_task_keys
 
         task_keys = [t.key if isinstance(t, Task) else t for t in self.tasks]
         self.tasks = task_keys
 
-        post_task_keys = [
-            t.key if isinstance(t, Task) else t for t in self.post_tasks
-        ]
+        post_task_keys = [t.key if isinstance(t, Task) else t for t in self.post_tasks]
         self.post_tasks = post_task_keys
         return self
 
@@ -636,10 +600,7 @@ class Playbook(JSONSerializable, Resolvable):
         set_playbook_key(self)
 
     def children_to_key(self):
-        play_keys = [
-            play.key if isinstance(play, Play) else play
-            for play in self.plays
-        ]
+        play_keys = [play.key if isinstance(play, Play) else play for play in self.plays]
         self.plays = play_keys
         return self
 
@@ -702,20 +663,13 @@ class Repository(JSONSerializable, Resolvable):
         set_repository_key(self)
 
     def children_to_key(self):
-        module_keys = [
-            m.key if isinstance(m, Module) else m for m in self.modules
-        ]
+        module_keys = [m.key if isinstance(m, Module) else m for m in self.modules]
         self.modules = sorted(module_keys)
 
-        playbook_keys = [
-            p.key if isinstance(p, Playbook) else p for p in self.playbooks
-        ]
+        playbook_keys = [p.key if isinstance(p, Playbook) else p for p in self.playbooks]
         self.playbooks = sorted(playbook_keys)
 
-        taskfile_keys = [
-            tf.key if isinstance(tf, TaskFile) else tf
-            for tf in self.taskfiles
-        ]
+        taskfile_keys = [tf.key if isinstance(tf, TaskFile) else tf for tf in self.taskfiles]
         self.taskfiles = sorted(taskfile_keys)
 
         role_keys = [r.key if isinstance(r, Role) else r for r in self.roles]
@@ -724,13 +678,7 @@ class Repository(JSONSerializable, Resolvable):
 
     @property
     def resolver_targets(self):
-        return (
-            self.playbooks
-            + self.roles
-            + self.modules
-            + self.installed_roles
-            + self.installed_collections
-        )
+        return self.playbooks + self.roles + self.modules + self.installed_roles + self.installed_collections
 
 
 # inherit Repository just for convenience

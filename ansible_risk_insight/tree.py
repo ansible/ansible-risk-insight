@@ -14,7 +14,6 @@ from .models import (
     Task,
     TaskFile,
     ExecutableType,
-    Load,
     Module,
     LoadType,
 )

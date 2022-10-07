@@ -79,7 +79,7 @@ def get_loader_version():
     # try to get version from the installed executable
     try:
         version = pkg_resources.require("ansible-risk-insight")[0].version
-    except:
+    except Exception:
         pass
     if version != "":
         return version
@@ -89,7 +89,7 @@ def get_loader_version():
         repo = git.Repo(path=script_dir, search_parent_directories=True)
         sha = repo.head.object.hexsha
         version = sha
-    except:
+    except Exception:
         pass
     return version
 
@@ -104,9 +104,7 @@ def get_target_name(target_type, target_path):
         metadata = {}
         with open(meta_file, "r") as file:
             metadata = json.load(file)
-        collection_namespace = metadata.get("collection_info", {}).get(
-            "namespace", ""
-        )
+        collection_namespace = metadata.get("collection_info", {}).get("namespace", "")
         collection_name = metadata.get("collection_info", {}).get("name", "")
         target_name = "{}.{}".format(collection_namespace, collection_name)
     elif target_type == LoadType.ROLE_TYPE:
@@ -118,9 +116,7 @@ def get_target_name(target_type, target_path):
 
 
 def filepath_to_target_name(filepath):
-    return filepath.translate(
-        str.maketrans({" ": "___", "/": "---", ".": "_dot_"})
-    )
+    return filepath.translate(str.maketrans({" ": "___", "/": "---", ".": "_dot_"}))
 
 
 # if __name__ == "__main__":

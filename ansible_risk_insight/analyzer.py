@@ -3,7 +3,7 @@ import json
 import logging
 from typing import List
 from ansible_risk_insight import risk_annotators
-from .models import Task, TaskCallsInTree
+from .models import TaskCallsInTree
 
 
 def load_risk_annotators():
@@ -64,9 +64,7 @@ def main():
         default="",
         help="path to the input json (taskcalls_in_trees.json)",
     )
-    parser.add_argument(
-        "-o", "--output", default="", help="path to the output json"
-    )
+    parser.add_argument("-o", "--output", default="", help="path to the output json")
 
     args = parser.parse_args()
 
@@ -74,10 +72,7 @@ def main():
     taskcalls_in_trees = analyze(taskcalls_in_trees)
 
     if args.output != "":
-        lines = [
-            json.dumps(single_tree_data)
-            for single_tree_data in taskcalls_in_trees
-        ]
+        lines = [json.dumps(single_tree_data) for single_tree_data in taskcalls_in_trees]
         with open(args.output, mode="wt") as file:
             file.write("\n".join(lines))
 

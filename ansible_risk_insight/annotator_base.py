@@ -1,6 +1,7 @@
 from typing import List
 from .models import TaskCall, Annotation
 
+
 class Annotator(object):
     type: str = ""
 

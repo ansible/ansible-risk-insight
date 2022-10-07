@@ -6,7 +6,6 @@ from .models import (
     Repository,
     Playbook,
     Role,
-    Task,
     TaskCall,
     Annotation,
     VariableAnnotation,

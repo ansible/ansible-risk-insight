@@ -7,7 +7,7 @@ from tabulate import tabulate
 from ansible_risk_insight.models import TaskCallsInTree
 from .keyutil import detect_type, key_delimiter
 from .analyzer import load_taskcalls_in_trees
-from .rules.base import Rule, subject_placeholder
+from .rules.base import subject_placeholder
 from ansible_risk_insight import rules
 
 

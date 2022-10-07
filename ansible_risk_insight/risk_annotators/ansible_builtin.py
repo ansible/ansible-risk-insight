@@ -482,7 +482,8 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
         is_root = False
         if "become" in taskcall.options and taskcall.options["become"]:
             is_root = True
-        res = RiskAnnotation(type=self.type, 
+        res = RiskAnnotation(
+            type=self.type,
             category=RiskType.PRIVILEGE_ESCALATION,
             data={"root": is_root},
         )
