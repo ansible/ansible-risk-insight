@@ -1,5 +1,5 @@
 from typing import List
-from ..models import Task
+from ..models import TaskCall
 
 
 subject_placeholder = "<SUBJECT>"
@@ -11,5 +11,5 @@ class Rule(object):
     separate_report: bool = False
     all_ok_message: str = ""
 
-    def check(self, tasks: List[Task], **kwargs):
+    def check(self, taskcalls: List[TaskCall], **kwargs):
         raise ValueError("this is a base class method")

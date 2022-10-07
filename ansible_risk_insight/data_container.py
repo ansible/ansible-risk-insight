@@ -12,7 +12,7 @@ from .models import (
     Load,
     LoadType,
     ObjectList,
-    TasksInTree,
+    TaskCallsInTree,
 )
 
 from .loader import (
@@ -85,7 +85,7 @@ class DataContainer(object):
     trees: list = field(default_factory=list)
     node_objects: ObjectList = ObjectList()
 
-    tasks_in_trees: list = field(default_factory=list)
+    taskcalls_in_trees: list = field(default_factory=list)
 
     report_to_display: str = ""
 
@@ -465,8 +465,8 @@ class DataContainer(object):
         return self.trees, self.node_objects
 
     def set_resolved(self):
-        tasks_in_trees = resolve(self.trees, self.node_objects)
-        self.tasks_in_trees = tasks_in_trees
+        taskcalls_in_trees = resolve(self.trees, self.node_objects)
+        self.taskcalls_in_trees = taskcalls_in_trees
 
         if self.do_save:
             root_def_dir = self.__path_mappings["root_definitions"]
@@ -474,7 +474,7 @@ class DataContainer(object):
                 root_def_dir, "tasks_in_trees.json"
             )
             tasks_in_t_lines = []
-            for d in tasks_in_trees:
+            for d in taskcalls_in_trees:
                 line = jsonpickle.encode(d, make_refs=False)
                 tasks_in_t_lines.append(line)
 
@@ -482,11 +482,11 @@ class DataContainer(object):
         return
 
     def get_resolved(self):
-        return self.tasks_in_trees
+        return self.taskcalls_in_trees
 
     def set_analyzed(self):
-        tasks_in_trees = analyze(self.tasks_in_trees)
-        self.tasks_in_trees = tasks_in_trees
+        taskcalls_in_trees = analyze(self.taskcalls_in_trees)
+        self.taskcalls_in_trees = taskcalls_in_trees
 
         if self.do_save:
             root_def_dir = self.__path_mappings["root_definitions"]
@@ -494,7 +494,7 @@ class DataContainer(object):
                 root_def_dir, "tasks_in_trees_with_analysis.json"
             )
             tasks_in_t_a_lines = []
-            for d in tasks_in_trees:
+            for d in taskcalls_in_trees:
                 line = jsonpickle.encode(d, make_refs=False)
                 tasks_in_t_a_lines.append(line)
 
@@ -503,12 +503,12 @@ class DataContainer(object):
         return
 
     def get_analyzed(self):
-        return self.tasks_in_trees
+        return self.taskcalls_in_trees
 
     def set_report(self):
         coll_type = ContainerType.COLLECTION
         coll_name = self.name if self.type == coll_type else ""
-        report_txt = detect(self.tasks_in_trees, collection_name=coll_name)
+        report_txt = detect(self.taskcalls_in_trees, collection_name=coll_name)
         self.report_to_display = report_txt
         return
 
@@ -735,22 +735,22 @@ def tree(root_definitions, ext_definitions):
 
 
 def resolve(trees, node_objects):
-    tasks_in_trees = []
+    taskcalls_in_trees = []
     num = len(trees)
     for i, tree in enumerate(trees):
         if not isinstance(tree, TreeNode):
             continue
         root_key = tree.key
-        tasks = resolve_variables(tree, node_objects)
-        d = TasksInTree(
+        taskcalls = resolve_variables(tree, node_objects)
+        d = TaskCallsInTree(
             root_key=tree.key,
-            tasks=tasks,
+            taskcalls=taskcalls,
         )
-        tasks_in_trees.append(d)
+        taskcalls_in_trees.append(d)
         logging.debug(
             "resolve_variables() {}/{} ({}) done".format(i + 1, num, root_key)
         )
-    return tasks_in_trees
+    return taskcalls_in_trees
 
 
 def install_galaxy_target(target, target_type, output_dir):

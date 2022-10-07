@@ -4,9 +4,9 @@ import logging
 from typing import List
 from tabulate import tabulate
 
-from ansible_risk_insight.models import TasksInTree
+from ansible_risk_insight.models import TaskCallsInTree
 from .keyutil import detect_type, key_delimiter
-from .analyzer import load_tasks_in_trees
+from .analyzer import load_taskcalls_in_trees
 from .rules.base import Rule, subject_placeholder
 from ansible_risk_insight import rules
 
@@ -45,7 +45,7 @@ def make_subject_str(playbook_num: int, role_num: int):
     return subject
 
 
-def detect(tasks_in_trees: List[TasksInTree], collection_name: str = ""):
+def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = ""):
     rules = load_rules()
     extra_check_args = {}
     if collection_name != "":
@@ -64,11 +64,11 @@ def detect(tasks_in_trees: List[TasksInTree], collection_name: str = ""):
     risk_found_playbooks = set()
 
     tmp_result_txt = ""
-    num = len(tasks_in_trees)
-    for i, tasks_in_tree in enumerate(tasks_in_trees):
-        if not isinstance(tasks_in_tree, TasksInTree):
+    num = len(taskcalls_in_trees)
+    for i, taskcalls_in_tree in enumerate(taskcalls_in_trees):
+        if not isinstance(taskcalls_in_tree, TaskCallsInTree):
             continue
-        tree_root_key = tasks_in_tree.root_key
+        tree_root_key = taskcalls_in_tree.root_key
         tree_root_type = detect_type(tree_root_key)
         tree_root_name = key2name(tree_root_key)
 
@@ -76,9 +76,9 @@ def detect(tasks_in_trees: List[TasksInTree], collection_name: str = ""):
         if is_playbook:
             playbook_count["total"] += 1
 
-            tasks = tasks_in_tree.tasks
-            for task in tasks:
-                parts = task.defined_in.split("/")
+            taskcalls = taskcalls_in_tree.taskcalls
+            for taskcall in taskcalls:
+                parts = taskcall.defined_in.split("/")
                 if parts[0] == "roles":
                     role_name = parts[1]
                     _mappings = role_to_playbook_mappings.get(role_name, [])
@@ -89,13 +89,13 @@ def detect(tasks_in_trees: List[TasksInTree], collection_name: str = ""):
             role_count["total"] += 1
 
         do_report = False
-        tasks = tasks_in_tree.tasks
+        taskcalls = taskcalls_in_tree.taskcalls
         tmp_result_txt_alt = ""
         for rule in rules:
             if not rule.enabled:
                 continue
             rule_name = rule.name
-            matched, _, message = rule.check(tasks, **extra_check_args)
+            matched, _, message = rule.check(taskcalls, **extra_check_args)
             if rule.separate_report:
                 if rule_name not in separate_report:
                     separate_report[rule_name] = {
@@ -188,7 +188,7 @@ def main():
 
     args = parser.parse_args()
 
-    tasks_in_trees = load_tasks_in_trees(args.input)
+    tasks_in_trees = load_taskcalls_in_trees(args.input)
 
     detect(tasks_in_trees)
 

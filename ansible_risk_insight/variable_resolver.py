@@ -7,9 +7,35 @@ from .models import (
     Playbook,
     Role,
     Task,
+    TaskCall,
+    Annotation,
+    VariableAnnotation,
 )
-from .tree import TreeNode, load_all_definitions
+from .tree import TreeNode
 from .context import Context, resolve_module_options
+from .annotator_base import Annotator
+
+
+VARIABLE_ANNOTATION_TYPE = "variable_annotation"
+
+
+class VariableAnnotator(Annotator):
+    type: str = VARIABLE_ANNOTATION_TYPE
+    context: Context = None
+
+    def __init__(self, context: Context):
+        self.context = context
+
+    def run(self, taskcall: TaskCall) -> List[Annotation]:
+        resolved = resolve_module_options(self.context, taskcall)
+        va = VariableAnnotation(
+            type=self.type,
+            resolved_module_options=resolved[0],
+            resolved_variables=resolved[1],
+            mutable_vars_per_mo=resolved[2],
+        )
+        annotations = [va]
+        return annotations
 
 
 def tree_to_task_list(tree, node_objects):
@@ -97,12 +123,12 @@ def tree_to_task_list(tree, node_objects):
     return tasks
 
 
-def resolve_variables(tree: TreeNode, node_objects: ObjectList) -> List[Task]:
+def resolve_variables(tree: TreeNode, node_objects: ObjectList) -> List[TaskCall]:
     node_dict = {}
     for no in node_objects.items:
         node_dict[no.key] = no
 
-    def traverse_and_resolve(node, context, depth_level=0, resolved_tasks=[]):
+    def traverse_and_resolve(node, context, depth_level=0, resolved_taskcalls=[]):
         current_context = context.copy()
         node_type = detect_type(node.key)
         obj = node_dict[node.key]
@@ -120,28 +146,23 @@ def resolve_variables(tree: TreeNode, node_objects: ObjectList) -> List[Task]:
                         task.resolved_name = c_obj.fqcn
                     elif task.executable_type == ExecutableType.TASKFILE_TYPE:
                         task.resolved_name = c_obj.key
-            (
-                resolved_options,
-                resolved_variables,
-                mutable_vars_per_mo,
-            ) = resolve_module_options(current_context, task)
-            task.resolved_variables = resolved_variables
-            task.mutable_vars_per_mo = mutable_vars_per_mo
-            task.resolved_module_options = resolved_options
-            resolved_tasks.append(task)
+            taskcall = TaskCall.from_task(task)
+            var_annos = VariableAnnotator(context=current_context).run(taskcall)
+            taskcall.annotations.extend(var_annos)
+            resolved_taskcalls.append(taskcall)
         for c in node.children:
-            resolved_tasks, current_context = traverse_and_resolve(
-                c, current_context, depth_level + 1, resolved_tasks
+            resolved_taskcalls, current_context = traverse_and_resolve(
+                c, current_context, depth_level + 1, resolved_taskcalls
             )
-        return resolved_tasks, current_context
+        return resolved_taskcalls, current_context
 
     # if load type is "project", it might have inventories
     # otherwise, it will be just an empty list
     inventories = get_inventories(tree.key, node_objects)
     initial_context = Context(inventories=inventories)
-    resolved_tasks, _ = traverse_and_resolve(tree, initial_context)
+    resolved_taskcalls, _ = traverse_and_resolve(tree, initial_context)
 
-    return resolved_tasks
+    return resolved_taskcalls
 
 
 def get_inventories(tree_root_key, node_objects):

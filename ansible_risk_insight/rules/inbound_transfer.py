@@ -1,6 +1,6 @@
 from typing import List
-from ..models import Task
-from ..extractors.ansible_builtin import RiskType
+from ..models import RiskAnnotation, TaskCall
+from ..risk_annotators.base import RiskType, RISK_ANNOTATION_TYPE
 from .base import Rule
 
 
@@ -10,12 +10,14 @@ class InboundTransferRule(Rule):
 
     # IN: tasks with "analyzed_data" (i.e. output from analyzer.py)
     # OUT: matched: bool, matched_tasks: list[task | tuple[task]], message: str
-    def check(self, tasks: List[Task], **kwargs):
-        matched_tasks = []
+    def check(self, taskcalls: List[TaskCall], **kwargs):
+        matched_taskcalls = []
         message = ""
-        for task in tasks:
-            analyzed_data = task.analyzed_data
+        for taskcall in taskcalls:
+            analyzed_data = taskcall.get_annotation_by_type(RISK_ANNOTATION_TYPE)
             for single_ad in analyzed_data:
+                if not isinstance(single_ad, RiskAnnotation):
+                    continue
                 if single_ad.category == RiskType.INBOUND:
                     raw_dst = single_ad.data.get("dest", "")
                     resolved_src = [
@@ -41,12 +43,12 @@ class InboundTransferRule(Rule):
                     if len(mutable_src_vars) == 1:
                         mutable_src_vars = mutable_src_vars[0]
                     if is_mutable_src:
-                        matched_tasks.append(task)
+                        matched_taskcalls.append(taskcall)
                         message += "- From: {}\n".format(mutable_src_vars)
                         # message += "      (default value: {})\n".format(
                         #     resolved_src
                         # )
                         message += "  To: {}\n".format(raw_dst)
-        matched = len(matched_tasks) > 0
+        matched = len(matched_taskcalls) > 0
         message = message[:-1] if message.endswith("\n") else message
-        return matched, matched_tasks, message
+        return matched, matched_taskcalls, message

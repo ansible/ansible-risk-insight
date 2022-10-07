@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import List
 import json
 import jsonpickle
 import logging
@@ -262,13 +263,26 @@ class Collection(JSONSerializable, Resolvable):
 
 
 @dataclass
-class TasksInTree(JSONSerializable):
+class TaskCallsInTree(JSONSerializable):
     root_key: str = ""
-    tasks: list = field(default_factory=list)
+    taskcalls: list = field(default_factory=list)
 
 
 @dataclass
-class RiskAnalysisResult(JSONSerializable):
+class Annotation(JSONSerializable):
+    type: str = ""
+
+
+@dataclass
+class VariableAnnotation(Annotation):
+    resolved_module_options: dict = field(default_factory=dict)
+    resolved_variables: list = field(default_factory=list)
+    mutable_vars_per_mo: dict = field(default_factory=dict)
+    
+
+
+@dataclass
+class RiskAnnotation(Annotation):
     category: str = ""
     data: dict = field(default_factory=dict)
     resolved_data: list = field(default_factory=list)
@@ -294,6 +308,7 @@ class Task(JSONSerializable, Resolvable):
     collection: str = ""
     variables: dict = field(default_factory=dict)
     registered_variables: dict = field(default_factory=dict)
+    loop: dict = field(default_factory=dict)
     options: dict = field(default_factory=dict)
     module_options: dict = field(default_factory=dict)
     executable: str = ""
@@ -307,14 +322,6 @@ class Task(JSONSerializable, Resolvable):
     resolved_name: str = ""
     # candidates of resovled_name
     possible_candidates: list = field(default_factory=list)
-
-    resolved_variables: list = field(default_factory=list)
-    mutable_vars_per_mo: dict = field(default_factory=dict)
-    resolved_module_options: dict = field(default_factory=dict)
-
-    analyzed_data: list = field(default_factory=dict)
-
-    annotations: dict = field(default_factory=dict)
 
     def set_yaml_lines(
         self, fullpath="", task_name="", module_name="", module_options=None
@@ -424,6 +431,25 @@ class Task(JSONSerializable, Resolvable):
     @property
     def resolver_targets(self):
         return None
+
+
+@dataclass
+class TaskCall(Task):
+    # annotations are used for storing generic analysis data
+    # any Annotators in "risk_annotators" dir can add them to this object
+    annotations: List[Annotation] = field(default_factory=list)
+
+    @staticmethod
+    def from_task(task: Task):
+        taskcall = TaskCall()
+        for key, val in vars(task).items():
+            if hasattr(taskcall, key):
+                setattr(taskcall, key, val)
+        return taskcall
+
+    def get_annotation_by_type(self, type_str=""):
+        matched = [an for an in self.annotations if an.type == type_str]
+        return matched
 
 
 @dataclass
