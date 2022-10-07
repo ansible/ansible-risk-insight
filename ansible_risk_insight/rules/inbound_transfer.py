@@ -1,3 +1,6 @@
+from typing import List
+from ..models import Task
+from ..extractors.ansible_builtin import RiskType
 from .base import Rule
 
 
@@ -7,27 +10,27 @@ class InboundTransferRule(Rule):
 
     # IN: tasks with "analyzed_data" (i.e. output from analyzer.py)
     # OUT: matched: bool, matched_tasks: list[task | tuple[task]], message: str
-    def check(self, tasks: list, **kwargs):
+    def check(self, tasks: List[Task], **kwargs):
         matched_tasks = []
         message = ""
         for task in tasks:
-            analyzed_data = task.get("analyzed_data", [])
+            analyzed_data = task.analyzed_data
             for single_ad in analyzed_data:
-                if single_ad.get("category", "") == "inbound_transfer":
-                    raw_dst = single_ad.get("data", {}).get("dest", "")
+                if single_ad.category == RiskType.INBOUND:
+                    raw_dst = single_ad.data.get("dest", "")
                     resolved_src = [
                         resolved.get("src", "")
-                        for resolved in single_ad.get("resolved_data", [])
+                        for resolved in single_ad.resolved_data
                         if resolved.get("src", "") != ""
                     ]
                     if len(resolved_src) == 0:
                         resolved_src = ""
                     if len(resolved_src) == 1:
                         resolved_src = resolved_src[0]
-                    is_mutable_src = single_ad.get("data", {}).get(
+                    is_mutable_src = single_ad.data.get(
                         "undetermined_src", False
                     )
-                    mutable_src_vars = single_ad.get("data", {}).get(
+                    mutable_src_vars = single_ad.data.get(
                         "mutable_src_vars", []
                     )
                     mutable_src_vars = [

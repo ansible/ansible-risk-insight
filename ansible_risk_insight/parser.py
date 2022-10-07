@@ -56,16 +56,22 @@ class Parser:
         elif ld.target_type == LoadType.ROLE_TYPE:
             role_name = ld.target_name
             try:
-                obj = load_role(path=ld.path, basedir=ld.path, load_children=False)
+                obj = load_role(
+                    path=ld.path, basedir=ld.path, load_children=False
+                )
             except Exception:
-                logging.exception("failed to load the role {}".format(role_name))
+                logging.exception(
+                    "failed to load the role {}".format(role_name)
+                )
                 return
         elif ld.target_type == LoadType.PROJECT_TYPE:
             repo_name = ld.target_name
             try:
                 obj = load_repository(path=ld.path, basedir=ld.path)
             except Exception:
-                logging.exception("failed to load the project {}".format(repo_name))
+                logging.exception(
+                    "failed to load the project {}".format(repo_name)
+                )
                 return
         elif ld.target_type == LoadType.PLAYBOOK_TYPE:
             playbook_name = ld.target_name
@@ -170,7 +176,9 @@ class Parser:
             collections = [obj]
         elif ld.target_type == LoadType.ROLE_TYPE:
             role_path = "."
-            r = load_role(path=role_path, name=ld.target_name, basedir=ld.path)
+            r = load_role(
+                path=role_path, name=ld.target_name, basedir=ld.path
+            )
             roles.append(r)
             mappings["roles"].append([role_path, r.key])
         elif ld.target_type == LoadType.PLAYBOOK_TYPE:
@@ -232,7 +240,9 @@ class Parser:
             TaskFile, os.path.join(input_dir, "taskfiles.json")
         )
 
-        modules = _load_object_list(Module, os.path.join(input_dir, "modules.json"))
+        modules = _load_object_list(
+            Module, os.path.join(input_dir, "modules.json")
+        )
 
         playbooks = _load_object_list(
             Playbook, os.path.join(input_dir, "playbooks.json")
@@ -265,10 +275,14 @@ class Parser:
 
         collections = definitions.get("collections", [])
         if len(collections) > 0:
-            _dump_object_list(collections, os.path.join(output_dir, "collections.json"))
+            _dump_object_list(
+                collections, os.path.join(output_dir, "collections.json")
+            )
         projects = definitions.get("projects", [])
         if len(projects) > 0:
-            _dump_object_list(projects, os.path.join(output_dir, "projects.json"))
+            _dump_object_list(
+                projects, os.path.join(output_dir, "projects.json")
+            )
 
         roles = definitions.get("roles", [])
         if len(roles) > 0:
@@ -276,15 +290,21 @@ class Parser:
 
         taskfiles = definitions.get("taskfiles", [])
         if len(taskfiles) > 0:
-            _dump_object_list(taskfiles, os.path.join(output_dir, "taskfiles.json"))
+            _dump_object_list(
+                taskfiles, os.path.join(output_dir, "taskfiles.json")
+            )
 
         modules = definitions.get("modules", [])
         if len(modules) > 0:
-            _dump_object_list(modules, os.path.join(output_dir, "modules.json"))
+            _dump_object_list(
+                modules, os.path.join(output_dir, "modules.json")
+            )
 
         playbooks = definitions.get("playbooks", [])
         if len(playbooks) > 0:
-            _dump_object_list(playbooks, os.path.join(output_dir, "playbooks.json"))
+            _dump_object_list(
+                playbooks, os.path.join(output_dir, "playbooks.json")
+            )
 
         plays = definitions.get("plays", [])
         if len(plays) > 0:

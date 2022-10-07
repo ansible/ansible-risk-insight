@@ -261,6 +261,19 @@ class Collection(JSONSerializable, Resolvable):
         return self.playbooks + self.taskfiles + self.roles + self.modules
 
 
+@dataclass
+class TasksInTree(JSONSerializable):
+    root_key: str = ""
+    tasks: list = field(default_factory=list)
+
+
+@dataclass
+class RiskAnalysisResult(JSONSerializable):
+    category: str = ""
+    data: dict = field(default_factory=dict)
+    resolved_data: list = field(default_factory=list)
+
+
 class ExecutableType:
     MODULE_TYPE = "Module"
     ROLE_TYPE = "Role"
@@ -298,6 +311,8 @@ class Task(JSONSerializable, Resolvable):
     resolved_variables: list = field(default_factory=list)
     mutable_vars_per_mo: dict = field(default_factory=dict)
     resolved_module_options: dict = field(default_factory=dict)
+
+    analyzed_data: list = field(default_factory=dict)
 
     annotations: dict = field(default_factory=dict)
 
@@ -386,7 +401,7 @@ class Task(JSONSerializable, Resolvable):
             or begin_line_num > end_line_num
         ):
             return
-        self.yaml_lines = "\n".join(lines[begin_line_num: end_line_num + 1])
+        self.yaml_lines = "\n".join(lines[begin_line_num : end_line_num + 1])
         self.line_num_in_file = [begin_line_num + 1, end_line_num + 1]
         return
 

@@ -31,7 +31,9 @@ obj_type_dict = {
 
 module_name_re = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$")
 role_name_re = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
-role_in_collection_name_re = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$")
+role_in_collection_name_re = re.compile(
+    r"^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$"
+)
 
 
 @dataclass
@@ -46,11 +48,7 @@ class TreeNode(object):
     # load a list of (src, dst) as a tree structure
     # which is composed of multiple TreeNode
     @staticmethod
-    def load(path="", graph=[]):
-        if path != "":
-            graph = []
-            with open(path, "r") as file:
-                graph = json.load(file)
+    def load(graph=[]):
         root_key_cands = [pair[1] for pair in graph if pair[0] is None]
         if len(root_key_cands) != 1:
             raise ValueError(
@@ -125,7 +123,14 @@ class TreeNode(object):
         current.append((src, dst))
         for child_node in node.children:
             is_included = (
-                len([(src, dst) for (src, dst) in current if src == child_node.key]) > 0
+                len(
+                    [
+                        (src, dst)
+                        for (src, dst) in current
+                        if src == child_node.key
+                    ]
+                )
+                > 0
             )
             if is_included:
                 continue
@@ -176,19 +181,6 @@ def nodelist2branch(nodelist):
     return t
 
 
-def load_graph(graph_path):
-    graph = {}
-    with open(graph_path, "r") as file:
-        for line in file:
-            edge = json.loads(line)
-            src = edge[0]
-            dst = edge[1]
-            children = graph.get(src, [])
-            children.append(dst)
-            graph[src] = children
-    return graph
-
-
 def load_single_definition(defs: dict, key: str):
     obj_list = ObjectList()
     items = defs.get(key, [])
@@ -225,12 +217,6 @@ def load_all_definitions(definitions: dict):
     return loaded
 
 
-def load_mappings(fpath):
-    ld = Load()
-    ld.from_json(open(fpath, "r").read())
-    return ld
-
-
 def make_dicts(root_definitions, ext_definitions):
     definitions = {
         "roles": ObjectList(),
@@ -239,8 +225,12 @@ def make_dicts(root_definitions, ext_definitions):
         "playbooks": ObjectList(),
     }
     for type_key in definitions:
-        definitions[type_key].merge(root_definitions.get(type_key, ObjectList()))
-        definitions[type_key].merge(ext_definitions.get(type_key, ObjectList()))
+        definitions[type_key].merge(
+            root_definitions.get(type_key, ObjectList())
+        )
+        definitions[type_key].merge(
+            ext_definitions.get(type_key, ObjectList())
+        )
     dicts = {}
     for type_key, obj_list in definitions.items():
         for obj in obj_list.items:
@@ -366,7 +356,9 @@ def resolve_taskfile(taskfile_ref, taskfile_dict={}, task_key=""):
     # something like "../some_taskfile.yml".
     # it should be "tasks/some_taskfile.yml"
     fpath = os.path.normpath(fpath)
-    taskfile_key = "taskfile {}taskfile{}{}".format(parent_key, key_delimiter, fpath)
+    taskfile_key = "taskfile {}taskfile{}{}".format(
+        parent_key, key_delimiter, fpath
+    )
     found_tf = taskfile_dict.get(taskfile_key, None)
     if found_tf is not None:
         return found_tf.key
@@ -390,7 +382,9 @@ def resolve_playbook(playbook_ref, playbook_dict={}, play_key=""):
     # need to normalize path here because playbook_ref can be
     # something like "../some_playbook.yml"
     fpath = os.path.normpath(fpath)
-    playbook_key = "playbook {}playbook{}{}".format(parent_key, key_delimiter, fpath)
+    playbook_key = "playbook {}playbook{}{}".format(
+        parent_key, key_delimiter, fpath
+    )
     found_playbook = playbook_dict.get(playbook_key, None)
     if found_playbook is not None:
         return found_playbook.key
@@ -426,6 +420,8 @@ def init_builtin_modules():
 class TreeLoader(object):
     def __init__(self, root_definitions, ext_definitions):
 
+        # use mappings just to get tree tops (playbook/role)
+        # we don't load any files by this mappings here
         self.load_and_mapping = root_definitions.get("mappings", None)
         self.playbook_mappings = self.load_and_mapping.playbooks
         self.role_mappings = self.load_and_mapping.roles
@@ -489,7 +485,9 @@ class TreeLoader(object):
         children_keys = self._get_children_keys(obj)
         for c_key in children_keys:
             current_graph.append([key, c_key])
-            updated_graph = self._recursive_make_graph(c_key, current_graph, _objects)
+            updated_graph = self._recursive_make_graph(
+                c_key, current_graph, _objects
+            )
             current_graph = updated_graph
         return current_graph
 
@@ -558,7 +556,9 @@ class TreeLoader(object):
             executable_type = obj.executable_type
             resolved_key = ""
             if executable_type == ExecutableType.MODULE_TYPE:
-                resolved_key = resolve_module(obj.executable, self.dicts["modules"])
+                resolved_key = resolve_module(
+                    obj.executable, self.dicts["modules"]
+                )
             elif executable_type == ExecutableType.ROLE_TYPE:
                 resolved_key = resolve_role(
                     obj.executable,
@@ -598,23 +598,6 @@ def dump_node_objects(obj_list, path=""):
             print(json.dumps(obj_dict, indent=2))
     else:
         obj_list.dump(fpath=path)
-
-
-def load_tree_json(tree_path):
-    trees = []
-    with open(tree_path, "r") as file:
-        for line in file:
-            d = json.loads(line)
-            src_dst_array = d.get("tree", [])
-            tree = TreeNode.load(graph=src_dst_array)
-            trees.append(tree)
-    return trees
-
-
-def load_node_objects(node_list_file):
-    obj_list = ObjectList()
-    obj_list.from_json(fpath=node_list_file)
-    return obj_list
 
 
 def key_to_file_name(prefix, key):

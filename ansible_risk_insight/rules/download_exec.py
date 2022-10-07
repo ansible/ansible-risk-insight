@@ -1,3 +1,6 @@
+from typing import List
+from ..models import Task
+from ..extractors.ansible_builtin import RiskType
 from .base import Rule
 
 
@@ -10,20 +13,20 @@ class DownloadExecRule(Rule):
 
     # IN: tasks with "analyzed_data" (i.e. output from analyzer.py)
     # OUT: matched: bool, matched_tasks: list[task | tuple[task]], message: str
-    def check(self, tasks: list, **kwargs):
+    def check(self, tasks: List[Task], **kwargs):
         # list downloaded files from "inbound_transfer" tasks
         download_files_and_tasks = []
         for task in tasks:
-            analyzed_data = task.get("analyzed_data", [])
+            analyzed_data = task.analyzed_data
             for single_ad in analyzed_data:
-                if single_ad.get("category", "") == "inbound_transfer":
-                    dst = single_ad.get("data", {}).get("dest", "")
-                    is_mutable_src = single_ad.get("data", {}).get(
+                if single_ad.category == RiskType.INBOUND:
+                    dst = single_ad.data.get("dest", "")
+                    is_mutable_src = single_ad.data.get(
                         "undetermined_src", False
                     )
                     if not is_mutable_src:
                         continue
-                    mutable_src_vars = single_ad.get("data", {}).get(
+                    mutable_src_vars = single_ad.data.get(
                         "mutable_src_vars", []
                     )
                     mutable_src_vars = [
@@ -47,10 +50,10 @@ class DownloadExecRule(Rule):
         message = ""
         found = []
         for task in tasks:
-            analyzed_data = task.get("analyzed_data", [])
+            analyzed_data = task.analyzed_data
             for single_ad in analyzed_data:
-                if single_ad.get("category", "") == "cmd_exec":
-                    cmd_str = single_ad.get("data", {}).get("cmd", "")
+                if single_ad.category == RiskType.CMD_EXEC:
+                    cmd_str = single_ad.data.get("cmd", "")
                     if isinstance(cmd_str, list):
                         cmd_str = " ".join(cmd_str)
                     for i, (
@@ -65,19 +68,15 @@ class DownloadExecRule(Rule):
                             found.append(i)
                             message += (
                                 "- Download block: {}, line: {}\n".format(
-                                    download_task.get("defined_in", ""),
+                                    download_task.defined_in,
                                     _make_line_num_expr(
-                                        download_task.get(
-                                            "line_num_in_file", []
-                                        )
+                                        download_task.line_num_in_file
                                     ),
                                 )
                             )
                             message += "  Exec block: {}, line: {}\n".format(
-                                task.get("defined_in", ""),
-                                _make_line_num_expr(
-                                    task.get("line_num_in_file", [])
-                                ),
+                                task.defined_in,
+                                _make_line_num_expr(task.line_num_in_file),
                             )
                             message += "  Mutable Variables: {}\n".format(
                                 download_mutable_src_vars

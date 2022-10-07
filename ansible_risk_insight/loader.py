@@ -2,6 +2,7 @@ import os
 import pathlib
 import json
 import git
+import pkg_resources
 from .models import LoadType
 
 collection_manifest_json = "MANIFEST.json"
@@ -74,10 +75,23 @@ def trim_suffix(txt, suffix_patterns=[]):
 
 
 def get_loader_version():
-    script_dir = pathlib.Path(__file__).parent.resolve()
-    repo = git.Repo(path=script_dir, search_parent_directories=True)
-    sha = repo.head.object.hexsha
-    return sha
+    version = ""
+    # try to get version from the installed executable
+    try:
+        version = pkg_resources.require("ansible-risk-insight")[0].version
+    except:
+        pass
+    if version != "":
+        return version
+    # try to get version from commit ID in source code repository
+    try:
+        script_dir = pathlib.Path(__file__).parent.resolve()
+        repo = git.Repo(path=script_dir, search_parent_directories=True)
+        sha = repo.head.object.hexsha
+        version = sha
+    except:
+        pass
+    return version
 
 
 def get_target_name(target_type, target_path):
@@ -90,7 +104,9 @@ def get_target_name(target_type, target_path):
         metadata = {}
         with open(meta_file, "r") as file:
             metadata = json.load(file)
-        collection_namespace = metadata.get("collection_info", {}).get("namespace", "")
+        collection_namespace = metadata.get("collection_info", {}).get(
+            "namespace", ""
+        )
         collection_name = metadata.get("collection_info", {}).get("name", "")
         target_name = "{}.{}".format(collection_namespace, collection_name)
     elif target_type == LoadType.ROLE_TYPE:
@@ -102,7 +118,9 @@ def get_target_name(target_type, target_path):
 
 
 def filepath_to_target_name(filepath):
-    return filepath.translate(str.maketrans({" ": "___", "/": "---", ".": "_dot_"}))
+    return filepath.translate(
+        str.maketrans({" ": "___", "/": "---", ".": "_dot_"})
+    )
 
 
 # if __name__ == "__main__":

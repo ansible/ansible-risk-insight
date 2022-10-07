@@ -27,7 +27,9 @@ def make_global_key_prefix(collection, role):
             key_delimiter, collection, object_delimiter
         )
     elif role != "":
-        key_prefix = "role{}{}{}".format(key_delimiter, role, object_delimiter)
+        key_prefix = "role{}{}{}".format(
+            key_delimiter, role, object_delimiter
+        )
     return key_prefix
 
 
@@ -85,7 +87,9 @@ def set_module_key(obj):
 
 
 def set_collection_key(obj):
-    global_key = "{} {}{}{}".format(obj.type, obj.type, key_delimiter, obj.name.lower())
+    global_key = "{} {}{}{}".format(
+        obj.type, obj.type, key_delimiter, obj.name.lower()
+    )
     local_key = global_key
     obj.key = global_key
     obj.local_key = local_key
@@ -244,7 +248,9 @@ def set_playbook_key(obj):
 
 
 def set_repository_key(obj):
-    global_key = "{} {}{}{}".format(obj.type, obj.type, key_delimiter, obj.name.lower())
+    global_key = "{} {}{}{}".format(
+        obj.type, obj.type, key_delimiter, obj.name.lower()
+    )
     local_key = global_key
     obj.key = global_key
     obj.local_key = local_key

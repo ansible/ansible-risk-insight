@@ -1,3 +1,5 @@
+from typing import List
+from ..models import ExecutableType, Task
 from .base import Rule, subject_placeholder
 
 
@@ -12,7 +14,7 @@ class ExternalDependencyRule(Rule):
 
     # IN: tasks with "analyzed_data" (i.e. output from analyzer.py)
     # OUT: matched: bool, matched_tasks: list[task | tuple[task]], message: str
-    def check(self, tasks: list, **kwargs):
+    def check(self, tasks: List[Task], **kwargs):
         collection_name = kwargs.get("collection_name", "")
         if collection_name != "":
             self.allow_list.append(collection_name)
@@ -23,10 +25,10 @@ class ExternalDependencyRule(Rule):
         message = ""
         external_dependencies = []
         for task in tasks:
-            executable_type = task.get("executable_type", "")
-            if executable_type != "Module":
+            executable_type = task.executable_type
+            if executable_type != ExecutableType.MODULE_TYPE:
                 continue
-            resolved_name = task.get("resolved_name", "")
+            resolved_name = task.resolved_name
             if resolved_name == "":
                 continue
             if resolved_name.startswith("ansible.builtin."):

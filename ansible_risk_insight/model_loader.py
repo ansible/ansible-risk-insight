@@ -152,7 +152,7 @@ def load_repository(
     repoObj.name = name
     _path = name
     if os.path.abspath(repo_path).startswith(os.path.abspath(path)):
-        relative = os.path.abspath(repo_path)[len(os.path.abspath(path)):]
+        relative = os.path.abspath(repo_path)[len(os.path.abspath(path)) :]
         _path = os.path.join(name, relative)
     repoObj.path = _path
     repoObj.installed_collections_path = installed_collections_path
@@ -205,7 +205,7 @@ def load_inventory(path, basedir=""):
     defined_in = fullpath
     if basedir != "":
         if defined_in.startswith(basedir):
-            defined_in = defined_in[len(basedir):]
+            defined_in = defined_in[len(basedir) :]
             if defined_in.startswith("/"):
                 defined_in = defined_in[1:]
     invObj.defined_in = defined_in
@@ -506,7 +506,7 @@ def load_roleinplay(
     ripObj.options = options
     if basedir != "":
         if defined_in.startswith(basedir):
-            defined_in = defined_in[len(basedir):]
+            defined_in = defined_in[len(basedir) :]
             if defined_in.startswith("/"):
                 defined_in = defined_in[1:]
     ripObj.defined_in = defined_in
@@ -531,7 +531,7 @@ def load_playbook(path, role_name="", collection_name="", basedir=""):
     defined_in = fullpath
     if basedir != "":
         if defined_in.startswith(basedir):
-            defined_in = defined_in[len(basedir):]
+            defined_in = defined_in[len(basedir) :]
             if defined_in.startswith("/"):
                 defined_in = defined_in[1:]
     pbObj.defined_in = defined_in
@@ -691,7 +691,7 @@ def load_role(
     defined_in = fullpath
     if basedir != "":
         if defined_in.startswith(basedir):
-            defined_in = defined_in[len(basedir):]
+            defined_in = defined_in[len(basedir) :]
             if defined_in.startswith("/"):
                 defined_in = defined_in[1:]
     roleObj.defined_in = defined_in
@@ -953,7 +953,7 @@ def load_module(
     defined_in = module_file_path
     if basedir != "":
         if defined_in.startswith(basedir):
-            defined_in = defined_in[len(basedir):]
+            defined_in = defined_in[len(basedir) :]
             if defined_in.startswith("/"):
                 defined_in = defined_in[1:]
     moduleObj.defined_in = defined_in
@@ -1100,7 +1100,7 @@ def load_task(
     defined_in = fullpath
     if basedir != "":
         if defined_in.startswith(basedir):
-            defined_in = defined_in[len(basedir):]
+            defined_in = defined_in[len(basedir) :]
             if defined_in.startswith("/"):
                 defined_in = defined_in[1:]
     taskObj.defined_in = defined_in
@@ -1169,7 +1169,7 @@ def load_taskfile(path, role_name="", collection_name="", basedir=""):
     defined_in = fullpath
     if basedir != "":
         if defined_in.startswith(basedir):
-            defined_in = defined_in[len(basedir):]
+            defined_in = defined_in[len(basedir) :]
             if defined_in.startswith("/"):
                 defined_in = defined_in[1:]
     tfObj.defined_in = defined_in
@@ -1370,7 +1370,7 @@ def load_collection(collection_dir, basedir="", load_children=True):
     path = collection_dir
     if basedir != "":
         if path.startswith(basedir):
-            path = path[len(basedir):]
+            path = path[len(basedir) :]
     colObj.path = path
     colObj.playbooks = playbooks
     colObj.roles = roles
