@@ -19,14 +19,24 @@ class InboundTransferRule(Rule):
                 if not isinstance(inbound_data, RiskAnnotation):
                     continue
                 raw_dst = inbound_data.data.get("dest", "")
-                resolved_src = [resolved.get("src", "") for resolved in inbound_data.resolved_data if resolved.get("src", "") != ""]
+                resolved_src = [
+                    resolved.get("src", "")
+                    for resolved in inbound_data.resolved_data
+                    if resolved.get("src", "") != ""
+                ]
                 if len(resolved_src) == 0:
                     resolved_src = ""
                 if len(resolved_src) == 1:
                     resolved_src = resolved_src[0]
-                is_mutable_src = inbound_data.data.get("undetermined_src", False)
-                mutable_src_vars = inbound_data.data.get("mutable_src_vars", [])
-                mutable_src_vars = ["{{ " + mv + " }}" for mv in mutable_src_vars]
+                is_mutable_src = inbound_data.data.get(
+                    "undetermined_src", False
+                )
+                mutable_src_vars = inbound_data.data.get(
+                    "mutable_src_vars", []
+                )
+                mutable_src_vars = [
+                    "{{ " + mv + " }}" for mv in mutable_src_vars
+                ]
                 if len(mutable_src_vars) == 0:
                     mutable_src_vars = ""
                 if len(mutable_src_vars) == 1:
