@@ -22,30 +22,20 @@ class DownloadExecRule(Rule):
                 if not isinstance(inbound_data, RiskAnnotation):
                     continue
                 dst = inbound_data.data.get("dest", "")
-                is_mutable_src = inbound_data.data.get(
-                    "undetermined_src", False
-                )
+                is_mutable_src = inbound_data.data.get("undetermined_src", False)
                 if not is_mutable_src:
                     continue
-                mutable_src_vars = inbound_data.data.get(
-                    "mutable_src_vars", []
-                )
-                mutable_src_vars = [
-                    "{{ " + mv + " }}" for mv in mutable_src_vars
-                ]
+                mutable_src_vars = inbound_data.data.get("mutable_src_vars", [])
+                mutable_src_vars = ["{{ " + mv + " }}" for mv in mutable_src_vars]
                 if len(mutable_src_vars) == 0:
                     mutable_src_vars = ""
                 if len(mutable_src_vars) == 1:
                     mutable_src_vars = mutable_src_vars[0]
                 if isinstance(dst, str) and dst != "":
-                    download_files_and_tasks.append(
-                        (dst, taskcall, mutable_src_vars)
-                    )
+                    download_files_and_tasks.append((dst, taskcall, mutable_src_vars))
                 elif isinstance(dst, list) and len(dst) > 0:
                     for _d in dst:
-                        download_files_and_tasks.append(
-                            (_d, taskcall, mutable_src_vars)
-                        )
+                        download_files_and_tasks.append((_d, taskcall, mutable_src_vars))
         # check if the downloaded files are executed in "cmd_exec" tasks
         matched_taskcalls = []
         message = ""
@@ -71,21 +61,15 @@ class DownloadExecRule(Rule):
                     if _is_executed(cmd_str, downloaded_file):
                         matched_taskcalls.append((download_taskcall, taskcall))
                         found.append(i)
-                        message += (
-                            "- Download block: {}, line: {}\n".format(
-                                download_taskcall.spec.defined_in,
-                                _make_line_num_expr(
-                                    download_taskcall.spec.line_num_in_file
-                                ),
-                            )
+                        message += "- Download block: {}, line: {}\n".format(
+                            download_taskcall.spec.defined_in,
+                            _make_line_num_expr(download_taskcall.spec.line_num_in_file),
                         )
                         message += "  Exec block: {}, line: {}\n".format(
                             taskcall.spec.defined_in,
                             _make_line_num_expr(taskcall.spec.line_num_in_file),
                         )
-                        message += "  Mutable Variables: {}\n".format(
-                            download_mutable_src_vars
-                        )
+                        message += "  Mutable Variables: {}\n".format(download_mutable_src_vars)
         matched = len(matched_taskcalls) > 0
         message = message[:-1] if message.endswith("\n") else message
         return matched, matched_taskcalls, message

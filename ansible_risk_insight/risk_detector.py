@@ -103,9 +103,7 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
             if matched:
                 if rule.separate_report:
                     tree_root_label = tree_root_type
-                    separate_report[rule_name]["matched"].append(
-                        [tree_root_label, tree_root_name, message]
-                    )
+                    separate_report[rule_name]["matched"].append([tree_root_label, tree_root_name, message])
                 else:
                     if not is_playbook:
                         do_report = True

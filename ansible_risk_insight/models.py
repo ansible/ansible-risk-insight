@@ -1,4 +1,3 @@
-from ast import Call
 from dataclasses import dataclass, field
 from typing import List
 from copy import deepcopy
@@ -100,6 +99,7 @@ class Load(JSONSerializable):
 class Object(JSONSerializable):
     type: str = ""
     key: str = ""
+
 
 @dataclass
 class ObjectList(JSONSerializable):
@@ -275,6 +275,7 @@ class Collection(Object, Resolvable):
 @dataclass
 class CollectionCall(CallObject, Resolvable):
     type: str = "collectioncall"
+
 
 @dataclass
 class TaskCallsInTree(JSONSerializable):

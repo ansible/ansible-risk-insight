@@ -19,24 +19,14 @@ class OutboundTransferRule(Rule):
                 if not isinstance(outbound_data, RiskAnnotation):
                     continue
                 raw_src = outbound_data.data.get("src", "")
-                resolved_dst = [
-                    resolved.get("dest", "")
-                    for resolved in outbound_data.resolved_data
-                    if resolved.get("dest", "") != ""
-                ]
+                resolved_dst = [resolved.get("dest", "") for resolved in outbound_data.resolved_data if resolved.get("dest", "") != ""]
                 if len(resolved_dst) == 0:
                     resolved_dst = ""
                 if len(resolved_dst) == 1:
                     resolved_dst = resolved_dst[0]
-                is_mutable_dst = outbound_data.data.get(
-                    "undetermined_dest", False
-                )
-                mutable_dst_vars = outbound_data.data.get(
-                    "mutable_dest_vars", []
-                )
-                mutable_dst_vars = [
-                    "{{ " + mv + " }}" for mv in mutable_dst_vars
-                ]
+                is_mutable_dst = outbound_data.data.get("undetermined_dest", False)
+                mutable_dst_vars = outbound_data.data.get("mutable_dest_vars", [])
+                mutable_dst_vars = ["{{ " + mv + " }}" for mv in mutable_dst_vars]
                 if len(mutable_dst_vars) == 0:
                     mutable_dst_vars = ""
                 if len(mutable_dst_vars) == 1:
