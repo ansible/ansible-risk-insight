@@ -6,11 +6,13 @@ import subprocess
 import json
 import tempfile
 import logging
+import jsonpickle
 from dataclasses import dataclass, field
 from .models import (
     Load,
     LoadType,
     ObjectList,
+    TaskCallsInTree,
 )
 
 from .loader import (
@@ -22,7 +24,7 @@ from .loader import (
 from .parser import Parser
 from .model_loader import load_object
 from .safe_glob import safe_glob
-from .tree import TreeLoader, TreeNode
+from .tree import TreeLoader
 from .variable_resolver import resolve_variables
 from .analyzer import analyze
 from .risk_detector import detect
@@ -79,10 +81,10 @@ class DataContainer(object):
     ext_definitions: dict = field(default_factory=dict)
 
     trees: list = field(default_factory=list)
-    node_objects: ObjectList = ObjectList()
+    # for inventory object
+    additional: ObjectList = ObjectList()
 
-    tasks_rv: list = field(default_factory=list)
-    tasks_rva: list = field(default_factory=list)
+    taskcalls_in_trees: list = field(default_factory=list)
 
     report_to_display: str = ""
 
@@ -393,70 +395,65 @@ class DataContainer(object):
         return self.root_definitions, self.ext_definitions
 
     def set_trees(self):
-        trees, node_objects = tree(self.root_definitions, self.ext_definitions)
+        trees, additional = tree(self.root_definitions, self.ext_definitions)
         self.trees = trees
-        self.node_objects = node_objects
+        self.additional = additional
 
         if self.do_save:
             root_def_dir = self.__path_mappings["root_definitions"]
             tree_rel_file = os.path.join(root_def_dir, "tree.json")
-            tree_nobj_file = os.path.join(root_def_dir, "node_objects.json")
             if tree_rel_file != "":
                 lines = []
-                for t in self.trees:
-                    d = {"key": t.key, "tree": t.to_graph()}
-                    lines.append(json.dumps(d))
+                for t_obj_list in self.trees:
+                    lines.append(t_obj_list.to_one_line_json())
                 open(tree_rel_file, "w").write("\n".join(lines))
                 logging.info("  tree file saved")
-            if tree_nobj_file != "":
-                self.node_objects.dump(fpath=tree_nobj_file)
-                logging.info("  node file saved")
         return
 
     def get_trees(self):
         return self.trees, self.node_objects
 
     def set_resolved(self):
-        tasks_rv = resolve(self.trees, self.node_objects)
-        self.tasks_rv = tasks_rv
+        taskcalls_in_trees = resolve(self.trees, self.additional)
+        self.taskcalls_in_trees = taskcalls_in_trees
 
         if self.do_save:
             root_def_dir = self.__path_mappings["root_definitions"]
-            tasks_rv_path = os.path.join(root_def_dir, "tasks_rv.json")
-            tasks_rv_lines = []
-            for d in tasks_rv:
-                line = json.dumps(d)
-                tasks_rv_lines.append(line)
+            tasks_in_t_path = os.path.join(root_def_dir, "tasks_in_trees.json")
+            tasks_in_t_lines = []
+            for d in taskcalls_in_trees:
+                line = jsonpickle.encode(d, make_refs=False)
+                tasks_in_t_lines.append(line)
 
-            open(tasks_rv_path, "w").write("\n".join(tasks_rv_lines))
+            open(tasks_in_t_path, "w").write("\n".join(tasks_in_t_lines))
         return
 
     def get_resolved(self):
-        return self.tasks_rv
+        return self.taskcalls_in_trees
 
     def set_analyzed(self):
-        tasks_rva = analyze(self.tasks_rv)
-        self.tasks_rva = tasks_rva
+        taskcalls_in_trees = analyze(self.taskcalls_in_trees)
+        self.taskcalls_in_trees = taskcalls_in_trees
 
         if self.do_save:
             root_def_dir = self.__path_mappings["root_definitions"]
-            tasks_rva_path = os.path.join(root_def_dir, "tasks_rva.json")
-            tasks_rva_lines = []
-            for d in tasks_rva:
-                line = json.dumps(d)
-                tasks_rva_lines.append(line)
+            tasks_in_t_a_path = os.path.join(root_def_dir, "tasks_in_trees_with_analysis.json")
+            tasks_in_t_a_lines = []
+            for d in taskcalls_in_trees:
+                line = jsonpickle.encode(d, make_refs=False)
+                tasks_in_t_a_lines.append(line)
 
-            open(tasks_rva_path, "w").write("\n".join(tasks_rva_lines))
+            open(tasks_in_t_a_path, "w").write("\n".join(tasks_in_t_a_lines))
 
         return
 
     def get_analyzed(self):
-        return self.tasks_rva
+        return self.taskcalls_in_trees
 
     def set_report(self):
         coll_type = ContainerType.COLLECTION
         coll_name = self.name if self.type == coll_type else ""
-        report_txt = detect(self.tasks_rva, collection_name=coll_name)
+        report_txt = detect(self.taskcalls_in_trees, collection_name=coll_name)
         self.report_to_display = report_txt
         return
 
@@ -656,29 +653,31 @@ class DataContainer(object):
 
 def tree(root_definitions, ext_definitions):
     tl = TreeLoader(root_definitions, ext_definitions)
-    trees, node_objects = tl.run()
+    trees, additional = tl.run()
     if trees is None:
         raise ValueError("failed to get trees")
-    if node_objects is None:
-        raise ValueError("failed to get node_objects")
-    return trees, node_objects
+    # if node_objects is None:
+    #     raise ValueError("failed to get node_objects")
+    return trees, additional
 
 
-def resolve(trees, node_objects):
-    tasks_rv = []
+def resolve(trees, additional):
+    taskcalls_in_trees = []
     num = len(trees)
     for i, tree in enumerate(trees):
-        if not isinstance(tree, TreeNode):
+        if not isinstance(tree, ObjectList):
             continue
-        root_key = tree.key
-        tasks = resolve_variables(tree, node_objects)
-        d = {
-            "root_key": tree.key,
-            "tasks": tasks,
-        }
-        tasks_rv.append(d)
+        if len(tree.items) == 0:
+            continue
+        root_key = tree.items[0].spec.key
+        taskcalls = resolve_variables(tree, additional)
+        d = TaskCallsInTree(
+            root_key=root_key,
+            taskcalls=taskcalls,
+        )
+        taskcalls_in_trees.append(d)
         logging.debug("resolve_variables() {}/{} ({}) done".format(i + 1, num, root_key))
-    return tasks_rv
+    return taskcalls_in_trees
 
 
 def install_galaxy_target(target, target_type, output_dir):
