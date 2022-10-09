@@ -1,50 +1,53 @@
 import argparse
 import json
 import logging
-from ansible_risk_insight import extractors
+from typing import List
+from ansible_risk_insight import risk_annotators
+from .models import TaskCallsInTree
 
 
-def load_extractors():
-    _extractors = []
-    for extractor in extractors.__all__:
-        _extractors.append(getattr(extractors, extractor)())
-    return _extractors
+def load_risk_annotators():
+    _risk_annotators = []
+    for annotator in risk_annotators.__all__:
+        _risk_annotators.append(getattr(risk_annotators, annotator)())
+    return _risk_annotators
 
 
-def load_tasks_rv(path: str):
-    tasks_rv_data = []
+def load_taskcalls_in_trees(path: str) -> List[TaskCallsInTree]:
+    taskcalls_in_trees = []
     try:
         with open(path, "r") as file:
             for line in file:
-                single_tree_data = json.loads(line)
-                tasks_rv_data.append(single_tree_data)
+                taskcalls_in_tree = TaskCallsInTree()
+                taskcalls_in_tree.from_json(line)
+                taskcalls_in_trees.append(taskcalls_in_tree)
     except Exception as e:
         raise ValueError("failed to load the json file {} {}".format(path, e))
-    return tasks_rv_data
+    return taskcalls_in_trees
 
 
-def analyze(tasks_rv_data: list):
-    # extractor
-    extractors = load_extractors()
+def analyze(taskcalls_in_trees: List[TaskCallsInTree]):
+    # risk annotator
+    risk_annotators = load_risk_annotators()
 
-    num = len(tasks_rv_data)
-    for i, single_tree_data in enumerate(tasks_rv_data):
-        if not isinstance(single_tree_data, dict):
+    num = len(taskcalls_in_trees)
+    for i, taskcalls_in_tree in enumerate(taskcalls_in_trees):
+        if not isinstance(taskcalls_in_tree, TaskCallsInTree):
             continue
-        if "tasks" not in single_tree_data:
-            continue
-        for j, task in enumerate(single_tree_data["tasks"]):
-            extractor = None
-            for _ext in extractors:
-                if _ext.match(task=task):
-                    extractor = _ext
+        for j, taskcall in enumerate(taskcalls_in_tree.taskcalls):
+            annotator = None
+            for risk_annotator in risk_annotators:
+                if not risk_annotator.enabled:
+                    continue
+                if risk_annotator.match(taskcall=taskcall):
+                    annotator = risk_annotator
                     break
-            if extractor is None:
+            if annotator is None:
                 continue
-            task_with_analyzed_data = extractor.analyze(task)
-            tasks_rv_data[i]["tasks"][j] = task_with_analyzed_data
+            annotations = annotator.run(taskcall)
+            taskcalls_in_trees[i].taskcalls[j].annotations.extend(annotations)
         logging.debug("analyze() {}/{} done".format(i + 1, num))
-    return tasks_rv_data
+    return taskcalls_in_trees
 
 
 def main():
@@ -59,17 +62,17 @@ def main():
         "-i",
         "--input",
         default="",
-        help="path to the input json (tasks_rv.json)",
+        help="path to the input json (taskcalls_in_trees.json)",
     )
     parser.add_argument("-o", "--output", default="", help="path to the output json")
 
     args = parser.parse_args()
 
-    tasks_rv_data = load_tasks_rv(args.input)
-    tasks_rv_data = analyze(tasks_rv_data)
+    taskcalls_in_trees = load_taskcalls_in_trees(args.input)
+    taskcalls_in_trees = analyze(taskcalls_in_trees)
 
     if args.output != "":
-        lines = [json.dumps(single_tree_data) for single_tree_data in tasks_rv_data]
+        lines = [json.dumps(single_tree_data) for single_tree_data in taskcalls_in_trees]
         with open(args.output, mode="wt") as file:
             file.write("\n".join(lines))
 

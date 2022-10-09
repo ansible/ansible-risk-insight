@@ -1,9 +1,12 @@
 import argparse
 import os
 import logging
+from typing import List
 from tabulate import tabulate
+
+from ansible_risk_insight.models import TaskCallsInTree
 from .keyutil import detect_type, key_delimiter
-from .analyzer import load_tasks_rv
+from .analyzer import load_taskcalls_in_trees
 from .rules.base import subject_placeholder
 from ansible_risk_insight import rules
 
@@ -40,7 +43,7 @@ def make_subject_str(playbook_num: int, role_num: int):
     return subject
 
 
-def detect(tasks_rv_data: list, collection_name: str = ""):
+def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = ""):
     rules = load_rules()
     extra_check_args = {}
     if collection_name != "":
@@ -59,11 +62,11 @@ def detect(tasks_rv_data: list, collection_name: str = ""):
     risk_found_playbooks = set()
 
     tmp_result_txt = ""
-    num = len(tasks_rv_data)
-    for i, single_tree_data in enumerate(tasks_rv_data):
-        if not isinstance(single_tree_data, dict):
+    num = len(taskcalls_in_trees)
+    for i, taskcalls_in_tree in enumerate(taskcalls_in_trees):
+        if not isinstance(taskcalls_in_tree, TaskCallsInTree):
             continue
-        tree_root_key = single_tree_data.get("root_key", "")
+        tree_root_key = taskcalls_in_tree.root_key
         tree_root_type = detect_type(tree_root_key)
         tree_root_name = key2name(tree_root_key)
 
@@ -71,9 +74,9 @@ def detect(tasks_rv_data: list, collection_name: str = ""):
         if is_playbook:
             playbook_count["total"] += 1
 
-            tasks = single_tree_data.get("tasks", [])
-            for task in tasks:
-                parts = task.get("defined_in").split("/")
+            taskcalls = taskcalls_in_tree.taskcalls
+            for taskcall in taskcalls:
+                parts = taskcall.spec.defined_in.split("/")
                 if parts[0] == "roles":
                     role_name = parts[1]
                     _mappings = role_to_playbook_mappings.get(role_name, [])
@@ -84,11 +87,13 @@ def detect(tasks_rv_data: list, collection_name: str = ""):
             role_count["total"] += 1
 
         do_report = False
-        tasks = single_tree_data.get("tasks", [])
+        taskcalls = taskcalls_in_tree.taskcalls
         tmp_result_txt_alt = ""
         for rule in rules:
+            if not rule.enabled:
+                continue
             rule_name = rule.name
-            matched, _, message = rule.check(tasks, **extra_check_args)
+            matched, _, message = rule.check(taskcalls, **extra_check_args)
             if rule.separate_report:
                 if rule_name not in separate_report:
                     separate_report[rule_name] = {
@@ -97,7 +102,8 @@ def detect(tasks_rv_data: list, collection_name: str = ""):
                     }
             if matched:
                 if rule.separate_report:
-                    separate_report[rule_name]["matched"].append([tree_root_type, tree_root_name, message])
+                    tree_root_label = tree_root_type
+                    separate_report[rule_name]["matched"].append([tree_root_label, tree_root_name, message])
                 else:
                     if not is_playbook:
                         do_report = True
@@ -160,16 +166,16 @@ def main():
         "-i",
         "--input",
         default="",
-        help="path to the input json (tasks_rv.json)",
+        help="path to the input json (tasks_in_trees.json)",
     )
     parser.add_argument("-o", "--output", default="", help="path to the output json")
     parser.add_argument("-v", "--verbose", default="", help="show details during the process")
 
     args = parser.parse_args()
 
-    tasks_rv_data = load_tasks_rv(args.input)
+    tasks_in_trees = load_taskcalls_in_trees(args.input)
 
-    detect(tasks_rv_data)
+    detect(tasks_in_trees)
 
 
 if __name__ == "__main__":

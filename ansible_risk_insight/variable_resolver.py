@@ -1,12 +1,38 @@
-import argparse
-import os
-import sys
-import json
-import logging
+from typing import List
 from .keyutil import detect_type
-from .models import ObjectList, ExecutableType, Repository, Playbook, Role
-from .tree import TreeNode, load_all_definitions
+from .models import (
+    ObjectList,
+    Repository,
+    Playbook,
+    Role,
+    TaskCall,
+    Annotation,
+    VariableAnnotation,
+)
 from .context import Context, resolve_module_options
+from .annotator_base import Annotator
+
+
+VARIABLE_ANNOTATION_TYPE = "variable_annotation"
+
+
+class VariableAnnotator(Annotator):
+    type: str = VARIABLE_ANNOTATION_TYPE
+    context: Context = None
+
+    def __init__(self, context: Context):
+        self.context = context
+
+    def run(self, taskcall: TaskCall) -> List[Annotation]:
+        resolved = resolve_module_options(self.context, taskcall)
+        va = VariableAnnotation(
+            type=self.type,
+            resolved_module_options=resolved[0],
+            resolved_variables=resolved[1],
+            mutable_vars_per_mo=resolved[2],
+        )
+        annotations = [va]
+        return annotations
 
 
 def tree_to_task_list(tree, node_objects):
@@ -78,56 +104,32 @@ def tree_to_task_list(tree, node_objects):
     return tasks
 
 
-def resolve_variables(tree, node_objects):
-    node_dict = {}
-    for no in node_objects.items:
-        node_dict[no.key] = no
-
-    def traverse_and_resolve(node, context, depth_level=0, resolved_tasks=[]):
-        current_context = context.copy()
-        node_type = detect_type(node.key)
-        obj = node_dict[node.key]
-        current_context.add(obj, depth_level)
-        if node_type == "task":
-            task = obj
-            # insert "resolved_name" to task obj
-            if len(node.children) > 0:
-                c = node.children[0]
-                c_obj = node_dict.get(c.key, None)
-                if c_obj is not None:
-                    if task.executable_type == ExecutableType.MODULE_TYPE:
-                        task.resolved_name = c_obj.fqcn
-                    elif task.executable_type == ExecutableType.ROLE_TYPE:
-                        task.resolved_name = c_obj.fqcn
-                    elif task.executable_type == ExecutableType.TASKFILE_TYPE:
-                        task.resolved_name = c_obj.key
-            (
-                resolved_options,
-                resolved_variables,
-                mutable_vars_per_mo,
-            ) = resolve_module_options(current_context, task)
-            task.resolved_variables = resolved_variables
-            task.mutable_vars_per_mo = mutable_vars_per_mo
-            task.resolved_module_options = resolved_options
-            resolved_tasks.append(task.__dict__)
-        for c in node.children:
-            resolved_tasks, current_context = traverse_and_resolve(
-                c, current_context, depth_level + 1, resolved_tasks
-            )
-        return resolved_tasks, current_context
-
-    # if load type is "project", it might have inventories
-    # otherwise, it will be just an empty list
-    inventories = get_inventories(tree.key, node_objects)
-    initial_context = Context(inventories=inventories)
-    resolved_tasks, _ = traverse_and_resolve(tree, initial_context)
-
-    return resolved_tasks
+def resolve_variables(tree: ObjectList, additional: ObjectList) -> List[TaskCall]:
+    tree_root_key = tree.items[0].spec.key if len(tree.items) > 0 else ""
+    inventories = get_inventories(tree_root_key, additional)
+    context = Context(inventories=inventories)
+    depth_dict = {}
+    resolved_taskcalls = []
+    for call_obj in tree.items:
+        caller_depth_lvl = 0
+        if call_obj.called_from != "":
+            caller_key = call_obj.called_from
+            caller_depth_lvl = depth_dict.get(caller_key, 0)
+        depth_lvl = caller_depth_lvl + 1
+        depth_dict[call_obj.key] = depth_lvl
+        context.add(call_obj, depth_lvl)
+        if isinstance(call_obj, TaskCall):
+            var_annos = VariableAnnotator(context=context).run(call_obj)
+            call_obj.annotations.extend(var_annos)
+            resolved_taskcalls.append(call_obj)
+    return resolved_taskcalls
 
 
-def get_inventories(tree_root_key, node_objects):
+def get_inventories(tree_root_key, additional):
+    if tree_root_key == "":
+        return []
     tree_root_type = detect_type(tree_root_key)
-    projects = node_objects.find_by_type("repository")
+    projects = additional.find_by_type("repository")
     inventories = []
     found = False
     for p in projects:
@@ -162,82 +164,82 @@ def get_inventories(tree_root_key, node_objects):
     return inventories
 
 
-def load_tree_json(tree_path):
-    trees = []
-    with open(tree_path, "r") as file:
-        for line in file:
-            d = json.loads(line)
-            src_dst_array = d.get("tree", [])
-            tree = TreeNode.load(graph=src_dst_array)
-            trees.append(tree)
-    return trees
+# def load_tree_json(tree_path):
+#     trees = []
+#     with open(tree_path, "r") as file:
+#         for line in file:
+#             d = json.loads(line)
+#             src_dst_array = d.get("tree", [])
+#             tree = TreeNode.load(graph=src_dst_array)
+#             trees.append(tree)
+#     return trees
 
 
-def load_node_objects(node_path="", root_dir="", ext_dir=""):
-    objects = ObjectList()
-    if node_path != "":
-        objects.from_json(fpath=node_path)
-    else:
-        root_defs = load_all_definitions(root_dir)
-        ext_defs = load_all_definitions(ext_dir)
-        for type_key in root_defs:
-            objects.merge(root_defs[type_key])
-            objects.merge(ext_defs[type_key])
-    return objects
+# def load_node_objects(node_path="", root_dir="", ext_dir=""):
+#     objects = ObjectList()
+#     if node_path != "":
+#         objects.from_json(fpath=node_path)
+#     else:
+#         root_defs = load_all_definitions(root_dir)
+#         ext_defs = load_all_definitions(ext_dir)
+#         for type_key in root_defs:
+#             objects.merge(root_defs[type_key])
+#             objects.merge(ext_defs[type_key])
+#     return objects
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        prog="variable_resolver.py",
-        description="resolve variables",
-        epilog="end",
-        add_help=True,
-    )
+# def main():
+#     parser = argparse.ArgumentParser(
+#         prog="variable_resolver.py",
+#         description="resolve variables",
+#         epilog="end",
+#         add_help=True,
+#     )
 
-    parser.add_argument("-t", "--tree-file", default="", help="path to tree json file")
-    parser.add_argument(
-        "-n", "--node-file", default="", help="path to node object json file"
-    )
-    parser.add_argument(
-        "-r",
-        "--root-dir",
-        default="",
-        help="path to definitions dir for root",
-    )
-    parser.add_argument(
-        "-e", "--ext-dir", default="", help="path to definitions dir for ext"
-    )
-    parser.add_argument("-o", "--out-dir", default="", help="path to output dir")
+#     parser.add_argument("-t", "--tree-file", default="", help="path to tree json file")
+#     parser.add_argument(
+#         "-n", "--node-file", default="", help="path to node object json file"
+#     )
+#     parser.add_argument(
+#         "-r",
+#         "--root-dir",
+#         default="",
+#         help="path to definitions dir for root",
+#     )
+#     parser.add_argument(
+#         "-e", "--ext-dir", default="", help="path to definitions dir for ext"
+#     )
+#     parser.add_argument("-o", "--out-dir", default="", help="path to output dir")
 
-    args = parser.parse_args()
+#     args = parser.parse_args()
 
-    if args.tree_file == "":
-        logging.error('"--tree-file" is required')
-        sys.exit(1)
+#     if args.tree_file == "":
+#         logging.error('"--tree-file" is required')
+#         sys.exit(1)
 
-    if args.node_file == "" and (args.root_dir == "" or args.ext_dir == ""):
-        logging.error(
-            '"--root-dir" and "--ext-dir" are required when "--node-file" is' " empty"
-        )
-        sys.exit(1)
+#     if args.node_file == "" and (args.root_dir == "" or args.ext_dir == ""):
+#         logging.error(
+#             '"--root-dir" and "--ext-dir" are required when "--node-file" is' " empty"
+#         )
+#         sys.exit(1)
 
-    trees = load_tree_json(args.tree_file)
-    objects = load_node_objects(args.node_file, args.root_dir, args.ext_dir)
+#     trees = load_tree_json(args.tree_file)
+#     objects = load_node_objects(args.node_file, args.root_dir, args.ext_dir)
 
-    tasks_rv_lines = []
-    for tree in trees:
-        if not isinstance(tree, TreeNode):
-            continue
-        tasks = resolve_variables(tree, objects)
-        d = {
-            "root_key": tree.key,
-            "tasks": tasks,
-        }
-        line = json.dumps(d)
-        tasks_rv_lines.append(line)
-    tasks_rv_path = os.path.join(args.out_dir, "tasks_rv.json")
-    open(tasks_rv_path, "w").write("\n".join(tasks_rv_lines))
+#     tasks_in_trees_lines = []
+#     for tree in trees:
+#         if not isinstance(tree, TreeNode):
+#             continue
+#         tasks = resolve_variables(tree, objects)
+#         d = {
+#             "root_key": tree.key,
+#             "tasks": tasks,
+#         }
+#         line = json.dumps(d)
+#         tasks_in_trees_lines.append(line)
+#     tasks_in_trees_path = os.path.join(args.out_dir, "tasks_in_trees.json")
+#     open(tasks_in_trees_path, "w").write("\n".join(tasks_in_trees_lines))
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()

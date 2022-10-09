@@ -1,564 +1,486 @@
 import json
-from .base import Extractor
+from typing import List
+from ..models import TaskCall, Annotation, RiskAnnotation, VariableAnnotation
+from ..variable_resolver import VARIABLE_ANNOTATION_TYPE
+from .base import RiskAnnotator, RiskType
 
 
-class AnsibleBuiltinExtractor(Extractor):
+class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
     name: str = "ansible.builtin"
     enabled: bool = True
 
-    def match(self, task: dict) -> bool:
-        resolved_name = task.get("resolved_name", "")
+    def match(self, taskcall: TaskCall) -> bool:
+        resolved_name = taskcall.spec.resolved_name
         return resolved_name.startswith("ansible.builtin.")
 
-    def analyze(self, task: dict) -> dict:
-        if not self.match(task):
-            return task
-        resolved_name = task.get("resolved_name", "")
-        options = task.get("module_options", {})
-        resolved_options = task.get("resolved_module_options", {})
-        mutable_vars_per_mo = task.get("mutable_vars_per_mo", {})
-        resolved_variables = task.get("resolved_variables", [])
+    # embed "analyzed_data" field in Task
+    def run(self, taskcall: TaskCall) -> List[Annotation]:
+        if not self.match(taskcall):
+            return taskcall
+        resolved_name = taskcall.spec.resolved_name
+        options = taskcall.spec.module_options
+        var_annos = taskcall.get_annotation_by_type(VARIABLE_ANNOTATION_TYPE)
+        var_anno = var_annos[0] if len(var_annos) > 0 else VariableAnnotation()
+        resolved_options = var_anno.resolved_module_options
+        mutable_vars_per_mo = var_anno.mutable_vars_per_mo
+        resolved_variables = var_anno.resolved_variables
 
-        analyzed_data = []
+        annotations = []
         # builtin modules
         if resolved_name == "ansible.builtin.get_url":
-            res = {
-                "category": "inbound_transfer",
-                "data": {},
-                "resolved_data": [],
-            }
-            res["data"] = self.get_url(options, mutable_vars_per_mo)
+            res = RiskAnnotation(type=self.type, category=RiskType.INBOUND)
+            res.data = self.get_url(options, mutable_vars_per_mo)
             for ro in resolved_options:
-                res["resolved_data"].append(
-                    self.get_url(ro, mutable_vars_per_mo)
-                )
-            analyzed_data.append(res)
+                res.resolved_data.append(self.get_url(ro, mutable_vars_per_mo))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.fetch":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.fetch(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.fetch(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.fetch(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.fetch(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.command":
-            res = {"category": "cmd_exec", "data": {}, "resolved_data": []}
-            res["data"] = self.command(options, resolved_variables)
+            res = RiskAnnotation(type=self.type, category=RiskType.CMD_EXEC)
+            res.data = self.command(options, resolved_variables)
             for ro in resolved_options:
-                res["resolved_data"].append(
-                    self.command(ro, resolved_variables)
-                )
-            analyzed_data.append(res)
+                res.resolved_data.append(self.command(ro, resolved_variables))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.apt":
-            res = {
-                "category": "package_install",
-                "data": {},
-                "resolved_data": [],
-            }
-            res["data"] = self.apt(options)
+            res = RiskAnnotation(type=self.type, category=RiskType.PACKAGE_INSTALL)
+            res.data = self.apt(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.apt(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.apt(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.add_host":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.add_host(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.add_host(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.add_host(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.add_host(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.apt_key":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.apt_key(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.apt_key(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.apt_key(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.apt_key(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.apt_repository":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.apt_repository(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.apt_repository(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.apt_repository(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.apt_repository(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.assemble":
-            res = {"category": "file_change", "data": {}, "resolved_data": []}
-            res["data"] = self.assemble(options)
+            res = RiskAnnotation(type=self.type, category=RiskType.FILE_CHANGE)
+            res.data = self.assemble(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.assemble(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.assemble(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.assert":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.builtin_assert(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.builtin_assert(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.builtin_assert(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.builtin_assert(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.async_status":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.async_status(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.async_status(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.async_status(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.async_status(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.blockinfile":
-            res = {"category": "file_change", "data": {}, "resolved_data": []}
-            res["data"] = self.blockinfile(options)
+            res = RiskAnnotation(type=self.type, category=RiskType.FILE_CHANGE)
+            res.data = self.blockinfile(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.blockinfile(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.blockinfile(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.copy":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.copy(options, resolved_variables)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.copy(options, resolved_variables)
             for ro in resolved_options:
-                res["resolved_data"].append(self.copy(ro, resolved_variables))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.copy(ro, resolved_variables))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.cron":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.cron(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.cron(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.cron(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.cron(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.debconf":
-            res = {
-                "category": "config_change",
-                "data": {},
-                "resolved_data": [],
-            }
-            res["data"] = self.debconf(options)
+            res = RiskAnnotation(type=self.type, category=RiskType.CONFIG_CHANGE)
+            res.data = self.debconf(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.debconf(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.debconf(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.debug":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.debug(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.debug(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.debug(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.debug(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.dnf":
-            res = {
-                "category": "package_install",
-                "data": {},
-                "resolved_data": [],
-            }
-            res["data"] = self.dnf(options)
+            res = RiskAnnotation(type=self.type, category=RiskType.PACKAGE_INSTALL)
+            res.data = self.dnf(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.dnf(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.dnf(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.dpkg_selections":
-            res = {
-                "category": "package_install",
-                "data": {},
-                "resolved_data": [],
-            }
-            res["data"] = self.dpkg_selections(options)
+            res = RiskAnnotation(type=self.type, category=RiskType.PACKAGE_INSTALL)
+            res.data = self.dpkg_selections(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.dpkg_selections(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.dpkg_selections(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.expect":
-            res = {"category": "cmd_exec", "data": {}, "resolved_data": []}
-            res["data"] = self.expect(options, resolved_variables)
+            res = RiskAnnotation(type=self.type, category=RiskType.CMD_EXEC)
+            res.data = self.expect(options, resolved_variables)
             for ro in resolved_options:
-                res["resolved_data"].append(
-                    self.expect(ro, resolved_variables)
-                )
-            analyzed_data.append(res)
+                res.resolved_data.append(self.expect(ro, resolved_variables))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.fail":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.fail(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.fail(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.fail(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.fail(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.file":
-            res = {"category": "file_change", "data": {}, "resolved_data": []}
-            res["data"] = self.file(options, resolved_variables)
+            res = RiskAnnotation(type=self.type, category=RiskType.FILE_CHANGE)
+            res.data = self.file(options, resolved_variables)
             for ro in resolved_options:
-                res["resolved_data"].append(self.file(ro, resolved_variables))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.file(ro, resolved_variables))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.find":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.find(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.find(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.find(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.find(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.gather_facts":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.gather_facts(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.gather_facts(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.gather_facts(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.gather_facts(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.getent":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.getent(options)
-            res["resolved_data"] = self.getent(resolved_options)
-            analyzed_data.append(res)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.getent(options)
+            res.resolved_data = self.getent(resolved_options)
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.git":
-            res = {
-                "category": "inbound_transfer",
-                "data": {},
-                "resolved_data": [],
-            }
-            res["data"], res["category"] = self.git(
-                options, mutable_vars_per_mo
-            )
+            res = RiskAnnotation(type=self.type, category=RiskType.INBOUND)
+            res.data, res.category = self.git(options, mutable_vars_per_mo)
             for ro in resolved_options:
                 rd, c = self.git(ro, mutable_vars_per_mo)
-                res["resolved_data"].append(rd)
-            analyzed_data.append(res)
+                res.resolved_data.append(rd)
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.group":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.group(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.group(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.group(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.group(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.group_by":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.group_by(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.group_by(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.group_by(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.group_by(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.hostname":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.hostname(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.hostname(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.hostname(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.hostname(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.iptables":
-            res = {
-                "category": "network_change",
-                "data": {},
-                "resolved_data": [],
-            }
-            res["data"] = self.iptables(options)
+            res = RiskAnnotation(type=self.type, category=RiskType.NETWORK_CHANGE)
+            res.data = self.iptables(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.iptables(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.iptables(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.known_hosts":
-            res = {
-                "category": "network_change",
-                "data": {},
-                "resolved_data": [],
-            }
-            res["data"] = self.known_hosts(options)
+            res = RiskAnnotation(type=self.type, category=RiskType.NETWORK_CHANGE)
+            res.data = self.known_hosts(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.known_hosts(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.known_hosts(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.lineinfile":
-            res = {"category": "file_change", "data": {}, "resolved_data": []}
-            res["data"] = self.lineinfile(options)
+            res = RiskAnnotation(type=self.type, category=RiskType.FILE_CHANGE)
+            res.data = self.lineinfile(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.lineinfile(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.lineinfile(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.meta":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.meta(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.meta(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.meta(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.meta(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.package":
-            res = {
-                "category": "package_install",
-                "data": {},
-                "resolved_data": [],
-            }
-            res["data"] = self.package(options)
+            res = RiskAnnotation(type=self.type, category=RiskType.PACKAGE_INSTALL)
+            res.data = self.package(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.package(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.package(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.package_facts":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.package_facts(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.package_facts(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.package_facts(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.package_facts(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.pause":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.pause(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.pause(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.pause(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.pause(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.ping":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.ping(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.ping(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.ping(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.ping(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.pip":
-            res = {
-                "category": "package_install",
-                "data": {},
-                "resolved_data": [],
-            }
-            res["data"] = self.pip(options)
+            res = RiskAnnotation(type=self.type, category=RiskType.PACKAGE_INSTALL)
+            res.data = self.pip(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.pip(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.pip(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.raw":
-            res = {"category": "cmd_exec", "data": {}, "resolved_data": []}
-            res["data"] = self.raw(options, resolved_variables)
+            res = RiskAnnotation(type=self.type, category=RiskType.CMD_EXEC)
+            res.data = self.raw(options, resolved_variables)
             for ro in resolved_options:
-                res["resolved_data"].append(self.raw(ro, resolved_variables))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.raw(ro, resolved_variables))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.reboot":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.reboot(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.reboot(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.reboot(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.reboot(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.replace":
-            res = {"category": "file_change", "data": {}, "resolved_data": []}
-            res["data"] = self.replace(options)
+            res = RiskAnnotation(type=self.type, category=RiskType.FILE_CHANGE)
+            res.data = self.replace(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.replace(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.replace(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.rpm_key":
-            res = {"category": "file_change", "data": {}, "resolved_data": []}
-            res["data"] = self.rpm_key(options)
+            res = RiskAnnotation(type=self.type, category=RiskType.FILE_CHANGE)
+            res.data = self.rpm_key(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.rpm_key(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.rpm_key(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.script":
-            res = {"category": "cmd_exec", "data": {}, "resolved_data": []}
-            res["data"] = self.script(options, resolved_variables)
+            res = RiskAnnotation(type=self.type, category=RiskType.CMD_EXEC)
+            res.data = self.script(options, resolved_variables)
             for ro in resolved_options:
-                res["resolved_data"].append(
-                    self.script(ro, resolved_variables)
-                )
-            analyzed_data.append(res)
+                res.resolved_data.append(self.script(ro, resolved_variables))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.service":
-            res = {
-                "category": "system_change",
-                "data": {},
-                "resolved_data": [],
-            }
-            res["data"] = self.service(options)
+            res = RiskAnnotation(type=self.type, category=RiskType.SYSTEM_CHANGE)
+            res.data = self.service(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.service(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.service(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.service_facts":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.service_facts(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.service_facts(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.service_facts(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.service_facts(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.set_fact":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.set_fact(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.set_fact(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.set_fact(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.set_fact(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.set_stats":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.set_stats(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.set_stats(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.set_stats(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.set_stats(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.setup":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.setup(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.setup(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.setup(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.setup(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.slurp":
-            res = {
-                "category": "inbound_transfer",
-                "data": {},
-                "resolved_data": [],
-            }
-            res["data"] = self.slurp(options)
+            res = RiskAnnotation(type=self.type, category=RiskType.INBOUND)
+            res.data = self.slurp(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.slurp(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.slurp(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.stat":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.stat(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.stat(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.stat(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.stat(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.subversion":
-            res = {
-                "category": "inbound_transfer",
-                "data": {},
-                "resolved_data": [],
-            }
-            res["data"] = self.subversion(options)
+            res = RiskAnnotation(type=self.type, category=RiskType.INBOUND)
+            res.data = self.subversion(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.subversion(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.subversion(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.sysvinit":
-            res = {
-                "category": "system_change",
-                "data": {},
-                "resolved_data": [],
-            }
-            res["data"] = self.sysvinit(options)
+            res = RiskAnnotation(type=self.type, category=RiskType.SYSTEM_CHANGE)
+            res.data = self.sysvinit(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.sysvinit(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.sysvinit(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.systemd":
-            res = {
-                "category": "system_change",
-                "data": {},
-                "resolved_data": [],
-            }
-            res["data"] = self.systemd(options)
+            res = RiskAnnotation(type=self.type, category=RiskType.SYSTEM_CHANGE)
+            res.data = self.systemd(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.systemd(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.systemd(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.tempfile":
-            res = {"category": "file_change", "data": {}, "resolved_data": []}
-            res["data"] = self.tempfile(options)
+            res = RiskAnnotation(type=self.type, category=RiskType.FILE_CHANGE)
+            res.data = self.tempfile(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.tempfile(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.tempfile(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.template":
-            res = {"category": "file_change", "data": {}, "resolved_data": []}
-            res["data"] = self.template(options)
+            res = RiskAnnotation(type=self.type, category=RiskType.FILE_CHANGE)
+            res.data = self.template(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.template(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.template(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.unarchive":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"], res["category"] = self.unarchive(
-                options, resolved_options, mutable_vars_per_mo
-            )
+            res = RiskAnnotation(type=self.type)
+            res.data, res.category = self.unarchive(options, resolved_options, mutable_vars_per_mo)
             for ro in resolved_options:
-                rores, _ = self.unarchive(
-                    ro, resolved_options, mutable_vars_per_mo
-                )
-                res["resolved_data"].append(rores)
-            analyzed_data.append(res)
+                rores, _ = self.unarchive(ro, resolved_options, mutable_vars_per_mo)
+                res.resolved_data.append(rores)
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.uri":
-            res = {
-                "category": "inbound_transfer",
-                "data": {},
-                "resolved_data": [],
-            }
-            res["data"], res["category"] = self.uri(
-                options, mutable_vars_per_mo
-            )
+            res = RiskAnnotation(type=self.type, category=RiskType.INBOUND)
+            res.data, res.category = self.uri(options, mutable_vars_per_mo)
             for ro in resolved_options:
                 rd, c = self.uri(ro, mutable_vars_per_mo)
-                res["resolved_data"].append(rd)
-            analyzed_data.append(res)
+                res.resolved_data.append(rd)
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.user":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.user(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.user(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.user(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.user(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.validate_argument_spec":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.validate_argument_spec(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.validate_argument_spec(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.validate_argument_spec(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.validate_argument_spec(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.wait_for":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.wait_for(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.wait_for(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.wait_for(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.wait_for(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.wait_for_connection":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.wait_for_connection(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.wait_for_connection(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.wait_for_connection(ro))
-            res = self.wait_for_connection(task)
-            analyzed_data.append(res)
+                res.resolved_data.append(self.wait_for_connection(ro))
+            res = self.wait_for_connection(taskcall)
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.yum":
-            res = {
-                "category": "package_install",
-                "data": {},
-                "resolved_data": [],
-            }
-            res["data"] = self.yum(options)
+            res = RiskAnnotation(type=self.type, category=RiskType.PACKAGE_INSTALL)
+            res.data = self.yum(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.yum(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.yum(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.yum_repository":
-            res = {"category": "", "data": {}, "resolved_data": []}
-            res["data"] = self.yum_repository(options)
+            res = RiskAnnotation(type=self.type)
+            res.data = self.yum_repository(options)
             for ro in resolved_options:
-                res["resolved_data"].append(self.yum_repository(ro))
-            analyzed_data.append(res)
+                res.resolved_data.append(self.yum_repository(ro))
+            annotations.append(res)
 
         if resolved_name == "ansible.builtin.shell":
-            res = {"category": "cmd_exec", "data": {}, "resolved_data": []}
-            res["data"] = self.shell(options, resolved_variables)
+            res = RiskAnnotation(type=self.type, category=RiskType.CMD_EXEC)
+            res.data = self.shell(options, resolved_variables)
             for ro in resolved_options:
-                res["resolved_data"].append(
-                    self.shell(ro, resolved_variables)
-                )
-            analyzed_data.append(res)
+                res.resolved_data.append(self.shell(ro, resolved_variables))
+            annotations.append(res)
 
-        if len(analyzed_data) != 0:
+        if len(annotations) != 0:
             # root
-            res = self.root(task)
-            if res["data"]["root"]:
-                analyzed_data.append(res)
+            res = self.root(taskcall)
+            if res.data["root"]:
+                annotations.append(res)
 
-        task["analyzed_data"] = analyzed_data
+        return annotations
 
-        return task
-
-    def root(self, task):
+    def root(self, taskcall: TaskCall):
         is_root = False
-        if "become" in task["options"] and task["options"]["become"]:
+        if "become" in taskcall.spec.options and taskcall.spec.options["become"]:
             is_root = True
-        res = {"category": "privilege_escalation", "data": {"root": is_root}}
+        res = RiskAnnotation(
+            type=self.type,
+            category=RiskType.PRIVILEGE_ESCALATION,
+            data={"root": is_root},
+        )
         return res
 
     def get_url(self, options, mutable_vars_per_mo):
@@ -572,27 +494,20 @@ class AnsibleBuiltinExtractor(Extractor):
             mutable_vars_per_type["src"] = mutable_vars_per_mo.get("url", [])
         if "dest" in options:
             data["dest"] = options["dest"]
-            mutable_vars_per_type["dest"] = mutable_vars_per_mo.get(
-                "dest", []
-            )
+            mutable_vars_per_type["dest"] = mutable_vars_per_mo.get("dest", [])
         if "mode" in options:
             # todo: check if octal number
             data["mode"] = options["mode"]
         if "checksum" in options:
             data["checksum"] = options["checksum"]
         if "validate_certs" in options:
-            if (
-                not options["validate_certs"]
-                or options["validate_certs"] == "no"
-            ):
+            if not options["validate_certs"] or options["validate_certs"] == "no":
                 data["validate_certs"] = False
         # injection risk
         if "src" in data and type(data["src"]) is str:
             mutable_vars = mutable_vars_per_type.get("src", [])
             if len(mutable_vars) > 0:
-                data = self.embed_mutable_vars(
-                    data, mutable_vars, "undetermined_src", "mutable_src_vars"
-                )
+                data = self.embed_mutable_vars(data, mutable_vars, "undetermined_src", "mutable_src_vars")
         if "dest" in data and type(data["dest"]) is str:
             mutable_vars = mutable_vars_per_type.get("dest", [])
             if len(mutable_vars) > 0:
@@ -625,9 +540,7 @@ class AnsibleBuiltinExtractor(Extractor):
                 data["cmd"] = options["argv"]
         for rv in resolved_variables:
             if "cmd" in data and type(data["cmd"]) is str:
-                data, undetermined = self.resolved_variable_check(
-                    data, data["cmd"], rv
-                )
+                data, undetermined = self.resolved_variable_check(data, data["cmd"], rv)
                 if undetermined:
                     data["undetermined_cmd"] = True
         return data
@@ -644,10 +557,7 @@ class AnsibleBuiltinExtractor(Extractor):
             data["pkg"] = options["package"]
         if "deb" in options:
             data["pkg"] = options["deb"]
-        if (
-            "allow_unauthenticated" in options
-            and options["allow_unauthenticated"]
-        ):
+        if "allow_unauthenticated" in options and options["allow_unauthenticated"]:
             data["unauthenticated"] = True
         if "state" in options and options["state"] == "absent":
             data["delete"] = True
@@ -695,22 +605,18 @@ class AnsibleBuiltinExtractor(Extractor):
             data["mode"] = options["mode"]
         for rv in resolved_variables:
             if "dest" in data and type(data["dest"]) is str:
-                data, undetermined = self.resolved_variable_check(
-                    data, data["dest"], rv
-                )
+                data, undetermined = self.resolved_variable_check(data, data["dest"], rv)
                 if undetermined:
                     data["undetermined_dest"] = True
             if "src" in data and type(data["src"]) is str:
-                data, undetermined = self.resolved_variable_check(
-                    data, data["src"], rv
-                )
+                data, undetermined = self.resolved_variable_check(data, data["src"], rv)
                 if undetermined:
                     data["undetermined_src"] = True
         return data
 
     def git(self, options, mutable_vars_per_mo):
         data = {}
-        category = "inbound_transfer"
+        category = RiskType.INBOUND
         mutable_vars_per_type = {}
         if type(options) is not dict:
             return data
@@ -719,28 +625,20 @@ class AnsibleBuiltinExtractor(Extractor):
             mutable_vars_per_type["src"] = mutable_vars_per_mo.get("repo", [])
         if "dest" in options:
             data["dest"] = options["dest"]
-            mutable_vars_per_type["dest"] = mutable_vars_per_mo.get(
-                "dest", []
-            )
+            mutable_vars_per_type["dest"] = mutable_vars_per_mo.get("dest", [])
         if "version" in options:
             data["version"] = options["version"]
-        if "clone" in options and (
-            not options["clone"] or options["clone"] == "no"
-        ):
-            category = ""
+        if "clone" in options and (not options["clone"] or options["clone"] == "no"):
+            category = RiskType.NONE
             return data, category
-        if "update" in options and (
-            not options["update"] or options["update"] == "no"
-        ):
-            category = ""
+        if "update" in options and (not options["update"] or options["update"] == "no"):
+            category = RiskType.NONE
             return data, category
         # injection risk
         if "src" in data and type(data["src"]) is str:
             mutable_vars = mutable_vars_per_type.get("src", [])
             if len(mutable_vars) > 0:
-                data = self.embed_mutable_vars(
-                    data, mutable_vars, "undetermined_src", "mutable_src_vars"
-                )
+                data = self.embed_mutable_vars(data, mutable_vars, "undetermined_src", "mutable_src_vars")
         if "dest" in data and type(data["dest"]) is str:
             mutable_vars = mutable_vars_per_type.get("dest", [])
             if len(mutable_vars) > 0:
@@ -822,9 +720,7 @@ class AnsibleBuiltinExtractor(Extractor):
             data["cmd"] = options
         for rv in resolved_variables:
             if "cmd" in data and type(data["cmd"]) is str:
-                data, undetermined = self.resolved_variable_check(
-                    data, data["cmd"], rv
-                )
+                data, undetermined = self.resolved_variable_check(data, data["cmd"], rv)
                 if undetermined:
                     data["undetermined_cmd"] = True
         return data
@@ -868,9 +764,7 @@ class AnsibleBuiltinExtractor(Extractor):
             return data
         for rv in resolved_variables:
             if "cmd" in data and type(data["cmd"]) is str:
-                data, undetermined = self.resolved_variable_check(
-                    data, data["cmd"], rv
-                )
+                data, undetermined = self.resolved_variable_check(data, data["cmd"], rv)
                 if undetermined:
                     data["undetermined_cmd"] = True
         return data
@@ -917,9 +811,7 @@ class AnsibleBuiltinExtractor(Extractor):
                 data["cmd"] = options["cmd"]
         for rv in resolved_variables:
             if "cmd" in data and type(data["cmd"]) is str:
-                data, undetermined = self.resolved_variable_check(
-                    data, data["cmd"], rv
-                )
+                data, undetermined = self.resolved_variable_check(data, data["cmd"], rv)
                 if undetermined:
                     data["undetermined_cmd"] = True
         return data
@@ -991,22 +883,16 @@ class AnsibleBuiltinExtractor(Extractor):
         return data
 
     def uri(self, options, mutable_vars_per_mo):
-        category = ""
+        category = RiskType.NONE
         data = {}
         mutable_vars_per_type = {}
         if type(options) is not dict:
             return data, category
-        if "method" in options and (
-            options["method"] == "POST"
-            or options["method"] == "PUT"
-            or options["method"] == "PATCH"
-        ):
-            category = "outbound_transfer"
+        if "method" in options and (options["method"] == "POST" or options["method"] == "PUT" or options["method"] == "PATCH"):
+            category = RiskType.OUTBOUND
             if "url" in options:
                 data["dest"] = options["url"]
-                mutable_vars_per_type["dest"] = mutable_vars_per_mo.get(
-                    "url", []
-                )
+                mutable_vars_per_type["dest"] = mutable_vars_per_mo.get("url", [])
             if "dest" in data and type(data["dest"]) is str:
                 mutable_vars = mutable_vars_per_type.get("dest", [])
                 if len(mutable_vars) > 0:
@@ -1019,14 +905,10 @@ class AnsibleBuiltinExtractor(Extractor):
         elif "method" in options and options["method"] == "GET":
             if "url" in options:
                 data["src"] = options["url"]
-                mutable_vars_per_type["src"] = mutable_vars_per_mo.get(
-                    "url", []
-                )
+                mutable_vars_per_type["src"] = mutable_vars_per_mo.get("url", [])
             if "dest" in options:
                 data["dest"] = options["dest"]
-                mutable_vars_per_type["dest"] = mutable_vars_per_mo.get(
-                    "dest", []
-                )
+                mutable_vars_per_type["dest"] = mutable_vars_per_mo.get("dest", [])
             if "validate_certs" in options:
                 data["validate_certs"] = options["validate_certs"]
             if "unsafe_writes" in options:
@@ -1087,16 +969,14 @@ class AnsibleBuiltinExtractor(Extractor):
         return data
 
     def unarchive(self, options, resolved_options, mutable_vars_per_mo):
-        category = ""
+        category = RiskType.NONE
         data = {}
         mutable_vars_per_type = {}
         if type(options) is not dict:
             return data, category
         if "dest" in options:
             data["dest"] = options["dest"]
-            mutable_vars_per_type["dest"] = mutable_vars_per_mo.get(
-                "dest", []
-            )
+            mutable_vars_per_type["dest"] = mutable_vars_per_mo.get("dest", [])
         if "src" in options:
             data["src"] = options["src"]
             mutable_vars_per_type["src"] = mutable_vars_per_mo.get("src", [])
@@ -1109,33 +989,19 @@ class AnsibleBuiltinExtractor(Extractor):
 
         # set category
         # if remote_src=yes and src contains :// => inbound_transfer
-        if "remote_src" in data and (
-            data["remote_src"] == "yes" or data["remote_src"]
-        ):
-            if (
-                "src" in data
-                and type(data["src"]) is str
-                and "://" in data["src"]
-            ):
-                category = "inbound_transfer"
+        if "remote_src" in data and (data["remote_src"] == "yes" or data["remote_src"]):
+            if "src" in data and type(data["src"]) is str and "://" in data["src"]:
+                category = RiskType.INBOUND
         # check resolved option
         for ro in resolved_options:
-            if "remote_src" in ro and (
-                ro["remote_src"] == "yes" or ro["remote_src"]
-            ):
-                if (
-                    "src" in ro
-                    and type(ro["src"]) is str
-                    and "://" in ro["src"]
-                ):
-                    category = "inbound_transfer"
+            if "remote_src" in ro and (ro["remote_src"] == "yes" or ro["remote_src"]):
+                if "src" in ro and type(ro["src"]) is str and "://" in ro["src"]:
+                    category = RiskType.INBOUND
 
         if "src" in data and type(data["src"]) is str:
             mutable_vars = mutable_vars_per_type.get("src", [])
             if len(mutable_vars) > 0:
-                data = self.embed_mutable_vars(
-                    data, mutable_vars, "undetermined_src", "mutable_src_vars"
-                )
+                data = self.embed_mutable_vars(data, mutable_vars, "undetermined_src", "mutable_src_vars")
         if "dest" in data and type(data["dest"]) is str:
             mutable_vars = mutable_vars_per_type.get("dest", [])
             if len(mutable_vars) > 0:
@@ -1174,9 +1040,7 @@ class AnsibleBuiltinExtractor(Extractor):
                 data["cmd"] = options["command"]
         for rv in resolved_variables:
             if "cmd" in data and type(data["cmd"]) is str:
-                data, undetermined = self.resolved_variable_check(
-                    data, data["cmd"], rv
-                )
+                data, undetermined = self.resolved_variable_check(data, data["cmd"], rv)
                 if undetermined:
                     data["undetermined_cmd"] = True
         return data
@@ -1227,9 +1091,7 @@ class AnsibleBuiltinExtractor(Extractor):
             return data
         for rv in resolved_variables:
             if "file" in data and type(data["file"]) is str:
-                data, undetermined = self.resolved_variable_check(
-                    data, data["file"], rv
-                )
+                data, undetermined = self.resolved_variable_check(data, data["file"], rv)
                 if undetermined:
                     data["undetermined_file"] = True
         return data
