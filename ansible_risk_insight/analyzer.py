@@ -36,11 +36,11 @@ def analyze(taskcalls_in_trees: List[TaskCallsInTree]):
             continue
         for j, taskcall in enumerate(taskcalls_in_tree.taskcalls):
             annotator = None
-            for risk_annotator in _annotators:
-                if not risk_annotator.enabled:
+            for ax in _annotators:
+                if not ax.enabled:
                     continue
-                if risk_annotator.match(taskcall=taskcall):
-                    annotator = risk_annotator
+                if ax.match(taskcall=taskcall):
+                    annotator = ax
                     break
             if annotator is None:
                 continue
