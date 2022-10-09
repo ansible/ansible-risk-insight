@@ -2,15 +2,15 @@ import argparse
 import json
 import logging
 from typing import List
-from ansible_risk_insight import risk_annotators
+from ansible_risk_insight import annotators
 from .models import TaskCallsInTree
 
 
-def load_risk_annotators():
-    _risk_annotators = []
-    for annotator in risk_annotators.__all__:
-        _risk_annotators.append(getattr(risk_annotators, annotator)())
-    return _risk_annotators
+def load_annotators():
+    _annotators = []
+    for annotator in annotators.__all__:
+        _annotators.append(getattr(annotators, annotator)())
+    return _annotators
 
 
 def load_taskcalls_in_trees(path: str) -> List[TaskCallsInTree]:
@@ -28,7 +28,7 @@ def load_taskcalls_in_trees(path: str) -> List[TaskCallsInTree]:
 
 def analyze(taskcalls_in_trees: List[TaskCallsInTree]):
     # risk annotator
-    risk_annotators = load_risk_annotators()
+    _annotators = load_annotators()
 
     num = len(taskcalls_in_trees)
     for i, taskcalls_in_tree in enumerate(taskcalls_in_trees):
@@ -36,7 +36,7 @@ def analyze(taskcalls_in_trees: List[TaskCallsInTree]):
             continue
         for j, taskcall in enumerate(taskcalls_in_tree.taskcalls):
             annotator = None
-            for risk_annotator in risk_annotators:
+            for risk_annotator in _annotators:
                 if not risk_annotator.enabled:
                     continue
                 if risk_annotator.match(taskcall=taskcall):
