@@ -10,6 +10,7 @@ from .models import (
     Collection,
     TaskFile,
     Task,
+    TaskCall,
     InventoryType,
     Object,
     CallObject,
