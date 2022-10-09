@@ -1,24 +1,12 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
 repos:
-- repo: "https://github.com/ambv/black"
-  rev: "stable"
-  hooks:
-  - id: "black"
-    language_version: "python3"
-    args:
-      - --line-length=150
-      - --include='\.pyi?$'
-      - --exclude="""\.git |
-        \.hg|
-        \.mypy_cache|
-        \.tox|
-        \.venv|
-        _build|
-        buck-out|
-        build|
-        dist
-        """
-
-- repo: "https://github.com/pre-commit/pre-commit-hooks"
-  rev: "v1.2.3"
-  hooks:
-  - id: "flake8"
+-   repo: https://github.com/psf/black
+    rev: 22.10.0
+    hooks:
+    - id: black
+      language_version: python3
+-   repo: https://github.com/pycqa/flake8
+    rev: 5.0.4
+    hooks:
+    - id: flake8

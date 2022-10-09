@@ -2,7 +2,6 @@ from typing import List
 from .keyutil import detect_type
 from .models import (
     ObjectList,
-    ExecutableType,
     Repository,
     Playbook,
     Role,
@@ -10,7 +9,6 @@ from .models import (
     Annotation,
     VariableAnnotation,
 )
-from .tree import TreeNode
 from .context import Context, resolve_module_options
 from .annotator_base import Annotator
 
@@ -66,50 +64,34 @@ def tree_to_task_list(tree, node_objects):
 
         # obj["children_types"] = list(children_per_type.keys())
         if "playbook" in children_per_type:
-            tasks_per_children = [
-                getSubTree(c) for c in children_per_type["playbook"]
-            ]
+            tasks_per_children = [getSubTree(c) for c in children_per_type["playbook"]]
             for (_tasks, _) in tasks_per_children:
                 children_tasks.extend(_tasks)
         if "play" in children_per_type:
-            tasks_per_children = [
-                getSubTree(c) for c in children_per_type["play"]
-            ]
+            tasks_per_children = [getSubTree(c) for c in children_per_type["play"]]
             for (_tasks, _) in tasks_per_children:
                 children_tasks.extend(_tasks)
         if "role" in children_per_type:
-            tasks_per_children = [
-                getSubTree(c) for c in children_per_type["role"]
-            ]
+            tasks_per_children = [getSubTree(c) for c in children_per_type["role"]]
             for (_tasks, _) in tasks_per_children:
                 children_tasks.extend(_tasks)
             if node_type == "task":
                 fqcns = [fqcn for (_, fqcn) in tasks_per_children]
                 resolved_name = fqcns[0] if len(fqcns) > 0 else ""
         if "taskfile" in children_per_type:
-            tasks_per_children = [
-                getSubTree(c) for c in children_per_type["taskfile"]
-            ]
+            tasks_per_children = [getSubTree(c) for c in children_per_type["taskfile"]]
             for (_tasks, _) in tasks_per_children:
                 children_tasks.extend(_tasks)
             if node_type == "task":
-                _tf_path_list = [
-                    _tf_path for (_, _tf_path) in tasks_per_children
-                ]
-                resolved_name = (
-                    _tf_path_list[0] if len(_tf_path_list) > 0 else ""
-                )
+                _tf_path_list = [_tf_path for (_, _tf_path) in tasks_per_children]
+                resolved_name = _tf_path_list[0] if len(_tf_path_list) > 0 else ""
         if "task" in children_per_type:
-            tasks_per_children = [
-                getSubTree(c) for c in children_per_type["task"]
-            ]
+            tasks_per_children = [getSubTree(c) for c in children_per_type["task"]]
             for (_tasks, _) in tasks_per_children:
                 children_tasks.extend(_tasks)
         if "module" in children_per_type:
             if node_type == "task":
-                fqcns = [
-                    getSubTree(c)[1] for c in children_per_type["module"]
-                ]
+                fqcns = [getSubTree(c)[1] for c in children_per_type["module"]]
                 resolved_name = fqcns[0] if len(fqcns) > 0 else ""
 
         if node_type == "task":
@@ -122,51 +104,32 @@ def tree_to_task_list(tree, node_objects):
     return tasks
 
 
-def resolve_variables(tree: TreeNode, node_objects: ObjectList) -> List[TaskCall]:
-    node_dict = {}
-    for no in node_objects.items:
-        node_dict[no.key] = no
-
-    def traverse_and_resolve(node, context, depth_level=0, resolved_taskcalls=[]):
-        current_context = context.copy()
-        node_type = detect_type(node.key)
-        obj = node_dict[node.key]
-        current_context.add(obj, depth_level)
-        if node_type == "task":
-            task = obj
-            # insert "resolved_name" to task obj
-            if len(node.children) > 0:
-                c = node.children[0]
-                c_obj = node_dict.get(c.key, None)
-                if c_obj is not None:
-                    if task.executable_type == ExecutableType.MODULE_TYPE:
-                        task.resolved_name = c_obj.fqcn
-                    elif task.executable_type == ExecutableType.ROLE_TYPE:
-                        task.resolved_name = c_obj.fqcn
-                    elif task.executable_type == ExecutableType.TASKFILE_TYPE:
-                        task.resolved_name = c_obj.key
-            taskcall = TaskCall.from_task(task)
-            var_annos = VariableAnnotator(context=current_context).run(taskcall)
-            taskcall.annotations.extend(var_annos)
-            resolved_taskcalls.append(taskcall)
-        for c in node.children:
-            resolved_taskcalls, current_context = traverse_and_resolve(
-                c, current_context, depth_level + 1, resolved_taskcalls
-            )
-        return resolved_taskcalls, current_context
-
-    # if load type is "project", it might have inventories
-    # otherwise, it will be just an empty list
-    inventories = get_inventories(tree.key, node_objects)
-    initial_context = Context(inventories=inventories)
-    resolved_taskcalls, _ = traverse_and_resolve(tree, initial_context)
-
+def resolve_variables(tree: ObjectList, additional: ObjectList) -> List[TaskCall]:
+    tree_root_key = tree.items[0].spec.key if len(tree.items) > 0 else ""
+    inventories = get_inventories(tree_root_key, additional)
+    context = Context(inventories=inventories)
+    depth_dict = {}
+    resolved_taskcalls = []
+    for call_obj in tree.items:
+        caller_depth_lvl = 0
+        if call_obj.called_from != "":
+            caller_key = call_obj.called_from
+            caller_depth_lvl = depth_dict.get(caller_key, 0)
+        depth_lvl = caller_depth_lvl + 1
+        depth_dict[call_obj.key] = depth_lvl
+        context.add(call_obj, depth_lvl)
+        if isinstance(call_obj, TaskCall):
+            var_annos = VariableAnnotator(context=context).run(call_obj)
+            call_obj.annotations.extend(var_annos)
+            resolved_taskcalls.append(call_obj)
     return resolved_taskcalls
 
 
-def get_inventories(tree_root_key, node_objects):
+def get_inventories(tree_root_key, additional):
+    if tree_root_key == "":
+        return []
     tree_root_type = detect_type(tree_root_key)
-    projects = node_objects.find_by_type("repository")
+    projects = additional.find_by_type("repository")
     inventories = []
     found = False
     for p in projects:

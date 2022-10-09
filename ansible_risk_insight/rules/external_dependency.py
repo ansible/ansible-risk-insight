@@ -25,10 +25,10 @@ class ExternalDependencyRule(Rule):
         message = ""
         external_dependencies = []
         for taskcall in taskcalls:
-            executable_type = taskcall.executable_type
+            executable_type = taskcall.spec.executable_type
             if executable_type != ExecutableType.MODULE_TYPE:
                 continue
-            resolved_name = taskcall.resolved_name
+            resolved_name = taskcall.spec.resolved_name
             if resolved_name == "":
                 continue
             if resolved_name.startswith("ansible.builtin."):

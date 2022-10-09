@@ -15,7 +15,7 @@ class SampleCustomRule(Rule):
         message = ""
         # define a condition for this rule here
         for taskcall in taskcalls:
-            if taskcall.name == "":
+            if taskcall.spec.name == "":
                 matched_tasks.append(taskcall)
         message = "{} task(s) don't have the names".format(len(matched_tasks))
         # end of the condition

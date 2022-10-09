@@ -10,15 +10,15 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
     enabled: bool = True
 
     def match(self, taskcall: TaskCall) -> bool:
-        resolved_name = taskcall.resolved_name
+        resolved_name = taskcall.spec.resolved_name
         return resolved_name.startswith("ansible.builtin.")
 
     # embed "analyzed_data" field in Task
     def run(self, taskcall: TaskCall) -> List[Annotation]:
         if not self.match(taskcall):
             return taskcall
-        resolved_name = taskcall.resolved_name
-        options = taskcall.module_options
+        resolved_name = taskcall.spec.resolved_name
+        options = taskcall.spec.module_options
         var_annos = taskcall.get_annotation_by_type(VARIABLE_ANNOTATION_TYPE)
         var_anno = var_annos[0] if len(var_annos) > 0 else VariableAnnotation()
         resolved_options = var_anno.resolved_module_options
@@ -31,9 +31,7 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
             res = RiskAnnotation(type=self.type, category=RiskType.INBOUND)
             res.data = self.get_url(options, mutable_vars_per_mo)
             for ro in resolved_options:
-                res.resolved_data.append(
-                    self.get_url(ro, mutable_vars_per_mo)
-                )
+                res.resolved_data.append(self.get_url(ro, mutable_vars_per_mo))
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.fetch":
@@ -402,13 +400,9 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
 
         if resolved_name == "ansible.builtin.unarchive":
             res = RiskAnnotation(type=self.type)
-            res.data, res.category = self.unarchive(
-                options, resolved_options, mutable_vars_per_mo
-            )
+            res.data, res.category = self.unarchive(options, resolved_options, mutable_vars_per_mo)
             for ro in resolved_options:
-                rores, _ = self.unarchive(
-                    ro, resolved_options, mutable_vars_per_mo
-                )
+                rores, _ = self.unarchive(ro, resolved_options, mutable_vars_per_mo)
                 res.resolved_data.append(rores)
             annotations.append(res)
 
@@ -480,7 +474,7 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
 
     def root(self, taskcall: TaskCall):
         is_root = False
-        if "become" in taskcall.options and taskcall.options["become"]:
+        if "become" in taskcall.spec.options and taskcall.spec.options["become"]:
             is_root = True
         res = RiskAnnotation(
             type=self.type,
@@ -500,27 +494,20 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
             mutable_vars_per_type["src"] = mutable_vars_per_mo.get("url", [])
         if "dest" in options:
             data["dest"] = options["dest"]
-            mutable_vars_per_type["dest"] = mutable_vars_per_mo.get(
-                "dest", []
-            )
+            mutable_vars_per_type["dest"] = mutable_vars_per_mo.get("dest", [])
         if "mode" in options:
             # todo: check if octal number
             data["mode"] = options["mode"]
         if "checksum" in options:
             data["checksum"] = options["checksum"]
         if "validate_certs" in options:
-            if (
-                not options["validate_certs"]
-                or options["validate_certs"] == "no"
-            ):
+            if not options["validate_certs"] or options["validate_certs"] == "no":
                 data["validate_certs"] = False
         # injection risk
         if "src" in data and type(data["src"]) is str:
             mutable_vars = mutable_vars_per_type.get("src", [])
             if len(mutable_vars) > 0:
-                data = self.embed_mutable_vars(
-                    data, mutable_vars, "undetermined_src", "mutable_src_vars"
-                )
+                data = self.embed_mutable_vars(data, mutable_vars, "undetermined_src", "mutable_src_vars")
         if "dest" in data and type(data["dest"]) is str:
             mutable_vars = mutable_vars_per_type.get("dest", [])
             if len(mutable_vars) > 0:
@@ -553,9 +540,7 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
                 data["cmd"] = options["argv"]
         for rv in resolved_variables:
             if "cmd" in data and type(data["cmd"]) is str:
-                data, undetermined = self.resolved_variable_check(
-                    data, data["cmd"], rv
-                )
+                data, undetermined = self.resolved_variable_check(data, data["cmd"], rv)
                 if undetermined:
                     data["undetermined_cmd"] = True
         return data
@@ -572,10 +557,7 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
             data["pkg"] = options["package"]
         if "deb" in options:
             data["pkg"] = options["deb"]
-        if (
-            "allow_unauthenticated" in options
-            and options["allow_unauthenticated"]
-        ):
+        if "allow_unauthenticated" in options and options["allow_unauthenticated"]:
             data["unauthenticated"] = True
         if "state" in options and options["state"] == "absent":
             data["delete"] = True
@@ -623,15 +605,11 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
             data["mode"] = options["mode"]
         for rv in resolved_variables:
             if "dest" in data and type(data["dest"]) is str:
-                data, undetermined = self.resolved_variable_check(
-                    data, data["dest"], rv
-                )
+                data, undetermined = self.resolved_variable_check(data, data["dest"], rv)
                 if undetermined:
                     data["undetermined_dest"] = True
             if "src" in data and type(data["src"]) is str:
-                data, undetermined = self.resolved_variable_check(
-                    data, data["src"], rv
-                )
+                data, undetermined = self.resolved_variable_check(data, data["src"], rv)
                 if undetermined:
                     data["undetermined_src"] = True
         return data
@@ -647,28 +625,20 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
             mutable_vars_per_type["src"] = mutable_vars_per_mo.get("repo", [])
         if "dest" in options:
             data["dest"] = options["dest"]
-            mutable_vars_per_type["dest"] = mutable_vars_per_mo.get(
-                "dest", []
-            )
+            mutable_vars_per_type["dest"] = mutable_vars_per_mo.get("dest", [])
         if "version" in options:
             data["version"] = options["version"]
-        if "clone" in options and (
-            not options["clone"] or options["clone"] == "no"
-        ):
+        if "clone" in options and (not options["clone"] or options["clone"] == "no"):
             category = RiskType.NONE
             return data, category
-        if "update" in options and (
-            not options["update"] or options["update"] == "no"
-        ):
+        if "update" in options and (not options["update"] or options["update"] == "no"):
             category = RiskType.NONE
             return data, category
         # injection risk
         if "src" in data and type(data["src"]) is str:
             mutable_vars = mutable_vars_per_type.get("src", [])
             if len(mutable_vars) > 0:
-                data = self.embed_mutable_vars(
-                    data, mutable_vars, "undetermined_src", "mutable_src_vars"
-                )
+                data = self.embed_mutable_vars(data, mutable_vars, "undetermined_src", "mutable_src_vars")
         if "dest" in data and type(data["dest"]) is str:
             mutable_vars = mutable_vars_per_type.get("dest", [])
             if len(mutable_vars) > 0:
@@ -750,9 +720,7 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
             data["cmd"] = options
         for rv in resolved_variables:
             if "cmd" in data and type(data["cmd"]) is str:
-                data, undetermined = self.resolved_variable_check(
-                    data, data["cmd"], rv
-                )
+                data, undetermined = self.resolved_variable_check(data, data["cmd"], rv)
                 if undetermined:
                     data["undetermined_cmd"] = True
         return data
@@ -796,9 +764,7 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
             return data
         for rv in resolved_variables:
             if "cmd" in data and type(data["cmd"]) is str:
-                data, undetermined = self.resolved_variable_check(
-                    data, data["cmd"], rv
-                )
+                data, undetermined = self.resolved_variable_check(data, data["cmd"], rv)
                 if undetermined:
                     data["undetermined_cmd"] = True
         return data
@@ -845,9 +811,7 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
                 data["cmd"] = options["cmd"]
         for rv in resolved_variables:
             if "cmd" in data and type(data["cmd"]) is str:
-                data, undetermined = self.resolved_variable_check(
-                    data, data["cmd"], rv
-                )
+                data, undetermined = self.resolved_variable_check(data, data["cmd"], rv)
                 if undetermined:
                     data["undetermined_cmd"] = True
         return data
@@ -924,17 +888,11 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
         mutable_vars_per_type = {}
         if type(options) is not dict:
             return data, category
-        if "method" in options and (
-            options["method"] == "POST"
-            or options["method"] == "PUT"
-            or options["method"] == "PATCH"
-        ):
+        if "method" in options and (options["method"] == "POST" or options["method"] == "PUT" or options["method"] == "PATCH"):
             category = RiskType.OUTBOUND
             if "url" in options:
                 data["dest"] = options["url"]
-                mutable_vars_per_type["dest"] = mutable_vars_per_mo.get(
-                    "url", []
-                )
+                mutable_vars_per_type["dest"] = mutable_vars_per_mo.get("url", [])
             if "dest" in data and type(data["dest"]) is str:
                 mutable_vars = mutable_vars_per_type.get("dest", [])
                 if len(mutable_vars) > 0:
@@ -947,14 +905,10 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
         elif "method" in options and options["method"] == "GET":
             if "url" in options:
                 data["src"] = options["url"]
-                mutable_vars_per_type["src"] = mutable_vars_per_mo.get(
-                    "url", []
-                )
+                mutable_vars_per_type["src"] = mutable_vars_per_mo.get("url", [])
             if "dest" in options:
                 data["dest"] = options["dest"]
-                mutable_vars_per_type["dest"] = mutable_vars_per_mo.get(
-                    "dest", []
-                )
+                mutable_vars_per_type["dest"] = mutable_vars_per_mo.get("dest", [])
             if "validate_certs" in options:
                 data["validate_certs"] = options["validate_certs"]
             if "unsafe_writes" in options:
@@ -1022,9 +976,7 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
             return data, category
         if "dest" in options:
             data["dest"] = options["dest"]
-            mutable_vars_per_type["dest"] = mutable_vars_per_mo.get(
-                "dest", []
-            )
+            mutable_vars_per_type["dest"] = mutable_vars_per_mo.get("dest", [])
         if "src" in options:
             data["src"] = options["src"]
             mutable_vars_per_type["src"] = mutable_vars_per_mo.get("src", [])
@@ -1037,33 +989,19 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
 
         # set category
         # if remote_src=yes and src contains :// => inbound_transfer
-        if "remote_src" in data and (
-            data["remote_src"] == "yes" or data["remote_src"]
-        ):
-            if (
-                "src" in data
-                and type(data["src"]) is str
-                and "://" in data["src"]
-            ):
+        if "remote_src" in data and (data["remote_src"] == "yes" or data["remote_src"]):
+            if "src" in data and type(data["src"]) is str and "://" in data["src"]:
                 category = RiskType.INBOUND
         # check resolved option
         for ro in resolved_options:
-            if "remote_src" in ro and (
-                ro["remote_src"] == "yes" or ro["remote_src"]
-            ):
-                if (
-                    "src" in ro
-                    and type(ro["src"]) is str
-                    and "://" in ro["src"]
-                ):
+            if "remote_src" in ro and (ro["remote_src"] == "yes" or ro["remote_src"]):
+                if "src" in ro and type(ro["src"]) is str and "://" in ro["src"]:
                     category = RiskType.INBOUND
 
         if "src" in data and type(data["src"]) is str:
             mutable_vars = mutable_vars_per_type.get("src", [])
             if len(mutable_vars) > 0:
-                data = self.embed_mutable_vars(
-                    data, mutable_vars, "undetermined_src", "mutable_src_vars"
-                )
+                data = self.embed_mutable_vars(data, mutable_vars, "undetermined_src", "mutable_src_vars")
         if "dest" in data and type(data["dest"]) is str:
             mutable_vars = mutable_vars_per_type.get("dest", [])
             if len(mutable_vars) > 0:
@@ -1102,9 +1040,7 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
                 data["cmd"] = options["command"]
         for rv in resolved_variables:
             if "cmd" in data and type(data["cmd"]) is str:
-                data, undetermined = self.resolved_variable_check(
-                    data, data["cmd"], rv
-                )
+                data, undetermined = self.resolved_variable_check(data, data["cmd"], rv)
                 if undetermined:
                     data["undetermined_cmd"] = True
         return data
@@ -1155,9 +1091,7 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
             return data
         for rv in resolved_variables:
             if "file" in data and type(data["file"]) is str:
-                data, undetermined = self.resolved_variable_check(
-                    data, data["file"], rv
-                )
+                data, undetermined = self.resolved_variable_check(data, data["file"], rv)
                 if undetermined:
                     data["undetermined_file"] = True
         return data

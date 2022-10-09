@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import List
+from copy import deepcopy
 import json
 import jsonpickle
 import logging
@@ -12,6 +13,7 @@ from .keyutil import (
     set_role_key,
     set_task_key,
     set_taskfile_key,
+    set_call_object_key,
 )
 
 logging.basicConfig()
@@ -93,19 +95,14 @@ class Load(JSONSerializable):
     modules: list = field(default_factory=list)
 
 
-# def get_repo_root(filepath):
-#     git_root = ""
-#     try:
-#         repo = git.Repo(path=filepath, search_parent_directories=True)
-#         git_root = repo.git.rev_parse("--show-toplevel")
-#     except:
-#         # this path may not be a git repository
-#         return ""
-#     return git_root
+@dataclass
+class Object(JSONSerializable):
+    type: str = ""
+    key: str = ""
 
 
 @dataclass
-class ObjectList(Resolvable):
+class ObjectList(JSONSerializable):
     items: list = field(default_factory=list)
     _dict: dict = field(default_factory=dict)
 
@@ -118,6 +115,9 @@ class ObjectList(Resolvable):
         if fpath != "":
             open(fpath, "w").write(json_str)
         return json_str
+
+    def to_one_line_json(self):
+        return jsonpickle.encode(self.items, make_refs=False)
 
     def from_json(self, json_str="", fpath=""):
         if fpath != "":
@@ -138,9 +138,10 @@ class ObjectList(Resolvable):
     #     objlist._update_dict()
     #     return objlist
 
-    def add(self, obj):
+    def add(self, obj, update_dict=True):
         self.items.append(obj)
-        self._update_dict()
+        if update_dict:
+            self._update_dict()
         return
 
     def merge(self, obj_list):
@@ -165,6 +166,9 @@ class ObjectList(Resolvable):
             key = obj.key
         return self.find_by_key(key) is not None
 
+    def update_dict(self):
+        self._update_dict()
+
     def _update_dict(self):
         for obj in self.items:
             if obj.key not in self._dict:
@@ -177,7 +181,26 @@ class ObjectList(Resolvable):
 
 
 @dataclass
-class Module(JSONSerializable, Resolvable):
+class CallObject(JSONSerializable):
+    type: str = ""
+    key: str = ""
+    called_from: str = ""
+    spec: Object = Object()
+
+    @classmethod
+    def from_spec(cls, spec, caller):
+        instance = cls()
+        instance.spec = deepcopy(spec)
+        caller_key = "None"
+        if caller is not None:
+            instance.called_from = caller.key
+            caller_key = caller.key
+        instance.key = set_call_object_key(cls.__name__.lower(), spec.key, caller_key)
+        return instance
+
+
+@dataclass
+class Module(Object, Resolvable):
     type: str = "module"
     name: str = ""
     fqcn: str = ""
@@ -203,7 +226,12 @@ class Module(JSONSerializable, Resolvable):
 
 
 @dataclass
-class Collection(JSONSerializable, Resolvable):
+class ModuleCall(CallObject, Resolvable):
+    type: str = "modulecall"
+
+
+@dataclass
+class Collection(Object, Resolvable):
     type: str = "collection"
     name: str = ""
     path: str = ""
@@ -245,6 +273,11 @@ class Collection(JSONSerializable, Resolvable):
 
 
 @dataclass
+class CollectionCall(CallObject, Resolvable):
+    type: str = "collectioncall"
+
+
+@dataclass
 class TaskCallsInTree(JSONSerializable):
     root_key: str = ""
     taskcalls: list = field(default_factory=list)
@@ -276,7 +309,7 @@ class ExecutableType:
 
 
 @dataclass
-class Task(JSONSerializable, Resolvable):
+class Task(Object, Resolvable):
     type: str = "task"
     name: str = ""
     module: str = ""
@@ -409,26 +442,23 @@ class Task(JSONSerializable, Resolvable):
 
 
 @dataclass
-class TaskCall(Task):
+class TaskCall(CallObject):
+    type: str = "taskcall"
     # annotations are used for storing generic analysis data
     # any Annotators in "risk_annotators" dir can add them to this object
     annotations: List[Annotation] = field(default_factory=list)
-
-    @staticmethod
-    def from_task(task: Task):
-        taskcall = TaskCall()
-        for key, val in vars(task).items():
-            if hasattr(taskcall, key):
-                setattr(taskcall, key, val)
-        return taskcall
 
     def get_annotation_by_type(self, type_str=""):
         matched = [an for an in self.annotations if an.type == type_str]
         return matched
 
+    def get_annotation_by_type_and_attr(self, type_str="", key="", val=None):
+        matched = [an for an in self.annotations if an.type == type_str and getattr(an, key, None) == val]
+        return matched
+
 
 @dataclass
-class TaskFile(JSONSerializable, Resolvable):
+class TaskFile(Object, Resolvable):
     type: str = "taskfile"
     name: str = ""
     defined_in: str = ""
@@ -461,7 +491,12 @@ class TaskFile(JSONSerializable, Resolvable):
 
 
 @dataclass
-class Role(JSONSerializable, Resolvable):
+class TaskFileCall(CallObject):
+    type: str = "taskfilecall"
+
+
+@dataclass
+class Role(Object, Resolvable):
     type: str = "role"
     name: str = ""
     defined_in: str = ""
@@ -508,7 +543,12 @@ class Role(JSONSerializable, Resolvable):
 
 
 @dataclass
-class RoleInPlay(JSONSerializable, Resolvable):
+class RoleCall(CallObject):
+    type: str = "rolecall"
+
+
+@dataclass
+class RoleInPlay(Object, Resolvable):
     type: str = "roleinplay"
     name: str = ""
     options: dict = field(default_factory=dict)
@@ -532,7 +572,12 @@ class RoleInPlay(JSONSerializable, Resolvable):
 
 
 @dataclass
-class Play(JSONSerializable, Resolvable):
+class RoleInPlayCall(CallObject):
+    type: str = "roleinplaycall"
+
+
+@dataclass
+class Play(Object, Resolvable):
     type: str = "play"
     name: str = ""
     defined_in: str = ""
@@ -577,7 +622,12 @@ class Play(JSONSerializable, Resolvable):
 
 
 @dataclass
-class Playbook(JSONSerializable, Resolvable):
+class PlayCall(CallObject):
+    type: str = "playcall"
+
+
+@dataclass
+class Playbook(Object, Resolvable):
     type: str = "playbook"
     name: str = ""
     defined_in: str = ""
@@ -612,6 +662,11 @@ class Playbook(JSONSerializable, Resolvable):
             return self.roles + self.tasks
 
 
+@dataclass
+class PlaybookCall(CallObject):
+    type: str = "playbookcall"
+
+
 class InventoryType:
     GROUP_VARS_TYPE = "group_vars"
     HOST_VARS_TYPE = "host_vars"
@@ -630,7 +685,7 @@ class Inventory(JSONSerializable):
 
 
 @dataclass
-class Repository(JSONSerializable, Resolvable):
+class Repository(Object, Resolvable):
     type: str = "repository"
     name: str = ""
     path: str = ""
@@ -679,6 +734,31 @@ class Repository(JSONSerializable, Resolvable):
     @property
     def resolver_targets(self):
         return self.playbooks + self.roles + self.modules + self.installed_roles + self.installed_collections
+
+
+@dataclass
+class RepositoryCall(CallObject):
+    type: str = "repositorycall"
+
+
+def call_obj_from_spec(spec: Object, caller: CallObject):
+    if isinstance(spec, Repository):
+        return RepositoryCall.from_spec(spec, caller)
+    elif isinstance(spec, Playbook):
+        return PlaybookCall.from_spec(spec, caller)
+    elif isinstance(spec, Play):
+        return PlayCall.from_spec(spec, caller)
+    elif isinstance(spec, RoleInPlay):
+        return RoleInPlayCall.from_spec(spec, caller)
+    elif isinstance(spec, Role):
+        return RoleCall.from_spec(spec, caller)
+    elif isinstance(spec, TaskFile):
+        return TaskFileCall.from_spec(spec, caller)
+    elif isinstance(spec, Task):
+        return TaskCall.from_spec(spec, caller)
+    elif isinstance(spec, Module):
+        return ModuleCall.from_spec(spec, caller)
+    return None
 
 
 # inherit Repository just for convenience

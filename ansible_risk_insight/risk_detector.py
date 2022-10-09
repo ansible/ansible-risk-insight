@@ -13,9 +13,7 @@ from ansible_risk_insight import rules
 
 def indent(multi_line_txt, level=0):
     lines = multi_line_txt.splitlines()
-    lines = [
-        " " * level + line for line in lines if line.replace(" ", "") != ""
-    ]
+    lines = [" " * level + line for line in lines if line.replace(" ", "") != ""]
     return "\n".join(lines)
 
 
@@ -78,7 +76,7 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
 
             taskcalls = taskcalls_in_tree.taskcalls
             for taskcall in taskcalls:
-                parts = taskcall.defined_in.split("/")
+                parts = taskcall.spec.defined_in.split("/")
                 if parts[0] == "roles":
                     role_name = parts[1]
                     _mappings = role_to_playbook_mappings.get(role_name, [])
@@ -104,24 +102,17 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
                     }
             if matched:
                 if rule.separate_report:
-                    separate_report[rule_name]["matched"].append(
-                        [tree_root_type, tree_root_name, message]
-                    )
+                    tree_root_label = tree_root_type
+                    separate_report[rule_name]["matched"].append([tree_root_label, tree_root_name, message])
                 else:
                     if not is_playbook:
                         do_report = True
                         tmp_result_txt_alt += rule_name + "\n"
                         tmp_result_txt_alt += indent(message, 0) + "\n"
         if do_report and tmp_result_txt_alt != "":
-            tmp_result_txt += "#{} {} - {}\n".format(
-                report_num, tree_root_type.upper(), tree_root_name
-            )
-            used_in_playbooks = role_to_playbook_mappings.get(
-                tree_root_name, []
-            )
-            risk_found_playbooks = risk_found_playbooks.union(
-                set(used_in_playbooks)
-            )
+            tmp_result_txt += "#{} {} - {}\n".format(report_num, tree_root_type.upper(), tree_root_name)
+            used_in_playbooks = role_to_playbook_mappings.get(tree_root_name, [])
+            risk_found_playbooks = risk_found_playbooks.union(set(used_in_playbooks))
             if len(used_in_playbooks) > 0:
                 tmp_result_txt += "(used_in: {})\n".format(used_in_playbooks)
             tmp_result_txt += tmp_result_txt_alt
@@ -150,9 +141,7 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
         table_data = rule_data["matched"]
         result_txt += label + "\n"
         placeholder = subject_placeholder
-        subject = make_subject_str(
-            playbook_count["total"], role_count["total"]
-        )
+        subject = make_subject_str(playbook_count["total"], role_count["total"])
         table_txt = "  All {} are OK".format(placeholder)
         if rule.all_ok_message != "":
             table_txt = "  {}".format(rule.all_ok_message)
@@ -179,12 +168,8 @@ def main():
         default="",
         help="path to the input json (tasks_in_trees.json)",
     )
-    parser.add_argument(
-        "-o", "--output", default="", help="path to the output json"
-    )
-    parser.add_argument(
-        "-v", "--verbose", default="", help="show details during the process"
-    )
+    parser.add_argument("-o", "--output", default="", help="path to the output json")
+    parser.add_argument("-v", "--verbose", default="", help="show details during the process")
 
     args = parser.parse_args()
 

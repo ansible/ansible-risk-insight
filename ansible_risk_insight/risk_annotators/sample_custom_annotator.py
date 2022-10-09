@@ -18,8 +18,8 @@ class SampleCustomAnnotator(RiskAnnotator):
     def run(self, taskcall: TaskCall) -> List[Annotation]:
         if not self.match(taskcall):
             return taskcall
-        resolved_name = taskcall.resolved_name
-        options = taskcall.module_options
+        resolved_name = taskcall.spec.resolved_name
+        options = taskcall.spec.module_options
         var_annos = taskcall.get_annotation_by_type(VARIABLE_ANNOTATION_TYPE)
         var_anno = var_annos[0] if len(var_annos) > 0 else VariableAnnotation()
         resolved_options = var_anno.resolved_module_options
