@@ -186,7 +186,7 @@ class CallObject(JSONSerializable):
     key: str = ""
     called_from: str = ""
     spec: Object = Object()
-    
+
     @classmethod
     def from_spec(cls, spec, caller):
         instance = cls()
@@ -445,7 +445,7 @@ class Task(Object, Resolvable):
 class TaskCall(CallObject):
     type: str = "taskcall"
     # annotations are used for storing generic analysis data
-    # any Annotators in "risk_annotators" dir can add them to this object
+    # any Annotators in "annotators" dir can add them to this object
     annotations: List[Annotation] = field(default_factory=list)
 
     def get_annotation_by_type(self, type_str=""):

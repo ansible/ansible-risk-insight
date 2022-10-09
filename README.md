@@ -31,13 +31,13 @@ The location of the ARI common dir can be specified by env variable `ARI_DATA_DI
 
 ## Extensibility
 
-### Custom Extractor
+### Custom Annotator
 
-An Extractor implements a logic to derive finding from each individual task object. It implements [Extractor](src/extractors/base.py#L1-L9) class. Extractors are under [/ansible_risk_insight/extractors](ansible_risk_insight/extractors/) directory.
-- [ansible_builtin.py](ansible_risk_insight/extractors/ansible_builtin.py) : extractor for ansible.builtin modules
-- [sample_custom_extractor.py](ansible-risk-insight/extractors/ansible_builtin.py) : sample extractor for other modules
+An Annotator implements a logic to derive finding from each individual task object. It implements [Annotator](src/annotators/base.py#L1-L9) class. Annotators are under [/ansible_risk_insight/annotators](ansible_risk_insight/annotators/) directory.
+- [ansible_builtin.py](ansible_risk_insight/annotators/ansible_builtin.py) : annotator for ansible.builtin modules
+- [sample_custom_annotator.py](ansible-risk-insight/annotators/ansible_builtin.py) : sample annotator for other modules
 
 ### Custom Rule
-A Rule implements a logic to derive findings composed of multiple findings from a series of tasks. It implements [Rule](ansible_risk_insight/extractors/base.py#L1-L9) class. Rules are under [/ansible_risk_insight/rules](ansible_risk_insight/rules/) directory.
+A Rule implements a logic to derive findings composed of multiple findings from a series of tasks. It implements [Rule](ansible_risk_insight/annotators/base.py#L1-L9) class. Rules are under [/ansible_risk_insight/rules](ansible_risk_insight/rules/) directory.
 
 
