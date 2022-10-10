@@ -35,7 +35,7 @@ The location of the ARI common dir can be specified by env variable `ARI_DATA_DI
 
 An Annotator implements a logic to derive finding from each individual task object. It implements [Annotator](src/annotators/base.py#L1-L9) class. Annotators are under [/ansible_risk_insight/annotators](ansible_risk_insight/annotators/) directory.
 - [ansible_builtin.py](ansible_risk_insight/annotators/ansible_builtin.py) : annotator for ansible.builtin modules
-- [sample_custom_annotator.py](ansible-risk-insight/annotators/ansible_builtin.py) : sample annotator for other modules
+- [sample_custom_annotator.py](ansible_risk_insight/annotators/sample_custom_annotator.py) : sample annotator for other modules
 
 ### Custom Rule
 A Rule implements a logic to derive findings composed of multiple findings from a series of tasks. It implements [Rule](ansible_risk_insight/annotators/base.py#L1-L9) class. Rules are under [/ansible_risk_insight/rules](ansible_risk_insight/rules/) directory.
