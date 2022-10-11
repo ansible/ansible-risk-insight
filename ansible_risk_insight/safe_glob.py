@@ -1,3 +1,19 @@
+# -*- mode:python; coding:utf-8 -*-
+
+# Copyright (c) 2022 IBM Corp. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 import sys
 import re
@@ -12,9 +28,7 @@ def safe_glob(patterns, root_dir="", recursive=True, followlinks=False):
     elif isinstance(patterns, str):
         pattern_list = [patterns]
     else:
-        raise ValueError(
-            "patterns for safe_glob() must be str or list of str"
-        )
+        raise ValueError("patterns for safe_glob() must be str or list of str")
 
     matched_files = []
     for pattern in pattern_list:
@@ -27,18 +41,14 @@ def safe_glob(patterns, root_dir="", recursive=True, followlinks=False):
             if root_cand.endswith("/"):
                 root_cand = root_cand[:-1]  # trim "/" suffix
             else:
-                root_cand = "/".join(
-                    root_cand.split("/")[:-1]
-                )  # testdir1/testdir2/file-*.txt --> testdir1/testdir2
+                root_cand = "/".join(root_cand.split("/")[:-1])  # testdir1/testdir2/file-*.txt --> testdir1/testdir2
             root_dir_for_this_pattern = root_cand
         else:
             root_dir_for_this_pattern = root_dir
 
         # if recusive, use os.walk to search files recursively
         if recursive:
-            for dirpath, folders, files in os.walk(
-                root_dir_for_this_pattern, followlinks=followlinks
-            ):
+            for dirpath, folders, files in os.walk(root_dir_for_this_pattern, followlinks=followlinks):
                 for file in files:
                     fpath = os.path.join(dirpath, file)
                     fpath = os.path.normpath(fpath)
