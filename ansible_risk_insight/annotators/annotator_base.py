@@ -15,7 +15,7 @@
 # limitations under the License.
 
 from typing import List
-from .models import TaskCall, Annotation
+from ..models import TaskCall, Annotation
 
 
 class Annotator(object):

@@ -16,7 +16,7 @@
 
 from typing import List
 from ..models import Annotation, TaskCall
-from ..annotator_base import Annotator
+from .annotator_base import Annotator
 
 
 RISK_ANNOTATION_TYPE = "risk_annotation"
