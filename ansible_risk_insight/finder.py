@@ -1,3 +1,19 @@
+# -*- mode:python; coding:utf-8 -*-
+
+# Copyright (c) 2022 IBM Corp. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from dataclasses import dataclass
 from pathlib import Path
 import re
@@ -76,10 +92,7 @@ def get_task_blocks(fpath="", task_dict_list=None):
             try:
                 d = yaml.safe_load(file)
             except Exception as e:
-                logging.error(
-                    "failed to load this yaml file to get task blocks; {}"
-                    .format(e.args[0])
-                )
+                logging.error("failed to load this yaml file to get task blocks; {}".format(e.args[0]))
                 return None
     elif task_dict_list is not None:
         d = task_dict_list
@@ -153,9 +166,7 @@ def search_taskfiles_for_playbooks(path, taskfile_dir_paths=[]):
     # must copy the input here; otherwise, the added items are kept forever
     search_targets = [p for p in taskfile_dir_paths]
     for playbook_taskfile_dir_pattern in playbook_taskfile_dir_patterns:
-        search_targets.append(
-            os.path.join(path, playbook_taskfile_dir_pattern)
-        )
+        search_targets.append(os.path.join(path, playbook_taskfile_dir_pattern))
     candidates = []
     for search_target in search_targets:
         patterns = [search_target + "/**/*.yml", search_target + "/**/*.yaml"]
@@ -172,10 +183,7 @@ def search_taskfiles_for_playbooks(path, taskfile_dir_paths=[]):
                 try:
                     d = yaml.safe_load(file)
                 except Exception as e:
-                    logging.error(
-                        "failed to load this yaml file to search task"
-                        " files; {}".format(e.args[0])
-                    )
+                    logging.error("failed to load this yaml file to search task" " files; {}".format(e.args[0]))
             # if d cannot be loaded as tasks yaml file, skip it
             if d is None or not isinstance(d, list):
                 continue
@@ -236,10 +244,7 @@ def find_collection_name_of_repo(path):
             try:
                 my_collection_info = yaml.safe_load(file)
             except Exception as e:
-                logging.error(
-                    "failed to load this yaml file to read galaxy.yml; {}"
-                    .format(e.args[0])
-                )
+                logging.error("failed to load this yaml file to read galaxy.yml; {}".format(e.args[0]))
         if my_collection_info is None:
             return ""
         namespace = my_collection_info.get("namespace", "")

@@ -1,3 +1,19 @@
+# -*- mode:python; coding:utf-8 -*-
+
+# Copyright (c) 2022 IBM Corp. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 import logging
 import copy
@@ -49,29 +65,21 @@ class Parser:
                     load_children=False,
                 )
             except Exception:
-                logging.exception(
-                    "failed to load the collection {}".format(collection_name)
-                )
+                logging.exception("failed to load the collection {}".format(collection_name))
                 return
         elif ld.target_type == LoadType.ROLE_TYPE:
             role_name = ld.target_name
             try:
-                obj = load_role(
-                    path=ld.path, basedir=ld.path, load_children=False
-                )
+                obj = load_role(path=ld.path, basedir=ld.path, load_children=False)
             except Exception:
-                logging.exception(
-                    "failed to load the role {}".format(role_name)
-                )
+                logging.exception("failed to load the role {}".format(role_name))
                 return
         elif ld.target_type == LoadType.PROJECT_TYPE:
             repo_name = ld.target_name
             try:
                 obj = load_repository(path=ld.path, basedir=ld.path)
             except Exception:
-                logging.exception(
-                    "failed to load the project {}".format(repo_name)
-                )
+                logging.exception("failed to load the project {}".format(repo_name))
                 return
         elif ld.target_type == LoadType.PLAYBOOK_TYPE:
             playbook_name = ld.target_name
@@ -83,9 +91,7 @@ class Parser:
                     basedir=ld.path,
                 )
             except Exception:
-                logging.exception(
-                    "failed to load the playbook {}".format(playbook_name)
-                )
+                logging.exception("failed to load the playbook {}".format(playbook_name))
                 return
         else:
             raise ValueError("unsupported type: {}".format(ld.target_type))
@@ -176,9 +182,7 @@ class Parser:
             collections = [obj]
         elif ld.target_type == LoadType.ROLE_TYPE:
             role_path = "."
-            r = load_role(
-                path=role_path, name=ld.target_name, basedir=ld.path
-            )
+            r = load_role(path=role_path, name=ld.target_name, basedir=ld.path)
             roles.append(r)
             mappings["roles"].append([role_path, r.key])
         elif ld.target_type == LoadType.PLAYBOOK_TYPE:
@@ -225,28 +229,18 @@ class Parser:
     @classmethod
     def restore_definition_objects(cls, input_dir):
 
-        collections = _load_object_list(
-            Collection, os.path.join(input_dir, "collections.json")
-        )
+        collections = _load_object_list(Collection, os.path.join(input_dir, "collections.json"))
 
         # TODO: only repository?
-        projects = _load_object_list(
-            Repository, os.path.join(input_dir, "projects.json")
-        )
+        projects = _load_object_list(Repository, os.path.join(input_dir, "projects.json"))
 
         roles = _load_object_list(Role, os.path.join(input_dir, "roles.json"))
 
-        taskfiles = _load_object_list(
-            TaskFile, os.path.join(input_dir, "taskfiles.json")
-        )
+        taskfiles = _load_object_list(TaskFile, os.path.join(input_dir, "taskfiles.json"))
 
-        modules = _load_object_list(
-            Module, os.path.join(input_dir, "modules.json")
-        )
+        modules = _load_object_list(Module, os.path.join(input_dir, "modules.json"))
 
-        playbooks = _load_object_list(
-            Playbook, os.path.join(input_dir, "playbooks.json")
-        )
+        playbooks = _load_object_list(Playbook, os.path.join(input_dir, "playbooks.json"))
 
         plays = _load_object_list(Play, os.path.join(input_dir, "plays.json"))
 
@@ -275,14 +269,10 @@ class Parser:
 
         collections = definitions.get("collections", [])
         if len(collections) > 0:
-            _dump_object_list(
-                collections, os.path.join(output_dir, "collections.json")
-            )
+            _dump_object_list(collections, os.path.join(output_dir, "collections.json"))
         projects = definitions.get("projects", [])
         if len(projects) > 0:
-            _dump_object_list(
-                projects, os.path.join(output_dir, "projects.json")
-            )
+            _dump_object_list(projects, os.path.join(output_dir, "projects.json"))
 
         roles = definitions.get("roles", [])
         if len(roles) > 0:
@@ -290,21 +280,15 @@ class Parser:
 
         taskfiles = definitions.get("taskfiles", [])
         if len(taskfiles) > 0:
-            _dump_object_list(
-                taskfiles, os.path.join(output_dir, "taskfiles.json")
-            )
+            _dump_object_list(taskfiles, os.path.join(output_dir, "taskfiles.json"))
 
         modules = definitions.get("modules", [])
         if len(modules) > 0:
-            _dump_object_list(
-                modules, os.path.join(output_dir, "modules.json")
-            )
+            _dump_object_list(modules, os.path.join(output_dir, "modules.json"))
 
         playbooks = definitions.get("playbooks", [])
         if len(playbooks) > 0:
-            _dump_object_list(
-                playbooks, os.path.join(output_dir, "playbooks.json")
-            )
+            _dump_object_list(playbooks, os.path.join(output_dir, "playbooks.json"))
 
         plays = definitions.get("plays", [])
         if len(plays) > 0:
