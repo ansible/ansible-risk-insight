@@ -16,8 +16,8 @@
 
 from typing import List
 from ..models import TaskCall, Annotation, RiskAnnotation
-from ..variable_resolver import VariableAnnotation, VARIABLE_ANNOTATION_TYPE
-from .base import RiskAnnotator, RiskType
+from .variable_resolver import VariableAnnotation, VARIABLE_ANNOTATION_TYPE
+from .risk_annotator_base import RiskAnnotator, RiskType
 
 
 class SampleCustomAnnotator(RiskAnnotator):

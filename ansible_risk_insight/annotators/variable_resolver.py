@@ -15,8 +15,8 @@
 # limitations under the License.
 
 from typing import List
-from .keyutil import detect_type
-from .models import (
+from ..keyutil import detect_type
+from ..models import (
     ObjectList,
     Repository,
     Playbook,
@@ -25,7 +25,7 @@ from .models import (
     Annotation,
     VariableAnnotation,
 )
-from .context import Context, resolve_module_options
+from ..context import Context, resolve_module_options
 from .annotator_base import Annotator
 
 
