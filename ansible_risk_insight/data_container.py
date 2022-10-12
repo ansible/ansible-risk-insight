@@ -41,7 +41,7 @@ from .parser import Parser
 from .model_loader import load_object
 from .safe_glob import safe_glob
 from .tree import TreeLoader
-from .variable_resolver import resolve_variables
+from .annotators.variable_resolver import resolve_variables
 from .analyzer import analyze
 from .risk_detector import detect
 

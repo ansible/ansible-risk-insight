@@ -16,7 +16,7 @@
 
 from typing import List
 from ..models import RiskAnnotation, TaskCall
-from ..annotators.base import RiskType, RISK_ANNOTATION_TYPE
+from ..annotators.risk_annotator_base import RiskType, RISK_ANNOTATION_TYPE
 from .base import Rule
 
 
