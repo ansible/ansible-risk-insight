@@ -18,19 +18,13 @@ import argparse
 import os
 import yaml
 import json
-import validators
 import subprocess
 import logging
-from safe_glob import safe_glob
+from .safe_glob import safe_glob
 
-# from .models import (
-#     LoadType,
-# )
-
-class LoadType:
-    COLLECTION = "collection"
-    ROLE = "role"
-    PROJECT = "project"
+from .models import (
+    LoadType,
+)
 
 
 collection_manifest_json = "MANIFEST.json"
@@ -62,6 +56,7 @@ def find_dependency(type, target):
         dependencies["file"] = manifestjson
     return dependencies
 
+
 def find_role_dependency(target):
     requirements = {}
     if not os.path.exists(target):
@@ -73,6 +68,7 @@ def find_role_dependency(target):
         ],
         recursive=True,
     )
+    main_yaml = ""
     if len(role_meta_files) > 0:
         for rf in role_meta_files:
             if os.path.exists(rf):
@@ -85,12 +81,17 @@ def find_role_dependency(target):
                     if metadata is not None and isinstance(metadata, dict):
                         requirements["roles"] = metadata.get("dependencies", [])
                         requirements["collections"] = metadata.get("collections", [])
-    return requirements, rf
+                if main_yaml == "":
+                    with open(rf, "r") as file:
+                        main_yaml = file.read()
+    return requirements, main_yaml
+
 
 def find_collection_dependency(target):
     requirements = {}
     collection_meta_files = safe_glob(os.path.join(target, "**", collection_manifest_json), recursive=True)
     print("found meta files {}".format(collection_meta_files))
+    manifest_json = ""
     if len(collection_meta_files) > 0:
         for cmf in collection_meta_files:
             if os.path.exists(cmf):
@@ -98,8 +99,12 @@ def find_collection_dependency(target):
                 with open(cmf, "r") as file:
                     metadata = json.load(file)
                     dependencies = metadata.get("collection_info", {}).get("dependencies", [])
-                    requirements["collections"] = list(dependencies.keys()) # need to handle version info
-    return requirements, cmf
+                    requirements["collections"] = list(dependencies.keys())  # need to handle version info
+                if manifest_json == "":
+                    with open(cmf, "r") as file:
+                        manifest_json = file.read()
+    return requirements, manifest_json
+
 
 def find_project_dependency(target):
     # url or dir
@@ -115,6 +120,7 @@ def find_project_dependency(target):
     else:
         raise ValueError("Invalid target dir: {}".format(target))
 
+
 def load_requirements(path):
     requirements = {}
     requirements_yml_path = os.path.join(path, requirements_yml)
@@ -125,6 +131,7 @@ def load_requirements(path):
             except Exception as e:
                 logging.error("failed to load requirements.yml; {}".format(e.args[0]))
     return requirements, requirements_yml_path
+
 
 def install_github_target(target, output_dir):
     proc = subprocess.run(
@@ -139,8 +146,7 @@ def install_github_target(target, output_dir):
     return proc.stdout
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="TODO")
     parser.add_argument("target_dir", help="Target dir")
     parser.add_argument("type", help="Content type", choices={"project", "role", "collection"})

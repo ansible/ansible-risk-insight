@@ -44,6 +44,11 @@ from .tree import TreeLoader
 from .annotators.variable_resolver import resolve_variables
 from .analyzer import analyze
 from .risk_detector import detect
+from .dependency_finder import find_dependency
+from .dependency_dir_preparator import (
+    dependency_dir_preparator,
+    existing_dependency_dir_loader,
+)
 
 
 class Config:
@@ -83,7 +88,7 @@ class ContainerType:
 
 
 @dataclass
-class DataContainer(object):
+class ARIScanner(object):
     type: str = ""
     name: str = ""
     id: str = ""
@@ -103,6 +108,7 @@ class DataContainer(object):
     taskcalls_in_trees: list = field(default_factory=list)
 
     report_to_display: str = ""
+    data_report: dict = field(default_factory=dict)
 
     # TODO: remove attributes below once refactoring is done
     root_dir: str = ""
@@ -175,25 +181,47 @@ class DataContainer(object):
             raise ValueError("Unsupported type: {}".format(self.type))
 
     def load(self):
+
+        # Install the target if needed
         if self.is_src_installed():
-            self.load_index()
-            logging.debug("load_index() done")
+            pass
         else:
             self.src_install()
             logging.debug("install() done")
+        target_path = self.make_target_path(self.type, self.name)
 
-        ext_list = self.get_ext_list()
+        # Dependency Dir Preparator
+        dep_dirs = []
+        if self.dependency_dir is None:
+
+            dependencies = find_dependency(self.type, target_path)
+
+            download_location = os.path.join(self.root_dir, "archives", self.type)
+            dependency_dir_path = self.root_dir
+            dep_dirs = dependency_dir_preparator(dependencies, download_location, dependency_dir_path)
+        else:
+            dep_dirs = existing_dependency_dir_loader(LoadType.COLLECTION, self.dependency_dir)
+        print(dep_dirs)
+
+        ext_list = []
+        if self.type in [ContainerType.COLLECTION, ContainerType.ROLE]:
+            ext_list.append((self.type, self.name, target_path))
+        ext_list.extend([(d.get("metadata", {}).get("type", ""), d.get("metadata", {}).get("name", ""), d.get("dir")) for d in dep_dirs])
         ext_count = len(ext_list)
         if ext_count == 0:
             logging.info("no target dirs found. exitting.")
             sys.exit()
 
+        # PRM Finder
+        # TODO: implement PRM Finder
+
+        # Start ARI Scanner main flow
         self._parser = Parser()
-        for i, (ext_type, ext_name) in enumerate(ext_list):
+        for i, (ext_type, ext_name, ext_path) in enumerate(ext_list):
             if i == 0:
                 logging.info("start loading {} {}(s)".format(ext_count, ext_type))
             logging.info("[{}/{}] {} {}".format(i + 1, ext_count, ext_type, ext_name))
-            self.load_definition_ext(ext_type, ext_name)
+            self.load_definition_ext(ext_type, ext_name, ext_path)
 
         logging.debug("load_definition_ext() done")
 
@@ -215,6 +243,17 @@ class DataContainer(object):
 
         print(self.report_to_display)
         return
+
+    def make_target_path(self, typ, target_name):
+        target_path = ""
+        if typ == ContainerType.COLLECTION:
+            parts = target_name.split(".")
+            target_path = os.path.join(self.root_dir, typ + "s", "src", "ansible_collections", parts[0], parts[1])
+        elif typ == ContainerType.ROLE:
+            target_path = os.path.join(self.root_dir, typ + "s", "src", target_name)
+        elif typ == ContainerType.PROJECT:
+            target_path = os.path.join(self.get_src_root())
+        return target_path
 
     def get_src_root(self):
         return self.__path_mappings["src"]
@@ -376,16 +415,23 @@ class DataContainer(object):
             raise ValueError("Invalid ext_type")
         return target_path
 
-    def get_source_path(self, ext_type, ext_name):
+    def get_source_path(self, ext_type, ext_name, is_ext_for_project=False):
+        base_dir = ""
+        if is_ext_for_project:
+            base_dir = self.__path_mappings["dependencies"]
+        else:
+            if ext_type == ContainerType.ROLE:
+                base_dir = os.path.join(self.root_dir, "roles", "src")
+            elif ext_type == ContainerType.COLLECTION:
+                base_dir = os.path.join(self.root_dir, "collections", "src")
+
         target_path = ""
         if ext_type == ContainerType.ROLE:
-            target_path = os.path.join(self.root_dir, "roles", "src", ext_name)
+            target_path = os.path.join(base_dir, ext_name)
         elif ext_type == ContainerType.COLLECTION:
             parts = ext_name.split(".")
             target_path = os.path.join(
-                self.root_dir,
-                "collections",
-                "src",
+                base_dir,
                 "ansible_collections",
                 parts[0],
                 parts[1],
@@ -469,8 +515,9 @@ class DataContainer(object):
     def set_report(self):
         coll_type = ContainerType.COLLECTION
         coll_name = self.name if self.type == coll_type else ""
-        report_txt = detect(self.taskcalls_in_trees, collection_name=coll_name)
+        report_txt, data_report = detect(self.taskcalls_in_trees, collection_name=coll_name)
         self.report_to_display = report_txt
+        self.data_report = data_report
         return
 
     def get_report(self):
@@ -538,12 +585,9 @@ class DataContainer(object):
             "path_mappings": self.__path_mappings,
         }
 
-    def load_definition_ext(self, target_type, target_name):
-        target_path = self.get_source_path(target_type, target_name)
+    def load_definition_ext(self, target_type, target_name, target_path):
         ld = self.create_load_file(target_type, target_name, target_path)
-
         use_cache = True
-
         output_dir = self.get_definition_path(ld.target_type, ld.target_name)
         if use_cache and os.path.exists(os.path.join(output_dir, "mappings.json")):
             logging.debug("use cache from {}".format(output_dir))
@@ -738,7 +782,7 @@ if __name__ == "__main__":
     __dependency_dir = ""
     if len(sys.argv) >= 4:
         __dependency_dir = sys.argv[3]
-    c = DataContainer(
+    c = ARIScanner(
         type=__target_type,
         name=__target_name,
         root_dir=config.data_dir,

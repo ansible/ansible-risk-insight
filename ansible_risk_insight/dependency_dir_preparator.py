@@ -16,26 +16,21 @@
 
 import argparse
 import os
-import yaml
 import json
-import validators
 import subprocess
 import logging
 import glob
 import re
 import shutil
+from shutil import unpack_archive
 
-# from .models import (
-#     LoadType,
-# )
+from .models import (
+    LoadType,
+)
 
-class LoadType:
-    COLLECTION = "collection"
-    ROLE = "role"
-    PROJECT = "project"
 
-def dependency_dir_preparator(dependencies, download_location, dependency_dir_path, cache_enabled, cache_dir):
-    ### in ###
+def dependency_dir_preparator(dependencies, download_location, dependency_dir_path, cache_enabled=False, cache_dir=""):
+    # -- in --#
     # dependencies = {} # {'dependencies': {'collections': []}, 'type': '', 'file': ''}
     # dependency_dir_path = "" # where to unpack tar.gz
     # download_location = "" # path to put tar.gz
@@ -43,8 +38,8 @@ def dependency_dir_preparator(dependencies, download_location, dependency_dir_pa
     # cache_dir = "" # path to put cache data
     # cache_enabled = False [true/false]
 
-    ###  out ###
-    dependency_dirs = [] # {"dir": "", "metadata": {}}
+    # --  out --#
+    dependency_dirs = []  # {"dir": "", "metadata": {}}
     # metadata : "type", "cache_enabled", "hash", "src"[galaxy/automation hub], version, timestamp, author
 
     # check download_location
@@ -54,12 +49,11 @@ def dependency_dir_preparator(dependencies, download_location, dependency_dir_pa
     # check cache_dir
     if cache_enabled and not os.path.exists(cache_dir):
         os.makedirs(cache_dir)
-    
+
     # check dependency_dir_path
     if not os.path.exists(dependency_dir_path):
         os.makedirs(dependency_dir_path)
 
-    dependency_file = dependencies.get("file", "")
     col_dependencies = dependencies.get("dependencies", {}).get("collections", [])
     role_dependencies = dependencies.get("dependencies", {}).get("roles", [])
     # if requirements.yml is provided, download dependencies using it.
@@ -72,7 +66,7 @@ def dependency_dir_preparator(dependencies, download_location, dependency_dir_pa
     #             download_galaxy_collection_from_reqfile(dependency_file, download_location)
     #             install_galaxy_collection_from_targz(download_location, sub_dependency_dir_path)
     #         if len(role_dependencies) != 0:
-                
+
     #         return dependency_dirs
 
     for cdep in col_dependencies:
@@ -81,6 +75,7 @@ def dependency_dir_preparator(dependencies, download_location, dependency_dir_pa
         downloaded_dep["metadata"]["name"] = cdep
         downloaded_dep["metadata"]["cache_enabled"] = cache_enabled
         # sub_dependency_dir_path = "{}/{}".format(dependency_dir_path, cdep)
+        sub_download_location = "{}/{}".format(download_location, cdep)
         name_parts = cdep.split(".")
         sub_dependency_dir_path = os.path.join(
             dependency_dir_path,
@@ -128,8 +123,7 @@ def dependency_dir_preparator(dependencies, download_location, dependency_dir_pa
         downloaded_dep["metadata"]["version"] = version
         downloaded_dep["dir"] = sub_dependency_dir_path
         dependency_dirs.append(downloaded_dep)
-    
-    
+
     for rdep in role_dependencies:
         downloaded_dep = {"dir": "", "metadata": {}}
         # metadata
@@ -184,6 +178,7 @@ def download_galaxy_collection(target, output_dir):
     return durl, version
     # return proc.stdout
 
+
 def download_galaxy_collection_from_reqfile(requirementes, output_dir):
     proc = subprocess.run(
         "ansible-galaxy collection download -r {} -p {}".format(requirementes, output_dir),
@@ -217,6 +212,7 @@ def install_galaxy_collection_from_targz(tarfile, output_dir):
     install_msg = proc.stdout
     print("STDOUT: {}".format(install_msg))
     # return proc.stdout
+
 
 def install_galaxy_role(target, output_dir):
     proc = subprocess.run(
@@ -253,7 +249,7 @@ def install_galaxy_role_from_reqfile(file, output_dir):
         text=True,
     )
     install_msg = proc.stdout
-    print("STDOUT: {}".format(install_msg)) 
+    print("STDOUT: {}".format(install_msg))
 
 
 def get_collection_metadata_from_log(log_message):
@@ -309,8 +305,29 @@ def get_role_metadata_from_log(log_message):
     return url, version
 
 
+def existing_dependency_dir_loader(dependency_type, dependency_dir_path):
+    search_dirs = []
+    if dependency_type == LoadType.COLLECTION:
+        base_dir = dependency_dir_path
+        if os.path.exists(os.path.join(dependency_dir_path, "ansible_collections")):
+            base_dir = os.path.join(dependency_dir_path, "ansible_collections")
+        namespaces = [ns for ns in os.listdir(base_dir) if not ns.endswith(".info")]
+        for ns in namespaces:
+            colls = [{"name": f"{ns}.{name}", "path": os.path.join(base_dir, ns, name)} for name in os.listdir(os.path.join(base_dir, ns))]
+            search_dirs.extend(colls)
 
-if __name__ == '__main__':
+    dependency_dirs = []
+    for dep_info in search_dirs:
+        downloaded_dep = {"dir": "", "metadata": {}}
+        downloaded_dep["dir"] = dep_info["path"]
+        # meta data
+        downloaded_dep["metadata"]["type"] = LoadType.COLLECTION
+        downloaded_dep["metadata"]["name"] = dep_info["name"]
+        dependency_dirs.append(downloaded_dep)
+    return dependency_dirs
+
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="TODO")
     parser.add_argument("dependencies", help="Target dir")
     parser.add_argument("download_location")

@@ -423,7 +423,7 @@ class TreeLoader(object):
 
     def run(self):
         additional_objects = ObjectList()
-        if self.load_and_mapping.target_type == LoadType.PROJECT_TYPE:
+        if self.load_and_mapping.target_type == LoadType.PROJECT:
             p_defs = self.org_root_definitions.get("definitions", {}).get("projects", [])
             if len(p_defs) > 0:
                 additional_objects.add(p_defs[0])

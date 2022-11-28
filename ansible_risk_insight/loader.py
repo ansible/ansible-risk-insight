@@ -30,12 +30,12 @@ role_meta_main_yaml = "meta/main.yaml"
 
 #     if os.path.isfile(path):
 #         # need further check?
-#         return LoadType.PLAYBOOK_TYPE, [path]
+#         return LoadType.PLAYBOOK, [path]
 
 #     if os.path.exists(os.path.join(path, collection_manifest_json)):
-#         return LoadType.COLLECTION_TYPE, [path]
+#         return LoadType.COLLECTION, [path]
 #     if os.path.exists(os.path.join(path, role_meta_main_yml)):
-#         return LoadType.ROLE_TYPE, [path]
+#         return LoadType.ROLE, [path]
 #     if is_ext:
 #         collection_meta_files = safe_glob(
 #             os.path.join(path, "**", collection_manifest_json), recursive=True
@@ -46,7 +46,7 @@ role_meta_main_yaml = "meta/main.yaml"
 #                 for f in collection_meta_files
 #             ]
 #             collection_path_list = remove_subdirectories(collection_path_list)
-#             return LoadType.COLLECTION_TYPE, collection_path_list
+#             return LoadType.COLLECTION, collection_path_list
 #         role_meta_files = safe_glob(
 #             [
 #                 os.path.join(path, "**", role_meta_main_yml),
@@ -62,10 +62,10 @@ role_meta_main_yaml = "meta/main.yaml"
 #                 for f in role_meta_files
 #             ]
 #             role_path_list = remove_subdirectories(role_path_list)
-#             return LoadType.ROLE_TYPE, role_path_list
+#             return LoadType.ROLE, role_path_list
 #     else:
-#         return LoadType.PROJECT_TYPE, [path]
-#     return LoadType.UNKNOWN_TYPE, []
+#         return LoadType.PROJECT, [path]
+#     return LoadType.UNKNOWN, []
 
 
 # remove a dir which is a sub directory of another dir in the list
@@ -112,10 +112,10 @@ def get_loader_version():
 
 def get_target_name(target_type, target_path):
     target_name = ""
-    if target_type == LoadType.PROJECT_TYPE:
+    if target_type == LoadType.PROJECT:
         project_name = os.path.normpath(target_path).split("/")[-1]
         target_name = project_name
-    elif target_type == LoadType.COLLECTION_TYPE:
+    elif target_type == LoadType.COLLECTION:
         meta_file = os.path.join(target_path, collection_manifest_json)
         metadata = {}
         with open(meta_file, "r") as file:
@@ -123,10 +123,10 @@ def get_target_name(target_type, target_path):
         collection_namespace = metadata.get("collection_info", {}).get("namespace", "")
         collection_name = metadata.get("collection_info", {}).get("name", "")
         target_name = "{}.{}".format(collection_namespace, collection_name)
-    elif target_type == LoadType.ROLE_TYPE:
+    elif target_type == LoadType.ROLE:
         # any better approach?
         target_name = target_path.split("/")[-1]
-    elif target_type == LoadType.PLAYBOOK_TYPE:
+    elif target_type == LoadType.PLAYBOOK:
         target_name = filepath_to_target_name(target_path)
     return target_name
 

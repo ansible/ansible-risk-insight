@@ -1199,13 +1199,13 @@ def load_object(loadObj):
     target_type = loadObj.target_type
     path = loadObj.path
     obj = None
-    if target_type == LoadType.COLLECTION_TYPE:
+    if target_type == LoadType.COLLECTION:
         obj = load_collection(collection_dir=path, basedir=path, load_children=False)
-    elif target_type == LoadType.ROLE_TYPE:
+    elif target_type == LoadType.ROLE:
         obj = load_role(path=path, basedir=path, load_children=False)
-    elif target_type == LoadType.PLAYBOOK_TYPE:
+    elif target_type == LoadType.PLAYBOOK:
         obj = load_playbook(path=path, role_name="", collection_name="", basedir=path)
-    elif target_type == LoadType.PROJECT_TYPE:
+    elif target_type == LoadType.PROJECT:
         obj = load_repository(path=path, basedir=path, load_children=False)
 
     if hasattr(obj, "roles"):

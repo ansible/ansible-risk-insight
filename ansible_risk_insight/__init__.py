@@ -15,7 +15,7 @@
 # limitations under the License.
 
 import argparse
-from .data_container import DataContainer, config
+from .scanner import ARIScanner, config
 
 
 def main():
@@ -26,13 +26,13 @@ def main():
         action="store_true",
         help="enable file save under ARI_DATA_DIR (default=/tmp/ari-data)",
     )
-    parser.add_argument("target_type", help="Content type", choices={"role", "collection"})
+    parser.add_argument("target_type", help="Content type", choices={"project", "role", "collection"})
     parser.add_argument("target_name", help="Name")
     parser.add_argument("dependency_dir", nargs="?", help="TODO")
 
     args = parser.parse_args()
 
-    c = DataContainer(
+    c = ARIScanner(
         type=args.target_type,
         name=args.target_name,
         root_dir=config.data_dir,
