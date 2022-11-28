@@ -205,6 +205,8 @@ def load_all_definitions(definitions: dict):
         _definitions = definitions
     loaded = {}
     types = ["roles", "taskfiles", "modules", "playbooks", "plays", "tasks"]
+    for type_key in types:
+        loaded[type_key] = ObjectList()
     for _, definitions_per_artifact in _definitions.items():
         def_list = load_definitions(definitions_per_artifact.get("definitions", {}), types)
         for i, type_key in enumerate(types):

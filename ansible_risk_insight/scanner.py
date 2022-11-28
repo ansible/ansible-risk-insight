@@ -38,16 +38,14 @@ from .loader import (
     trim_suffix,
 )
 from .parser import Parser
-from .model_loader import load_object
+from .model_loader import load_object, find_playbook_role_module
 from .safe_glob import safe_glob
 from .tree import TreeLoader
 from .annotators.variable_resolver import resolve_variables
 from .analyzer import analyze
 from .risk_detector import detect
-from .dependency_finder import find_dependency
 from .dependency_dir_preparator import (
     dependency_dir_preparator,
-    existing_dependency_dir_loader,
 )
 
 
@@ -118,6 +116,9 @@ class ARIScanner(object):
     do_save: bool = False
     _parser: Parser = None
 
+    download_url: str = ""
+    version: str = ""
+
     def __post_init__(self):
         if self.type == LoadType.COLLECTION or self.type == LoadType.ROLE:
             type_root = self.type + "s"
@@ -186,34 +187,20 @@ class ARIScanner(object):
         if self.is_src_installed():
             pass
         else:
-            self.src_install()
+            self.download_url, self.version = self.src_install()
             logging.debug("install() done")
         target_path = self.make_target_path(self.type, self.name)
 
         # Dependency Dir Preparator
-        dep_dirs = []
-        if self.dependency_dir is None:
-
-            dependencies = find_dependency(self.type, target_path)
-
-            download_location = os.path.join(self.root_dir, "archives", self.type)
-            dependency_dir_path = self.root_dir
-            dep_dirs = dependency_dir_preparator(dependencies, download_location, dependency_dir_path)
-        else:
-            dep_dirs = existing_dependency_dir_loader(LoadType.COLLECTION, self.dependency_dir)
-        print(dep_dirs)
+        dep_dirs = dependency_dir_preparator(self.type, target_path, self.dependency_dir, self.root_dir)
 
         ext_list = []
-        if self.type in [ContainerType.COLLECTION, ContainerType.ROLE]:
-            ext_list.append((self.type, self.name, target_path))
         ext_list.extend([(d.get("metadata", {}).get("type", ""), d.get("metadata", {}).get("name", ""), d.get("dir")) for d in dep_dirs])
         ext_count = len(ext_list)
-        if ext_count == 0:
-            logging.info("no target dirs found. exitting.")
-            sys.exit()
 
         # PRM Finder
-        # TODO: implement PRM Finder
+        playbooks, roles, modules = find_playbook_role_module(target_path)
+        logging.info(f"Playbooks: {len(playbooks)}, Roles: {len(roles)}, Modules: {len(modules)}")
 
         # Start ARI Scanner main flow
         self._parser = Parser()
@@ -241,7 +228,9 @@ class ARIScanner(object):
         print("ext definitions:", ext_counts)
         print("root definitions:", root_counts)
 
-        print(self.report_to_display)
+        from pprint import pprint
+
+        pprint(self.data_report)
         return
 
     def make_target_path(self, typ, target_name):
@@ -286,11 +275,14 @@ class ARIScanner(object):
         return ext_list
 
     def src_install(self):
+        download_url = ""
+        version = ""
         try:
             self.setup_tmp_dir()
-            self.install()
+            download_url, version = self.install()
         finally:
             self.clean_tmp_dir()
+        return download_url, version
 
     def install(self):
         tmp_src_dir = os.path.join(self.tmp_install_dir.name, "src")
@@ -299,6 +291,9 @@ class ARIScanner(object):
         dependency_dir = ""
         dst_src_dir = ""
 
+        download_url = ""
+        version = ""
+
         if self.type in [ContainerType.COLLECTION, ContainerType.ROLE]:
             # install_type = "galaxy"
             # ansible-galaxy install
@@ -306,6 +301,7 @@ class ARIScanner(object):
             install_msg = install_galaxy_target(self.name, self.type, tmp_src_dir)
             dependency_dir = tmp_src_dir
             dst_src_dir = self.get_src_root()
+            download_url, version = get_download_metadata(typ=self.type, install_msg=install_msg)
 
         elif self.type == ContainerType.PROJECT:
             # install_type = "github"
@@ -316,6 +312,7 @@ class ARIScanner(object):
                 raise ValueError("dependency dir is required for project type")
             dependency_dir = self.dependency_dir
             dst_src_dir = os.path.join(self.get_src_root(), escape_url(self.name))
+            download_url = self.name
 
         else:
             raise ValueError("unsupported container type")
@@ -341,7 +338,7 @@ class ARIScanner(object):
                 os.makedirs(dst_dependency_dir)
             self.move_src(dependency_dir, dst_dependency_dir)
 
-        return
+        return download_url, version
 
     def set_index(self, path):
         print("crawl content")
@@ -517,6 +514,12 @@ class ARIScanner(object):
         coll_name = self.name if self.type == coll_type else ""
         report_txt, data_report = detect(self.taskcalls_in_trees, collection_name=coll_name)
         self.report_to_display = report_txt
+        data_report["metadata"] = {
+            "type": self.type,
+            "name": self.name,
+            "version": self.version,
+            "download_url": self.download_url,
+        }
         self.data_report = data_report
         return
 
@@ -768,6 +771,24 @@ def install_github_target(target, target_type, output_dir):
     install_msg = proc.stdout
     print("STDOUT: {}".format(install_msg))
     return proc.stdout
+
+
+def get_download_metadata(typ: str, install_msg: str):
+    download_url = ""
+    version = ""
+    if typ == LoadType.COLLECTION:
+        for line in install_msg.splitlines():
+            if line.startswith("Downloading "):
+                download_url = line.split(" ")[1]
+                version = download_url.split("-")[-1].replace(".tar.gz", "")
+                break
+    elif typ == LoadType.ROLE:
+        for line in install_msg.splitlines():
+            if line.startswith("- downloading role from "):
+                download_url = line.split(" ")[-1]
+                version = download_url.split("/")[-1].replace(".tar.gz", "")
+                break
+    return download_url, version
 
 
 def escape_url(url: str):

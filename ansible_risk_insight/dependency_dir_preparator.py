@@ -27,9 +27,10 @@ from shutil import unpack_archive
 from .models import (
     LoadType,
 )
+from .dependency_finder import find_dependency
 
 
-def dependency_dir_preparator(dependencies, download_location, dependency_dir_path, cache_enabled=False, cache_dir=""):
+def dependency_dir_preparator(type, target_path, dependency_dir="", root_dir="", cache_enabled=False, cache_dir=""):
     # -- in --#
     # dependencies = {} # {'dependencies': {'collections': []}, 'type': '', 'file': ''}
     # dependency_dir_path = "" # where to unpack tar.gz
@@ -41,6 +42,11 @@ def dependency_dir_preparator(dependencies, download_location, dependency_dir_pa
     # --  out --#
     dependency_dirs = []  # {"dir": "", "metadata": {}}
     # metadata : "type", "cache_enabled", "hash", "src"[galaxy/automation hub], version, timestamp, author
+
+    dependencies = find_dependency(type, target_path, dependency_dir)
+
+    download_location = os.path.join(root_dir, "archives", type)
+    dependency_dir_path = root_dir
 
     # check download_location
     if not os.path.exists(download_location):
@@ -56,6 +62,10 @@ def dependency_dir_preparator(dependencies, download_location, dependency_dir_pa
 
     col_dependencies = dependencies.get("dependencies", {}).get("collections", [])
     role_dependencies = dependencies.get("dependencies", {}).get("roles", [])
+
+    col_dependency_dirs = dependencies.get("paths", {}).get("collections", {})
+    role_dependency_dirs = dependencies.get("paths", {}).get("roles", {})
+
     # if requirements.yml is provided, download dependencies using it.
     # if dependency_file.endswith("requirements.yml") or dependency_file.endswith("requirements.yaml"):
     #     if cache_enabled:
@@ -109,6 +119,9 @@ def dependency_dir_preparator(dependencies, download_location, dependency_dir_pa
             # install col from tar.gz
             install_galaxy_collection_from_targz(targz_file, sub_dependency_dir_path)   
             downloaded_dep["metadata"]["cache_data"] = targz_file      
+        elif cdep in col_dependency_dirs:
+            print("use the specified dependency dirs")
+            sub_dependency_dir_path = col_dependency_dirs[cdep]
         else:
             print("all dependencies will be newly downloaded")
             # check download_location
@@ -153,14 +166,16 @@ def dependency_dir_preparator(dependencies, download_location, dependency_dir_pa
                 durl, version = install_galaxy_role(rdep, cache_dir_path)
                 # need to put metadata when cache
             durl, version = get_cache_role_data(sub_dependency_dir_path, cache_dir_path, rdep)
-            downloaded_dep["dir"] = sub_dependency_dir_path
+        elif rdep in col_dependency_dirs:
+            print("use the specified dependency dirs")
+            sub_dependency_dir_path = role_dependency_dirs[rdep]
         else:
             print("all dependencies will be newly downloaded")
             # check download_location
             durl, version = install_galaxy_role(rdep, sub_dependency_dir_path)
-            downloaded_dep["dir"] = sub_dependency_dir_path
         downloaded_dep["metadata"]["download_url"] = durl
         downloaded_dep["metadata"]["version"] = version
+        downloaded_dep["dir"] = sub_dependency_dir_path
         dependency_dirs.append(downloaded_dep)
     return dependency_dirs     
 

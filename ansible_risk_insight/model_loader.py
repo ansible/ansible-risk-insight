@@ -1217,3 +1217,10 @@ def load_object(loadObj):
     if hasattr(obj, "modules"):
         loadObj.modules = obj.modules
     loadObj.timestamp = datetime.datetime.utcnow().isoformat()
+
+
+def find_playbook_role_module(path):
+    playbooks = load_playbooks(path, basedir=path, load_children=False)
+    roles = load_roles(path, basedir=path, load_children=False)
+    modules = load_modules(path, basedir=path, load_children=False)
+    return playbooks, roles, modules

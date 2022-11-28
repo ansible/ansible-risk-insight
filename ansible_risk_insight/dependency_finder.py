@@ -33,27 +33,35 @@ role_meta_main_yaml = "meta/main.yaml"
 requirements_yml = "requirements.yml"
 
 
-def find_dependency(type, target):
+def find_dependency(type, target, dependency_dir):
     dependencies = {"dependencies": "", "type": "", "file": ""}
     print("search dependency")
-    if type == LoadType.PROJECT:
-        print("search project dependency")
-        requirements, reqyml = find_project_dependency(target)
+    if dependency_dir is None:
+        if type == LoadType.PROJECT:
+            print("search project dependency")
+            requirements, reqyml = find_project_dependency(target)
+            dependencies["dependencies"] = requirements
+            dependencies["type"] = LoadType.PROJECT
+            dependencies["file"] = reqyml
+        elif type == LoadType.ROLE:
+            print("search role dependency")
+            requirements, mainyml = find_role_dependency(target)
+            dependencies["dependencies"] = requirements
+            dependencies["type"] = LoadType.ROLE
+            dependencies["file"] = mainyml
+        elif type == LoadType.COLLECTION:
+            print("search collection dependency")
+            requirements, manifestjson = find_collection_dependency(target)
+            dependencies["dependencies"] = requirements
+            dependencies["type"] = LoadType.COLLECTION
+            dependencies["file"] = manifestjson
+    else:
+        requirements, paths = load_existing_dependency_dir(dependency_dir)
         dependencies["dependencies"] = requirements
-        dependencies["type"] = LoadType.PROJECT
-        dependencies["file"] = reqyml
-    elif type == LoadType.ROLE:
-        print("search role dependency")
-        requirements, mainyml = find_role_dependency(target)
-        dependencies["dependencies"] = requirements
-        dependencies["type"] = LoadType.ROLE
-        dependencies["file"] = mainyml
-    elif type == LoadType.COLLECTION:
-        print("search collection dependency")
-        requirements, manifestjson = find_collection_dependency(target)
-        dependencies["dependencies"] = requirements
-        dependencies["type"] = LoadType.COLLECTION
-        dependencies["file"] = manifestjson
+        dependencies["paths"] = paths
+        dependencies["type"] = type
+        dependencies["file"] = None
+
     return dependencies
 
 
@@ -131,6 +139,37 @@ def load_requirements(path):
             except Exception as e:
                 logging.error("failed to load requirements.yml; {}".format(e.args[0]))
     return requirements, requirements_yml_path
+
+
+def load_existing_dependency_dir(dependency_dir):
+    role_meta_files = safe_glob(
+        [
+            os.path.join(dependency_dir, "**", role_meta_main_yml),
+            os.path.join(dependency_dir, "**", role_meta_main_yaml),
+        ],
+        recursive=True,
+    )
+    collection_meta_files = safe_glob(os.path.join(dependency_dir, "**", collection_manifest_json), recursive=True)
+    requirements = {
+        "roles": [],
+        "collections": [],
+    }
+    paths = {
+        "roles": {},
+        "collections": {},
+    }
+    for r_meta_file in role_meta_files:
+        role_name = r_meta_file.split("/")[-3]
+        role_path = "/".join(r_meta_file.split("/")[:-2])
+        requirements["roles"].append(role_name)
+        paths["roles"][role_name] = role_path
+    for c_meta_file in collection_meta_files:
+        parts = c_meta_file.split("/")
+        collection_name = f"{parts[-2]}.{parts[-1]}"
+        collection_path = "/".join(c_meta_file.split("/")[:-1])
+        requirements["collections"].append(collection_name)
+        paths["collections"][collection_name] = collection_path
+    return requirements, paths
 
 
 def install_github_target(target, output_dir):
