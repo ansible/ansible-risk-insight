@@ -49,7 +49,7 @@ def dependency_dir_preparator(dependencies, download_location, dependency_dir_pa
 
     ###  out ###
     dependency_dirs = [] # {"dir": "", "metadata": {}}
-    # metadata : "type", "cache_enabled", "hash", "src"[local/download] 
+    # metadata : "type", "cache_enabled", "hash", "src"[galaxy/automation hub], version, timestamp, author
 
     # check download_location
     if not os.path.exists(download_location):
