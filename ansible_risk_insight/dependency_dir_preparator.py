@@ -22,6 +22,7 @@ import logging
 import glob
 import re
 import shutil
+from shutil import unpack_archive
 
 from .models import (
     LoadType,
