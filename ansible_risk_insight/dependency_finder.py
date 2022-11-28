@@ -122,7 +122,6 @@ def find_project_dependency(target):
     else:
         raise ValueError("Invalid target dir: {}".format(target))
 
-
 def load_requirements(path):
     requirements = {}
     yaml_path = ""
