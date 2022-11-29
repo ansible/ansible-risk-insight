@@ -31,34 +31,36 @@ collection_manifest_json = "MANIFEST.json"
 role_meta_main_yml = "meta/main.yml"
 role_meta_main_yaml = "meta/main.yaml"
 requirements_yml = "requirements.yml"
+galaxy_yml = "GALAXY.yml"
 
 
 def find_dependency(type, target, dependency_dir):
     dependencies = {"dependencies": "", "type": "", "file": ""}
-    print("search dependency")
+    logging.debug("search dependency")
     if dependency_dir is None:
         if type == LoadType.PROJECT:
-            print("search project dependency")
+            logging.debug("search project dependency")
             requirements, reqyml = find_project_dependency(target)
             dependencies["dependencies"] = requirements
             dependencies["type"] = LoadType.PROJECT
             dependencies["file"] = reqyml
         elif type == LoadType.ROLE:
-            print("search role dependency")
+            logging.debug("search role dependency")
             requirements, mainyml = find_role_dependency(target)
             dependencies["dependencies"] = requirements
             dependencies["type"] = LoadType.ROLE
             dependencies["file"] = mainyml
         elif type == LoadType.COLLECTION:
-            print("search collection dependency")
+            logging.debug("search collection dependency")
             requirements, manifestjson = find_collection_dependency(target)
             dependencies["dependencies"] = requirements
             dependencies["type"] = LoadType.COLLECTION
             dependencies["file"] = manifestjson
     else:
-        requirements, paths = load_existing_dependency_dir(dependency_dir)
+        requirements, paths, metadata = load_existing_dependency_dir(dependency_dir)
         dependencies["dependencies"] = requirements
         dependencies["paths"] = paths
+        dependencies["metadata"] = metadata
         dependencies["type"] = type
         dependencies["file"] = None
 
@@ -98,7 +100,7 @@ def find_role_dependency(target):
 def find_collection_dependency(target):
     requirements = {}
     collection_meta_files = safe_glob(os.path.join(target, "**", collection_manifest_json), recursive=True)
-    print("found meta files {}".format(collection_meta_files))
+    logging.debug("found meta files {}".format(collection_meta_files))
     manifest_json = ""
     if len(collection_meta_files) > 0:
         for cmf in collection_meta_files:
@@ -117,13 +119,13 @@ def find_collection_dependency(target):
 def find_project_dependency(target):
     # url or dir
     # if validators.url(target):
-    #     print("cloning {} from github".format(target))
+    #     logging.debug("cloning {} from github".format(target))
 
     #     install_msg = install_github_target(target, tmp_src_dir)
     # elif os.path.exists(target):
     if os.path.exists(target):
         # requirements.yml or local dir
-        print("load requirements from dir {}".format(target))
+        logging.debug("load requirements from dir {}".format(target))
         return load_requirements(target)
     else:
         raise ValueError("Invalid target dir: {}".format(target))
@@ -142,13 +144,13 @@ def load_requirements(path):
 
 
 def load_existing_dependency_dir(dependency_dir):
-    role_meta_files = safe_glob(
-        [
-            os.path.join(dependency_dir, "**", role_meta_main_yml),
-            os.path.join(dependency_dir, "**", role_meta_main_yaml),
-        ],
-        recursive=True,
-    )
+    # role_meta_files = safe_glob(
+    #     [
+    #         os.path.join(dependency_dir, "**", role_meta_main_yml),
+    #         os.path.join(dependency_dir, "**", role_meta_main_yaml),
+    #     ],
+    #     recursive=True,
+    # )
     collection_meta_files = safe_glob(os.path.join(dependency_dir, "**", collection_manifest_json), recursive=True)
     requirements = {
         "roles": [],
@@ -158,18 +160,37 @@ def load_existing_dependency_dir(dependency_dir):
         "roles": {},
         "collections": {},
     }
-    for r_meta_file in role_meta_files:
-        role_name = r_meta_file.split("/")[-3]
-        role_path = "/".join(r_meta_file.split("/")[:-2])
-        requirements["roles"].append(role_name)
-        paths["roles"][role_name] = role_path
+    metadata = {
+        "roles": {},
+        "collections": {},
+    }
+    # for r_meta_file in role_meta_files:
+    #     role_name = r_meta_file.split("/")[-3]
+    #     role_path = "/".join(r_meta_file.split("/")[:-2])
+    #     requirements["roles"].append(role_name)
+    #     paths["roles"][role_name] = role_path
     for c_meta_file in collection_meta_files:
+        if "/tests/" in c_meta_file:
+            continue
         parts = c_meta_file.split("/")
-        collection_name = f"{parts[-2]}.{parts[-1]}"
+        collection_name = f"{parts[-3]}.{parts[-2]}"
         collection_path = "/".join(c_meta_file.split("/")[:-1])
+        collection_base_path = "/".join(c_meta_file.split("/")[:-3])
+        for dir_name in os.listdir(collection_base_path):
+            galaxy_data = None
+            if dir_name.startswith(collection_name) and dir_name.endswith(".info"):
+                galaxy_yml_path = os.path.join(collection_base_path, dir_name, galaxy_yml)
+                try:
+                    with open(galaxy_yml_path, "r") as galaxy_yml_file:
+                        galaxy_data = yaml.safe_load(galaxy_yml_file)
+                except Exception:
+                    pass
+            if not isinstance(galaxy_data, dict):
+                continue
+            metadata["collections"][collection_name] = galaxy_data
         requirements["collections"].append(collection_name)
         paths["collections"][collection_name] = collection_path
-    return requirements, paths
+    return requirements, paths, metadata
 
 
 def install_github_target(target, output_dir):
@@ -181,7 +202,7 @@ def install_github_target(target, output_dir):
         text=True,
     )
     install_msg = proc.stdout
-    print("STDOUT: {}".format(install_msg))
+    logging.debug("STDOUT: {}".format(install_msg))
     return proc.stdout
 
 
@@ -193,4 +214,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     result = find_dependency(args.type, args.target_dir)
-    print(result)
+    logging.debug(result)

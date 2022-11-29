@@ -1221,6 +1221,12 @@ def load_object(loadObj):
 
 def find_playbook_role_module(path):
     playbooks = load_playbooks(path, basedir=path, load_children=False)
-    roles = load_roles(path, basedir=path, load_children=False)
+    root_role = load_role(path, basedir=path, load_children=False)
+    sub_roles = load_roles(path, basedir=path, load_children=False)
+    roles = []
+    if root_role.metadata is not None and len(root_role.metadata) > 0:
+        roles.append(".")
+    if len(sub_roles) > 0:
+        roles.extend(sub_roles)
     modules = load_modules(path, basedir=path, load_children=False)
     return playbooks, roles, modules

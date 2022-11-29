@@ -73,13 +73,14 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
     playbook_count = {"total": 0, "risk": 0}
     role_count = {"total": 0, "risk": 0}
 
-    data_report = {"summary": {}, "details": {}}
+    data_report = {"summary": {}, "details": []}
     separate_report = {}
     role_to_playbook_mappings = {}
     risk_found_playbooks = set()
 
     tmp_result_txt = ""
     num = len(taskcalls_in_trees)
+    result_dict = {}
     for i, taskcalls_in_tree in enumerate(taskcalls_in_trees):
         if not isinstance(taskcalls_in_tree, TaskCallsInTree):
             continue
@@ -122,9 +123,9 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
                     tree_root_label = tree_root_type
                     separate_report[rule_name]["matched"].append([tree_root_label, tree_root_name, message])
 
-                    if rule_name not in data_report["details"]:
-                        data_report["details"][rule_name] = []
-                    data_report["details"][rule_name].append(
+                    if rule_name not in result_dict:
+                        result_dict[rule_name] = []
+                    result_dict[rule_name].append(
                         {
                             "type": tree_root_type,
                             "name": tree_root_name,
@@ -139,9 +140,9 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
 
                         used_in_playbooks = role_to_playbook_mappings.get(tree_root_name, [])
 
-                        if rule_name not in data_report["details"]:
-                            data_report["details"][rule_name] = []
-                        data_report["details"][rule_name].append(
+                        if rule_name not in result_dict:
+                            result_dict[rule_name] = []
+                        result_dict[rule_name].append(
                             {
                                 "type": tree_root_type,
                                 "name": tree_root_name,
@@ -163,6 +164,9 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
             else:
                 role_count["risk"] += 1
         logging.debug("detect() {}/{} done".format(i + 1, num))
+    for rule_name in result_dict:
+        results = result_dict[rule_name]
+        data_report["details"].append({"rule": rule_name, "results": results})
 
     if playbook_count["total"] > 0:
         result_txt += "Playbooks\n"
