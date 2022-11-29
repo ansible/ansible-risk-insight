@@ -1199,13 +1199,13 @@ def load_object(loadObj):
     target_type = loadObj.target_type
     path = loadObj.path
     obj = None
-    if target_type == LoadType.COLLECTION_TYPE:
+    if target_type == LoadType.COLLECTION:
         obj = load_collection(collection_dir=path, basedir=path, load_children=False)
-    elif target_type == LoadType.ROLE_TYPE:
+    elif target_type == LoadType.ROLE:
         obj = load_role(path=path, basedir=path, load_children=False)
-    elif target_type == LoadType.PLAYBOOK_TYPE:
+    elif target_type == LoadType.PLAYBOOK:
         obj = load_playbook(path=path, role_name="", collection_name="", basedir=path)
-    elif target_type == LoadType.PROJECT_TYPE:
+    elif target_type == LoadType.PROJECT:
         obj = load_repository(path=path, basedir=path, load_children=False)
 
     if hasattr(obj, "roles"):
@@ -1217,3 +1217,16 @@ def load_object(loadObj):
     if hasattr(obj, "modules"):
         loadObj.modules = obj.modules
     loadObj.timestamp = datetime.datetime.utcnow().isoformat()
+
+
+def find_playbook_role_module(path):
+    playbooks = load_playbooks(path, basedir=path, load_children=False)
+    root_role = load_role(path, basedir=path, load_children=False)
+    sub_roles = load_roles(path, basedir=path, load_children=False)
+    roles = []
+    if root_role.metadata is not None and len(root_role.metadata) > 0:
+        roles.append(".")
+    if len(sub_roles) > 0:
+        roles.extend(sub_roles)
+    modules = load_modules(path, basedir=path, load_children=False)
+    return playbooks, roles, modules

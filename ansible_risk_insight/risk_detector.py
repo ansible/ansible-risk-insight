@@ -73,12 +73,14 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
     playbook_count = {"total": 0, "risk": 0}
     role_count = {"total": 0, "risk": 0}
 
+    data_report = {"summary": {}, "details": []}
     separate_report = {}
     role_to_playbook_mappings = {}
     risk_found_playbooks = set()
 
     tmp_result_txt = ""
     num = len(taskcalls_in_trees)
+    result_dict = {}
     for i, taskcalls_in_tree in enumerate(taskcalls_in_trees):
         if not isinstance(taskcalls_in_tree, TaskCallsInTree):
             continue
@@ -120,11 +122,34 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
                 if rule.separate_report:
                     tree_root_label = tree_root_type
                     separate_report[rule_name]["matched"].append([tree_root_label, tree_root_name, message])
+
+                    if rule_name not in result_dict:
+                        result_dict[rule_name] = []
+                    result_dict[rule_name].append(
+                        {
+                            "type": tree_root_type,
+                            "name": tree_root_name,
+                            "message": message,
+                        }
+                    )
                 else:
                     if not is_playbook:
                         do_report = True
                         tmp_result_txt_alt += rule_name + "\n"
                         tmp_result_txt_alt += indent(message, 0) + "\n"
+
+                        used_in_playbooks = role_to_playbook_mappings.get(tree_root_name, [])
+
+                        if rule_name not in result_dict:
+                            result_dict[rule_name] = []
+                        result_dict[rule_name].append(
+                            {
+                                "type": tree_root_type,
+                                "name": tree_root_name,
+                                "message": message,
+                                "playbooks_use_this_role": used_in_playbooks,
+                            }
+                        )
         if do_report and tmp_result_txt_alt != "":
             tmp_result_txt += "#{} {} - {}\n".format(report_num, tree_root_type.upper(), tree_root_name)
             used_in_playbooks = role_to_playbook_mappings.get(tree_root_name, [])
@@ -139,15 +164,28 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
             else:
                 role_count["risk"] += 1
         logging.debug("detect() {}/{} done".format(i + 1, num))
+    for rule_name in result_dict:
+        results = result_dict[rule_name]
+        data_report["details"].append({"rule": rule_name, "results": results})
 
     if playbook_count["total"] > 0:
         result_txt += "Playbooks\n"
         result_txt += "  Total: {}\n".format(playbook_count["total"])
         result_txt += "  Risk Found: {}\n".format(len(risk_found_playbooks))
+
+        data_report["summary"]["playbooks"] = {
+            "total": playbook_count["total"],
+            "risk_found": playbook_count["risk"],
+        }
     if role_count["total"] > 0:
         result_txt += "Roles\n"
         result_txt += "  Total: {}\n".format(role_count["total"])
         result_txt += "  Risk Found: {}\n".format(role_count["risk"])
+
+        data_report["summary"]["roles"] = {
+            "total": role_count["total"],
+            "risk_found": role_count["risk"],
+        }
     result_txt += "-" * 90 + "\n"
 
     result_txt += tmp_result_txt
@@ -167,7 +205,7 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
             table_txt = table_txt.replace(placeholder, subject)
         result_txt += indent(table_txt, 0) + "\n"
         result_txt += "-" * 90 + "\n"
-    return result_txt
+    return result_txt, data_report
 
 
 def main():

@@ -56,7 +56,7 @@ class Parser:
         collection_name = ""
         role_name = ""
         obj = None
-        if ld.target_type == LoadType.COLLECTION_TYPE:
+        if ld.target_type == LoadType.COLLECTION:
             collection_name = ld.target_name
             try:
                 obj = load_collection(
@@ -67,21 +67,21 @@ class Parser:
             except Exception:
                 logging.exception("failed to load the collection {}".format(collection_name))
                 return
-        elif ld.target_type == LoadType.ROLE_TYPE:
+        elif ld.target_type == LoadType.ROLE:
             role_name = ld.target_name
             try:
                 obj = load_role(path=ld.path, basedir=ld.path, load_children=False)
             except Exception:
                 logging.exception("failed to load the role {}".format(role_name))
                 return
-        elif ld.target_type == LoadType.PROJECT_TYPE:
+        elif ld.target_type == LoadType.PROJECT:
             repo_name = ld.target_name
             try:
                 obj = load_repository(path=ld.path, basedir=ld.path)
             except Exception:
                 logging.exception("failed to load the project {}".format(repo_name))
                 return
-        elif ld.target_type == LoadType.PLAYBOOK_TYPE:
+        elif ld.target_type == LoadType.PLAYBOOK:
             playbook_name = ld.target_name
             try:
                 obj = load_playbook(
@@ -178,16 +178,16 @@ class Parser:
 
         collections = []
         projects = []
-        if ld.target_type == LoadType.COLLECTION_TYPE:
+        if ld.target_type == LoadType.COLLECTION:
             collections = [obj]
-        elif ld.target_type == LoadType.ROLE_TYPE:
+        elif ld.target_type == LoadType.ROLE:
             role_path = "."
             r = load_role(path=role_path, name=ld.target_name, basedir=ld.path)
             roles.append(r)
             mappings["roles"].append([role_path, r.key])
-        elif ld.target_type == LoadType.PLAYBOOK_TYPE:
+        elif ld.target_type == LoadType.PLAYBOOK:
             playbooks = [obj]
-        elif ld.target_type == LoadType.PROJECT_TYPE:
+        elif ld.target_type == LoadType.PROJECT:
             projects = [obj]
 
         if len(collections) > 0:

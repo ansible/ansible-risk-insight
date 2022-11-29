@@ -89,11 +89,11 @@ class Resolvable(object):
 
 
 class LoadType:
-    PROJECT_TYPE = "project"
-    COLLECTION_TYPE = "collection"
-    ROLE_TYPE = "role"
-    PLAYBOOK_TYPE = "playbook"
-    UNKNOWN_TYPE = "unknown"
+    PROJECT = "project"
+    COLLECTION = "collection"
+    ROLE = "role"
+    PLAYBOOK = "playbook"
+    UNKNOWN = "unknown"
 
 
 @dataclass
