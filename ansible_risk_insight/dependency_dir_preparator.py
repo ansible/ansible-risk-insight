@@ -21,14 +21,10 @@ import tempfile
 import logging
 import glob
 import re
-<<<<<<< HEAD
 import sys
 import datetime
 from dataclasses import dataclass, field, asdict
-=======
 import shutil
-from shutil import unpack_archive
->>>>>>> 39efc1c2 (add scanner code)
 
 from .models import (
     LoadType,
