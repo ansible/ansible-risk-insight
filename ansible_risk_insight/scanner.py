@@ -23,6 +23,8 @@ import json
 import tempfile
 import logging
 import jsonpickle
+import requests
+import hashlib
 from dataclasses import dataclass, field
 from .models import (
     Load,
@@ -113,11 +115,16 @@ class ARIScanner(object):
     __path_mappings: dict = field(default_factory=dict)
 
     dependency_dir: str = ""
+    loaded_dependency_dirs: list = field(default_factory=list)
+
     do_save: bool = False
     _parser: Parser = None
 
     download_url: str = ""
     version: str = ""
+    hash: str = ""
+
+    out_dir: str = ""
 
     def __post_init__(self):
         if self.type == LoadType.COLLECTION or self.type == LoadType.ROLE:
@@ -187,12 +194,13 @@ class ARIScanner(object):
         if self.is_src_installed():
             pass
         else:
-            self.download_url, self.version = self.src_install()
+            self.download_url, self.version, self.hash = self.src_install()
             logging.debug("install() done")
         target_path = self.make_target_path(self.type, self.name)
 
         # Dependency Dir Preparator
         dep_dirs = dependency_dir_preparator(self.type, target_path, self.dependency_dir, self.root_dir)
+        self.loaded_dependency_dirs = dep_dirs
 
         ext_list = []
         ext_list.extend([(d.get("metadata", {}).get("type", ""), d.get("metadata", {}).get("name", ""), d.get("dir")) for d in dep_dirs])
@@ -231,6 +239,10 @@ class ARIScanner(object):
         from pprint import pprint
 
         pprint(self.data_report)
+
+        if self.out_dir != "":
+            self.save_findings(dir=self.out_dir)
+
         return
 
     def make_target_path(self, typ, target_name):
@@ -277,12 +289,13 @@ class ARIScanner(object):
     def src_install(self):
         download_url = ""
         version = ""
+        hash = ""
         try:
             self.setup_tmp_dir()
-            download_url, version = self.install()
+            download_url, version, hash = self.install()
         finally:
             self.clean_tmp_dir()
-        return download_url, version
+        return download_url, version, hash
 
     def install(self):
         tmp_src_dir = os.path.join(self.tmp_install_dir.name, "src")
@@ -293,6 +306,7 @@ class ARIScanner(object):
 
         download_url = ""
         version = ""
+        hash = ""
 
         if self.type in [ContainerType.COLLECTION, ContainerType.ROLE]:
             # install_type = "galaxy"
@@ -301,7 +315,7 @@ class ARIScanner(object):
             install_msg = install_galaxy_target(self.name, self.type, tmp_src_dir)
             dependency_dir = tmp_src_dir
             dst_src_dir = self.get_src_root()
-            download_url, version = get_download_metadata(typ=self.type, install_msg=install_msg)
+            download_url, version, hash = get_download_metadata(typ=self.type, install_msg=install_msg)
 
         elif self.type == ContainerType.PROJECT:
             # install_type = "github"
@@ -338,7 +352,7 @@ class ARIScanner(object):
                 os.makedirs(dst_dependency_dir)
             self.move_src(dependency_dir, dst_dependency_dir)
 
-        return download_url, version
+        return download_url, version, hash
 
     def set_index(self, path):
         print("crawl content")
@@ -519,6 +533,7 @@ class ARIScanner(object):
             "name": self.name,
             "version": self.version,
             "download_url": self.download_url,
+            "hash": self.hash,
         }
         self.data_report = data_report
         return
@@ -713,6 +728,10 @@ class ARIScanner(object):
         with open(map2, "w") as f2:
             json.dump(js2, f2)
 
+    def save_findings(self, dir: str = ""):
+        if dir == "":
+            raise ValueError("output dir must be a non-empty value")
+
 
 def tree(root_definitions, ext_definitions):
     tl = TreeLoader(root_definitions, ext_definitions)
@@ -788,13 +807,22 @@ def get_download_metadata(typ: str, install_msg: str):
                 download_url = line.split(" ")[-1]
                 version = download_url.split("/")[-1].replace(".tar.gz", "")
                 break
-    return download_url, version
+    hash = ""
+    if download_url != "":
+        hash = get_hash_of_url(download_url)
+    return download_url, version, hash
 
 
 def escape_url(url: str):
     base_url = url.split("?")[0]
     replaced = base_url.replace("://", "__").replace("/", "_")
     return replaced
+
+
+def get_hash_of_url(url: str):
+    response = requests.get(url)
+    hash = hashlib.sha256(response.content).hexdigest()
+    return hash
 
 
 if __name__ == "__main__":

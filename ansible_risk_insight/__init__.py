@@ -29,6 +29,7 @@ def main():
     parser.add_argument("target_type", help="Content type", choices={"project", "role", "collection"})
     parser.add_argument("target_name", help="Name")
     parser.add_argument("dependency_dir", nargs="?", help="TODO")
+    parser.add_argument("--out_dir", "-o", help="output directory for findings")
 
     args = parser.parse_args()
 
@@ -38,5 +39,6 @@ def main():
         root_dir=config.data_dir,
         dependency_dir=args.dependency_dir,
         do_save=args.save,
+        out_dir=args.out_dir,
     )
     c.load()
