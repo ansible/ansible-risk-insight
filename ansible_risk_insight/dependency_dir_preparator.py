@@ -224,7 +224,6 @@ def download_galaxy_collection_from_reqfile(requirementes, output_dir, source_re
     logging.debug("STDOUT: {}".format(install_msg))
     # return proc.stdout
 
-
 def get_targz_collection(download_location):
     tarfile_list = []
     for file in os.listdir(download_location):
@@ -275,7 +274,6 @@ def get_cache_role_data(sub_dependency_dir_path, cache_dir_path, rdep):
     url = ""
     version = ""
     return url, version
-
 
 def install_galaxy_role_from_reqfile(file, output_dir):
     proc = subprocess.run(
