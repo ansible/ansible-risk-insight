@@ -15,7 +15,7 @@
 # limitations under the License.
 
 import argparse
-from .data_container import DataContainer, config
+from .scanner import ARIScanner, config
 
 
 def main():
@@ -26,17 +26,23 @@ def main():
         action="store_true",
         help="enable file save under ARI_DATA_DIR (default=/tmp/ari-data)",
     )
-    parser.add_argument("target_type", help="Content type", choices={"role", "collection"})
+    parser.add_argument("target_type", help="Content type", choices={"project", "role", "collection"})
     parser.add_argument("target_name", help="Name")
-    parser.add_argument("dependency_dir", nargs="?", help="TODO")
+    parser.add_argument("--dependency-dir", nargs="?", help="TODO")
+    parser.add_argument("--source", help="source server name in ansible config file (if empty, use public ansible galaxy)")
+    parser.add_argument("--pretty", action="store_true", help="show results in a pretty format")
+    parser.add_argument("-o", "--out-dir", help="output directory for findings")
 
     args = parser.parse_args()
 
-    c = DataContainer(
+    c = ARIScanner(
         type=args.target_type,
         name=args.target_name,
         root_dir=config.data_dir,
         dependency_dir=args.dependency_dir,
         do_save=args.save,
+        source_repository=args.source,
+        out_dir=args.out_dir,
+        pretty=args.pretty,
     )
     c.load()

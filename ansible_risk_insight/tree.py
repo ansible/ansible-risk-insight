@@ -205,6 +205,8 @@ def load_all_definitions(definitions: dict):
         _definitions = definitions
     loaded = {}
     types = ["roles", "taskfiles", "modules", "playbooks", "plays", "tasks"]
+    for type_key in types:
+        loaded[type_key] = ObjectList()
     for _, definitions_per_artifact in _definitions.items():
         def_list = load_definitions(definitions_per_artifact.get("definitions", {}), types)
         for i, type_key in enumerate(types):
@@ -423,7 +425,7 @@ class TreeLoader(object):
 
     def run(self):
         additional_objects = ObjectList()
-        if self.load_and_mapping.target_type == LoadType.PROJECT_TYPE:
+        if self.load_and_mapping.target_type == LoadType.PROJECT:
             p_defs = self.org_root_definitions.get("definitions", {}).get("projects", [])
             if len(p_defs) > 0:
                 additional_objects.add(p_defs[0])
