@@ -250,7 +250,7 @@ class ARIScanner(object):
             self.out_dir = os.path.join(self.root_dir, "results", type_root, dir_name)
         self.save_findings(out_dir=self.out_dir)
         print("-" * 60)
-        print("Risk scan completed! The findings are saved at {}.".format(self.out_dir))
+        print("Risk scan completed! The findings are saved at {}".format(self.out_dir))
 
         if self.pretty:
             print(json.dumps(self.data_report, indent=2))

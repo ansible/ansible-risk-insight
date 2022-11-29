@@ -27,5 +27,8 @@ class Rule(object):
     separate_report: bool = False
     all_ok_message: str = ""
 
+    def is_target(self, type: str, name: str) -> bool:
+        raise ValueError("this is a base class method")
+
     def check(self, taskcalls: List[TaskCall], **kwargs):
         raise ValueError("this is a base class method")

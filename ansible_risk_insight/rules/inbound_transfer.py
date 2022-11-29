@@ -24,6 +24,9 @@ class InboundTransferRule(Rule):
     name: str = "InboundTransfer"
     enabled: bool = True
 
+    def is_target(self, type: str, name: str) -> bool:
+        return True
+
     # IN: tasks with "analyzed_data" (i.e. output from analyzer.py)
     # OUT: matched: bool, matched_tasks: list[task | tuple[task]], message: str
     def check(self, taskcalls: List[TaskCall], **kwargs):
