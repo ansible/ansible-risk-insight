@@ -321,6 +321,5 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     dependencies = json.loads(args.dependencies)
-    # dependencies = {'dependencies': {'collections': ['ansible.posix', 'community.crypto', 'community.general', 'community.libvirt', 'community.mysql', 'community.postgresql', 'community.rabbitmq']}, 'type': 'project', 'file': '../../ansible-dev/debops/requirements.yml'}
     result = dependency_dir_preparator(dependencies, args.download_location, args.dependency_dir_path, args.cache, args.cache_dir)
-    print(result)
+    print(json.dumps(result, indent=2))
