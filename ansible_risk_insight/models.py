@@ -67,7 +67,7 @@ class Resolvable(object):
             raise ValueError("resolver.apply is not callable")
 
         # apply resolver for this instance
-        resolver.apptly(self)
+        resolver.apply(self)
 
         # call resolve() for children rescursively
         targets = self.resolver_targets
