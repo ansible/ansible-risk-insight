@@ -14,21 +14,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List
-from ..models import TaskCall
+from dataclasses import dataclass, field
 
 
-subject_placeholder = "<SUBJECT>"
+@dataclass
+class Findings:
+    metadata: dict = field(default_factory=dict)
+    dependencies: list = field(default_factory=list)
 
+    root_definitions: dict = field(default_factory=dict)
+    ext_definitions: dict = field(default_factory=dict)
 
-class Rule(object):
-    name: str = ""
-    enabled: bool = False
-    separate_report: bool = False
-    all_ok_message: str = ""
+    prm: dict = field(default_factory=dict)
+    report: dict = field(default_factory=dict)
 
-    def is_target(self, type: str, name: str) -> bool:
-        raise ValueError("this is a base class method")
-
-    def check(self, taskcalls: List[TaskCall], **kwargs):
-        raise ValueError("this is a base class method")
+    def simple(self):
+        d = self.report.copy()
+        d["metadata"] = self.metadata
+        d["dependencies"] = self.dependencies
+        return d

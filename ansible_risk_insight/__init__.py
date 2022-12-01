@@ -45,4 +45,7 @@ def main():
         out_dir=args.out_dir,
         pretty=args.pretty,
     )
+    print("Start preparing dependencies")
+    c.prepare_dependencies()
+    print("Start scanning")
     c.load()

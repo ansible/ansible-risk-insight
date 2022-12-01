@@ -26,6 +26,9 @@ class ExternalDependencyRule(Rule):
     separate_report: bool = True
     all_ok_message = "No {} depend on external dependencies".format(subject_placeholder)
 
+    def is_target(self, type: str, name: str) -> bool:
+        return True
+
     # IN: tasks with "analyzed_data" (i.e. output from analyzer.py)
     # OUT: matched: bool, matched_tasks: list[task | tuple[task]], message: str
     def check(self, taskcalls: List[TaskCall], **kwargs):

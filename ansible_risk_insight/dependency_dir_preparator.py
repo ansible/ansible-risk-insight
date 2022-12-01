@@ -54,7 +54,6 @@ def dependency_dir_preparator(type, target_path, dependency_dir="", root_dir="",
     # check cache_dir
     if cache_enabled and not os.path.exists(cache_dir):
         os.makedirs(cache_dir)
-
     # check dependency_dir_path
     if not os.path.exists(dependency_dir_path):
         os.makedirs(dependency_dir_path)
