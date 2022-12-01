@@ -28,7 +28,7 @@ class Findings:
     prm: dict = field(default_factory=dict)
     report: dict = field(default_factory=dict)
 
-    def showable(self):
+    def simple(self):
         d = self.report.copy()
         d["metadata"] = self.metadata
         d["dependencies"] = self.dependencies

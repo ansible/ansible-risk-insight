@@ -334,7 +334,7 @@ class ARIScanner(object):
 
         if self.pretty:
             if not self.silent:
-                print(json.dumps(self.findings.showable(), indent=2))
+                print(json.dumps(self.findings.simple(), indent=2))
 
         return
 
