@@ -137,6 +137,8 @@ class ARIScanner(object):
     pretty: bool = False
     silent: bool = False
 
+    extra_requirements: list = field(default_factory=list)
+
     findings: Findings = None
 
     def __post_init__(self):
@@ -284,9 +286,12 @@ class ARIScanner(object):
 
                 # searching findings from ARI RAM and use them if found
                 key = "{}-{}".format(self.type, self.name)
-                loaded, self.ext_definitions[key] = self.load_definitions_from_findings(ext_type, ext_name, ext_ver, ext_hash)
+                loaded, ext_defs = self.load_definitions_from_findings(ext_type, ext_name, ext_ver, ext_hash)
                 if loaded:
-                    print("[DEBUG] Use spec data in RAM DB")
+                    key = "{}-{}".format(ext_type, ext_name)
+                    self.ext_definitions[key] = ext_defs
+                    if not self.silent:
+                        logging.debug(f'Use spec data for "{ext_name}" in RAM DB')
                     continue
 
                 # load the src directory
@@ -298,7 +303,7 @@ class ARIScanner(object):
         loaded, self.root_definitions = self.load_definitions_from_findings(self.type, self.name, self.version, self.hash)
         if loaded:
             if not self.silent:
-                print("[DEBUG] Use spec data in RAM DB")
+                logging.debug("Use spec data in RAM DB")
         else:
             self.load_definitions_root()
 
@@ -334,6 +339,20 @@ class ARIScanner(object):
             print("-" * 60)
             print("ARI scan completed!")
             print(f"Findings have been saved at: {self.ram_client.make_findings_dir_path(self.type, self.name, self.version, self.hash)}")
+
+        if not self.silent:
+            extra_collections = set()
+            # roles = set()
+            if len(self.extra_requirements) > 0:
+                for ext_req in self.extra_requirements:
+                    req_name = ext_req.get("collection", {}).get("name", None)
+                    if req_name and req_name not in extra_collections:
+                        extra_collections.add(req_name)
+                print("[DEBUG] requirements.yml.generated")
+                if len(extra_collections) > 0:
+                    print("collections:")
+                    for col in sorted(list(extra_collections)):
+                        print(f"- {col}")
 
         if self.pretty:
             if not self.silent:
@@ -448,9 +467,10 @@ class ARIScanner(object):
         return self.root_definitions, self.ext_definitions
 
     def set_trees(self):
-        trees, additional = tree(self.root_definitions, self.ext_definitions)
+        trees, additional, extra_requirements = tree(self.root_definitions, self.ext_definitions, self.ram_client)
         self.trees = trees
         self.additional = additional
+        self.extra_requirements = extra_requirements
 
         if self.do_save:
             root_def_dir = self.__path_mappings["root_definitions"]
@@ -729,14 +749,14 @@ class ARIScanner(object):
         self.ram_client.save_findings(self.findings, out_dir)
 
 
-def tree(root_definitions, ext_definitions):
-    tl = TreeLoader(root_definitions, ext_definitions)
+def tree(root_definitions, ext_definitions, ram_client=None):
+    tl = TreeLoader(root_definitions, ext_definitions, ram_client)
     trees, additional = tl.run()
     if trees is None:
         raise ValueError("failed to get trees")
     # if node_objects is None:
     #     raise ValueError("failed to get node_objects")
-    return trees, additional
+    return trees, additional, tl.extra_requirements
 
 
 def resolve(trees, additional):

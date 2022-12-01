@@ -37,6 +37,8 @@ from .models import (
     call_obj_from_spec,
 )
 from .finder import get_builtin_module_names
+from .risk_assessment_model import RAMClient
+
 
 obj_type_dict = {
     "playbook": "playbooks",
@@ -400,7 +402,7 @@ def init_builtin_modules():
 
 
 class TreeLoader(object):
-    def __init__(self, root_definitions, ext_definitions):
+    def __init__(self, root_definitions, ext_definitions, ram_client=None):
 
         # use mappings just to get tree tops (playbook/role)
         # we don't load any files by this mappings here
@@ -419,6 +421,11 @@ class TreeLoader(object):
         self.add_builtin_modules()
 
         self.dicts = make_dicts(self.root_definitions, self.ext_definitions)
+
+        self.ram_client: RAMClient = ram_client
+
+        self.resolved_from_ram = {}
+        self.extra_requirements = []
 
         self.trees = []
         return
@@ -551,6 +558,21 @@ class TreeLoader(object):
             resolved_key = ""
             if executable_type == ExecutableType.MODULE_TYPE:
                 resolved_key = resolve_module(obj.executable, self.dicts["modules"])
+                if resolved_key == "":
+                    if obj.executable in self.resolved_from_ram:
+                        resolved_key = self.resolved_from_ram[obj.executable]
+                    else:
+                        matched_modules = self.ram_client.search_module(obj.executable)
+                        if len(matched_modules) > 0:
+                            resolved_key = matched_modules[0]["module"].key
+                            self.ext_definitions["modules"].add(matched_modules[0]["module"])
+                            self.extra_requirements.append(
+                                {
+                                    "module_fqcn": matched_modules[0]["module"].fqcn,
+                                    "collection": matched_modules[0]["collection"],
+                                }
+                            )
+                            self.resolved_from_ram[obj.executable] = resolved_key
             elif executable_type == ExecutableType.ROLE_TYPE:
                 resolved_key = resolve_role(
                     obj.executable,

@@ -16,17 +16,20 @@
 
 import os
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
-from .models import LoadType
+from .models import LoadType, ObjectList
 from .parser import Parser
 from .findings import Findings
 from .utils import escape_url
+from .safe_glob import safe_glob
 
 
 @dataclass
 class RAMClient(object):
     root_dir: str = ""
+
+    modules_json_list_cache: list = field(default_factory=list)
 
     def register(self, findings: Findings):
         metadata = findings.metadata
@@ -59,6 +62,50 @@ class RAMClient(object):
             definitions, mappings = Parser.restore_definition_objects(defs_dir)
             loaded = True
         return loaded, definitions, mappings
+
+    def search_module(self, name, exact_match=False, max_match=-1):
+        if max_match == 0:
+            return []
+        modules_json_list = []
+        if self.modules_json_list_cache:
+            modules_json_list = self.modules_json_list_cache
+        else:
+            search_patterns = os.path.join(self.root_dir, "collections", "findings", "*", "*", "*", "root", "modules.json")
+            modules_json_list = safe_glob(search_patterns)
+            self.modules_json_list_cache = modules_json_list
+        matched_modules = []
+        search_end = False
+        for modules_json in modules_json_list:
+            modules = ObjectList()
+            modules.from_json(fpath=modules_json)
+            for m in modules.items:
+                matched = False
+                if exact_match:
+                    if m.fqcn == name:
+                        matched = True
+                else:
+                    if m.fqcn == name or m.fqcn.endswith(f".{name}"):
+                        matched = True
+                if matched:
+                    parts = modules_json.split("/")
+
+                    matched_modules.append(
+                        {
+                            "module": m,
+                            "collection": {
+                                "name": parts[-5],
+                                "version": parts[-4],
+                                "hash": parts[-3],
+                            },
+                        }
+                    )
+                if max_match > 0:
+                    if len(matched_modules) >= max_match:
+                        search_end = True
+                        break
+            if search_end:
+                break
+        return matched_modules
 
     def save_findings(self, findings: Findings, out_dir: str):
         if out_dir == "":
