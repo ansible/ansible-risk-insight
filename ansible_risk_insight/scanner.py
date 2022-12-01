@@ -47,7 +47,7 @@ from .dependency_dir_preparator import (
     dependency_dir_preparator,
 )
 from .findings import Findings
-from .fm_db import FMDBClient
+from .risk_assessment_model import RAMClient
 from .utils import (
     escape_url,
     install_galaxy_target,
@@ -121,7 +121,7 @@ class ARIScanner(object):
 
     prm: dict = field(default_factory=dict)
 
-    fm_db_client: FMDBClient = None
+    ram_client: RAMClient = None
 
     do_save: bool = False
     _parser: Parser = None
@@ -199,7 +199,7 @@ class ARIScanner(object):
         else:
             raise ValueError("Unsupported type: {}".format(self.type))
 
-        self.fm_db_client = FMDBClient(root_dir=self.root_dir)
+        self.ram_client = RAMClient(root_dir=self.root_dir)
 
     def prepare_dependencies(self, root_install=False):
         # Install the target if needed
@@ -263,7 +263,7 @@ class ARIScanner(object):
                 is_root = True
 
             if not is_root:
-                # scan dependencies and save findings to ARI FM
+                # scan dependencies and save findings to ARI RAM
                 dep_scanner = ARIScanner(
                     type=ext_type,
                     name=ext_name,
@@ -279,11 +279,11 @@ class ARIScanner(object):
                 # use prepared dep dirs
                 dep_scanner.load(prepare_dependencies=False)
 
-                # seatching findings from ARI FM and use them if found
+                # seatching findings from ARI RAM and use them if found
                 key = "{}-{}".format(self.type, self.name)
                 loaded, self.ext_definitions[key] = self.load_definitions_from_findings(ext_type, ext_name, ext_ver, ext_hash)
                 if loaded:
-                    print("[DEBUG] Use spec data in FM DB")
+                    print("[DEBUG] Use spec data in RAM DB")
                     continue
 
                 # load the src directory
@@ -295,7 +295,7 @@ class ARIScanner(object):
         loaded, self.root_definitions = self.load_definitions_from_findings(self.type, self.name, self.version, self.hash)
         if loaded:
             if not self.silent:
-                print("[DEBUG] Use spec data in FM DB")
+                print("[DEBUG] Use spec data in RAM DB")
         else:
             self.load_definitions_root()
 
@@ -320,7 +320,7 @@ class ARIScanner(object):
             print("ext definitions:", ext_counts)
             print("root definitions:", root_counts)
 
-        self.register_findings_to_fm()
+        self.register_findings_to_db()
 
         if self.out_dir is not None and self.out_dir != "":
             self.save_findings(out_dir=self.out_dir)
@@ -330,7 +330,7 @@ class ARIScanner(object):
         if not self.silent:
             print("-" * 60)
             print("ARI scan completed!")
-            print(f"Findings have been saved at: {self.fm_db_client.make_findings_dir_path(self.type, self.name, self.version, self.hash)}")
+            print(f"Findings have been saved at: {self.ram_client.make_findings_dir_path(self.type, self.name, self.version, self.hash)}")
 
         if self.pretty:
             if not self.silent:
@@ -717,7 +717,7 @@ class ARIScanner(object):
         }
 
     def load_ext_definitions_from_findings(self, type, name, version, hash):
-        loaded, definitions, mappings = self.fm_db_client.load_definitions_from_findings(type, name, version, hash)
+        loaded, definitions, mappings = self.ram_client.load_definitions_from_findings(type, name, version, hash)
         if loaded:
             key = "{}-{}".format(type, name)
             self.ext_definitions[key] = {
@@ -750,7 +750,7 @@ class ARIScanner(object):
         }
 
     def load_definitions_from_findings(self, type, name, version, hash):
-        loaded, definitions, mappings = self.fm_db_client.load_definitions_from_findings(type, name, version, hash)
+        loaded, definitions, mappings = self.ram_client.load_definitions_from_findings(type, name, version, hash)
         definitions_dict = {}
         if loaded:
             definitions_dict = {
@@ -860,11 +860,11 @@ class ARIScanner(object):
         with open(map2, "w") as f2:
             json.dump(js2, f2)
 
-    def register_findings_to_fm(self):
-        self.fm_db_client.register(self.findings)
+    def register_findings_to_db(self):
+        self.ram_client.register(self.findings)
 
     def save_findings(self, out_dir: str):
-        self.fm_db_client.save_findings(self.findings, out_dir)
+        self.ram_client.save_findings(self.findings, out_dir)
 
 
 def tree(root_definitions, ext_definitions):

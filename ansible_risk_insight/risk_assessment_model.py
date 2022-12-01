@@ -25,7 +25,7 @@ from .utils import escape_url
 
 
 @dataclass
-class FMDBClient(object):
+class RAMClient(object):
     root_dir: str = ""
 
     def register(self, findings: Findings):
