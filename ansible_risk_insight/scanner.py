@@ -18,13 +18,10 @@ import os
 import sys
 import copy
 import shutil
-import subprocess
 import json
 import tempfile
 import logging
 import jsonpickle
-import requests
-import hashlib
 from dataclasses import dataclass, field
 from .models import (
     Load,
@@ -48,6 +45,16 @@ from .analyzer import analyze
 from .risk_detector import detect
 from .dependency_dir_preparator import (
     dependency_dir_preparator,
+)
+from .findings import Findings
+from .risk_assessment_model import RAMClient
+from .utils import (
+    escape_url,
+    install_galaxy_target,
+    install_github_target,
+    get_download_metadata,
+    get_installed_metadata,
+    get_hash_of_url,
 )
 
 
@@ -81,12 +88,6 @@ logging.basicConfig()
 logging.getLogger().setLevel(log_level_map[config.log_level])
 
 
-class ContainerType:
-    COLLECTION = "collection"
-    ROLE = "role"
-    PROJECT = "project"
-
-
 @dataclass
 class ARIScanner(object):
     type: str = ""
@@ -115,9 +116,12 @@ class ARIScanner(object):
     __path_mappings: dict = field(default_factory=dict)
 
     dependency_dir: str = ""
+    target_path: str = ""
     loaded_dependency_dirs: list = field(default_factory=list)
 
     prm: dict = field(default_factory=dict)
+
+    ram_client: RAMClient = None
 
     do_save: bool = False
     _parser: Parser = None
@@ -129,6 +133,9 @@ class ARIScanner(object):
     source_repository: str = ""
     out_dir: str = ""
     pretty: bool = False
+    silent: bool = False
+
+    findings: Findings = None
 
     def __post_init__(self):
         if self.type == LoadType.COLLECTION or self.type == LoadType.ROLE:
@@ -144,8 +151,8 @@ class ARIScanner(object):
                     self.name,
                 ),
                 "ext_definitions": {
-                    ContainerType.ROLE: os.path.join(self.root_dir, "roles", "definitions"),
-                    ContainerType.COLLECTION: os.path.join(self.root_dir, "collections", "definitions"),
+                    LoadType.ROLE: os.path.join(self.root_dir, "roles", "definitions"),
+                    LoadType.COLLECTION: os.path.join(self.root_dir, "collections", "definitions"),
                 },
                 "index": os.path.join(
                     self.root_dir,
@@ -171,8 +178,8 @@ class ARIScanner(object):
                     "definitions",
                 ),
                 "ext_definitions": {
-                    ContainerType.ROLE: os.path.join(self.root_dir, "roles", "definitions"),
-                    ContainerType.COLLECTION: os.path.join(self.root_dir, "collections", "definitions"),
+                    LoadType.ROLE: os.path.join(self.root_dir, "roles", "definitions"),
+                    LoadType.COLLECTION: os.path.join(self.root_dir, "collections", "definitions"),
                 },
                 "index": os.path.join(
                     self.root_dir,
@@ -192,79 +199,153 @@ class ARIScanner(object):
         else:
             raise ValueError("Unsupported type: {}".format(self.type))
 
-    def load(self):
+        self.ram_client = RAMClient(root_dir=self.root_dir)
 
+    def prepare_dependencies(self, root_install=False):
         # Install the target if needed
+        target_path = self.make_target_path(self.type, self.name)
         if self.is_src_installed():
             pass
         else:
-            self.download_url, self.version, self.hash = self.src_install()
-            logging.debug("install() done")
-        target_path = self.make_target_path(self.type, self.name)
+            if root_install:
+                self.download_url, self.version, self.hash = self.src_install()
+                if not self.silent:
+                    logging.debug("install() done")
+            else:
+                self.download_url, self.version = get_installed_metadata(self.type, self.name, target_path)
+                self.hash = get_hash_of_url(self.download_url)
 
         # Dependency Dir Preparator
         dep_dirs = dependency_dir_preparator(self.type, target_path, self.dependency_dir, self.root_dir, source_repository=self.source_repository)
+
+        self.target_path = target_path
         self.loaded_dependency_dirs = dep_dirs
 
+        return target_path, dep_dirs
+
+    def load(self, prepare_dependencies=False):
+
+        if prepare_dependencies:
+            self.prepare_dependencies()
+
         ext_list = []
-        ext_list.extend([(d.get("metadata", {}).get("type", ""), d.get("metadata", {}).get("name", ""), d.get("dir")) for d in dep_dirs])
+        ext_list.extend(
+            [
+                (
+                    d.get("metadata", {}).get("type", ""),
+                    d.get("metadata", {}).get("name", ""),
+                    d.get("metadata", {}).get("version", ""),
+                    d.get("metadata", {}).get("hash", ""),
+                    d.get("dir"),
+                )
+                for d in self.loaded_dependency_dirs
+            ]
+        )
         ext_count = len(ext_list)
 
         # PRM Finder
-        playbooks, roles, modules = find_playbook_role_module(target_path)
+        playbooks, roles, modules = find_playbook_role_module(self.target_path)
         self.prm["playbooks"] = playbooks
         self.prm["roles"] = roles
         self.prm["modules"] = modules
 
         # Start ARI Scanner main flow
         self._parser = Parser()
-        for i, (ext_type, ext_name, ext_path) in enumerate(ext_list):
-            if i == 0:
-                logging.info("start loading {} {}(s)".format(ext_count, ext_type))
-            logging.info("[{}/{}] {} {}".format(i + 1, ext_count, ext_type, ext_name))
-            self.load_definition_ext(ext_type, ext_name, ext_path)
+        for i, (ext_type, ext_name, ext_ver, ext_hash, ext_path) in enumerate(ext_list):
+            if not self.silent:
+                if i == 0:
+                    logging.info("start loading {} {}(s)".format(ext_count, ext_type))
+                logging.info("[{}/{}] {} {}".format(i + 1, ext_count, ext_type, ext_name))
 
-        logging.debug("load_definition_ext() done")
+            # avoid infinite loop
+            is_root = False
+            if self.type == ext_type and self.name == ext_name:
+                is_root = True
 
-        self.load_definitions_root()
-        logging.debug("load_definitions_root() done")
+            if not is_root:
+                # scan dependencies and save findings to ARI RAM
+                dep_scanner = ARIScanner(
+                    type=ext_type,
+                    name=ext_name,
+                    version=ext_ver,
+                    hash=ext_hash,
+                    target_path=ext_path,
+                    root_dir=self.root_dir,
+                    dependency_dir=self.dependency_dir,
+                    do_save=self.do_save,
+                    source_repository=self.source_repository,
+                    silent=True,
+                )
+                # use prepared dep dirs
+                dep_scanner.load(prepare_dependencies=False)
+
+                # seatching findings from ARI RAM and use them if found
+                key = "{}-{}".format(self.type, self.name)
+                loaded, self.ext_definitions[key] = self.load_definitions_from_findings(ext_type, ext_name, ext_ver, ext_hash)
+                if loaded:
+                    print("[DEBUG] Use spec data in RAM DB")
+                    continue
+
+                # load the src directory
+                self.load_definition_ext(ext_type, ext_name, ext_path)
+
+        if not self.silent:
+            logging.debug("load_definition_ext() done")
+
+        loaded, self.root_definitions = self.load_definitions_from_findings(self.type, self.name, self.version, self.hash)
+        if loaded:
+            if not self.silent:
+                print("[DEBUG] Use spec data in RAM DB")
+        else:
+            self.load_definitions_root()
+
+        if not self.silent:
+            logging.debug("load_definitions_root() done")
 
         self.set_trees()
-        logging.debug("set_trees() done")
+        if not self.silent:
+            logging.debug("set_trees() done")
         self.set_resolved()
-        logging.debug("set_resolved() done")
+        if not self.silent:
+            logging.debug("set_resolved() done")
         self.set_analyzed()
-        logging.debug("set_analyzed() done")
+        if not self.silent:
+            logging.debug("set_analyzed() done")
         self.set_report()
-        logging.debug("set_report() done")
+        if not self.silent:
+            logging.debug("set_report() done")
         dep_num, ext_counts, root_counts = self.count_definitions()
-        print("# of dependencies:", dep_num)
-        print("ext definitions:", ext_counts)
-        print("root definitions:", root_counts)
+        if not self.silent:
+            print("# of dependencies:", dep_num)
+            print("ext definitions:", ext_counts)
+            print("root definitions:", root_counts)
 
-        if self.out_dir is None:
-            type_root = self.type + "s"
-            dir_name = self.name
-            if self.type == ContainerType.PROJECT:
-                dir_name = escape_url(self.name)
-            self.out_dir = os.path.join(self.root_dir, "results", type_root, dir_name)
-        self.save_findings(out_dir=self.out_dir)
-        print("-" * 60)
-        print("Risk scan completed! The findings are saved at {}.".format(self.out_dir))
+        self.register_findings_to_db()
+
+        if self.out_dir is not None and self.out_dir != "":
+            self.save_findings(out_dir=self.out_dir)
+            if not self.silent:
+                print("The findings are saved at {}".format(self.out_dir))
+
+        if not self.silent:
+            print("-" * 60)
+            print("ARI scan completed!")
+            print(f"Findings have been saved at: {self.ram_client.make_findings_dir_path(self.type, self.name, self.version, self.hash)}")
 
         if self.pretty:
-            print(json.dumps(self.data_report, indent=2))
+            if not self.silent:
+                print(json.dumps(self.findings.simple(), indent=2))
 
         return
 
     def make_target_path(self, typ, target_name):
         target_path = ""
-        if typ == ContainerType.COLLECTION:
+        if typ == LoadType.COLLECTION:
             parts = target_name.split(".")
             target_path = os.path.join(self.root_dir, typ + "s", "src", "ansible_collections", parts[0], parts[1])
-        elif typ == ContainerType.ROLE:
+        elif typ == LoadType.ROLE:
             target_path = os.path.join(self.root_dir, typ + "s", "src", target_name)
-        elif typ == ContainerType.PROJECT:
+        elif typ == LoadType.PROJECT:
             target_path = os.path.join(self.get_src_root(), escape_url(target_name))
         return target_path
 
@@ -320,20 +401,26 @@ class ARIScanner(object):
         version = ""
         hash = ""
 
-        if self.type in [ContainerType.COLLECTION, ContainerType.ROLE]:
+        if self.type in [LoadType.COLLECTION, LoadType.ROLE]:
             # install_type = "galaxy"
             # ansible-galaxy install
-            print("installing a {} <{}> from galaxy".format(self.type, self.name))
+            if not self.silent:
+                print("installing a {} <{}> from galaxy".format(self.type, self.name))
             install_msg = install_galaxy_target(self.name, self.type, tmp_src_dir, self.source_repository)
+            if not self.silent:
+                logging.debug("STDOUT: {}".format(install_msg))
             dependency_dir = tmp_src_dir
             dst_src_dir = self.get_src_root()
             download_url, version, hash = get_download_metadata(typ=self.type, install_msg=install_msg)
 
-        elif self.type == ContainerType.PROJECT:
+        elif self.type == LoadType.PROJECT:
             # install_type = "github"
             # ansible-galaxy install
-            print("cloning {} from github".format(self.name))
+            if not self.silent:
+                print("cloning {} from github".format(self.name))
             install_msg = install_github_target(self.name, self.type, tmp_src_dir)
+            if not self.silent:
+                logging.debug("STDOUT: {}".format(install_msg))
             if self.dependency_dir == "":
                 raise ValueError("dependency dir is required for project type")
             dependency_dir = self.dependency_dir
@@ -349,15 +436,16 @@ class ARIScanner(object):
 
         self.set_index(dependency_dir)
 
-        print("moving index")
-        logging.debug("index: {}".format(json.dumps(self.index)))
+        if not self.silent:
+            print("moving index")
+            logging.debug("index: {}".format(json.dumps(self.index)))
         if self.do_save:
             self.__save_index()
         if not os.path.exists(dst_src_dir):
             os.makedirs(dst_src_dir)
         self.move_src(tmp_src_dir, dst_src_dir)
 
-        if self.type == ContainerType.PROJECT:
+        if self.type == LoadType.PROJECT:
             dst_dependency_dir = self.__path_mappings["dependencies"]
             if not os.path.exists(dst_dependency_dir):
                 os.makedirs(dst_dependency_dir)
@@ -366,7 +454,8 @@ class ARIScanner(object):
         return download_url, version, hash
 
     def set_index(self, path):
-        print("crawl content")
+        if not self.silent:
+            print("crawl content")
         dep_type = LoadType.UNKNOWN
         target_path_list = []
         if os.path.isfile(path):
@@ -382,7 +471,8 @@ class ARIScanner(object):
         else:
             dep_type, target_path_list = find_ext_dependencies(path)
 
-        logging.info('the detected target type: "{}", found targets: {}'.format(self.type, len(target_path_list)))
+        if not self.silent:
+            logging.info('the detected target type: "{}", found targets: {}'.format(self.type, len(target_path_list)))
 
         if self.type not in supported_target_types:
             logging.error("this target type is not supported")
@@ -423,14 +513,14 @@ class ARIScanner(object):
 
     def get_definition_path(self, ext_type, ext_name):
         target_path = ""
-        if ext_type == ContainerType.ROLE:
+        if ext_type == LoadType.ROLE:
             target_path = os.path.join(
-                self.__path_mappings["ext_definitions"][ContainerType.ROLE],
+                self.__path_mappings["ext_definitions"][LoadType.ROLE],
                 ext_name,
             )
-        elif ext_type == ContainerType.COLLECTION:
+        elif ext_type == LoadType.COLLECTION:
             target_path = os.path.join(
-                self.__path_mappings["ext_definitions"][ContainerType.COLLECTION],
+                self.__path_mappings["ext_definitions"][LoadType.COLLECTION],
                 ext_name,
             )
         else:
@@ -442,15 +532,15 @@ class ARIScanner(object):
         if is_ext_for_project:
             base_dir = self.__path_mappings["dependencies"]
         else:
-            if ext_type == ContainerType.ROLE:
+            if ext_type == LoadType.ROLE:
                 base_dir = os.path.join(self.root_dir, "roles", "src")
-            elif ext_type == ContainerType.COLLECTION:
+            elif ext_type == LoadType.COLLECTION:
                 base_dir = os.path.join(self.root_dir, "collections", "src")
 
         target_path = ""
-        if ext_type == ContainerType.ROLE:
+        if ext_type == LoadType.ROLE:
             target_path = os.path.join(base_dir, ext_name)
-        elif ext_type == ContainerType.COLLECTION:
+        elif ext_type == LoadType.COLLECTION:
             parts = ext_name.split(".")
             target_path = os.path.join(
                 base_dir,
@@ -464,12 +554,12 @@ class ARIScanner(object):
 
     def _set_load_root(self):
         root_load_data = None
-        if self.type in [ContainerType.ROLE, ContainerType.COLLECTION]:
+        if self.type in [LoadType.ROLE, LoadType.COLLECTION]:
             ext_type = self.type
             ext_name = self.name
             target_path = self.get_source_path(ext_type, ext_name)
             root_load_data = self.create_load_file(ext_type, ext_name, target_path)
-        elif self.type == ContainerType.PROJECT:
+        elif self.type == LoadType.PROJECT:
             src_root = self.get_src_root()
             dst_src_dir = os.path.join(src_root, escape_url(self.name))
             root_load_data = self.create_load_file(self.type, self.name, dst_src_dir)
@@ -491,7 +581,8 @@ class ARIScanner(object):
                 for t_obj_list in self.trees:
                     lines.append(t_obj_list.to_one_line_json())
                 open(tree_rel_file, "w").write("\n".join(lines))
-                logging.info("  tree file saved")
+                if not self.silent:
+                    logging.info("  tree file saved")
         return
 
     def get_trees(self):
@@ -535,11 +626,11 @@ class ARIScanner(object):
         return self.taskcalls_in_trees
 
     def set_report(self):
-        coll_type = ContainerType.COLLECTION
+        coll_type = LoadType.COLLECTION
         coll_name = self.name if self.type == coll_type else ""
         report_txt, data_report = detect(self.taskcalls_in_trees, collection_name=coll_name)
         self.report_to_display = report_txt
-        data_report["metadata"] = {
+        metadata = {
             "type": self.type,
             "name": self.name,
             "version": self.version,
@@ -547,15 +638,23 @@ class ARIScanner(object):
             "download_url": self.download_url,
             "hash": self.hash,
         }
-        data_report["dependencies"] = [d["metadata"] for d in self.loaded_dependency_dirs]
-        self.data_report = data_report
+        dependencies = [d["metadata"] for d in self.loaded_dependency_dirs]
+
+        self.findings = Findings(
+            metadata=metadata,
+            dependencies=dependencies,
+            root_definitions=self.root_definitions,
+            ext_definitions=self.ext_definitions,
+            prm=self.prm,
+            report=data_report,
+        )
         return
 
     def get_report(self):
         return self.report_to_display
 
     def count_definitions(self):
-        dep_num = len(self.ext_definitions)
+        dep_num = len(self.loaded_dependency_dirs)
         ext_counts = {}
         for _, _defs in self.ext_definitions.items():
             for key, val in _defs.get("definitions", {}).items():
@@ -584,10 +683,11 @@ class ARIScanner(object):
 
         if not os.path.exists(target_path):
             raise ValueError("No such file or directory: {}".format(target_path))
-        logging.debug("target_name", target_name)
-        logging.debug("target_type", target_type)
-        logging.debug("path", target_path)
-        logging.debug("loader_version", loader_version)
+        if not self.silent:
+            logging.debug("target_name", target_name)
+            logging.debug("target_type", target_type)
+            logging.debug("path", target_path)
+            logging.debug("loader_version", loader_version)
         ld = Load(
             target_name=target_name,
             target_type=target_type,
@@ -616,12 +716,23 @@ class ARIScanner(object):
             "path_mappings": self.__path_mappings,
         }
 
+    def load_ext_definitions_from_findings(self, type, name, version, hash):
+        loaded, definitions, mappings = self.ram_client.load_definitions_from_findings(type, name, version, hash)
+        if loaded:
+            key = "{}-{}".format(type, name)
+            self.ext_definitions[key] = {
+                "definitions": definitions,
+                "mappings": mappings,
+            }
+        return loaded
+
     def load_definition_ext(self, target_type, target_name, target_path):
         ld = self.create_load_file(target_type, target_name, target_path)
         use_cache = True
         output_dir = self.get_definition_path(ld.target_type, ld.target_name)
         if use_cache and os.path.exists(os.path.join(output_dir, "mappings.json")):
-            logging.debug("use cache from {}".format(output_dir))
+            if not self.silent:
+                logging.debug("use cache from {}".format(output_dir))
             definitions, mappings = Parser.restore_definition_objects(output_dir)
         else:
             definitions, mappings = self._parser.run(load_data=ld)
@@ -638,14 +749,22 @@ class ARIScanner(object):
             "mappings": mappings,
         }
 
+    def load_definitions_from_findings(self, type, name, version, hash):
+        loaded, definitions, mappings = self.ram_client.load_definitions_from_findings(type, name, version, hash)
+        definitions_dict = {}
+        if loaded:
+            definitions_dict = {
+                "definitions": definitions,
+                "mappings": mappings,
+            }
+        return loaded, definitions_dict
+
     def load_definitions_root(self):
 
         output_dir = self.__path_mappings["root_definitions"]
         root_load = self._set_load_root()
 
         p = Parser(do_save=self.do_save)
-
-        print("{}       ".format(root_load.target_name))
 
         definitions, mappings = p.run(load_data=root_load)
         if self.do_save:
@@ -741,44 +860,11 @@ class ARIScanner(object):
         with open(map2, "w") as f2:
             json.dump(js2, f2)
 
-    def save_findings(self, out_dir: str = ""):
-        if out_dir == "":
-            out_dir = self.out_dir
-        if out_dir == "":
-            raise ValueError("output dir must be a non-empty value")
+    def register_findings_to_db(self):
+        self.ram_client.register(self.findings)
 
-        if not os.path.exists(out_dir):
-            os.makedirs(out_dir, exist_ok=True)
-
-        root_defs_dir = os.path.join(out_dir, "root")
-        if not os.path.exists(root_defs_dir):
-            os.makedirs(root_defs_dir, exist_ok=True)
-
-        if len(self.root_definitions) > 0:
-            root_definitions = self.root_definitions["definitions"]
-            root_mappings = self.root_definitions["mappings"]
-            Parser.dump_definition_objects(root_defs_dir, root_definitions, root_mappings)
-
-        ext_defs_base_dir = os.path.join(out_dir, "ext")
-        if not os.path.exists(ext_defs_base_dir):
-            os.makedirs(ext_defs_base_dir, exist_ok=True)
-
-        if len(self.ext_definitions) > 0:
-            for key in self.ext_definitions:
-                ext_definitions = self.ext_definitions[key]["definitions"]
-                ext_mappings = self.ext_definitions[key]["mappings"]
-                ext_defs_dir = os.path.join(ext_defs_base_dir, key)
-                if not os.path.exists(ext_defs_dir):
-                    os.makedirs(ext_defs_dir, exist_ok=True)
-                Parser.dump_definition_objects(ext_defs_dir, ext_definitions, ext_mappings)
-
-        findings_file = os.path.join(out_dir, "findings.json")
-        with open(findings_file, "w") as findings:
-            json.dump(self.data_report, findings)
-
-        prm_file = os.path.join(out_dir, "prm.json")
-        with open(prm_file, "w") as prm:
-            json.dump(self.prm, prm)
+    def save_findings(self, out_dir: str):
+        self.ram_client.save_findings(self.findings, out_dir)
 
 
 def tree(root_definitions, ext_definitions):
@@ -793,8 +879,7 @@ def tree(root_definitions, ext_definitions):
 
 def resolve(trees, additional):
     taskcalls_in_trees = []
-    num = len(trees)
-    for i, tree in enumerate(trees):
+    for tree in trees:
         if not isinstance(tree, ObjectList):
             continue
         if len(tree.items) == 0:
@@ -806,74 +891,7 @@ def resolve(trees, additional):
             taskcalls=taskcalls,
         )
         taskcalls_in_trees.append(d)
-        logging.debug("resolve_variables() {}/{} ({}) done".format(i + 1, num, root_key))
     return taskcalls_in_trees
-
-
-def install_galaxy_target(target, target_type, output_dir, source_repository=""):
-    if target_type != ContainerType.COLLECTION and target_type != ContainerType.ROLE:
-        raise ValueError("Invalid target_type: {}".format(target_type))
-    server_option = ""
-    if source_repository != "":
-        server_option = "--server {}".format(source_repository)
-    proc = subprocess.run(
-        "ansible-galaxy {} install {} {} -p {}".format(target_type, target, server_option, output_dir),
-        shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    install_msg = proc.stdout
-    logging.debug("STDOUT: {}".format(install_msg))
-    return proc.stdout
-
-
-def install_github_target(target, target_type, output_dir):
-    if target_type != ContainerType.PROJECT:
-        raise ValueError("Invalid target_type: {}".format(target_type))
-    proc = subprocess.run(
-        "git clone {} {}".format(target, output_dir),
-        shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    install_msg = proc.stdout
-    logging.debug("STDOUT: {}".format(install_msg))
-    return proc.stdout
-
-
-def get_download_metadata(typ: str, install_msg: str):
-    download_url = ""
-    version = ""
-    if typ == LoadType.COLLECTION:
-        for line in install_msg.splitlines():
-            if line.startswith("Downloading "):
-                download_url = line.split(" ")[1]
-                version = download_url.split("-")[-1].replace(".tar.gz", "")
-                break
-    elif typ == LoadType.ROLE:
-        for line in install_msg.splitlines():
-            if line.startswith("- downloading role from "):
-                download_url = line.split(" ")[-1]
-                version = download_url.split("/")[-1].replace(".tar.gz", "")
-                break
-    hash = ""
-    if download_url != "":
-        hash = get_hash_of_url(download_url)
-    return download_url, version, hash
-
-
-def escape_url(url: str):
-    base_url = url.split("?")[0]
-    replaced = base_url.replace("://", "__").replace("/", "_")
-    return replaced
-
-
-def get_hash_of_url(url: str):
-    response = requests.get(url)
-    hash = hashlib.sha256(response.content).hexdigest()
-    return hash
 
 
 if __name__ == "__main__":

@@ -429,21 +429,16 @@ class TreeLoader(object):
             p_defs = self.org_root_definitions.get("definitions", {}).get("projects", [])
             if len(p_defs) > 0:
                 additional_objects.add(p_defs[0])
-            logging.info("  project loaded")
-        logging.info("  start building playbook trees")
         for i, mapping in enumerate(self.playbook_mappings):
             logging.debug("[{}/{}] {}".format(i + 1, len(self.playbook_mappings), mapping[1]))
             playbook_key = mapping[1]
             tree_objects = self._recursive_get_calls(playbook_key)
             self.trees.append(tree_objects)
-        logging.info("  done")
-        logging.info("  start building role trees")
         for i, mapping in enumerate(self.role_mappings):
             logging.debug("[{}/{}] {}".format(i + 1, len(self.role_mappings), mapping[1]))
             role_key = mapping[1]
             tree_objects = self._recursive_get_calls(role_key)
             self.trees.append(tree_objects)
-        logging.info("  done")
         return self.trees, additional_objects
 
     def _recursive_get_calls(self, key, caller=None):

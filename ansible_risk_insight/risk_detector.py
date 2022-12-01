@@ -76,11 +76,10 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
     data_report = {"summary": {}, "details": []}
     separate_report = {}
     role_to_playbook_mappings = {}
-    risk_found_playbooks = set()
+    rule_matched_playbooks = set()
 
     tmp_result_txt = ""
     num = len(taskcalls_in_trees)
-    result_dict = {}
     for i, taskcalls_in_tree in enumerate(taskcalls_in_trees):
         if not isinstance(taskcalls_in_tree, TaskCallsInTree):
             continue
@@ -107,9 +106,19 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
         do_report = False
         taskcalls = taskcalls_in_tree.taskcalls
         tmp_result_txt_alt = ""
+        result_dict = {}
+        rule_count = {
+            "total": 0,
+            "target": 0,
+            "matched": 0,
+        }
         for rule in rules:
             if not rule.enabled:
                 continue
+            rule_count["total"] += 1
+            if not rule.is_target(type=tree_root_type, name=tree_root_name):
+                continue
+            rule_count["target"] += 1
             rule_name = rule.name
             matched, _, message = rule.check(taskcalls, **extra_check_args)
             if rule.separate_report:
@@ -119,41 +128,40 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
                         "matched": [],
                     }
             if matched:
+                rule_count["matched"] += 1
                 if rule.separate_report:
                     tree_root_label = tree_root_type
                     separate_report[rule_name]["matched"].append([tree_root_label, tree_root_name, message])
-
-                    if rule_name not in result_dict:
-                        result_dict[rule_name] = []
-                    result_dict[rule_name].append(
-                        {
-                            "type": tree_root_type,
-                            "name": tree_root_name,
-                            "message": message,
-                        }
-                    )
+                    result_dict[rule_name] = message
                 else:
-                    if not is_playbook:
-                        do_report = True
-                        tmp_result_txt_alt += rule_name + "\n"
-                        tmp_result_txt_alt += indent(message, 0) + "\n"
+                    do_report = True
+                    tmp_result_txt_alt += rule_name + "\n"
+                    tmp_result_txt_alt += indent(message, 0) + "\n"
+                    result_dict[rule_name] = message
+        result_list = [
+            {
+                "rule": {
+                    "name": rule,
+                    "version": None,
+                    "tags": None,
+                },
+                "result": result_dict[rule],
+            }
+            for rule in result_dict
+        ]
+        data_report["details"].append(
+            {
+                "type": tree_root_type,
+                "name": tree_root_name,
+                "rule_count": rule_count,
+                "results": result_list,
+            }
+        )
 
-                        used_in_playbooks = role_to_playbook_mappings.get(tree_root_name, [])
-
-                        if rule_name not in result_dict:
-                            result_dict[rule_name] = []
-                        result_dict[rule_name].append(
-                            {
-                                "type": tree_root_type,
-                                "name": tree_root_name,
-                                "message": message,
-                                "playbooks_use_this_role": used_in_playbooks,
-                            }
-                        )
         if do_report and tmp_result_txt_alt != "":
             tmp_result_txt += "#{} {} - {}\n".format(report_num, tree_root_type.upper(), tree_root_name)
             used_in_playbooks = role_to_playbook_mappings.get(tree_root_name, [])
-            risk_found_playbooks = risk_found_playbooks.union(set(used_in_playbooks))
+            rule_matched_playbooks = rule_matched_playbooks.union(set(used_in_playbooks))
             if len(used_in_playbooks) > 0:
                 tmp_result_txt += "(used_in: {})\n".format(used_in_playbooks)
             tmp_result_txt += tmp_result_txt_alt
@@ -164,18 +172,15 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
             else:
                 role_count["risk"] += 1
         logging.debug("detect() {}/{} done".format(i + 1, num))
-    for rule_name in result_dict:
-        results = result_dict[rule_name]
-        data_report["details"].append({"rule": rule_name, "results": results})
 
     if playbook_count["total"] > 0:
         result_txt += "Playbooks\n"
         result_txt += "  Total: {}\n".format(playbook_count["total"])
-        result_txt += "  Risk Found: {}\n".format(len(risk_found_playbooks))
+        result_txt += "  Risk Found: {}\n".format(len(rule_matched_playbooks))
 
         data_report["summary"]["playbooks"] = {
             "total": playbook_count["total"],
-            "risk_found": playbook_count["risk"],
+            "rule_matched": playbook_count["risk"],
         }
     if role_count["total"] > 0:
         result_txt += "Roles\n"
@@ -184,7 +189,7 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
 
         data_report["summary"]["roles"] = {
             "total": role_count["total"],
-            "risk_found": role_count["risk"],
+            "rule_matched": role_count["risk"],
         }
     result_txt += "-" * 90 + "\n"
 
