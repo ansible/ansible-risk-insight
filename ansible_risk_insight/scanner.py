@@ -50,7 +50,7 @@ from .utils import (
     escape_url,
 )
 from .findings import Findings
-from .fm_db import FMDBClient
+from .risk_assessment_model import RAMClient
 from .utils import (
     escape_url,
     install_galaxy_target,
