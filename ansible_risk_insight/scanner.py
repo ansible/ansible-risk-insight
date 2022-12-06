@@ -33,28 +33,20 @@ from .models import (
 from .loader import (
     get_loader_version,
     get_target_name,
-    remove_subdirectories,
-    trim_suffix,
 )
 from .parser import Parser
 from .model_loader import load_object, find_playbook_role_module
-from .safe_glob import safe_glob
 from .tree import TreeLoader
 from .annotators.variable_resolver import resolve_variables
 from .analyzer import analyze
 from .risk_detector import detect
 from .dependency_dir_preparator import (
-    dependency_dir_preparator,
+    DependencyDirPreparator,
 )
 from .findings import Findings
 from .risk_assessment_model import RAMClient
 from .utils import (
     escape_url,
-    install_galaxy_target,
-    install_github_target,
-    get_download_metadata,
-    get_installed_metadata,
-    get_hash_of_url,
 )
 
 
@@ -201,22 +193,23 @@ class ARIScanner(object):
 
         self.ram_client = RAMClient(root_dir=self.root_dir)
 
-    def prepare_dependencies(self, root_install=False):
+    def prepare_dependencies(self, root_install=True):
         # Install the target if needed
         target_path = self.make_target_path(self.type, self.name)
-        if self.is_src_installed():
-            pass
-        else:
-            if root_install:
-                self.download_url, self.version, self.hash = self.src_install()
-                if not self.silent:
-                    logging.debug("install() done")
-            else:
-                self.download_url, self.version = get_installed_metadata(self.type, self.name, target_path)
-                self.hash = get_hash_of_url(self.download_url)
 
         # Dependency Dir Preparator
-        dep_dirs = dependency_dir_preparator(self.type, target_path, self.dependency_dir, self.root_dir, source_repository=self.source_repository)
+        ddp = DependencyDirPreparator(
+            root_dir=self.root_dir,
+            source_repository=self.source_repository,
+            target_type=self.type,
+            target_name=self.name,
+            target_path=target_path,
+            target_dependency_dir=self.dependency_dir,
+            target_path_mappings=self.__path_mappings,
+            do_save=self.do_save,
+            tmp_install_dir=self.tmp_install_dir,
+        )
+        dep_dirs = ddp.prepare_dir(root_install=root_install, is_src_installed=self.is_src_installed())
 
         self.target_path = target_path
         self.loaded_dependency_dirs = dep_dirs
@@ -279,7 +272,7 @@ class ARIScanner(object):
                 # use prepared dep dirs
                 dep_scanner.load(prepare_dependencies=False)
 
-                # seatching findings from ARI RAM and use them if found
+                # searching findings from ARI RAM and use them if found
                 key = "{}-{}".format(self.type, self.name)
                 loaded, self.ext_definitions[key] = self.load_definitions_from_findings(ext_type, ext_name, ext_ver, ext_hash)
                 if loaded:
@@ -361,14 +354,6 @@ class ARIScanner(object):
         with open(index_location, "r") as f:
             self.index = json.load(f)
 
-    def __save_index(self):
-        index_location = self.__path_mappings["index"]
-        index_dir = os.path.dirname(os.path.abspath(index_location))
-        if not os.path.exists(index_dir):
-            os.makedirs(index_dir)
-        with open(index_location, "w") as f:
-            json.dump(self.index, f, indent=2)
-
     def get_ext_list(self):
         dep_list = self.index.get("dependencies", [])
         ext_list = []
@@ -378,122 +363,6 @@ class ARIScanner(object):
             if ext_type != "" and ext_name != "":
                 ext_list.append((ext_type, ext_name))
         return ext_list
-
-    def src_install(self):
-        download_url = ""
-        version = ""
-        hash = ""
-        try:
-            self.setup_tmp_dir()
-            download_url, version, hash = self.install()
-        finally:
-            self.clean_tmp_dir()
-        return download_url, version, hash
-
-    def install(self):
-        tmp_src_dir = os.path.join(self.tmp_install_dir.name, "src")
-
-        install_msg = ""
-        dependency_dir = ""
-        dst_src_dir = ""
-
-        download_url = ""
-        version = ""
-        hash = ""
-
-        if self.type in [LoadType.COLLECTION, LoadType.ROLE]:
-            # install_type = "galaxy"
-            # ansible-galaxy install
-            if not self.silent:
-                print("installing a {} <{}> from galaxy".format(self.type, self.name))
-            install_msg = install_galaxy_target(self.name, self.type, tmp_src_dir, self.source_repository)
-            if not self.silent:
-                logging.debug("STDOUT: {}".format(install_msg))
-            dependency_dir = tmp_src_dir
-            dst_src_dir = self.get_src_root()
-            download_url, version, hash = get_download_metadata(typ=self.type, install_msg=install_msg)
-
-        elif self.type == LoadType.PROJECT:
-            # install_type = "github"
-            # ansible-galaxy install
-            if not self.silent:
-                print("cloning {} from github".format(self.name))
-            install_msg = install_github_target(self.name, self.type, tmp_src_dir)
-            if not self.silent:
-                logging.debug("STDOUT: {}".format(install_msg))
-            if self.dependency_dir == "":
-                raise ValueError("dependency dir is required for project type")
-            dependency_dir = self.dependency_dir
-            dst_src_dir = os.path.join(self.get_src_root(), escape_url(self.name))
-            download_url = self.name
-
-        else:
-            raise ValueError("unsupported container type")
-
-        self.install_log = install_msg
-        if self.do_save:
-            self.__save_install_log()
-
-        self.set_index(dependency_dir)
-
-        if not self.silent:
-            print("moving index")
-            logging.debug("index: {}".format(json.dumps(self.index)))
-        if self.do_save:
-            self.__save_index()
-        if not os.path.exists(dst_src_dir):
-            os.makedirs(dst_src_dir)
-        self.move_src(tmp_src_dir, dst_src_dir)
-
-        if self.type == LoadType.PROJECT:
-            dst_dependency_dir = self.__path_mappings["dependencies"]
-            if not os.path.exists(dst_dependency_dir):
-                os.makedirs(dst_dependency_dir)
-            self.move_src(dependency_dir, dst_dependency_dir)
-
-        return download_url, version, hash
-
-    def set_index(self, path):
-        if not self.silent:
-            print("crawl content")
-        dep_type = LoadType.UNKNOWN
-        target_path_list = []
-        if os.path.isfile(path):
-            # need further check?
-            dep_type = LoadType.PLAYBOOK
-            target_path_list.append = [path]
-        elif os.path.exists(os.path.join(path, collection_manifest_json)):
-            dep_type = LoadType.COLLECTION
-            target_path_list = [path]
-        elif os.path.exists(os.path.join(path, role_meta_main_yml)):
-            dep_type = LoadType.ROLE
-            target_path_list = [path]
-        else:
-            dep_type, target_path_list = find_ext_dependencies(path)
-
-        if not self.silent:
-            logging.info('the detected target type: "{}", found targets: {}'.format(self.type, len(target_path_list)))
-
-        if self.type not in supported_target_types:
-            logging.error("this target type is not supported")
-            sys.exit(1)
-
-        list = []
-        for target_path in target_path_list:
-            ext_name = get_target_name(dep_type, target_path)
-            list.append(
-                {
-                    "name": ext_name,
-                    "type": dep_type,
-                }
-            )
-
-        index_data = {
-            "dependencies": list,
-            "path_mappings": self.__path_mappings,
-        }
-
-        self.index = index_data
 
     def __save_install_log(self):
         tmpdir = self.tmp_install_dir.name
@@ -668,15 +537,6 @@ class ARIScanner(object):
             root_counts[key] = _current
         return dep_num, ext_counts, root_counts
 
-    def setup_tmp_dir(self):
-        if self.tmp_install_dir is None or not os.path.exists(self.tmp_install_dir.name):
-            self.tmp_install_dir = tempfile.TemporaryDirectory()
-
-    def clean_tmp_dir(self):
-        if self.tmp_install_dir is not None and os.path.exists(self.tmp_install_dir.name):
-            self.tmp_install_dir.cleanup()
-            self.tmp_install_dir = None
-
     def create_load_file(self, target_type, target_name, target_path):
 
         loader_version = get_loader_version()
@@ -825,14 +685,6 @@ class ARIScanner(object):
         with open(path2, "w") as f2:
             json.dump(js2, f2)
 
-    def move_src(self, src, dst):
-        if src == "" or not os.path.exists(src) or not os.path.isdir(src):
-            raise ValueError("src {} is not directory".format(src))
-        if dst == "" or ".." in dst:
-            raise ValueError("dst {} is invalid".format(dst))
-        os.system("cp -r {}/ {}/".format(src, dst))
-        return
-
     def move_definitions(self, dir1, src1, dir2, src2):
 
         if not os.path.exists(dir2):
@@ -907,24 +759,3 @@ if __name__ == "__main__":
         dependency_dir=__dependency_dir,
     )
     c.load()
-
-
-def find_ext_dependencies(path):
-
-    collection_meta_files = safe_glob(os.path.join(path, "**", collection_manifest_json), recursive=True)
-    if len(collection_meta_files) > 0:
-        collection_path_list = [trim_suffix(f, ["/" + collection_manifest_json]) for f in collection_meta_files]
-        collection_path_list = remove_subdirectories(collection_path_list)
-        return LoadType.COLLECTION, collection_path_list
-    role_meta_files = safe_glob(
-        [
-            os.path.join(path, "**", role_meta_main_yml),
-            os.path.join(path, "**", role_meta_main_yaml),
-        ],
-        recursive=True,
-    )
-    if len(role_meta_files) > 0:
-        role_path_list = [trim_suffix(f, ["/" + role_meta_main_yml, "/" + role_meta_main_yaml]) for f in role_meta_files]
-        role_path_list = remove_subdirectories(role_path_list)
-        return LoadType.ROLE, role_path_list
-    return LoadType.UNKNOWN, []
