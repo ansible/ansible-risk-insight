@@ -57,6 +57,7 @@ from .utils import (
     get_download_metadata,
     get_installed_metadata,
     get_hash_of_url,
+    version_to_num,
 )
 
 
