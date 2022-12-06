@@ -47,16 +47,6 @@ from .findings import Findings
 from .risk_assessment_model import RAMClient
 from .utils import (
     escape_url,
-)
-from .findings import Findings
-from .risk_assessment_model import RAMClient
-from .utils import (
-    escape_url,
-    install_galaxy_target,
-    install_github_target,
-    get_download_metadata,
-    get_installed_metadata,
-    get_hash_of_url,
     version_to_num,
 )
 
@@ -227,6 +217,8 @@ class ARIScanner(object):
         dep_dirs = ddp.prepare_dir(root_install=root_install, is_src_installed=self.is_src_installed())
 
         self.target_path = target_path
+        self.version = ddp.metadata.version
+        self.hash = ddp.metadata.hash
         self.loaded_dependency_dirs = dep_dirs
 
         return target_path, dep_dirs

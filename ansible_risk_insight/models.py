@@ -188,8 +188,7 @@ class ObjectList(JSONSerializable):
 
     def _update_dict(self):
         for obj in self.items:
-            if obj.key not in self._dict:
-                self._dict[obj.key] = obj
+            self._dict[obj.key] = obj
         return
 
     @property

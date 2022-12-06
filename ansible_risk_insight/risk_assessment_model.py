@@ -40,6 +40,9 @@ class RAMClient(object):
     taskfiles_cache: dict = field(default_factory=dict)
     tasks_cache: dict = field(default_factory=dict)
 
+    module_search_cache: dict = field(default_factory=dict)
+    task_search_cache: dict = field(default_factory=dict)
+
     def register(self, findings: Findings):
         metadata = findings.metadata
 
@@ -75,6 +78,9 @@ class RAMClient(object):
     def search_module(self, name, exact_match=False, max_match=-1, collection_name="", collection_version=""):
         if max_match == 0:
             return []
+        args_str = json.dumps([name, exact_match, max_match, collection_name, collection_version])
+        if args_str in self.module_search_cache:
+            return self.module_search_cache[args_str]
         modules_json_list = []
         if self.modules_json_list_cache:
             modules_json_list = self.modules_json_list_cache
@@ -124,6 +130,7 @@ class RAMClient(object):
                         break
             if search_end:
                 break
+        self.module_search_cache[args_str] = matched_modules
         return matched_modules
 
     def search_role(self, name, exact_match=False, max_match=-1, collection_name="", collection_version=""):
@@ -272,6 +279,9 @@ class RAMClient(object):
     def search_task(self, name, exact_match=False, max_match=-1, is_key=False, collection_name="", collection_version=""):
         if max_match == 0:
             return []
+        args_str = json.dumps([name, exact_match, max_match, is_key, collection_name, collection_version])
+        if args_str in self.task_search_cache:
+            return self.task_search_cache[args_str]
         tasks_json_list = []
         if self.tasks_json_list_cache:
             tasks_json_list = self.tasks_json_list_cache
@@ -342,6 +352,7 @@ class RAMClient(object):
                         break
             if search_end:
                 break
+        self.task_search_cache[args_str] = matched_tasks
         return matched_tasks
 
     def get_object_by_key(self, obj_key: str):
@@ -416,9 +427,10 @@ class RAMClient(object):
             json.dump(findings.prm, prm)
 
 
-def _path_to_version_num(path):
+# newer version comes earlier, so version num should be sorted in a reversed order
+def _path_to_reversed_version_num(path):
     version = path.split("/findings/")[-1].split("/")[1]
-    return version_to_num(version)
+    return -1 * version_to_num(version)
 
 
 def _path_to_collection_name(path):
@@ -429,4 +441,4 @@ def _path_to_collection_name(path):
 # the latest known version comes first
 # `unknown` is the last
 def sort_by_version(path_list):
-    return sorted(path_list, key=lambda x: (_path_to_collection_name(x), _path_to_version_num(x)))
+    return sorted(path_list, key=lambda x: (_path_to_collection_name(x), _path_to_reversed_version_num(x)))

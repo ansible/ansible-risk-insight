@@ -28,7 +28,7 @@ def main():
     )
     parser.add_argument("target_type", help="Content type", choices={"project", "role", "collection"})
     parser.add_argument("target_name", help="Name")
-    parser.add_argument("--install", action="store_true", help="whether to install the specified target")
+    parser.add_argument("--skip-install", action="store_true", help="if true, skip install for the specified target")
     parser.add_argument("--dependency-dir", nargs="?", help="TODO")
     parser.add_argument("--source", help="source server name in ansible config file (if empty, use public ansible galaxy)")
     parser.add_argument("--pretty", action="store_true", help="show results in a pretty format")
@@ -49,6 +49,7 @@ def main():
         pretty=args.pretty,
     )
     print("Start preparing dependencies")
-    c.prepare_dependencies(root_install=args.install)
+    root_install = not args.skip_install
+    c.prepare_dependencies(root_install=root_install)
     print("Start scanning")
     c.load()
