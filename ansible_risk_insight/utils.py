@@ -19,12 +19,14 @@ import subprocess
 import requests
 import hashlib
 import yaml
+import logging
 
 
 def install_galaxy_target(target, target_type, output_dir, source_repository=""):
     server_option = ""
-    if source_repository != "":
+    if source_repository != "" and source_repository is not None:
         server_option = "--server {}".format(source_repository)
+    logging.debug("exec ansible-galaxy cmd: ansible-galaxy {} install {} {} -p {}".format(target_type, target, server_option, output_dir))
     proc = subprocess.run(
         "ansible-galaxy {} install {} {} -p {}".format(target_type, target, server_option, output_dir),
         shell=True,
