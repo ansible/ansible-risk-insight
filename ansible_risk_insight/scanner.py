@@ -57,6 +57,7 @@ from .utils import (
     get_download_metadata,
     get_installed_metadata,
     get_hash_of_url,
+    version_to_num,
 )
 
 
@@ -124,6 +125,7 @@ class ARIScanner(object):
     prm: dict = field(default_factory=dict)
 
     ram_client: RAMClient = None
+    without_ram: bool = False
 
     do_save: bool = False
     _parser: Parser = None
@@ -138,6 +140,7 @@ class ARIScanner(object):
     silent: bool = False
 
     extra_requirements: list = field(default_factory=list)
+    resolve_failures: dict = field(default_factory=dict)
 
     findings: Findings = None
 
@@ -284,15 +287,15 @@ class ARIScanner(object):
                 # use prepared dep dirs
                 dep_scanner.load(prepare_dependencies=False)
 
-                # searching findings from ARI RAM and use them if found
-                key = "{}-{}".format(self.type, self.name)
-                loaded, ext_defs = self.load_definitions_from_findings(ext_type, ext_name, ext_ver, ext_hash)
-                if loaded:
-                    key = "{}-{}".format(ext_type, ext_name)
-                    self.ext_definitions[key] = ext_defs
-                    if not self.silent:
-                        logging.debug(f'Use spec data for "{ext_name}" in RAM DB')
-                    continue
+                if not self.without_ram:
+                    # searching findings from ARI RAM and use them if found
+                    loaded, ext_defs = self.load_definitions_from_findings(ext_type, ext_name, ext_ver, ext_hash)
+                    if loaded:
+                        key = "{}-{}".format(ext_type, ext_name)
+                        self.ext_definitions[key] = ext_defs
+                        if not self.silent:
+                            logging.debug(f'Use spec data for "{ext_name}" in RAM DB')
+                        continue
 
                 # load the src directory
                 self.load_definition_ext(ext_type, ext_name, ext_path)
@@ -300,12 +303,15 @@ class ARIScanner(object):
         if not self.silent:
             logging.debug("load_definition_ext() done")
 
-        loaded, self.root_definitions = self.load_definitions_from_findings(self.type, self.name, self.version, self.hash)
-        if loaded:
-            if not self.silent:
-                logging.debug("Use spec data in RAM DB")
-        else:
-            self.load_definitions_root()
+        loaded = False
+        if not self.without_ram:
+            loaded, self.root_definitions = self.load_definitions_from_findings(self.type, self.name, self.version, self.hash)
+            if loaded:
+                if not self.silent:
+                    logging.info("Use spec data in RAM DB")
+
+        if not loaded:
+            self.load_definitions_root(target_path=self.target_path)
 
         if not self.silent:
             logging.debug("load_definitions_root() done")
@@ -341,18 +347,60 @@ class ARIScanner(object):
             print(f"Findings have been saved at: {self.ram_client.make_findings_dir_path(self.type, self.name, self.version, self.hash)}")
 
         if not self.silent:
-            extra_collections = set()
+            module_failures = self.resolve_failures.get("module", {})
+            role_failures = self.resolve_failures.get("role", {})
+            taskfile_failures = self.resolve_failures.get("taskfile", {})
+            module_fail_num = len(module_failures)
+            role_fail_num = len(role_failures)
+            taskfile_fail_num = len(taskfile_failures)
+            total_fail_num = module_fail_num + role_fail_num + taskfile_fail_num
+            if total_fail_num > 0:
+                print(f"Failed to resolve {module_fail_num} modules, {role_fail_num} roles, {taskfile_fail_num} taskfiles")
+            if module_fail_num > 0:
+                print("- modules: ")
+                for module_action in module_failures:
+                    called_num = module_failures[module_action]
+                    print(f"  - {module_action}    ({called_num} times called)")
+            if role_fail_num > 0:
+                print("- roles: ")
+                for role_action in role_failures:
+                    called_num = role_failures[role_action]
+                    print(f"  - {role_action}    ({called_num} times called)")
+            if taskfile_fail_num > 0:
+                print("- taskfiles: ")
+                for taskfile_action in taskfile_failures:
+                    called_num = taskfile_failures[taskfile_action]
+                    print(f"  - {taskfile_action}    ({called_num} times called)")
+
+        if not self.silent:
+            extra_collections_dict = {}
             # roles = set()
             if len(self.extra_requirements) > 0:
                 for ext_req in self.extra_requirements:
+                    # print(f"[DEBUG] requirement: {ext_req}")
                     req_name = ext_req.get("collection", {}).get("name", None)
-                    if req_name and req_name not in extra_collections:
-                        extra_collections.add(req_name)
-                print("[DEBUG] requirements.yml.generated")
-                if len(extra_collections) > 0:
-                    print("collections:")
-                    for col in sorted(list(extra_collections)):
-                        print(f"- {col}")
+                    if req_name is None:
+                        continue
+                    if req_name == self.name:
+                        continue
+                    req_version = ext_req.get("collection", {}).get("version", None)
+                    if req_name not in extra_collections_dict:
+                        extra_collections_dict[req_name] = []
+                    extra_collections_dict[req_name].append(req_version)
+                for req_name in extra_collections_dict:
+                    extra_collections_dict[req_name] = sorted(extra_collections_dict[req_name], key=lambda x: version_to_num(x))
+
+                req_name_keys = sorted(list(extra_collections_dict.keys()))
+                print("[DEBUG] missing dependencies")
+                print("collections:")
+                for req_name in req_name_keys:
+                    if len(extra_collections_dict[req_name]) == 0:
+                        continue
+                    minimum_version = extra_collections_dict[req_name][0]
+                    ver_req_str = ""
+                    if minimum_version != "unknown":
+                        ver_req_str = f"(>= {minimum_version})"
+                    print(f"- {req_name} {ver_req_str}")
 
         if self.pretty:
             if not self.silent:
@@ -360,8 +408,25 @@ class ARIScanner(object):
 
         return
 
-    def make_target_path(self, typ, target_name):
+    def make_target_path(self, typ, target_name, dep_dir=""):
         target_path = ""
+
+        if dep_dir:
+            parts = target_name.split(".")
+            if len(parts) == 1:
+                parts.append("")
+            dep_dir_target_path_candidates = [
+                os.path.join(dep_dir, target_name),
+                os.path.join(dep_dir, parts[0], parts[1]),
+                os.path.join(dep_dir, "ansible_collections", parts[0], parts[1]),
+            ]
+            for cand_path in dep_dir_target_path_candidates:
+                if os.path.exists(cand_path):
+                    target_path = cand_path
+                    break
+        if target_path != "":
+            return target_path
+
         if typ == LoadType.COLLECTION:
             parts = target_name.split(".")
             target_path = os.path.join(self.root_dir, typ + "s", "src", "ansible_collections", parts[0], parts[1])
@@ -450,27 +515,33 @@ class ARIScanner(object):
             raise ValueError("Invalid ext_type")
         return target_path
 
-    def _set_load_root(self):
+    def _set_load_root(self, target_path=""):
         root_load_data = None
         if self.type in [LoadType.ROLE, LoadType.COLLECTION]:
             ext_type = self.type
             ext_name = self.name
-            target_path = self.get_source_path(ext_type, ext_name)
+            if target_path == "":
+                target_path = self.get_source_path(ext_type, ext_name)
             root_load_data = self.create_load_file(ext_type, ext_name, target_path)
         elif self.type == LoadType.PROJECT:
             src_root = self.get_src_root()
-            dst_src_dir = os.path.join(src_root, escape_url(self.name))
-            root_load_data = self.create_load_file(self.type, self.name, dst_src_dir)
+            if target_path == "":
+                target_path = os.path.join(src_root, escape_url(self.name))
+            root_load_data = self.create_load_file(self.type, self.name, target_path)
         return root_load_data
 
     def get_definitions(self):
         return self.root_definitions, self.ext_definitions
 
     def set_trees(self):
-        trees, additional, extra_requirements = tree(self.root_definitions, self.ext_definitions, self.ram_client)
+        tree_ram_client = None
+        if not self.without_ram:
+            tree_ram_client = self.ram_client
+        trees, additional, extra_requirements, resolve_failures = tree(self.root_definitions, self.ext_definitions, tree_ram_client)
         self.trees = trees
         self.additional = additional
         self.extra_requirements = extra_requirements
+        self.resolve_failures = resolve_failures
 
         if self.do_save:
             root_def_dir = self.__path_mappings["root_definitions"]
@@ -649,10 +720,10 @@ class ARIScanner(object):
             }
         return loaded, definitions_dict
 
-    def load_definitions_root(self):
+    def load_definitions_root(self, target_path=""):
 
         output_dir = self.__path_mappings["root_definitions"]
-        root_load = self._set_load_root()
+        root_load = self._set_load_root(target_path=target_path)
 
         p = Parser(do_save=self.do_save)
 
@@ -756,7 +827,7 @@ def tree(root_definitions, ext_definitions, ram_client=None):
         raise ValueError("failed to get trees")
     # if node_objects is None:
     #     raise ValueError("failed to get node_objects")
-    return trees, additional, tl.extra_requirements
+    return trees, additional, tl.extra_requirements, tl.resolve_failures
 
 
 def resolve(trees, additional):

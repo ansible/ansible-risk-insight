@@ -16,7 +16,8 @@
 
 from dataclasses import dataclass, field
 from typing import List
-from copy import deepcopy
+
+# from copy import deepcopy
 import json
 import jsonpickle
 import logging
@@ -206,7 +207,7 @@ class CallObject(JSONSerializable):
     @classmethod
     def from_spec(cls, spec, caller):
         instance = cls()
-        instance.spec = deepcopy(spec)
+        instance.spec = spec
         caller_key = "None"
         if caller is not None:
             instance.called_from = caller.key
