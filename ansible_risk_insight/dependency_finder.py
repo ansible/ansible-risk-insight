@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import argparse
 import os
 import yaml
 import json
@@ -204,14 +203,3 @@ def install_github_target(target, output_dir):
     install_msg = proc.stdout
     logging.debug("STDOUT: {}".format(install_msg))
     return proc.stdout
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="TODO")
-    parser.add_argument("target_dir", help="Target dir")
-    parser.add_argument("type", help="Content type", choices={"project", "role", "collection"})
-    # parser.add_argument("name", help="Content name")
-
-    args = parser.parse_args()
-    result = find_dependency(args.type, args.target_dir)
-    logging.debug(result)
