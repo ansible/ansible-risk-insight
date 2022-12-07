@@ -47,7 +47,6 @@ from .findings import Findings
 from .risk_assessment_model import RAMClient
 from .utils import (
     escape_url,
-    version_to_num,
 )
 
 
