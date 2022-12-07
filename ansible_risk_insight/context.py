@@ -146,11 +146,13 @@ def get_object(json_path, type, name, cache={}):
     return None
 
 
-def find_variable(var_name, var_dict={}):
+def recursive_find_variable(var_name, var_dict={}):
     def _visitor(vname, nname, node):
         if nname == vname:
             return node
         if isinstance(node, dict):
+            if nname in node:
+                return node[nname]
             for k, v in node.items():
                 nname2 = "{}.{}".format(nname, k) if nname != "" else k
                 if vname.startswith("{}.".format(nname2)):
@@ -161,6 +163,19 @@ def find_variable(var_name, var_dict={}):
             return None
 
     return _visitor(var_name, "", var_dict)
+
+
+def flatten(var_dict: dict = {}, _prefix: str = ""):
+    flat_vars = {}
+    for k, v in var_dict.items():
+        if isinstance(v, dict):
+            new_prefix = f"{k}." if _prefix == "" else f"{_prefix}{k}"
+            sub_flat_vars = flatten(v, new_prefix)
+            flat_vars.update(sub_flat_vars)
+        else:
+            flat_key = f"{_prefix}{k}"
+            flat_vars.update({flat_key: v})
+    return flat_vars
 
 
 class VariableType:
@@ -194,6 +209,8 @@ class Context:
     role_vars: list = field(default_factory=list)
     registered_vars: list = field(default_factory=list)
 
+    _flat_vars: dict = field(default_factory=dict)
+
     def add(self, obj, depth_lvl=0):
         _obj = None
         _spec = None
@@ -206,22 +223,30 @@ class Context:
         # variables
         if isinstance(_spec, Playbook):
             self.variables.update(_spec.variables)
+            self.update_flat_vars(_spec.variables)
         elif isinstance(_spec, Play):
             self.variables.update(_spec.variables)
+            self.update_flat_vars(_spec.variables)
         elif isinstance(_spec, Role):
             self.variables.update(_spec.default_variables)
+            self.update_flat_vars(_spec.default_variables)
             self.variables.update(_spec.variables)
+            self.update_flat_vars(_spec.variables)
             for var_name in _spec.default_variables:
                 self.role_defaults.append(var_name)
             for var_name in _spec.variables:
                 self.role_vars.append(var_name)
         elif isinstance(_spec, Collection):
             self.variables.update(_spec.variables)
+            self.update_flat_vars(_spec.variables)
         elif isinstance(_spec, TaskFile):
             self.variables.update(_spec.variables)
+            self.update_flat_vars(_spec.variables)
         elif isinstance(_spec, Task):
             self.variables.update(_spec.variables)
+            self.update_flat_vars(_spec.variables)
             self.variables.update(_spec.registered_variables)
+            self.update_flat_vars(_spec.registered_variables)
             for var_name in _spec.registered_variables:
                 self.registered_vars.append(var_name)
         else:
@@ -259,7 +284,7 @@ class Context:
             else:
                 return val, v_type
 
-        val = find_variable(var_name, self.variables)
+        val = self._flat_vars.get(var_name, None)
         if val is not None:
             if isinstance(val, str):
                 return (
@@ -275,7 +300,9 @@ class Context:
         # TODO: consider group
         inventory_for_all = [iv for iv in self.inventories if iv.inventory_type == InventoryType.GROUP_VARS_TYPE and iv.name == "all"]
         for iv in inventory_for_all:
-            val = find_variable(var_name, iv.variables)
+            iv_var_dict = flatten(iv.variables)
+            val = iv_var_dict.get(var_name, None)
+
             if val is not None:
                 v_type = VariableType.INVENTORY_VARS
                 if isinstance(val, str):
@@ -298,28 +325,30 @@ class Context:
                 VariableType.PARTIAL_RESOLVE,
             )
 
-        if "." in var_name:
-            parts = var_name.split(".")
-            top_var_name = parts[0]
-            sub_var_name = parts[1] if len(parts) >= 2 else ""
-            rest_parts = ".".join(parts[1:]) if len(parts) >= 2 else ""
-            top_var = find_variable(top_var_name)
-            if top_var_name in self.variables or top_var is not None:
-                _val, _v_type = self.resolve_variable(top_var_name, _resolve_history)
-                if _v_type == VariableType.REGISTERED_VARS:
-                    return _val, _v_type
-                if sub_var_name != "" and isinstance(_val, dict) and sub_var_name in _val:
-                    # flattened_variables = get_all_variables(_val)
-                    # val = flattened_variables.get(rest_parts, None)
-                    val = find_variable(rest_parts, _val)
-                    if val is not None:
-                        return val, _v_type
+        # TODO: re-imeplement the following block once new variable resolver is ready
 
-                elif sub_var_name != "" and _val is not None:
-                    return (
-                        "__partial_resolve__{}__".format(var_name),
-                        VariableType.PARTIAL_RESOLVE,
-                    )
+        # if "." in var_name:
+        #     parts = var_name.split(".")
+        #     top_var_name = parts[0]
+        #     sub_var_name = parts[1] if len(parts) >= 2 else ""
+        #     rest_parts = ".".join(parts[1:]) if len(parts) >= 2 else ""
+        #     top_var = self._flat_vars.get(top_var_name, None)
+        #     if top_var is not None:
+        #         _val, _v_type = self.resolve_variable(top_var_name, _resolve_history)
+        #         if _v_type == VariableType.REGISTERED_VARS:
+        #             return _val, _v_type
+        #         if sub_var_name != "" and isinstance(_val, dict) and sub_var_name in _val:
+        #             # flattened_variables = get_all_variables(_val)
+        #             # val = flattened_variables.get(rest_parts, None)
+        #             val = find_variable(rest_parts, _val)
+        #             if val is not None:
+        #                 return val, _v_type
+
+        #         elif sub_var_name != "" and _val is not None:
+        #             return (
+        #                 "__partial_resolve__{}__".format(var_name),
+        #                 VariableType.PARTIAL_RESOLVE,
+        #             )
 
         return None, VariableType.FAILED_TO_RESOLVE
 
@@ -346,6 +375,16 @@ class Context:
             return resolved_txt
         else:
             return txt
+
+    def update_flat_vars(self, new_vars: dict, _prefix: str = ""):
+        for k, v in new_vars.items():
+            if isinstance(v, dict):
+                new_prefix = f"{k}." if _prefix == "" else f"{_prefix}{k}"
+                self.update_flat_vars(v, new_prefix)
+            else:
+                flat_key = f"{_prefix}{k}"
+                self._flat_vars.update({flat_key: v})
+        return
 
     def chain_str(self):
         lines = []

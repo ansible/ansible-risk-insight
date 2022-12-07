@@ -69,7 +69,7 @@ def get_download_metadata(typ: str, install_msg: str):
     return download_url, version, hash
 
 
-def get_installed_metadata(type, name, path):
+def get_installed_metadata(type, name, path, dep_dir=""):
     download_url = ""
     version = ""
     galaxy_yml = "GALAXY.yml"
@@ -104,3 +104,22 @@ def get_hash_of_url(url: str):
     response = requests.get(url)
     hash = hashlib.sha256(response.content).hexdigest()
     return hash
+
+
+def version_to_num(ver: str):
+    if ver == "unknown":
+        return 0
+    # version string can be 1.2.3-abcdxyz
+    ver_num_part = ver.split("-")[0]
+    parts = ver_num_part.split(".")
+    num = 0
+    if len(parts) >= 1:
+        if parts[0].isnumeric():
+            num += float(parts[0])
+    if len(parts) >= 2:
+        if parts[1].isnumeric():
+            num += float(parts[1]) * (0.001**1)
+    if len(parts) >= 3:
+        if parts[2].isnumeric():
+            num += float(parts[2]) * (0.001**2)
+    return num
