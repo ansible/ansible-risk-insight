@@ -28,9 +28,11 @@ def main():
     )
     parser.add_argument("target_type", help="Content type", choices={"project", "role", "collection"})
     parser.add_argument("target_name", help="Name")
+    parser.add_argument("--skip-install", action="store_true", help="if true, skip install for the specified target")
     parser.add_argument("--dependency-dir", nargs="?", help="TODO")
     parser.add_argument("--source", help="source server name in ansible config file (if empty, use public ansible galaxy)")
     parser.add_argument("--pretty", action="store_true", help="show results in a pretty format")
+    parser.add_argument("--without-ram", action="store_true", help="if true, RAM data is not used for this scan")
     parser.add_argument("-o", "--out-dir", help="output directory for findings")
 
     args = parser.parse_args()
@@ -41,11 +43,13 @@ def main():
         root_dir=config.data_dir,
         dependency_dir=args.dependency_dir,
         do_save=args.save,
+        without_ram=args.without_ram,
         source_repository=args.source,
         out_dir=args.out_dir,
         pretty=args.pretty,
     )
     print("Start preparing dependencies")
-    c.prepare_dependencies()
+    root_install = not args.skip_install
+    c.prepare_dependencies(root_install=root_install)
     print("Start scanning")
     c.load()

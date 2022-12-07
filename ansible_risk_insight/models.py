@@ -16,7 +16,8 @@
 
 from dataclasses import dataclass, field
 from typing import List
-from copy import deepcopy
+
+# from copy import deepcopy
 import json
 import jsonpickle
 import logging
@@ -157,7 +158,7 @@ class ObjectList(JSONSerializable):
     def add(self, obj, update_dict=True):
         self.items.append(obj)
         if update_dict:
-            self._update_dict()
+            self._add_dict_item(obj)
         return
 
     def merge(self, obj_list):
@@ -187,9 +188,11 @@ class ObjectList(JSONSerializable):
 
     def _update_dict(self):
         for obj in self.items:
-            if obj.key not in self._dict:
-                self._dict[obj.key] = obj
+            self._dict[obj.key] = obj
         return
+
+    def _add_dict_item(self, obj):
+        self._dict[obj.key] = obj
 
     @property
     def resolver_targets(self):
@@ -206,7 +209,7 @@ class CallObject(JSONSerializable):
     @classmethod
     def from_spec(cls, spec, caller):
         instance = cls()
-        instance.spec = deepcopy(spec)
+        instance.spec = spec
         caller_key = "None"
         if caller is not None:
             instance.called_from = caller.key

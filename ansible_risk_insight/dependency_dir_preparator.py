@@ -24,6 +24,7 @@ import re
 import sys
 import datetime
 from dataclasses import dataclass, field, asdict
+import shutil
 
 from .models import (
     LoadType,

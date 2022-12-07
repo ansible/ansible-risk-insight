@@ -47,6 +47,7 @@ from .finder import (
     find_module_dirs,
     search_module_files,
     search_taskfiles_for_playbooks,
+    module_dir_patterns,
 )
 from .awx_utils import could_be_playbook
 
@@ -551,17 +552,19 @@ def load_role(
     if os.path.exists(os.path.join(basedir, path)):
         fullpath = os.path.normpath(os.path.join(basedir, path))
     if fullpath == "":
-        raise ValueError("directory not found")
+        raise ValueError(f"directory not found: {path}")
     meta_file_path = ""
     defaults_dir_path = ""
     vars_dir_path = ""
     tasks_dir_path = ""
+    handlers_dir_path = ""
     includes_dir_path = ""
     if fullpath != "":
         meta_file_path = os.path.join(fullpath, "meta/main.yml")
         defaults_dir_path = os.path.join(fullpath, "defaults")
         vars_dir_path = os.path.join(fullpath, "vars")
         tasks_dir_path = os.path.join(fullpath, "tasks")
+        handlers_dir_path = os.path.join(fullpath, "handlers")
         includes_dir_path = os.path.join(fullpath, "includes")
     if os.path.exists(meta_file_path):
         with open(meta_file_path, "r") as file:
@@ -665,10 +668,6 @@ def load_role(
                     logging.error("failed to load this yaml file to raed variables; {}".format(e.args[0]))
         roleObj.variables = variables
 
-    if not os.path.exists(tasks_dir_path):
-        # a role possibly has no tasks
-        return roleObj
-
     modules = []
     module_files = search_module_files(fullpath, module_dir_paths)
     for module_file_path in module_files:
@@ -697,6 +696,13 @@ def load_role(
             [
                 includes_dir_path + "/**/*.yml",
                 includes_dir_path + "/**/*.yaml",
+            ]
+        )
+    if os.path.exists(handlers_dir_path):
+        patterns.extend(
+            [
+                handlers_dir_path + "/**/*.yml",
+                handlers_dir_path + "/**/*.yaml",
             ]
         )
     task_yaml_files = safe_glob(patterns, recursive=True)
@@ -804,6 +810,15 @@ def load_module(module_file_path, collection_name="", role_name="", basedir=""):
         raise ValueError("require module file path to load a Module")
     file_name = os.path.basename(module_file_path)
     module_name = file_name.replace(".py", "")
+
+    # some collections have modules like `plugins/modules/xxxx/yyyy.py`
+    # so try finding `xxxx` part by checking module file path
+    for dir_pattern in module_dir_patterns:
+        separator = dir_pattern + "/"
+        if separator in module_file_path:
+            module_name = module_file_path.split(separator)[-1].replace(".py", "").replace("/", ".")
+            break
+
     moduleObj.name = module_name
     if collection_name != "":
         moduleObj.collection = collection_name
@@ -1147,10 +1162,10 @@ def load_collection(collection_dir, basedir="", load_children=True):
             taskfiles = sorted(taskfiles)
         colObj.taskfiles = taskfiles
 
-    role_tasks_files = safe_glob(fullpath + "/roles/*/tasks/main.yml", recursive=True)
+    role_tasks_files = safe_glob(fullpath + "/roles/*/meta/main.yml", recursive=True)
     roles = []
     for f in role_tasks_files:
-        role_dir_path = f.replace("/tasks/main.yml", "")
+        role_dir_path = f.replace("/meta/main.yml", "")
         try:
             r = load_role(
                 role_dir_path,
