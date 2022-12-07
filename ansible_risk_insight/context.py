@@ -325,6 +325,8 @@ class Context:
                 VariableType.PARTIAL_RESOLVE,
             )
 
+        # TODO: re-imeplement the following block once new variable resolver is ready
+
         # if "." in var_name:
         #     parts = var_name.split(".")
         #     top_var_name = parts[0]
