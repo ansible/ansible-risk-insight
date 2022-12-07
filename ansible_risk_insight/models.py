@@ -158,7 +158,7 @@ class ObjectList(JSONSerializable):
     def add(self, obj, update_dict=True):
         self.items.append(obj)
         if update_dict:
-            self._update_dict()
+            self._add_dict_item(obj)
         return
 
     def merge(self, obj_list):
@@ -190,6 +190,9 @@ class ObjectList(JSONSerializable):
         for obj in self.items:
             self._dict[obj.key] = obj
         return
+
+    def _add_dict_item(self, obj):
+        self._dict[obj.key] = obj
 
     @property
     def resolver_targets(self):

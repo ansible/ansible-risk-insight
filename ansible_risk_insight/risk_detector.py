@@ -70,8 +70,8 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
     result_txt += "-" * 90 + "\n"
     report_num = 1
 
-    playbook_count = {"total": 0, "risk": 0}
-    role_count = {"total": 0, "risk": 0}
+    playbook_count = {"total": 0, "rule_matched": 0}
+    role_count = {"total": 0, "rule_matched": 0}
 
     data_report = {"summary": {}, "details": []}
     separate_report = {}
@@ -109,8 +109,8 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
         result_dict = {}
         rule_count = {
             "total": 0,
-            "target": 0,
-            "matched": 0,
+            "in_scope": 0,
+            "rule_matched": 0,
         }
         for rule in rules:
             if not rule.enabled:
@@ -118,7 +118,7 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
             rule_count["total"] += 1
             if not rule.is_target(type=tree_root_type, name=tree_root_name):
                 continue
-            rule_count["target"] += 1
+            rule_count["in_scope"] += 1
             rule_name = rule.name
             matched, _, message = rule.check(taskcalls, **extra_check_args)
             if rule.separate_report:
@@ -128,7 +128,7 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
                         "matched": [],
                     }
             if matched:
-                rule_count["matched"] += 1
+                rule_count["rule_matched"] += 1
                 if rule.separate_report:
                     tree_root_label = tree_root_type
                     separate_report[rule_name]["matched"].append([tree_root_label, tree_root_name, message])
@@ -168,28 +168,28 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
             tmp_result_txt += "-" * 90 + "\n"
             report_num += 1
             if is_playbook:
-                playbook_count["risk"] += 1
+                playbook_count["rule_matched"] += 1
             else:
-                role_count["risk"] += 1
+                role_count["rule_matched"] += 1
         logging.debug("detect() {}/{} done".format(i + 1, num))
 
     if playbook_count["total"] > 0:
         result_txt += "Playbooks\n"
         result_txt += "  Total: {}\n".format(playbook_count["total"])
-        result_txt += "  Risk Found: {}\n".format(len(rule_matched_playbooks))
+        result_txt += "  Rule Matched: {}\n".format(playbook_count["rule_matched"])
 
         data_report["summary"]["playbooks"] = {
             "total": playbook_count["total"],
-            "rule_matched": playbook_count["risk"],
+            "rule_matched": playbook_count["rule_matched"],
         }
     if role_count["total"] > 0:
         result_txt += "Roles\n"
         result_txt += "  Total: {}\n".format(role_count["total"])
-        result_txt += "  Risk Found: {}\n".format(role_count["risk"])
+        result_txt += "  Rule Matched: {}\n".format(role_count["rule_matched"])
 
         data_report["summary"]["roles"] = {
             "total": role_count["total"],
-            "rule_matched": role_count["risk"],
+            "rule_matched": role_count["rule_matched"],
         }
     result_txt += "-" * 90 + "\n"
 

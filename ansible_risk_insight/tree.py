@@ -435,6 +435,7 @@ class TreeLoader(object):
         self.resolved_taskfile_from_ram = {}
 
         self.extra_requirements = []
+        self.extra_requirement_obj_set = set()
 
         self.trees = []
 
@@ -487,7 +488,8 @@ class TreeLoader(object):
                         taskcall.spec.resolved_name = c_obj.spec.fqcn
                     elif taskcall.spec.executable_type == ExecutableType.TASKFILE_TYPE:
                         taskcall.spec.resolved_name = c_obj.spec.key
-            obj_list.merge(child_objects)
+            for c_obj in child_objects.items:
+                obj_list.add(c_obj)
         return obj_list
 
     def _recursive_make_graph(self, key, graph, _objects, caller=None):
@@ -581,35 +583,29 @@ class TreeLoader(object):
                         matched_roles = self.ram_client.search_role(rip.name)
                         if len(matched_roles) > 0:
                             resolved_role_key = matched_roles[0]["object"].key
-                            self.ext_definitions["roles"].add(matched_roles[0]["object"], update_dict=False)
+                            self.ext_definitions["roles"].add(matched_roles[0]["object"])
                             for offspr_obj in matched_roles[0].get("offspring_objects", []):
                                 type_str = offspr_obj["type"] + "s"
-                                self.ext_definitions[type_str].add(offspr_obj["object"], update_dict=False)
-                            self.extra_requirements.append(
-                                {
-                                    "role_fqcn": matched_roles[0]["object"].fqcn,
-                                    "collection": matched_roles[0]["collection"],
-                                }
-                            )
-                            for offspr_obj in matched_roles[0].get("offspring_objects", []):
-                                req_key = ""
-                                req_val = ""
-                                if offspr_obj["type"] in ["module", "role"]:
-                                    obj_type = offspr_obj["type"]
-                                    req_key = f"{obj_type}_fqcn"
-                                    req_val = offspr_obj["object"].fqcn
-                                elif offspr_obj["type"] in ["taskfile"]:
-                                    obj_type = offspr_obj["type"]
-                                    req_key = "taskfile_key"
-                                    req_val = offspr_obj["object"].key
-                                else:
-                                    continue
+                                self.ext_definitions[type_str].add(offspr_obj["object"])
+                            if matched_roles[0]["object"].key not in self.extra_requirement_obj_set:
                                 self.extra_requirements.append(
                                     {
-                                        req_key: req_val,
-                                        "collection": offspr_obj["collection"],
+                                        "type": "role",
+                                        "name": matched_roles[0]["object"].fqcn,
+                                        "collection": matched_roles[0]["collection"],
                                     }
                                 )
+                                self.extra_requirement_obj_set.add(matched_roles[0]["object"].key)
+                            for offspr_obj in matched_roles[0].get("offspring_objects", []):
+                                if offspr_obj["object"].key not in self.extra_requirement_obj_set:
+                                    self.extra_requirements.append(
+                                        {
+                                            "type": offspr_obj["type"],
+                                            "name": offspr_obj["name"],
+                                            "collection": offspr_obj["collection"],
+                                        }
+                                    )
+                                    self.extra_requirement_obj_set.add(offspr_obj["object"].key)
                             self.resolved_role_from_ram[rip.name] = resolved_role_key
 
                 if resolved_role_key != "":
@@ -625,131 +621,123 @@ class TreeLoader(object):
             resolved_key = ""
             if obj.executable == "":
                 return []
+            target_name = obj.executable
             if executable_type == ExecutableType.MODULE_TYPE:
-                if obj.executable in self.module_resolve_cache:
-                    resolved_key = self.module_resolve_cache[obj.executable]
+                if target_name in self.module_resolve_cache:
+                    resolved_key = self.module_resolve_cache[target_name]
                 else:
-                    resolved_key = resolve_module(obj.executable, self.dicts["modules"])
+                    resolved_key = resolve_module(target_name, self.dicts["modules"])
                     if resolved_key != "":
-                        self.module_resolve_cache[obj.executable] = resolved_key
+                        self.module_resolve_cache[target_name] = resolved_key
                 if resolved_key == "" and self.ram_client is not None:
-                    if obj.executable in self.resolved_module_from_ram:
-                        resolved_key = self.resolved_module_from_ram[obj.executable]
+                    if target_name in self.resolved_module_from_ram:
+                        resolved_key = self.resolved_module_from_ram[target_name]
                     else:
-                        matched_modules = self.ram_client.search_module(obj.executable)
+                        matched_modules = self.ram_client.search_module(target_name)
                         if len(matched_modules) > 0:
                             resolved_key = matched_modules[0]["object"].key
-                            self.ext_definitions["modules"].add(matched_modules[0]["object"], update_dict=False)
+                            self.ext_definitions["modules"].add(matched_modules[0]["object"])
                             self.extra_requirements.append(
                                 {
-                                    "module_fqcn": matched_modules[0]["object"].fqcn,
+                                    "type": "module",
+                                    "name": matched_modules[0]["object"].fqcn,
                                     "collection": matched_modules[0]["collection"],
                                 }
                             )
-                            self.resolved_module_from_ram[obj.executable] = resolved_key
+                            self.resolved_module_from_ram[target_name] = resolved_key
                 if resolved_key == "":
-                    if obj.executable not in self.resolve_failures["module"]:
-                        self.resolve_failures["module"][obj.executable] = 0
-                    self.resolve_failures["module"][obj.executable] += 1
+                    if target_name not in self.resolve_failures["module"]:
+                        self.resolve_failures["module"][target_name] = 0
+                    self.resolve_failures["module"][target_name] += 1
             elif executable_type == ExecutableType.ROLE_TYPE:
-                if obj.executable in self.role_resolve_cache:
-                    resolved_key = self.role_resolve_cache[obj.executable]
+                if target_name in self.role_resolve_cache:
+                    resolved_key = self.role_resolve_cache[target_name]
                 else:
                     resolved_key = resolve_role(
-                        obj.executable,
+                        target_name,
                         self.dicts["roles"],
                         obj.collection,
                         obj.collections_in_play,
                     )
                     if resolved_key != "":
-                        self.role_resolve_cache[obj.executable] = resolved_key
+                        self.role_resolve_cache[target_name] = resolved_key
                 if resolved_key == "" and self.ram_client is not None:
-                    if obj.executable in self.resolved_role_from_ram:
-                        resolved_key = self.resolved_role_from_ram[obj.executable]
+                    if target_name in self.resolved_role_from_ram:
+                        resolved_key = self.resolved_role_from_ram[target_name]
                     else:
-                        matched_roles = self.ram_client.search_role(obj.executable)
+                        matched_roles = self.ram_client.search_role(target_name)
                         if len(matched_roles) > 0:
                             resolved_key = matched_roles[0]["object"].key
-                            self.ext_definitions["roles"].add(matched_roles[0]["object"], update_dict=False)
-                            self.extra_requirements.append(
-                                {
-                                    "role_fqcn": matched_roles[0]["object"].fqcn,
-                                    "collection": matched_roles[0]["collection"],
-                                }
-                            )
-                            for offspr_obj in matched_roles[0].get("offspring_objects", []):
-                                req_key = ""
-                                req_val = ""
-                                if offspr_obj["type"] in ["module", "role"]:
-                                    obj_type = offspr_obj["type"]
-                                    req_key = f"{obj_type}_fqcn"
-                                    req_val = offspr_obj["object"].fqcn
-                                elif offspr_obj["type"] in ["taskfile"]:
-                                    obj_type = offspr_obj["type"]
-                                    req_key = "taskfile_key"
-                                    req_val = offspr_obj["object"].key
-                                else:
-                                    continue
+                            self.ext_definitions["roles"].add(matched_roles[0]["object"])
+                            if matched_roles[0]["object"].key not in self.extra_requirement_obj_set:
                                 self.extra_requirements.append(
                                     {
-                                        req_key: req_val,
-                                        "collection": offspr_obj["collection"],
+                                        "type": "role",
+                                        "name": matched_roles[0]["object"].fqcn,
+                                        "collection": matched_roles[0]["collection"],
                                     }
                                 )
-                            self.resolved_role_from_ram[obj.executable] = resolved_key
+                                self.extra_requirement_obj_set.add(matched_roles[0]["object"].key)
+                            for offspr_obj in matched_roles[0].get("offspring_objects", []):
+                                if offspr_obj["object"].key not in self.extra_requirement_obj_set:
+                                    self.extra_requirements.append(
+                                        {
+                                            "type": offspr_obj["type"],
+                                            "name": offspr_obj["name"],
+                                            "collection": offspr_obj["collection"],
+                                        }
+                                    )
+                                    self.extra_requirement_obj_set.add(offspr_obj["object"].key)
+                            self.resolved_role_from_ram[target_name] = resolved_key
                 if resolved_key == "":
-                    if obj.executable not in self.resolve_failures["role"]:
-                        self.resolve_failures["role"][obj.executable] = 0
-                    self.resolve_failures["role"][obj.executable] += 1
+                    if target_name not in self.resolve_failures["role"]:
+                        self.resolve_failures["role"][target_name] = 0
+                    self.resolve_failures["role"][target_name] += 1
             elif executable_type == ExecutableType.TASKFILE_TYPE:
-                if obj.executable in self.taskfile_resolve_cache:
-                    resolved_key = self.taskfile_resolve_cache[obj.executable]
+                if is_templated(target_name):
+                    target_name = render_template(target_name)
+                if target_name in self.taskfile_resolve_cache:
+                    resolved_key = self.taskfile_resolve_cache[target_name]
                 else:
                     resolved_key = resolve_taskfile(
-                        obj.executable,
+                        target_name,
                         self.dicts["taskfiles"],
                         obj.key,
                     )
                     if resolved_key != "":
-                        self.taskfile_resolve_cache[obj.executable] = resolved_key
+                        self.taskfile_resolve_cache[target_name] = resolved_key
                 if resolved_key == "" and self.ram_client is not None:
                     if obj.executable in self.resolved_role_from_ram:
-                        resolved_key = self.resolved_role_from_ram[obj.executable]
+                        resolved_key = self.resolved_role_from_ram[target_name]
                     else:
-                        matched_taskfiles = self.ram_client.search_taskfile(obj.executable, include_task_path=obj.defined_in)
+                        matched_taskfiles = self.ram_client.search_taskfile(target_name, include_task_path=obj.defined_in)
                         if len(matched_taskfiles) > 0:
                             resolved_key = matched_taskfiles[0]["object"].key
                             self.ext_definitions["taskfiles"].add(matched_taskfiles[0]["object"], update_dict=False)
-                            self.extra_requirements.append(
-                                {
-                                    "taskfile_key": matched_taskfiles[0]["object"].key,
-                                    "collection": matched_taskfiles[0]["collection"],
-                                }
-                            )
-                            for offspr_obj in matched_taskfiles[0].get("offspring_objects", []):
-                                req_key = ""
-                                req_val = ""
-                                if offspr_obj["type"] in ["module", "role"]:
-                                    obj_type = offspr_obj["type"]
-                                    req_key = f"{obj_type}_fqcn"
-                                    req_val = offspr_obj["object"].fqcn
-                                elif offspr_obj["type"] in ["taskfile"]:
-                                    obj_type = offspr_obj["type"]
-                                    req_key = "taskfile_key"
-                                    req_val = offspr_obj["object"].key
-                                else:
-                                    continue
+                            if matched_taskfiles[0]["object"].key not in self.extra_requirement_obj_set:
                                 self.extra_requirements.append(
                                     {
-                                        req_key: req_val,
-                                        "collection": offspr_obj["collection"],
+                                        "type": "taskfile",
+                                        "name": matched_taskfiles[0]["object"].key,
+                                        "collection": matched_taskfiles[0]["collection"],
                                     }
                                 )
-                            self.resolved_taskfile_from_ram[obj.executable] = resolved_key
+                                self.extra_requirement_obj_set.add(matched_taskfiles[0]["object"].key)
+                            for offspr_obj in matched_taskfiles[0].get("offspring_objects", []):
+                                if offspr_obj["object"].key not in self.extra_requirement_obj_set:
+                                    self.extra_requirements.append(
+                                        {
+                                            "type": offspr_obj["type"],
+                                            "name": offspr_obj["name"],
+                                            "collection": offspr_obj["collection"],
+                                        }
+                                    )
+                                    self.extra_requirement_obj_set.add(offspr_obj["object"].key)
+                            self.resolved_taskfile_from_ram[target_name] = resolved_key
                 if resolved_key == "":
-                    if obj.executable not in self.resolve_failures["taskfile"]:
-                        self.resolve_failures["taskfile"][obj.executable] = 0
-                    self.resolve_failures["taskfile"][obj.executable] += 1
+                    if target_name not in self.resolve_failures["taskfile"]:
+                        self.resolve_failures["taskfile"][target_name] = 0
+                    self.resolve_failures["taskfile"][target_name] += 1
 
             if resolved_key != "":
                 children_keys.append(resolved_key)
@@ -769,6 +757,19 @@ class TreeLoader(object):
             obj_list.add(obj)
             loaded[k] = obj
         return obj_list
+
+
+def is_templated(txt):
+    return "{{" in txt
+
+
+# TODO: use variable manager
+def render_template(txt, variable_manager=None):
+    regex = r'[\'"]([^\'"]+\.ya?ml)[\'"]'
+    matched = re.search(regex, txt)
+    if matched:
+        return matched.group(1)
+    return txt
 
 
 def dump_node_objects(obj_list, path=""):

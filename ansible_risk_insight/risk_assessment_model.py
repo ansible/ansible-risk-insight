@@ -116,6 +116,7 @@ class RAMClient(object):
                     matched_modules.append(
                         {
                             "type": "module",
+                            "name": m.fqcn,
                             "object": m,
                             "collection": {
                                 "name": parts[-5],
@@ -176,10 +177,18 @@ class RAMClient(object):
                                 offspring_objects.append(tf)
                             offspr_objs = _tmp_offspring_objects[0].get("offspring_objects", [])
                             if offspr_objs:
-                                offspring_objects.extend(offspr_objs)
+                                _offspring_obj_set = set()
+                                for offspr_obj in offspr_objs:
+                                    _offspr_obj_instance = offspr_obj.get("object", None)
+                                    if _offspr_obj_instance is None:
+                                        continue
+                                    if _offspr_obj_instance.key not in _offspring_obj_set:
+                                        offspring_objects.append(offspr_obj)
+                                        _offspring_obj_set.add(_offspr_obj_instance.key)
                     matched_roles.append(
                         {
                             "type": "role",
+                            "name": r.fqcn,
                             "object": r,
                             "offspring_objects": offspring_objects,
                             "collection": {
@@ -254,11 +263,19 @@ class RAMClient(object):
                                 offspring_objects.append(t)
                             offspr_objs = _tmp_offspring_objects[0].get("offspring_objects", [])
                             if offspr_objs:
-                                offspring_objects.extend(offspr_objs)
+                                _offspring_obj_set = set()
+                                for offspr_obj in offspr_objs:
+                                    _offspr_obj_instance = offspr_obj.get("object", None)
+                                    if _offspr_obj_instance is None:
+                                        continue
+                                    if _offspr_obj_instance.key not in _offspring_obj_set:
+                                        offspring_objects.append(offspr_obj)
+                                        _offspring_obj_set.add(_offspr_obj_instance.key)
 
                     matched_taskfiles.append(
                         {
                             "type": "taskfile",
+                            "name": tf.key,
                             "object": tf,
                             "offspring_objects": offspring_objects,
                             "collection": {
@@ -332,11 +349,19 @@ class RAMClient(object):
                             offspring_objects.append(child)
                         offspr_objs = _tmp_offspring_objects[0].get("offspring_objects", [])
                         if offspr_objs:
-                            offspring_objects.extend(offspr_objs)
+                            _offspring_obj_set = set()
+                            for offspr_obj in offspr_objs:
+                                _offspr_obj_instance = offspr_obj.get("object", None)
+                                if _offspr_obj_instance is None:
+                                    continue
+                                if _offspr_obj_instance.key not in _offspring_obj_set:
+                                    offspring_objects.append(offspr_obj)
+                                    _offspring_obj_set.add(_offspr_obj_instance.key)
 
                     matched_tasks.append(
                         {
                             "type": "task",
+                            "name": t.key,
                             "object": t,
                             "offspring_objects": offspring_objects,
                             "collection": {

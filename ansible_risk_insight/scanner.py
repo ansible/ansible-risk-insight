@@ -23,13 +23,14 @@ import tempfile
 import logging
 import jsonpickle
 from dataclasses import dataclass, field
+from tabulate import tabulate
+
 from .models import (
     Load,
     LoadType,
     ObjectList,
     TaskCallsInTree,
 )
-
 from .loader import (
     get_loader_version,
     get_target_name,
@@ -47,7 +48,6 @@ from .findings import Findings
 from .risk_assessment_model import RAMClient
 from .utils import (
     escape_url,
-    version_to_num,
 )
 
 
@@ -334,7 +334,10 @@ class ARIScanner(object):
                 print("The findings are saved at {}".format(self.out_dir))
 
         if not self.silent:
-            print("-" * 60)
+            print(self.report_to_display)
+
+        if not self.silent:
+            print("-" * 90)
             print("ARI scan completed!")
             print(f"Findings have been saved at: {self.ram_client.make_findings_dir_path(self.type, self.name, self.version, self.hash)}")
 
@@ -369,30 +372,65 @@ class ARIScanner(object):
             # roles = set()
             if len(self.extra_requirements) > 0:
                 for ext_req in self.extra_requirements:
-                    # print(f"[DEBUG] requirement: {ext_req}")
+                    if ext_req.get("type", "") not in ["role", "module"]:
+                        continue
                     req_name = ext_req.get("collection", {}).get("name", None)
                     if req_name is None:
                         continue
                     if req_name == self.name:
                         continue
+                    # print(f"[DEBUG] requirement: {ext_req}")
+
+                    obj_type = ext_req.get("type", "")
+                    obj_name = ext_req.get("name", "")
+
                     req_version = ext_req.get("collection", {}).get("version", None)
-                    if req_name not in extra_collections_dict:
-                        extra_collections_dict[req_name] = []
-                    extra_collections_dict[req_name].append(req_version)
-                for req_name in extra_collections_dict:
-                    extra_collections_dict[req_name] = sorted(extra_collections_dict[req_name], key=lambda x: version_to_num(x))
+                    req_str = json.dumps([req_name, req_version])
+                    if req_str not in extra_collections_dict:
+                        extra_collections_dict[req_str] = {"module": [], "role": []}
+                    extra_collections_dict[req_str][obj_type].append(obj_name)
 
                 req_name_keys = sorted(list(extra_collections_dict.keys()))
                 print("[DEBUG] missing dependencies")
-                print("collections:")
-                for req_name in req_name_keys:
-                    if len(extra_collections_dict[req_name]) == 0:
+                table_data = [("NAME", "VERSION", "REQUIRED_FOR")]
+                for req_str in req_name_keys:
+                    if len(extra_collections_dict[req_str]["module"]) == 0 and len(extra_collections_dict[req_str]["role"]) == 0:
                         continue
-                    minimum_version = extra_collections_dict[req_name][0]
-                    ver_req_str = ""
-                    if minimum_version != "unknown":
-                        ver_req_str = f"(>= {minimum_version})"
-                    print(f"- {req_name} {ver_req_str}")
+                    req_info = json.loads(req_str)
+                    req_name = req_info[0]
+                    req_version = req_info[1]
+                    thresh = 3
+
+                    req_dict = extra_collections_dict[req_str]
+                    req_module_num = len(req_dict["module"])
+                    module_short_names = ['"' + n.replace(f"{req_name}.", "") + '"' for n in req_dict["module"]]
+                    module_str = ""
+                    if req_module_num == 0:
+                        pass
+                    elif req_module_num <= thresh:
+                        module_str = " and ".join(module_short_names)
+                    elif req_module_num > thresh:
+                        module_str = ", ".join(module_short_names[:thresh]) + f" and {req_module_num - thresh} others"
+
+                    req_role_num = len(req_dict["role"])
+                    role_short_names = ['"' + n.replace(f"{req_name}.", "") + '"' for n in req_dict["role"]]
+                    role_str = ""
+                    if req_role_num == 0:
+                        pass
+                    elif req_role_num <= thresh:
+                        role_str = ", ".join(role_short_names)
+                    elif req_role_num > thresh:
+                        role_str = ", ".join(role_short_names[:thresh]) + f" and {req_role_num - thresh} others"
+
+                    summary_str = ""
+                    if module_str != "":
+                        summary_str += f"Modules: {module_str}"
+                    if role_str != "":
+                        if summary_str != "":
+                            summary_str += " and "
+                        summary_str += f"Roles: {role_str}"
+                    table_data.append((req_name, req_version, summary_str))
+                print(tabulate(table_data))
 
         if self.pretty:
             if not self.silent:
