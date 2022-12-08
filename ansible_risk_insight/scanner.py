@@ -219,6 +219,7 @@ class ARIScanner(object):
         self.target_path = target_path
         self.version = ddp.metadata.version
         self.hash = ddp.metadata.hash
+        self.download_url = ddp.metadata.download_url
         self.loaded_dependency_dirs = dep_dirs
 
         return target_path, dep_dirs

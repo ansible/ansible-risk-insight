@@ -16,6 +16,7 @@
 
 import os
 import json
+import yaml
 import subprocess
 import tempfile
 import logging
@@ -23,8 +24,8 @@ import glob
 import re
 import sys
 import datetime
+import tarfile
 from dataclasses import dataclass, field, asdict
-import shutil
 
 from .models import (
     LoadType,
@@ -45,6 +46,7 @@ from .loader import (
 from .safe_glob import safe_glob
 
 collection_manifest_json = "MANIFEST.json"
+collection_files_json = "FILES.json"
 role_meta_main_yml = "meta/main.yml"
 role_meta_main_yaml = "meta/main.yaml"
 requirements_yml = "requirements.yml"
@@ -64,10 +66,12 @@ class DownloadMetadata(object):
     name: str = ""
     type: str = ""
     version: str = ""
+    author: str = ""
     download_url: str = ""
     download_src_path: str = ""  # path to put tar.gz
     hash: str = ""
     metafile_path: str = ""  # path to manifest.json/meta.yml
+    files_json_path: str = ""
     download_timestamp: str = ""
     cache_enabled: bool = False
     cache_dir: str = ""  # path to put cache data
@@ -99,7 +103,7 @@ class DependencyDirPreparator(object):
     tmp_install_dir: tempfile.TemporaryDirectory = None
 
     # -- out --
-    dependency_dirs = []  # {"dir": "", "metadata": {}
+    dependency_dirs: list = field(default_factory=list)
 
     def prepare_dir(self, root_install=True, is_src_installed=False, cache_enabled=False, cache_dir=""):
         logging.debug('setup base dirs')
@@ -288,8 +292,8 @@ class DependencyDirPreparator(object):
                 is_exist, _ = self.is_download_file_exist(LoadType.ROLE, name, os.path.join(self.download_location, self.target_name))
                 if is_exist:
                     metadata_file = os.path.join(self.download_location, self.target_name, download_metadata_file)
-                    self.move_src(os.path.join(self.metadata.download_src_path, name), sub_dependency_dir_path)
                     md = self.find_target_metadata(LoadType.ROLE, metadata_file, name)
+                    self.move_src(md.download_src_path, sub_dependency_dir_path)
                 else:
                     install_msg = install_galaxy_target(name, LoadType.ROLE, sub_dependency_dir_path, self.source_repository)
                     logging.debug("role install msg: {}".format(install_msg))
@@ -346,10 +350,10 @@ class DependencyDirPreparator(object):
             metadata = self.extract_roles_metadata(install_msg)
             metadata_file = self.export_data(metadata, sub_download_location, download_metadata_file)
             md = self.find_target_metadata(LoadType.ROLE, metadata_file, self.target_name)
-            dst_src_dir = self.target_path_mappings["src"]
             dependency_dir = tmp_src_dir
+            dst_src_dir = self.target_path_mappings["src"]
+            self.metadata.download_src_path = "{}.{}".format(dst_src_dir, self.target_name)
             self.metadata = md
-            self.metadata.download_src_path = dst_src_dir
         else:
             raise ValueError("unsupported container type")
 
@@ -367,13 +371,20 @@ class DependencyDirPreparator(object):
         if not os.path.exists(dst_src_dir):
             os.makedirs(dst_src_dir)
         self.move_src(tmp_src_dir, dst_src_dir)
+        root_dst_src_path = "{}/{}".format(dst_src_dir, self.target_name)
+        if self.target_type == LoadType.ROLE:
+            self.update_role_download_src(metadata_file, dst_src_dir)
+            self.metadata.download_src_path = root_dst_src_path
+            self.metadata.metafile_path, _ = self.get_metafile_in_target(self.target_type, root_dst_src_path)
+            self.metadata.author = self.get_author(self.target_type, self.metadata.metafile_path)
 
         if self.target_type == LoadType.PROJECT:
             dst_dependency_dir = self.target_path_mappings["dependencies"]
             if not os.path.exists(dst_dependency_dir):
                 os.makedirs(dst_dependency_dir)
             self.move_src(dependency_dir, dst_dependency_dir)
-
+        
+            logging.debug("root metadata: {}".format(json.dumps(asdict(self.metadata))))
         return
 
     def set_index(self, path):
@@ -535,12 +546,15 @@ class DependencyDirPreparator(object):
                 dt_m = datetime.datetime.fromtimestamp(m_time).strftime('%Y-%m-%d %H:%M:%S')
                 metadata.download_timestamp = dt_m
                 metadata.download_src_path = fullpath
+                metadata.metafile_path, metadata.files_json_path = self.get_metafile_in_target(LoadType.COLLECTION, fullpath)
+                metadata.author = self.get_author(LoadType.COLLECTION, metadata.metafile_path)
                 metadata.requirements_file = "{}/{}".format(download_location, requirements_yml)
 
                 if url != "":
                     hash = get_hash_of_url(url)
                     metadata.hash = hash
                 logging.debug("metadata: {}".format(json.dumps(asdict(metadata))))
+
                 metadata_list.append(asdict(metadata))
         result = {"collections": metadata_list}
         return result
@@ -654,6 +668,95 @@ class DependencyDirPreparator(object):
             json.dump(data, f)
         return file
 
+    def get_metafile_in_target(self, type, filepath):
+        metafile_path = ""
+        files_path = ""
+        if type == LoadType.COLLECTION:
+            # get manifest.json
+            with tarfile.open(name=filepath, mode='r') as tar:
+                for info in tar.getmembers():
+                    if info.name.endswith(collection_manifest_json):
+                        f = tar.extractfile(info)
+                        metafile_path = filepath.replace(".tar.gz", "-{}".format(collection_manifest_json))
+                        with open(metafile_path, 'wb') as c:
+                            c.write(f.read())
+                    if info.name.endswith(collection_files_json):
+                        f = tar.extractfile(info)
+                        files_path = filepath.replace(".tar.gz", "-{}".format(collection_files_json))
+                        with open(files_path, 'wb') as c:
+                            c.write(f.read())
+        elif type == LoadType.ROLE:
+            # get meta/main.yml path
+            role_meta_files = safe_glob(
+                [
+                    os.path.join(filepath, "**", role_meta_main_yml),
+                    os.path.join(filepath, "**", role_meta_main_yaml),
+                ],
+                recursive=True,
+            )
+            if len(role_meta_files) != 0:
+                metafile_path = role_meta_files[0]
+        return metafile_path, files_path
+
+    def update_metadata(self, type, metadata_file, target, key, value):
+        with open(metadata_file, "r") as f:
+            metadata = json.load(f)
+        if type == LoadType.COLLECTION:
+            metadata_list = metadata.get("collections", [])
+        elif type == LoadType.ROLE:
+            metadata_list = metadata.get("roles", [])
+        else:
+            logging.warning("metadata not found: {}".format(target))
+            return None
+        for i, data in enumerate(metadata_list):
+            dm = DownloadMetadata(**data)
+            if dm.name == target:
+                if hasattr(dm, key):
+                    setattr(dm, key, value)
+                metadata_list[i] = asdict(dm)
+                logging.debug("update {} in metadata: {}".format(key, dm))
+                if type == LoadType.COLLECTION:
+                    metadata["collections"] = metadata_list
+                elif type == LoadType.ROLE:
+                    metadata["roles"] = metadata_list
+                with open(metadata_file, "w") as f:
+                    json.dump(metadata, f)
+        return
+    
+    def update_role_download_src(self, metadata_file, dst_src_dir):
+        with open(metadata_file, "r") as f:
+            metadata = json.load(f)
+        metadata_list = metadata.get("roles", [])
+        for i, data in enumerate(metadata_list):
+            dm = DownloadMetadata(**data)
+            value = "{}/{}".format(dst_src_dir, dm.name)
+            key = "download_src_path"
+            if hasattr(dm, key):
+                setattr(dm, key, value)
+            dm.metafile_path, _ = self.get_metafile_in_target(LoadType.ROLE, value)
+            dm.author = self.get_author(LoadType.ROLE, dm.metafile_path)
+            metadata_list[i] = asdict(dm)
+            logging.debug("update {} in metadata: {}".format(key, dm))
+        metadata["roles"] = metadata_list
+        with open(metadata_file, "w") as f:
+            json.dump(metadata, f)
+        return
+
+    def get_author(self, type, metafile_path):
+        if not os.path.exists(metafile_path):
+            logging.warning("invalid file path: {}".format(metafile_path))
+            return ""
+        if type == LoadType.COLLECTION:
+            with open(metafile_path, "r") as f:
+                metadata = json.load(f)
+            authors = metadata.get("collection_info", {}).get("authors", [])
+            return ",".join(authors)
+        elif type == LoadType.ROLE:
+            with open(metafile_path, "r") as f:
+                metadata = yaml.safe_load(f)
+            author = metadata.get("galaxy_info", {}).get("author", "")
+            return author
+            
 
 def find_ext_dependencies(path):
     collection_meta_files = safe_glob(os.path.join(path, "**", collection_manifest_json), recursive=True)
