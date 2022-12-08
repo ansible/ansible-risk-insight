@@ -62,7 +62,6 @@ def find_dependency(type, target, dependency_dir):
         dependencies["metadata"] = metadata
         dependencies["type"] = type
         dependencies["file"] = None
-
     return dependencies
 
 
