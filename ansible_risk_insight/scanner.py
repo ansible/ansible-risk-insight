@@ -48,6 +48,7 @@ from .findings import Findings
 from .risk_assessment_model import RAMClient
 from .utils import (
     escape_url,
+    is_url,
 )
 
 
@@ -86,6 +87,8 @@ class ARIScanner(object):
     type: str = ""
     name: str = ""
     id: str = ""
+
+    collection_name: str = ""
 
     install_log: str = ""
     tmp_install_dir: tempfile.TemporaryDirectory = None
@@ -208,6 +211,7 @@ class ARIScanner(object):
             source_repository=self.source_repository,
             target_type=self.type,
             target_name=self.name,
+            target_version=self.version,
             target_path=target_path,
             target_dependency_dir=self.dependency_dir,
             target_path_mappings=self.__path_mappings,
@@ -298,8 +302,9 @@ class ARIScanner(object):
 
         loaded = False
         if not self.without_ram:
-            loaded, self.root_definitions = self.load_definitions_from_findings(self.type, self.name, self.version, self.hash)
+            loaded, root_defs = self.load_definitions_from_findings(self.type, self.name, self.version, self.hash)
             if loaded:
+                self.root_definitions = root_defs
                 if not self.silent:
                     logging.info("Use spec data in RAM DB")
 
@@ -324,8 +329,8 @@ class ARIScanner(object):
         dep_num, ext_counts, root_counts = self.count_definitions()
         if not self.silent:
             print("# of dependencies:", dep_num)
-            print("ext definitions:", ext_counts)
-            print("root definitions:", root_counts)
+            # print("ext definitions:", ext_counts)
+            # print("root definitions:", root_counts)
 
         self.register_findings_to_db()
 
@@ -335,12 +340,28 @@ class ARIScanner(object):
                 print("The findings are saved at {}".format(self.out_dir))
 
         if not self.silent:
-            print(self.report_to_display)
+            if len(self.extra_requirements) == 0:
+                print(self.report_to_display)
 
         if not self.silent:
-            print("-" * 90)
-            print("ARI scan completed!")
-            print(f"Findings have been saved at: {self.ram_client.make_findings_dir_path(self.type, self.name, self.version, self.hash)}")
+            if len(self.loaded_dependency_dirs) > 0:
+                print("External Dependencies")
+                dep_table = [("NAME", "VERSION", "HASH")]
+                for dep_info in self.loaded_dependency_dirs:
+                    dep_meta = dep_info.get("metadata", {})
+                    dep_name = dep_meta.get("name", "")
+                    if dep_name == self.name:
+                        continue
+                    dep_version = dep_meta.get("version", "")
+                    dep_hash = dep_meta.get("hash", "")
+                    dep_table.append((dep_name, dep_version, dep_hash))
+                print(tabulate(dep_table))
+
+        # if not self.silent:
+        #     print("-" * 90)
+        #     print("ARI scan completed!")
+        #     print(f"Findings have been saved at: {self.ram_client.make_findings_dir_path(self.type, self.name, self.version, self.hash)}")
+        #     print("-" * 90)
 
         if not self.silent:
             module_failures = self.resolve_failures.get("module", {})
@@ -392,7 +413,8 @@ class ARIScanner(object):
                     extra_collections_dict[req_str][obj_type].append(obj_name)
 
                 req_name_keys = sorted(list(extra_collections_dict.keys()))
-                print("[DEBUG] missing dependencies")
+                print("")
+                print("-- Missing Dependencies --")
                 table_data = [("NAME", "VERSION", "REQUIRED_FOR")]
                 for req_str in req_name_keys:
                     if len(extra_collections_dict[req_str]["module"]) == 0 and len(extra_collections_dict[req_str]["role"]) == 0:
@@ -464,7 +486,10 @@ class ARIScanner(object):
         elif typ == LoadType.ROLE:
             target_path = os.path.join(self.root_dir, typ + "s", "src", target_name)
         elif typ == LoadType.PROJECT:
-            target_path = os.path.join(self.get_src_root(), escape_url(target_name))
+            if is_url(target_name):
+                target_path = os.path.join(self.get_src_root(), escape_url(target_name))
+            else:
+                target_path = target_name
         return target_path
 
     def get_src_root(self):
@@ -676,10 +701,10 @@ class ARIScanner(object):
         if not os.path.exists(target_path):
             raise ValueError("No such file or directory: {}".format(target_path))
         if not self.silent:
-            logging.debug("target_name", target_name)
-            logging.debug("target_type", target_type)
-            logging.debug("path", target_path)
-            logging.debug("loader_version", loader_version)
+            logging.debug(f"target_name: {target_name}")
+            logging.debug(f"target_type: {target_type}")
+            logging.debug(f"path: {target_path}")
+            logging.debug(f"loader_version: {loader_version}")
         ld = Load(
             target_name=target_name,
             target_type=target_type,
@@ -758,7 +783,7 @@ class ARIScanner(object):
 
         p = Parser(do_save=self.do_save)
 
-        definitions, mappings = p.run(load_data=root_load)
+        definitions, mappings = p.run(load_data=root_load, collection_name_of_project=self.collection_name)
         if self.do_save:
             if output_dir == "":
                 raise ValueError("Invalid output_dir")

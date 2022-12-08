@@ -21,7 +21,7 @@ from .base import Rule, subject_placeholder
 
 class ExternalDependencyRule(Rule):
     name: str = "ExternalDependency"
-    enabled: bool = True
+    enabled: bool = False
     allow_list: list = []
     separate_report: bool = True
     all_ok_message = "No {} depend on external dependencies".format(subject_placeholder)

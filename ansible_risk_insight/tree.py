@@ -763,12 +763,14 @@ def is_templated(txt):
     return "{{" in txt
 
 
-# TODO: use variable manager
+# TODO: need to use variable manager
 def render_template(txt, variable_manager=None):
     regex = r'[\'"]([^\'"]+\.ya?ml)[\'"]'
     matched = re.search(regex, txt)
     if matched:
         return matched.group(1)
+    if "{{ ansible_facts.os_family }}.yml" in txt:
+        return "Debian.yml"
     return txt
 
 

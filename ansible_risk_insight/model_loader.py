@@ -90,10 +90,12 @@ def load_repository(
         repo_path = ""
     else:
         # otherwise, find the root path by searching playbooks
-        repo_path = find_best_repo_root_path(path)
+        try:
+            repo_path = find_best_repo_root_path(path)
+        except Exception:
+            logging.debug('failed to find a root directory for ansible files; use "{}"' " but this may be wrong".format(path))
         if repo_path == "":
             repo_path = path
-            logging.warning('failed to find a root directory for ansible files; use "{}"' " but this may be wrong".format(path))
 
     if repo_path != "":
         if my_collection_name == "":
@@ -115,7 +117,7 @@ def load_repository(
     repoObj.modules = load_modules(
         repo_path,
         basedir=basedir,
-        collection_name=my_collection_name,
+        collection_name=repoObj.my_collection_name,
         load_children=load_children,
     )
     logging.debug("done ... {} modules loaded".format(len(repoObj.modules)))
@@ -516,6 +518,7 @@ def load_playbooks(path, basedir="", load_children=True):
     ]
     candidates = safe_glob(patterns, recursive=True)
     playbooks = []
+    playbook_names = []
     for fpath in candidates:
         if could_be_playbook(fpath):
             if "/roles/" in fpath:
@@ -530,8 +533,10 @@ def load_playbooks(path, basedir="", load_children=True):
                 logging.exception("error while loading the playbook at {}".format(fpath))
             if load_children:
                 playbooks.append(p)
+                playbook_names.append(p.defined_in)
             else:
                 playbooks.append(p.defined_in)
+                playbook_names.append(p.defined_in)
     if not load_children:
         playbooks = sorted(playbooks)
     return playbooks
@@ -1126,7 +1131,11 @@ def load_collection(collection_dir, basedir="", load_children=True):
             except Exception as e:
                 logging.error("failed to load requirements.yml; {}".format(e.args[0]))
 
-    playbook_files = safe_glob(fullpath + "/playbooks/**/*.yml", recursive=True)
+    playbook_path_patterns = [
+        fullpath + "/playbooks/**/*.yml",
+        fullpath + "/playbooks/**/*.yaml",
+    ]
+    playbook_files = safe_glob(playbook_path_patterns, recursive=True)
     playbooks = []
     for f in playbook_files:
         p = None

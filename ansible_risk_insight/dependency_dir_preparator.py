@@ -26,7 +26,6 @@ import sys
 import datetime
 import tarfile
 from dataclasses import dataclass, field, asdict
-import shutil
 
 from .models import (
     LoadType,
@@ -38,6 +37,7 @@ from .utils import (
     install_github_target,
     get_installed_metadata,
     get_hash_of_url,
+    is_url,
 )
 from .loader import (
     get_target_name,
@@ -93,6 +93,7 @@ class DependencyDirPreparator(object):
     source_repository: str = ""
     target_type: str = ""
     target_name: str = ""
+    target_version: str = ""
     target_path: str = ""
     target_dependency_dir: str = ""
     target_path_mappings: dict = field(default_factory=dict)
@@ -107,13 +108,13 @@ class DependencyDirPreparator(object):
     dependency_dirs: list = field(default_factory=list)
 
     def prepare_dir(self, root_install=True, is_src_installed=False, cache_enabled=False, cache_dir=""):
-        logging.debug('setup base dirs')
+        logging.debug("setup base dirs")
         self.setup_dirs(cache_enabled, cache_dir)
-        logging.debug('prepare target dir')
+        logging.debug("prepare target dir")
         self.prepare_root_dir(root_install, is_src_installed)
-        logging.debug('search dependencies')
+        logging.debug("search dependencies")
         dependencies = find_dependency(self.target_type, self.target_path, self.target_dependency_dir)
-        logging.debug('prepare dir for dependencies')
+        logging.debug("prepare dir for dependencies")
         self.prepare_dependency_dir(dependencies, cache_enabled, cache_dir)
         return self.dependency_dirs
 
@@ -136,6 +137,10 @@ class DependencyDirPreparator(object):
         if is_src_installed:
             pass
         else:
+            # if a project target is a local path, then skip install
+            if self.target_type == LoadType.PROJECT and not is_url(self.target_name):
+                root_install = False
+
             if root_install:
                 self.src_install()
                 if not self.silent:
@@ -144,8 +149,9 @@ class DependencyDirPreparator(object):
                 download_url = ""
                 version = ""
                 hash = ""
-                download_url, version = get_installed_metadata(self.target_type, self.target_name, self.target_path)
-                hash = get_hash_of_url(download_url)
+                download_url, version = get_installed_metadata(self.target_type, self.target_name, self.target_path, self.target_dependency_dir)
+                if download_url != "":
+                    hash = get_hash_of_url(download_url)
                 self.metadata.download_url = download_url
                 self.metadata.version = version
                 self.metadata.hash = hash
@@ -221,9 +227,13 @@ class DependencyDirPreparator(object):
                 col_galaxy_data = col_dependency_metadata.get(col_name, {})
                 if isinstance(col_galaxy_data, dict):
                     download_url = col_galaxy_data.get("download_url", "")
+                    hash = ""
+                    if download_url:
+                        hash = get_hash_of_url(download_url)
                     version = col_galaxy_data.get("version", "")
                     downloaded_dep.metadata.source_repository = self.source_repository
                     downloaded_dep.metadata.download_url = download_url
+                    downloaded_dep.metadata.hash = hash
                     downloaded_dep.metadata.version = version
                     downloaded_dep.dir = sub_dependency_dir_path
             else:
@@ -242,7 +252,8 @@ class DependencyDirPreparator(object):
                     metadata = self.extract_collections_metadata(install_msg, sub_download_location)
                     metadata_file = self.export_data(metadata, sub_download_location, download_metadata_file)
                     md = self.find_target_metadata(LoadType.COLLECTION, metadata_file, col_name)
-                    self.install_galaxy_collection_from_reqfile(md.requirements_file, sub_dependency_dir_path)
+                    if md:
+                        self.install_galaxy_collection_from_reqfile(md.requirements_file, sub_dependency_dir_path)
                     # self.install_galaxy_collection_from_targz(md.download_src_path, sub_dependency_dir_path)
                 if md is not None:
                     downloaded_dep.metadata = md
@@ -346,7 +357,7 @@ class DependencyDirPreparator(object):
             self.metadata.download_url = self.target_name
         elif self.target_type == LoadType.COLLECTION:
             sub_download_location = "{}/{}".format(self.download_location, self.target_name)
-            install_msg = self.download_galaxy_collection(self.target_name, sub_download_location)
+            install_msg = self.download_galaxy_collection(self.target_name, sub_download_location, target_version=self.target_version)
             metadata = self.extract_collections_metadata(install_msg, sub_download_location)
             metadata_file = self.export_data(metadata, sub_download_location, download_metadata_file)
             md = self.find_target_metadata(LoadType.COLLECTION, metadata_file, self.target_name)
@@ -356,7 +367,9 @@ class DependencyDirPreparator(object):
             self.metadata = md
         elif self.target_type == LoadType.ROLE:
             sub_download_location = "{}/{}".format(self.download_location, self.target_name)
-            install_msg = install_galaxy_target(self.target_name, self.target_type, tmp_src_dir, self.source_repository)
+            install_msg = install_galaxy_target(
+                self.target_name, self.target_type, tmp_src_dir, self.source_repository, target_version=self.target_version
+            )
             logging.debug("role install msg: {}".format(install_msg))
             metadata = self.extract_roles_metadata(install_msg)
             metadata_file = self.export_data(metadata, sub_download_location, download_metadata_file)

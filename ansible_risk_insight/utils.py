@@ -21,14 +21,19 @@ import hashlib
 import yaml
 import logging
 
+from .findings import Findings
 
-def install_galaxy_target(target, target_type, output_dir, source_repository=""):
+
+def install_galaxy_target(target, target_type, output_dir, source_repository="", target_version=""):
     server_option = ""
     if source_repository != "" and source_repository is not None:
         server_option = "--server {}".format(source_repository)
-    logging.debug("exec ansible-galaxy cmd: ansible-galaxy {} install {} {} -p {}".format(target_type, target, server_option, output_dir))
+    target_name = target
+    if target_version != "":
+        target_name = f"{target}:{target_version}"
+    logging.debug("exec ansible-galaxy cmd: ansible-galaxy {} install {} {} -p {}".format(target_type, target_name, server_option, output_dir))
     proc = subprocess.run(
-        "ansible-galaxy {} install {} {} -p {}".format(target_type, target, server_option, output_dir),
+        "ansible-galaxy {} install {} {} -p {}".format(target_type, target_name, server_option, output_dir),
         shell=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -69,7 +74,18 @@ def get_download_metadata(typ: str, install_msg: str):
     return download_url, version, hash
 
 
-def get_installed_metadata(type, name, path, dep_dir=""):
+def get_installed_metadata(type, name, path, dep_dir=None):
+    if dep_dir:
+        dep_dir_alt = os.path.join(dep_dir, "ansible_collections")
+        if os.path.exists(dep_dir_alt):
+            dep_dir = dep_dir_alt
+        parts = name.split(".")
+        if len(parts) == 1:
+            parts.append("dummy")
+        dep_dir_target_path = os.path.join(dep_dir, parts[0], parts[1])
+        download_url, version = get_installed_metadata(type, name, dep_dir_target_path)
+        if download_url or version:
+            return download_url, version
     download_url = ""
     version = ""
     galaxy_yml = "GALAXY.yml"
@@ -106,6 +122,16 @@ def get_hash_of_url(url: str):
     return hash
 
 
+def split_name_and_version(target_name):
+    name = target_name
+    version = ""
+    if ":" in target_name:
+        parts = target_name.split(":")
+        name = parts[0]
+        version = parts[1]
+    return name, version
+
+
 def version_to_num(ver: str):
     if ver == "unknown":
         return 0
@@ -123,3 +149,11 @@ def version_to_num(ver: str):
         if parts[2].isnumeric():
             num += float(parts[2]) * (0.001**2)
     return num
+
+
+def is_url(txt: str):
+    return "://" in txt
+
+
+def show_findings(findings: Findings):
+    print("[DEBUG] findings:", findings)

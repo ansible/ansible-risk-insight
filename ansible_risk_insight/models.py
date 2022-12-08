@@ -214,7 +214,7 @@ class CallObject(JSONSerializable):
         if caller is not None:
             instance.called_from = caller.key
             caller_key = caller.key
-        instance.key = set_call_object_key(cls.__name__.lower(), spec.key, caller_key)
+        instance.key = set_call_object_key(cls.__name__, spec.key, caller_key)
         return instance
 
 
