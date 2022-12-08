@@ -383,7 +383,6 @@ class DependencyDirPreparator(object):
             if not os.path.exists(dst_dependency_dir):
                 os.makedirs(dst_dependency_dir)
             self.move_src(dependency_dir, dst_dependency_dir)
-        
             logging.debug("root metadata: {}".format(json.dumps(asdict(self.metadata))))
         return
 
@@ -722,7 +721,7 @@ class DependencyDirPreparator(object):
                 with open(metadata_file, "w") as f:
                     json.dump(metadata, f)
         return
-    
+
     def update_role_download_src(self, metadata_file, dst_src_dir):
         with open(metadata_file, "r") as f:
             metadata = json.load(f)
@@ -756,7 +755,7 @@ class DependencyDirPreparator(object):
                 metadata = yaml.safe_load(f)
             author = metadata.get("galaxy_info", {}).get("author", "")
             return author
-            
+
 
 def find_ext_dependencies(path):
     collection_meta_files = safe_glob(os.path.join(path, "**", collection_manifest_json), recursive=True)
