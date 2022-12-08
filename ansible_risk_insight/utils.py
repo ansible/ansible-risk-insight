@@ -25,6 +25,7 @@ from tabulate import tabulate
 
 from .findings import Findings
 
+from .findings import Findings
 
 def install_galaxy_target(target, target_type, output_dir, source_repository="", target_version=""):
     server_option = ""

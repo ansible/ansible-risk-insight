@@ -26,7 +26,6 @@ import sys
 import datetime
 import tarfile
 from dataclasses import dataclass, field, asdict
-import shutil
 
 from .models import (
     LoadType,
