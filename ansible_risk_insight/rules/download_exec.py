@@ -16,8 +16,8 @@
 
 from typing import List
 from ..models import RiskAnnotation, TaskCall
-from ..annotators.risk_annotator_base import RiskType, RISK_ANNOTATION_TYPE
-from .base import Rule
+from ..annotators.risk_annotator_base import AnnotatorCategory, RISK_ANNOTATION_TYPE
+from .base import Rule, Severity
 
 
 non_execution_programs: list = ["tar", "gunzip", "unzip", "mv", "cp"]
@@ -26,6 +26,8 @@ non_execution_programs: list = ["tar", "gunzip", "unzip", "mv", "cp"]
 class DownloadExecRule(Rule):
     name: str = "Download & Exec"
     enabled: bool = True
+    severity: Severity = Severity.HIGH
+    tags: list = []
 
     def is_target(self, type: str, name: str) -> bool:
         return True
@@ -36,7 +38,7 @@ class DownloadExecRule(Rule):
         # list downloaded files from "inbound_transfer" tasks
         download_files_and_tasks = []
         for taskcall in taskcalls:
-            inbound_annos = taskcall.get_annotation_by_type_and_attr(RISK_ANNOTATION_TYPE, "category", RiskType.INBOUND)
+            inbound_annos = taskcall.get_annotation_by_type_and_attr(RISK_ANNOTATION_TYPE, "category", AnnotatorCategory.INBOUND)
             for inbound_data in inbound_annos:
                 if not isinstance(inbound_data, RiskAnnotation):
                     continue
@@ -61,7 +63,7 @@ class DownloadExecRule(Rule):
         found = []
         exec_count = 0
         for taskcall in taskcalls:
-            exec_annos = taskcall.get_annotation_by_type_and_attr(RISK_ANNOTATION_TYPE, "category", RiskType.CMD_EXEC)
+            exec_annos = taskcall.get_annotation_by_type_and_attr(RISK_ANNOTATION_TYPE, "category", AnnotatorCategory.CMD_EXEC)
             if len(exec_annos) > 0:
                 exec_count += 1
             for exec_data in exec_annos:

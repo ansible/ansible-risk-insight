@@ -24,6 +24,8 @@ class Findings:
 
     root_definitions: dict = field(default_factory=dict)
     ext_definitions: dict = field(default_factory=dict)
+    extra_requirements: list = field(default_factory=list)
+    resolve_failures: dict = field(default_factory=dict)
 
     prm: dict = field(default_factory=dict)
     report: dict = field(default_factory=dict)

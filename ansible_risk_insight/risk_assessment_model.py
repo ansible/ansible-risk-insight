@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from .models import LoadType, ObjectList, ExecutableType
 from .parser import Parser
 from .findings import Findings
-from .utils import escape_url, version_to_num
+from .utils import escape_url, version_to_num, diff_files_data
 from .safe_glob import safe_glob
 from .keyutil import get_obj_info_by_key
 
@@ -30,6 +30,7 @@ from .keyutil import get_obj_info_by_key
 class RAMClient(object):
     root_dir: str = ""
 
+    findings_json_list_cache: list = field(default_factory=list)
     modules_json_list_cache: list = field(default_factory=list)
     roles_json_list_cache: list = field(default_factory=list)
     taskfiles_json_list_cache: list = field(default_factory=list)
@@ -75,7 +76,7 @@ class RAMClient(object):
             loaded = True
         return loaded, definitions, mappings
 
-    def search_module(self, name, exact_match=False, max_match=-1, collection_name="", collection_version=""):
+    def search_module(self, name, exact_match=False, max_match=-1, collection_name="", collection_version="", used_in=""):
         if max_match == 0:
             return []
         args_str = json.dumps([name, exact_match, max_match, collection_name, collection_version])
@@ -123,6 +124,7 @@ class RAMClient(object):
                                 "version": parts[-4],
                                 "hash": parts[-3],
                             },
+                            "used_in": used_in,
                         }
                     )
                 if max_match > 0:
@@ -134,7 +136,7 @@ class RAMClient(object):
         self.module_search_cache[args_str] = matched_modules
         return matched_modules
 
-    def search_role(self, name, exact_match=False, max_match=-1, collection_name="", collection_version=""):
+    def search_role(self, name, exact_match=False, max_match=-1, collection_name="", collection_version="", used_in=""):
         if max_match == 0:
             return []
         roles_json_list = []
@@ -196,6 +198,7 @@ class RAMClient(object):
                                 "version": parts[-4],
                                 "hash": parts[-3],
                             },
+                            "used_in": used_in,
                         }
                     )
                 if max_match > 0:
@@ -206,7 +209,7 @@ class RAMClient(object):
                 break
         return matched_roles
 
-    def search_taskfile(self, name, include_task_path="", max_match=-1, is_key=False, collection_name="", collection_version=""):
+    def search_taskfile(self, name, include_task_path="", max_match=-1, is_key=False, collection_name="", collection_version="", used_in=""):
         if max_match == 0:
             return []
         taskfiles_json_list = []
@@ -256,7 +259,7 @@ class RAMClient(object):
                     parts = taskfiles_json.split("/")
                     offspring_objects = []
                     for task_key in tf.tasks:
-                        _tmp_offspring_objects = self.search_task(task_key, is_key=True, collection_name=tf.collection)
+                        _tmp_offspring_objects = self.search_task(task_key, is_key=True, collection_name=tf.collection, used_in=used_in)
                         if len(_tmp_offspring_objects) > 0:
                             t = _tmp_offspring_objects[0]
                             if t:
@@ -283,6 +286,7 @@ class RAMClient(object):
                                 "version": parts[-4],
                                 "hash": parts[-3],
                             },
+                            "used_in": used_in,
                         }
                     )
                 if max_match > 0:
@@ -293,7 +297,7 @@ class RAMClient(object):
                 break
         return matched_taskfiles
 
-    def search_task(self, name, exact_match=False, max_match=-1, is_key=False, collection_name="", collection_version=""):
+    def search_task(self, name, exact_match=False, max_match=-1, is_key=False, collection_name="", collection_version="", used_in=""):
         if max_match == 0:
             return []
         args_str = json.dumps([name, exact_match, max_match, is_key, collection_name, collection_version])
@@ -338,11 +342,13 @@ class RAMClient(object):
                     parts = tasks_json.split("/")
                     offspring_objects = []
                     if t.executable_type == ExecutableType.MODULE_TYPE:
-                        _tmp_offspring_objects = self.search_module(t.executable)
+                        _tmp_offspring_objects = self.search_module(t.executable, used_in=t.defined_in)
                     elif t.executable_type == ExecutableType.ROLE_TYPE:
-                        _tmp_offspring_objects = self.search_role(t.executable)
+                        _tmp_offspring_objects = self.search_role(t.executable, used_in=t.defined_in)
                     elif t.executable_type == ExecutableType.TASKFILE_TYPE:
-                        _tmp_offspring_objects = self.search_taskfile(t.executable, include_task_path=t.defined_in, collection_name=t.collection)
+                        _tmp_offspring_objects = self.search_taskfile(
+                            t.executable, include_task_path=t.defined_in, collection_name=t.collection, used_in=t.defined_in
+                        )
                     if len(_tmp_offspring_objects) > 0:
                         child = _tmp_offspring_objects[0]
                         if child:
@@ -369,6 +375,7 @@ class RAMClient(object):
                                 "version": parts[-4],
                                 "hash": parts[-3],
                             },
+                            "used_in": used_in,
                         }
                     )
                 if max_match > 0:
@@ -406,6 +413,133 @@ class RAMClient(object):
                 }
         return matched_obj
 
+    def list_all_ram_metadata(self):
+        findings_json_list = []
+        if self.findings_json_list_cache:
+            findings_json_list = self.findings_json_list_cache
+        else:
+            search_patterns = os.path.join(self.root_dir, "collections", "findings", "*", "*", "*", "findings.json")
+            findings_json_list = safe_glob(search_patterns)
+            findings_json_list = sort_by_version(findings_json_list)
+            self.findings_json_list_cache = findings_json_list
+
+        metadata_list = []
+        for findings_path in findings_json_list:
+            parts = findings_path.split("/")
+
+            metadata_list.append(
+                {
+                    "type": "collection",
+                    "name": parts[-4],
+                    "version": parts[-3],
+                    "hash": parts[-2],
+                }
+            )
+        return metadata_list
+
+    def search_findings(self, target_name, target_version):
+        if not target_name:
+            raise ValueError("target name must be specified for searching RAM data")
+        if not target_version:
+            target_version = "*"
+        search_patterns = os.path.join(self.root_dir, "collections", "findings", target_name, target_version, "*", "findings.json")
+        found_path_list = safe_glob(search_patterns)
+        if len(found_path_list) == 0:
+            search_patterns = os.path.join(self.root_dir, "roles", "findings", target_name, target_version, "*", "findings.json")
+            found_path_list = safe_glob(search_patterns)
+        latest_findings_path = ""
+        if len(found_path_list) == 1:
+            latest_findings_path = found_path_list[0]
+        elif len(found_path_list) > 1:
+            latest_findings_path = found_path_list[0]
+            mtime = os.path.getmtime(latest_findings_path)
+            for fpath in found_path_list:
+                tmp_mtime = os.path.getmtime(fpath)
+                if tmp_mtime > mtime:
+                    latest_findings_path = fpath
+                    mtime = tmp_mtime
+        findings = None
+        if os.path.exists(latest_findings_path):
+            findings = self.load_findings(latest_findings_path)
+        return findings
+
+    def load_findings(self, path: str):
+
+        basename = os.path.basename(path)
+        dir_path = path
+        if basename == "findings.json":
+            dir_path = os.path.dirname(path)
+
+        metadata = None
+        metadata_path = os.path.join(dir_path, "metadata.json")
+        if os.path.exists(metadata_path):
+            with open(metadata_path, "r") as metadata_file:
+                metadata = json.load(metadata_file)
+
+        dependencies = None
+        dependencies_path = os.path.join(dir_path, "dependencies.json")
+        if os.path.exists(dependencies_path):
+            with open(dependencies_path, "r") as dependencies_file:
+                dependencies = json.load(dependencies_file)
+
+        root_definitions = None
+        root_defs_path = os.path.join(dir_path, "root")
+        if os.path.exists(root_defs_path):
+            definitions, mappings = Parser.restore_definition_objects(root_defs_path)
+            root_definitions = {
+                "definitions": definitions,
+                "mappings": mappings,
+            }
+
+        ext_definitions = None
+        ext_defs_path = os.path.join(dir_path, "ext")
+        if os.path.exists(ext_defs_path):
+            ext_definitions = {}
+            ext_names = os.listdir(ext_defs_path)
+            for key in ext_names:
+                ext_path = os.path.join(ext_defs_path, key)
+                definitions, mappings = Parser.restore_definition_objects(ext_path)
+                ext_definitions[key] = {
+                    "definitions": definitions,
+                    "mappings": mappings,
+                }
+
+        extra_requirements = None
+        extra_requirements_path = os.path.join(dir_path, "extra_requirements.json")
+        if os.path.exists(extra_requirements_path):
+            with open(extra_requirements_path, "r") as extra_requirements_file:
+                extra_requirements = json.load(extra_requirements_file)
+
+        resolve_failures = None
+        resolve_failures_path = os.path.join(dir_path, "resolve_failures.json")
+        if os.path.exists(resolve_failures_path):
+            with open(resolve_failures_path, "r") as resolve_failures_file:
+                resolve_failures = json.load(resolve_failures_file)
+
+        prm = None
+        prm_path = os.path.join(dir_path, "prm.json")
+        if os.path.exists(prm_path):
+            with open(prm_path, "r") as prm_file:
+                prm = json.load(prm_file)
+
+        report = None
+        report_path = os.path.join(dir_path, "findings.json")
+        if os.path.exists(report_path):
+            with open(report_path, "r") as report_file:
+                report = json.load(report_file)
+
+        findings = Findings(
+            metadata=metadata,
+            dependencies=dependencies,
+            root_definitions=root_definitions,
+            ext_definitions=ext_definitions,
+            extra_requirements=extra_requirements,
+            resolve_failures=resolve_failures,
+            prm=prm,
+            report=report,
+        )
+        return findings
+
     def save_findings(self, findings: Findings, out_dir: str):
         if out_dir == "":
             raise ValueError("output dir must be a non-empty value")
@@ -435,6 +569,14 @@ class RAMClient(object):
                     os.makedirs(ext_defs_dir, exist_ok=True)
                 Parser.dump_definition_objects(ext_defs_dir, ext_definitions, ext_mappings)
 
+        extra_requirements_path = os.path.join(out_dir, "extra_requirements.json")
+        with open(extra_requirements_path, "w") as extra_requirements_file:
+            json.dump(findings.extra_requirements, extra_requirements_file)
+
+        resolve_failures_path = os.path.join(out_dir, "resolve_failures.json")
+        with open(resolve_failures_path, "w") as resolve_failures_file:
+            json.dump(findings.resolve_failures, resolve_failures_file)
+
         findings_path = os.path.join(out_dir, "findings.json")
         with open(findings_path, "w") as findings_file:
             json.dump(findings.report, findings_file)
@@ -450,6 +592,33 @@ class RAMClient(object):
         prm_file = os.path.join(out_dir, "prm.json")
         with open(prm_file, "w") as prm:
             json.dump(findings.prm, prm)
+
+    def diff(self, target_name, version1, version2):
+        findings1 = self.search_findings(target_name=target_name, target_version=version1)
+        if not findings1:
+            raise ValueError(f"{target_name}:{version1} is not found in RAM")
+
+        findings2 = self.search_findings(target_name=target_name, target_version=version2)
+        if not findings2:
+            raise ValueError(f"{target_name}:{version2} is not found in RAM")
+
+        coll_defs1 = findings1.root_definitions.get("definitions", {}).get("collections", [])
+        coll_defs2 = findings2.root_definitions.get("definitions", {}).get("collections", [])
+
+        files1 = None
+        files2 = None
+        if len(coll_defs1) > 0:
+            files1 = coll_defs1[0].files
+        if len(coll_defs2) > 0:
+            files2 = coll_defs2[0].files
+
+        if not files1:
+            raise ValueError(f"Files data of {target_name}:{version1} is not recorded")
+
+        if not files2:
+            raise ValueError(f"Files data of {target_name}:{version2} is not recorded")
+
+        return diff_files_data(files1, files2)
 
 
 # newer version comes earlier, so version num should be sorted in a reversed order

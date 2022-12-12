@@ -1123,6 +1123,11 @@ def load_collection(collection_dir, basedir="", load_children=True):
         if colObj.metadata is not None and isinstance(colObj.metadata, dict):
             colObj.dependency["collections"] = colObj.metadata.get("dependencies", {})
 
+    files_file_path = os.path.join(fullpath, "FILES.json")
+    if os.path.exists(files_file_path):
+        with open(files_file_path, "r") as file:
+            colObj.files = json.load(file)
+
     requirements_yml_path = os.path.join(fullpath, "requirements.yml")
     if os.path.exists(requirements_yml_path):
         with open(requirements_yml_path, "r") as file:
@@ -1171,25 +1176,7 @@ def load_collection(collection_dir, basedir="", load_children=True):
             taskfiles = sorted(taskfiles)
         colObj.taskfiles = taskfiles
 
-    role_tasks_files = safe_glob(fullpath + "/roles/*/meta/main.yml", recursive=True)
-    roles = []
-    for f in role_tasks_files:
-        role_dir_path = f.replace("/meta/main.yml", "")
-        try:
-            r = load_role(
-                role_dir_path,
-                collection_name=collection_name,
-                basedir=basedir,
-            )
-        except Exception:
-            logging.exception("error while loading the role at {}".format(f))
-            continue
-        if load_children:
-            roles.append(r)
-        else:
-            roles.append(r.defined_in)
-    if not load_children:
-        roles = sorted(roles)
+    roles = load_roles(fullpath, basedir=basedir, load_children=load_children)
 
     module_files = search_module_files(fullpath)
     modules = []

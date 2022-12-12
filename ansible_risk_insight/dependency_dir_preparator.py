@@ -262,6 +262,11 @@ class DependencyDirPreparator(object):
             self.dependency_dirs.append(asdict(downloaded_dep))
 
         for rdep in role_dependencies:
+            target_version = None
+            if isinstance(rdep, dict):
+                rdep_name = rdep.get("name", None)
+                target_version = rdep.get("version", None)
+                rdep = rdep_name
             name = rdep
             if type(rdep) is dict:
                 name = rdep.get("name", "")
@@ -299,7 +304,7 @@ class DependencyDirPreparator(object):
                     md = self.find_target_metadata(LoadType.ROLE, metadata_file, self.target_name)
                 else:
                     logging.debug("cache data not found")
-                    install_msg = install_galaxy_target(name, LoadType.ROLE, cache_dir_path, self.source_repository)
+                    install_msg = install_galaxy_target(name, LoadType.ROLE, cache_dir_path, self.source_repository, target_version)
                     logging.debug("role install msg: {}".format(install_msg))
                     metadata = self.extract_roles_metadata(install_msg)
                     metadata_file = self.export_data(metadata, cache_dir_path, download_metadata_file)
@@ -454,10 +459,10 @@ class DependencyDirPreparator(object):
 
     def download_galaxy_collection(self, target, output_dir, version="", source_repository=""):
         server_option = ""
-        if source_repository != "" and source_repository is not None:
+        if source_repository:
             server_option = "--server {}".format(source_repository)
         target_version = target
-        if version != "":
+        if version:
             target_version = "{}:{}".format(target, version)
         proc = subprocess.run(
             "ansible-galaxy collection download '{}' {} -p {}".format(target_version, server_option, output_dir),
@@ -472,7 +477,7 @@ class DependencyDirPreparator(object):
 
     def download_galaxy_collection_from_reqfile(self, requirements, output_dir, source_repository=""):
         server_option = ""
-        if source_repository != "":
+        if source_repository:
             server_option = "--server {}".format(source_repository)
         proc = subprocess.run(
             "ansible-galaxy collection download -r {} {} -p {}".format(requirements, server_option, output_dir),

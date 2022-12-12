@@ -18,7 +18,7 @@ import json
 from typing import List
 from ..models import TaskCall, Annotation, RiskAnnotation, VariableAnnotation
 from .variable_resolver import VARIABLE_ANNOTATION_TYPE
-from .risk_annotator_base import RiskAnnotator, RiskType
+from .risk_annotator_base import RiskAnnotator, AnnotatorCategory
 
 
 class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
@@ -44,7 +44,7 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
         annotations = []
         # builtin modules
         if resolved_name == "ansible.builtin.get_url":
-            res = RiskAnnotation(type=self.type, category=RiskType.INBOUND)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.INBOUND)
             res.data = self.get_url(options, mutable_vars_per_mo)
             for ro in resolved_options:
                 res.resolved_data.append(self.get_url(ro, mutable_vars_per_mo))
@@ -58,14 +58,14 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.command":
-            res = RiskAnnotation(type=self.type, category=RiskType.CMD_EXEC)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.CMD_EXEC)
             res.data = self.command(options, resolved_variables)
             for ro in resolved_options:
                 res.resolved_data.append(self.command(ro, resolved_variables))
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.apt":
-            res = RiskAnnotation(type=self.type, category=RiskType.PACKAGE_INSTALL)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.PACKAGE_INSTALL)
             res.data = self.apt(options)
             for ro in resolved_options:
                 res.resolved_data.append(self.apt(ro))
@@ -93,7 +93,7 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.assemble":
-            res = RiskAnnotation(type=self.type, category=RiskType.FILE_CHANGE)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.FILE_CHANGE)
             res.data = self.assemble(options)
             for ro in resolved_options:
                 res.resolved_data.append(self.assemble(ro))
@@ -114,7 +114,7 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.blockinfile":
-            res = RiskAnnotation(type=self.type, category=RiskType.FILE_CHANGE)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.FILE_CHANGE)
             res.data = self.blockinfile(options)
             for ro in resolved_options:
                 res.resolved_data.append(self.blockinfile(ro))
@@ -135,7 +135,7 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.debconf":
-            res = RiskAnnotation(type=self.type, category=RiskType.CONFIG_CHANGE)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.CONFIG_CHANGE)
             res.data = self.debconf(options)
             for ro in resolved_options:
                 res.resolved_data.append(self.debconf(ro))
@@ -149,21 +149,21 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.dnf":
-            res = RiskAnnotation(type=self.type, category=RiskType.PACKAGE_INSTALL)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.PACKAGE_INSTALL)
             res.data = self.dnf(options)
             for ro in resolved_options:
                 res.resolved_data.append(self.dnf(ro))
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.dpkg_selections":
-            res = RiskAnnotation(type=self.type, category=RiskType.PACKAGE_INSTALL)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.PACKAGE_INSTALL)
             res.data = self.dpkg_selections(options)
             for ro in resolved_options:
                 res.resolved_data.append(self.dpkg_selections(ro))
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.expect":
-            res = RiskAnnotation(type=self.type, category=RiskType.CMD_EXEC)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.CMD_EXEC)
             res.data = self.expect(options, resolved_variables)
             for ro in resolved_options:
                 res.resolved_data.append(self.expect(ro, resolved_variables))
@@ -177,7 +177,7 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.file":
-            res = RiskAnnotation(type=self.type, category=RiskType.FILE_CHANGE)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.FILE_CHANGE)
             res.data = self.file(options, resolved_variables)
             for ro in resolved_options:
                 res.resolved_data.append(self.file(ro, resolved_variables))
@@ -204,7 +204,7 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.git":
-            res = RiskAnnotation(type=self.type, category=RiskType.INBOUND)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.INBOUND)
             res.data, res.category = self.git(options, mutable_vars_per_mo)
             for ro in resolved_options:
                 rd, c = self.git(ro, mutable_vars_per_mo)
@@ -233,21 +233,21 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.iptables":
-            res = RiskAnnotation(type=self.type, category=RiskType.NETWORK_CHANGE)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.NETWORK_CHANGE)
             res.data = self.iptables(options)
             for ro in resolved_options:
                 res.resolved_data.append(self.iptables(ro))
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.known_hosts":
-            res = RiskAnnotation(type=self.type, category=RiskType.NETWORK_CHANGE)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.NETWORK_CHANGE)
             res.data = self.known_hosts(options)
             for ro in resolved_options:
                 res.resolved_data.append(self.known_hosts(ro))
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.lineinfile":
-            res = RiskAnnotation(type=self.type, category=RiskType.FILE_CHANGE)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.FILE_CHANGE)
             res.data = self.lineinfile(options)
             for ro in resolved_options:
                 res.resolved_data.append(self.lineinfile(ro))
@@ -261,7 +261,7 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.package":
-            res = RiskAnnotation(type=self.type, category=RiskType.PACKAGE_INSTALL)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.PACKAGE_INSTALL)
             res.data = self.package(options)
             for ro in resolved_options:
                 res.resolved_data.append(self.package(ro))
@@ -289,14 +289,14 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.pip":
-            res = RiskAnnotation(type=self.type, category=RiskType.PACKAGE_INSTALL)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.PACKAGE_INSTALL)
             res.data = self.pip(options)
             for ro in resolved_options:
                 res.resolved_data.append(self.pip(ro))
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.raw":
-            res = RiskAnnotation(type=self.type, category=RiskType.CMD_EXEC)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.CMD_EXEC)
             res.data = self.raw(options, resolved_variables)
             for ro in resolved_options:
                 res.resolved_data.append(self.raw(ro, resolved_variables))
@@ -310,28 +310,28 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.replace":
-            res = RiskAnnotation(type=self.type, category=RiskType.FILE_CHANGE)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.FILE_CHANGE)
             res.data = self.replace(options)
             for ro in resolved_options:
                 res.resolved_data.append(self.replace(ro))
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.rpm_key":
-            res = RiskAnnotation(type=self.type, category=RiskType.FILE_CHANGE)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.FILE_CHANGE)
             res.data = self.rpm_key(options)
             for ro in resolved_options:
                 res.resolved_data.append(self.rpm_key(ro))
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.script":
-            res = RiskAnnotation(type=self.type, category=RiskType.CMD_EXEC)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.CMD_EXEC)
             res.data = self.script(options, resolved_variables)
             for ro in resolved_options:
                 res.resolved_data.append(self.script(ro, resolved_variables))
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.service":
-            res = RiskAnnotation(type=self.type, category=RiskType.SYSTEM_CHANGE)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.SYSTEM_CHANGE)
             res.data = self.service(options)
             for ro in resolved_options:
                 res.resolved_data.append(self.service(ro))
@@ -366,7 +366,7 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.slurp":
-            res = RiskAnnotation(type=self.type, category=RiskType.INBOUND)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.INBOUND)
             res.data = self.slurp(options)
             for ro in resolved_options:
                 res.resolved_data.append(self.slurp(ro))
@@ -380,35 +380,35 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.subversion":
-            res = RiskAnnotation(type=self.type, category=RiskType.INBOUND)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.INBOUND)
             res.data = self.subversion(options)
             for ro in resolved_options:
                 res.resolved_data.append(self.subversion(ro))
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.sysvinit":
-            res = RiskAnnotation(type=self.type, category=RiskType.SYSTEM_CHANGE)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.SYSTEM_CHANGE)
             res.data = self.sysvinit(options)
             for ro in resolved_options:
                 res.resolved_data.append(self.sysvinit(ro))
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.systemd":
-            res = RiskAnnotation(type=self.type, category=RiskType.SYSTEM_CHANGE)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.SYSTEM_CHANGE)
             res.data = self.systemd(options)
             for ro in resolved_options:
                 res.resolved_data.append(self.systemd(ro))
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.tempfile":
-            res = RiskAnnotation(type=self.type, category=RiskType.FILE_CHANGE)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.FILE_CHANGE)
             res.data = self.tempfile(options)
             for ro in resolved_options:
                 res.resolved_data.append(self.tempfile(ro))
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.template":
-            res = RiskAnnotation(type=self.type, category=RiskType.FILE_CHANGE)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.FILE_CHANGE)
             res.data = self.template(options)
             for ro in resolved_options:
                 res.resolved_data.append(self.template(ro))
@@ -423,7 +423,7 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.uri":
-            res = RiskAnnotation(type=self.type, category=RiskType.INBOUND)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.INBOUND)
             res.data, res.category = self.uri(options, mutable_vars_per_mo)
             for ro in resolved_options:
                 rd, c = self.uri(ro, mutable_vars_per_mo)
@@ -460,7 +460,7 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.yum":
-            res = RiskAnnotation(type=self.type, category=RiskType.PACKAGE_INSTALL)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.PACKAGE_INSTALL)
             res.data = self.yum(options)
             for ro in resolved_options:
                 res.resolved_data.append(self.yum(ro))
@@ -474,7 +474,7 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
             annotations.append(res)
 
         if resolved_name == "ansible.builtin.shell":
-            res = RiskAnnotation(type=self.type, category=RiskType.CMD_EXEC)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.CMD_EXEC)
             res.data = self.shell(options, resolved_variables)
             for ro in resolved_options:
                 res.resolved_data.append(self.shell(ro, resolved_variables))
@@ -494,7 +494,7 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
             is_root = True
         res = RiskAnnotation(
             type=self.type,
-            category=RiskType.PRIVILEGE_ESCALATION,
+            category=AnnotatorCategory.PRIVILEGE_ESCALATION,
             data={"root": is_root},
         )
         return res
@@ -632,7 +632,7 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
 
     def git(self, options, mutable_vars_per_mo):
         data = {}
-        category = RiskType.INBOUND
+        category = AnnotatorCategory.INBOUND
         mutable_vars_per_type = {}
         if type(options) is not dict:
             return data
@@ -645,10 +645,10 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
         if "version" in options:
             data["version"] = options["version"]
         if "clone" in options and (not options["clone"] or options["clone"] == "no"):
-            category = RiskType.NONE
+            category = AnnotatorCategory.NONE
             return data, category
         if "update" in options and (not options["update"] or options["update"] == "no"):
-            category = RiskType.NONE
+            category = AnnotatorCategory.NONE
             return data, category
         # injection risk
         if "src" in data and type(data["src"]) is str:
@@ -899,13 +899,13 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
         return data
 
     def uri(self, options, mutable_vars_per_mo):
-        category = RiskType.NONE
+        category = AnnotatorCategory.NONE
         data = {}
         mutable_vars_per_type = {}
         if type(options) is not dict:
             return data, category
         if "method" in options and (options["method"] == "POST" or options["method"] == "PUT" or options["method"] == "PATCH"):
-            category = RiskType.OUTBOUND
+            category = AnnotatorCategory.OUTBOUND
             if "url" in options:
                 data["dest"] = options["url"]
                 mutable_vars_per_type["dest"] = mutable_vars_per_mo.get("url", [])
@@ -985,7 +985,7 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
         return data
 
     def unarchive(self, options, resolved_options, mutable_vars_per_mo):
-        category = RiskType.NONE
+        category = AnnotatorCategory.NONE
         data = {}
         mutable_vars_per_type = {}
         if type(options) is not dict:
@@ -1007,12 +1007,12 @@ class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
         # if remote_src=yes and src contains :// => inbound_transfer
         if "remote_src" in data and (data["remote_src"] == "yes" or data["remote_src"]):
             if "src" in data and type(data["src"]) is str and "://" in data["src"]:
-                category = RiskType.INBOUND
+                category = AnnotatorCategory.INBOUND
         # check resolved option
         for ro in resolved_options:
             if "remote_src" in ro and (ro["remote_src"] == "yes" or ro["remote_src"]):
                 if "src" in ro and type(ro["src"]) is str and "://" in ro["src"]:
-                    category = RiskType.INBOUND
+                    category = AnnotatorCategory.INBOUND
 
         if "src" in data and type(data["src"]) is str:
             mutable_vars = mutable_vars_per_type.get("src", [])

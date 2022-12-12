@@ -257,6 +257,7 @@ class Collection(Object, Resolvable):
     key: str = ""
     local_key: str = ""
     metadata: dict = field(default_factory=dict)
+    files: dict = field(default_factory=dict)
     playbooks: list = field(default_factory=list)
     taskfiles: list = field(default_factory=list)
     roles: list = field(default_factory=list)
@@ -472,7 +473,7 @@ class TaskCall(CallObject):
         return matched
 
     def get_annotation_by_type_and_attr(self, type_str="", key="", val=None):
-        matched = [an for an in self.annotations if an.type == type_str and getattr(an, key, None) == val]
+        matched = [an for an in self.annotations if hasattr(an, "type") and an.type == type_str and getattr(an, key, None) == val]
         return matched
 
 

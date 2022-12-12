@@ -22,7 +22,7 @@ from .annotator_base import Annotator
 RISK_ANNOTATION_TYPE = "risk_annotation"
 
 
-class RiskType:
+class AnnotatorCategory:
     NONE = ""
     CMD_EXEC = "cmd_exec"
     INBOUND = "inbound_transfer"

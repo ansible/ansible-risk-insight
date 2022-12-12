@@ -23,7 +23,6 @@ import tempfile
 import logging
 import jsonpickle
 from dataclasses import dataclass, field
-from tabulate import tabulate
 
 from .models import (
     Load,
@@ -49,6 +48,7 @@ from .risk_assessment_model import RAMClient
 from .utils import (
     escape_url,
     is_url,
+    show_findings,
 )
 
 
@@ -104,7 +104,6 @@ class ARIScanner(object):
 
     taskcalls_in_trees: list = field(default_factory=list)
 
-    report_to_display: str = ""
     data_report: dict = field(default_factory=dict)
 
     # TODO: remove attributes below once refactoring is done
@@ -129,6 +128,7 @@ class ARIScanner(object):
 
     source_repository: str = ""
     out_dir: str = ""
+    show_all: bool = False
     pretty: bool = False
     silent: bool = False
 
@@ -218,7 +218,9 @@ class ARIScanner(object):
             do_save=self.do_save,
             tmp_install_dir=self.tmp_install_dir,
         )
-        dep_dirs = ddp.prepare_dir(root_install=root_install, is_src_installed=self.is_src_installed())
+        dep_dirs = ddp.prepare_dir(
+            root_install=root_install, is_src_installed=self.is_src_installed(), cache_enabled=True, cache_dir=os.path.join(self.root_dir, "archives")
+        )
 
         self.target_path = target_path
         self.version = ddp.metadata.version
@@ -301,7 +303,7 @@ class ARIScanner(object):
             logging.debug("load_definition_ext() done")
 
         loaded = False
-        if not self.without_ram:
+        if not self.without_ram and self.type != LoadType.PROJECT:
             loaded, root_defs = self.load_definitions_from_findings(self.type, self.name, self.version, self.hash)
             if loaded:
                 self.root_definitions = root_defs
@@ -332,7 +334,8 @@ class ARIScanner(object):
             # print("ext definitions:", ext_counts)
             # print("root definitions:", root_counts)
 
-        self.register_findings_to_db()
+        if len(self.extra_requirements) == 0:
+            self.register_findings_to_db()
 
         if self.out_dir is not None and self.out_dir != "":
             self.save_findings(out_dir=self.out_dir)
@@ -340,120 +343,7 @@ class ARIScanner(object):
                 print("The findings are saved at {}".format(self.out_dir))
 
         if not self.silent:
-            if len(self.extra_requirements) == 0:
-                print(self.report_to_display)
-
-        if not self.silent:
-            if len(self.loaded_dependency_dirs) > 0:
-                print("External Dependencies")
-                dep_table = [("NAME", "VERSION", "HASH")]
-                for dep_info in self.loaded_dependency_dirs:
-                    dep_meta = dep_info.get("metadata", {})
-                    dep_name = dep_meta.get("name", "")
-                    if dep_name == self.name:
-                        continue
-                    dep_version = dep_meta.get("version", "")
-                    dep_hash = dep_meta.get("hash", "")
-                    dep_table.append((dep_name, dep_version, dep_hash))
-                print(tabulate(dep_table))
-
-        # if not self.silent:
-        #     print("-" * 90)
-        #     print("ARI scan completed!")
-        #     print(f"Findings have been saved at: {self.ram_client.make_findings_dir_path(self.type, self.name, self.version, self.hash)}")
-        #     print("-" * 90)
-
-        if not self.silent:
-            module_failures = self.resolve_failures.get("module", {})
-            role_failures = self.resolve_failures.get("role", {})
-            taskfile_failures = self.resolve_failures.get("taskfile", {})
-            module_fail_num = len(module_failures)
-            role_fail_num = len(role_failures)
-            taskfile_fail_num = len(taskfile_failures)
-            total_fail_num = module_fail_num + role_fail_num + taskfile_fail_num
-            if total_fail_num > 0:
-                print(f"Failed to resolve {module_fail_num} modules, {role_fail_num} roles, {taskfile_fail_num} taskfiles")
-            if module_fail_num > 0:
-                print("- modules: ")
-                for module_action in module_failures:
-                    called_num = module_failures[module_action]
-                    print(f"  - {module_action}    ({called_num} times called)")
-            if role_fail_num > 0:
-                print("- roles: ")
-                for role_action in role_failures:
-                    called_num = role_failures[role_action]
-                    print(f"  - {role_action}    ({called_num} times called)")
-            if taskfile_fail_num > 0:
-                print("- taskfiles: ")
-                for taskfile_action in taskfile_failures:
-                    called_num = taskfile_failures[taskfile_action]
-                    print(f"  - {taskfile_action}    ({called_num} times called)")
-
-        if not self.silent:
-            extra_collections_dict = {}
-            # roles = set()
-            if len(self.extra_requirements) > 0:
-                for ext_req in self.extra_requirements:
-                    if ext_req.get("type", "") not in ["role", "module"]:
-                        continue
-                    req_name = ext_req.get("collection", {}).get("name", None)
-                    if req_name is None:
-                        continue
-                    if req_name == self.name:
-                        continue
-                    # print(f"[DEBUG] requirement: {ext_req}")
-
-                    obj_type = ext_req.get("type", "")
-                    obj_name = ext_req.get("name", "")
-
-                    req_version = ext_req.get("collection", {}).get("version", None)
-                    req_str = json.dumps([req_name, req_version])
-                    if req_str not in extra_collections_dict:
-                        extra_collections_dict[req_str] = {"module": [], "role": []}
-                    extra_collections_dict[req_str][obj_type].append(obj_name)
-
-                req_name_keys = sorted(list(extra_collections_dict.keys()))
-                print("")
-                print("-- Missing Dependencies --")
-                table_data = [("NAME", "VERSION", "REQUIRED_FOR")]
-                for req_str in req_name_keys:
-                    if len(extra_collections_dict[req_str]["module"]) == 0 and len(extra_collections_dict[req_str]["role"]) == 0:
-                        continue
-                    req_info = json.loads(req_str)
-                    req_name = req_info[0]
-                    req_version = req_info[1]
-                    thresh = 3
-
-                    req_dict = extra_collections_dict[req_str]
-                    req_module_num = len(req_dict["module"])
-                    module_short_names = ['"' + n.replace(f"{req_name}.", "") + '"' for n in req_dict["module"]]
-                    module_str = ""
-                    if req_module_num == 0:
-                        pass
-                    elif req_module_num <= thresh:
-                        module_str = " and ".join(module_short_names)
-                    elif req_module_num > thresh:
-                        module_str = ", ".join(module_short_names[:thresh]) + f" and {req_module_num - thresh} others"
-
-                    req_role_num = len(req_dict["role"])
-                    role_short_names = ['"' + n.replace(f"{req_name}.", "") + '"' for n in req_dict["role"]]
-                    role_str = ""
-                    if req_role_num == 0:
-                        pass
-                    elif req_role_num <= thresh:
-                        role_str = ", ".join(role_short_names)
-                    elif req_role_num > thresh:
-                        role_str = ", ".join(role_short_names[:thresh]) + f" and {req_role_num - thresh} others"
-
-                    summary_str = ""
-                    if module_str != "":
-                        summary_str += f"Modules: {module_str}"
-                    if role_str != "":
-                        if summary_str != "":
-                            summary_str += " and "
-                        summary_str += f"Roles: {role_str}"
-                    table_data.append((req_name, req_version, summary_str))
-                print(tabulate(table_data))
+            show_findings(self.findings, self.show_all)
 
         if self.pretty:
             if not self.silent:
@@ -654,8 +544,7 @@ class ARIScanner(object):
     def set_report(self):
         coll_type = LoadType.COLLECTION
         coll_name = self.name if self.type == coll_type else ""
-        report_txt, data_report = detect(self.taskcalls_in_trees, collection_name=coll_name)
-        self.report_to_display = report_txt
+        data_report = detect(self.taskcalls_in_trees, collection_name=coll_name)
         metadata = {
             "type": self.type,
             "name": self.name,
@@ -664,20 +553,22 @@ class ARIScanner(object):
             "download_url": self.download_url,
             "hash": self.hash,
         }
-        dependencies = [d["metadata"] for d in self.loaded_dependency_dirs]
+        dependencies = self.loaded_dependency_dirs
 
         self.findings = Findings(
             metadata=metadata,
             dependencies=dependencies,
             root_definitions=self.root_definitions,
             ext_definitions=self.ext_definitions,
+            extra_requirements=self.extra_requirements,
+            resolve_failures=self.resolve_failures,
             prm=self.prm,
             report=data_report,
         )
         return
 
     def get_report(self):
-        return self.report_to_display
+        return self.data_report
 
     def count_definitions(self):
         dep_num = len(self.loaded_dependency_dirs)
