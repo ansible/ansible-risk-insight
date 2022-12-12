@@ -30,7 +30,8 @@ collection_manifest_json = "MANIFEST.json"
 role_meta_main_yml = "meta/main.yml"
 role_meta_main_yaml = "meta/main.yaml"
 requirements_yml = "requirements.yml"
-galaxy_yml = "GALAXY.yml"
+galaxy_yml = "galaxy.yml"
+GALAXY_yml = "GALAXY.yml"
 
 
 def find_dependency(type, target, dependency_dir):
@@ -80,6 +81,7 @@ def find_role_dependency(target):
     if len(role_meta_files) > 0:
         for rf in role_meta_files:
             if os.path.exists(rf):
+                main_yaml = rf
                 with open(rf, "r") as file:
                     try:
                         metadata = yaml.safe_load(file)
@@ -89,40 +91,32 @@ def find_role_dependency(target):
                     if metadata is not None and isinstance(metadata, dict):
                         requirements["roles"] = metadata.get("dependencies", [])
                         requirements["collections"] = metadata.get("collections", [])
-                if main_yaml == "":
-                    with open(rf, "r") as file:
-                        main_yaml = file.read()
     return requirements, main_yaml
 
 
 def find_collection_dependency(target):
     requirements = {}
-    collection_meta_files = safe_glob(os.path.join(target, "**", collection_manifest_json), recursive=True)
-    logging.debug("found meta files {}".format(collection_meta_files))
+    # collection dir installed by ansible-galaxy command
+    manifest_json_files = safe_glob(os.path.join(target, "**", collection_manifest_json), recursive=True)
+    logging.debug("found meta files {}".format(manifest_json_files))
     manifest_json = ""
-    if len(collection_meta_files) > 0:
-        for cmf in collection_meta_files:
+    if len(manifest_json_files) > 0:
+        for cmf in manifest_json_files:
             if os.path.exists(cmf):
+                manifest_json = cmf
                 metadata = {}
                 with open(cmf, "r") as file:
                     metadata = json.load(file)
                     dependencies = metadata.get("collection_info", {}).get("dependencies", [])
-                    requirements["collections"] = list(dependencies.keys())  # need to handle version info
-                if manifest_json == "":
-                    with open(cmf, "r") as file:
-                        manifest_json = file.read()
+                    requirements["collections"] = format_dependency_info(dependencies)
+    else:
+        requirements, manifest_json = load_dependency_from_galaxy(target)
     return requirements, manifest_json
 
 
 def find_project_dependency(target):
-    # url or dir
-    # if validators.url(target):
-    #     logging.debug("cloning {} from github".format(target))
-
-    #     install_msg = install_github_target(target, tmp_src_dir)
-    # elif os.path.exists(target):
     if os.path.exists(target):
-        # requirements.yml or local dir
+        # local dir
         logging.debug("load requirements from dir {}".format(target))
         return load_requirements(target)
     else:
@@ -131,14 +125,37 @@ def find_project_dependency(target):
 
 def load_requirements(path):
     requirements = {}
+    yaml_path = ""
+    # project dir
     requirements_yml_path = os.path.join(path, requirements_yml)
     if os.path.exists(requirements_yml_path):
+        yaml_path = requirements_yml_path
         with open(requirements_yml_path, "r") as file:
             try:
                 requirements = yaml.safe_load(file)
             except Exception as e:
                 logging.error("failed to load requirements.yml; {}".format(e.args[0]))
-    return requirements, requirements_yml_path
+    else:
+        requirements, yaml_path = load_dependency_from_galaxy(path)
+    return requirements, yaml_path
+
+
+def load_dependency_from_galaxy(path):
+    requirements = {}
+    yaml_path = ""
+    galaxy_yml_files = safe_glob(os.path.join(path, "**", galaxy_yml), recursive=True)
+    galaxy_yml_files.extend(safe_glob(os.path.join(path, "**", GALAXY_yml), recursive=True))
+    logging.debug("found meta files {}".format(galaxy_yml_files))
+    if len(galaxy_yml_files) > 0:
+        for g in galaxy_yml_files:
+            if os.path.exists(g):
+                yaml_path = g
+                metadata = {}
+                with open(g, "r") as file:
+                    metadata = yaml.safe_load(file)
+                    dependencies = metadata.get("dependencies", [])
+                    requirements["collections"] = format_dependency_info(dependencies)
+    return requirements, yaml_path
 
 
 def load_existing_dependency_dir(dependency_dir):
@@ -202,3 +219,11 @@ def install_github_target(target, output_dir):
     install_msg = proc.stdout
     logging.debug("STDOUT: {}".format(install_msg))
     return proc.stdout
+
+
+def format_dependency_info(dependencies):
+    results = []
+    for k, v in dependencies.items():
+        results.append({"name": k, "version": v})
+    return results
+
