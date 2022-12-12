@@ -613,6 +613,33 @@ class RAMClient(object):
 
         return diff_files_data(files1, files2)
 
+    def diff(self, target_name, version1, version2):
+        findings1 = self.search_findings(target_name=target_name, target_version=version1)
+        if not findings1:
+            raise ValueError(f"{target_name}:{version1} is not found in RAM")
+
+        findings2 = self.search_findings(target_name=target_name, target_version=version2)
+        if not findings2:
+            raise ValueError(f"{target_name}:{version2} is not found in RAM")
+
+        coll_defs1 = findings1.root_definitions.get("definitions", {}).get("collections", [])
+        coll_defs2 = findings2.root_definitions.get("definitions", {}).get("collections", [])
+
+        files1 = None
+        files2 = None
+        if len(coll_defs1) > 0:
+            files1 = coll_defs1[0].files
+        if len(coll_defs2) > 0:
+            files2 = coll_defs2[0].files
+
+        if not files1:
+            raise ValueError(f"Files data of {target_name}:{version1} is not recorded")
+
+        if not files2:
+            raise ValueError(f"Files data of {target_name}:{version2} is not recorded")
+
+        return diff_files_data(files1, files2)
+
 
 # newer version comes earlier, so version num should be sorted in a reversed order
 def _path_to_reversed_version_num(path):
