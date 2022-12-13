@@ -593,16 +593,20 @@ class TreeLoader(object):
                                         "type": "role",
                                         "name": matched_roles[0]["object"].fqcn,
                                         "collection": matched_roles[0]["collection"],
+                                        "used_in": obj.defined_in,
                                     }
                                 )
                                 self.extra_requirement_obj_set.add(matched_roles[0]["object"].key)
                             for offspr_obj in matched_roles[0].get("offspring_objects", []):
+                                if hasattr(offspr_obj["object"], "builtin") and offspr_obj["object"].builtin:
+                                    continue
                                 if offspr_obj["object"].key not in self.extra_requirement_obj_set:
                                     self.extra_requirements.append(
                                         {
                                             "type": offspr_obj["type"],
                                             "name": offspr_obj["name"],
                                             "collection": offspr_obj["collection"],
+                                            "used_in": offspr_obj["used_in"],
                                         }
                                     )
                                     self.extra_requirement_obj_set.add(offspr_obj["object"].key)
@@ -637,13 +641,17 @@ class TreeLoader(object):
                         if len(matched_modules) > 0:
                             resolved_key = matched_modules[0]["object"].key
                             self.ext_definitions["modules"].add(matched_modules[0]["object"])
-                            self.extra_requirements.append(
-                                {
-                                    "type": "module",
-                                    "name": matched_modules[0]["object"].fqcn,
-                                    "collection": matched_modules[0]["collection"],
-                                }
-                            )
+                            if matched_modules[0]["object"].key not in self.extra_requirement_obj_set:
+                                if not matched_modules[0]["object"].builtin:
+                                    self.extra_requirements.append(
+                                        {
+                                            "type": "module",
+                                            "name": matched_modules[0]["object"].fqcn,
+                                            "collection": matched_modules[0]["collection"],
+                                            "used_in": obj.defined_in,
+                                        }
+                                    )
+                                    self.extra_requirement_obj_set.add(matched_modules[0]["object"].key)
                             self.resolved_module_from_ram[target_name] = resolved_key
                 if resolved_key == "":
                     if target_name not in self.resolve_failures["module"]:
@@ -675,16 +683,20 @@ class TreeLoader(object):
                                         "type": "role",
                                         "name": matched_roles[0]["object"].fqcn,
                                         "collection": matched_roles[0]["collection"],
+                                        "used_in": obj.defined_in,
                                     }
                                 )
                                 self.extra_requirement_obj_set.add(matched_roles[0]["object"].key)
                             for offspr_obj in matched_roles[0].get("offspring_objects", []):
+                                if hasattr(offspr_obj["object"], "builtin") and offspr_obj["object"].builtin:
+                                    continue
                                 if offspr_obj["object"].key not in self.extra_requirement_obj_set:
                                     self.extra_requirements.append(
                                         {
                                             "type": offspr_obj["type"],
                                             "name": offspr_obj["name"],
                                             "collection": offspr_obj["collection"],
+                                            "used_in": offspr_obj["used_in"],
                                         }
                                     )
                                     self.extra_requirement_obj_set.add(offspr_obj["object"].key)
@@ -720,16 +732,20 @@ class TreeLoader(object):
                                         "type": "taskfile",
                                         "name": matched_taskfiles[0]["object"].key,
                                         "collection": matched_taskfiles[0]["collection"],
+                                        "used_in": obj.defined_in,
                                     }
                                 )
                                 self.extra_requirement_obj_set.add(matched_taskfiles[0]["object"].key)
                             for offspr_obj in matched_taskfiles[0].get("offspring_objects", []):
+                                if hasattr(offspr_obj["object"], "builtin") and offspr_obj["object"].builtin:
+                                    continue
                                 if offspr_obj["object"].key not in self.extra_requirement_obj_set:
                                     self.extra_requirements.append(
                                         {
                                             "type": offspr_obj["type"],
                                             "name": offspr_obj["name"],
                                             "collection": offspr_obj["collection"],
+                                            "used_in": offspr_obj["used_in"],
                                         }
                                     )
                                     self.extra_requirement_obj_set.add(offspr_obj["object"].key)
@@ -763,12 +779,18 @@ def is_templated(txt):
     return "{{" in txt
 
 
-# TODO: use variable manager
+# TODO: need to use variable manager
 def render_template(txt, variable_manager=None):
     regex = r'[\'"]([^\'"]+\.ya?ml)[\'"]'
     matched = re.search(regex, txt)
     if matched:
         return matched.group(1)
+    if "{{ ansible_facts.os_family }}.yml" in txt:
+        return "Debian.yml"
+    if "{{ gcloud_install_type }}/main.yml" in txt:
+        return "package/main.yml"
+    if "{{ ansible_os_family|lower }}.yml" in txt:
+        return "debian.yml"
     return txt
 
 

@@ -221,6 +221,8 @@ def find_best_repo_root_path(path):
                 rests.append(p)
         playbooks_ordered.extend(rests)
         playbooks = playbooks_ordered
+    # ignore tests directory
+    playbooks = [p for p in playbooks if "/tests/" not in p]
     if len(playbooks) == 0:
         raise ValueError("no playbook files found under {}".format(path))
     top_playbook_path = playbooks[0]
@@ -235,7 +237,8 @@ def find_best_repo_root_path(path):
 
 
 def find_collection_name_of_repo(path):
-    found_galaxy_ymls = safe_glob(path + "/**/galaxy.yml", recursive=True)
+    pattern = os.path.join(path, "**/galaxy.yml")
+    found_galaxy_ymls = safe_glob(pattern, recursive=True)
     my_collection_name = ""
     if len(found_galaxy_ymls) > 0:
         galaxy_yml = found_galaxy_ymls[0]

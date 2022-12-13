@@ -90,10 +90,12 @@ def load_repository(
         repo_path = ""
     else:
         # otherwise, find the root path by searching playbooks
-        repo_path = find_best_repo_root_path(path)
+        try:
+            repo_path = find_best_repo_root_path(path)
+        except Exception:
+            logging.debug('failed to find a root directory for ansible files; use "{}"' " but this may be wrong".format(path))
         if repo_path == "":
             repo_path = path
-            logging.warning('failed to find a root directory for ansible files; use "{}"' " but this may be wrong".format(path))
 
     if repo_path != "":
         if my_collection_name == "":
@@ -104,7 +106,7 @@ def load_repository(
     if basedir == "":
         basedir = path
 
-    logging.info("start loading the repo {}".format(repo_path))
+    logging.debug("start loading the repo {}".format(repo_path))
     logging.debug("start loading playbooks")
     repoObj.playbooks = load_playbooks(repo_path, basedir=basedir, load_children=load_children)
     logging.debug("done ... {} playbooks loaded".format(len(repoObj.playbooks)))
@@ -115,7 +117,7 @@ def load_repository(
     repoObj.modules = load_modules(
         repo_path,
         basedir=basedir,
-        collection_name=my_collection_name,
+        collection_name=repoObj.my_collection_name,
         load_children=load_children,
     )
     logging.debug("done ... {} modules loaded".format(len(repoObj.modules)))
@@ -142,7 +144,7 @@ def load_repository(
     repoObj.path = _path
     repoObj.installed_collections_path = installed_collections_path
     repoObj.installed_roles_path = installed_roles_path
-    logging.info("done")
+    logging.debug("done")
 
     return repoObj
 
@@ -516,6 +518,7 @@ def load_playbooks(path, basedir="", load_children=True):
     ]
     candidates = safe_glob(patterns, recursive=True)
     playbooks = []
+    playbook_names = []
     for fpath in candidates:
         if could_be_playbook(fpath):
             if "/roles/" in fpath:
@@ -530,8 +533,10 @@ def load_playbooks(path, basedir="", load_children=True):
                 logging.exception("error while loading the playbook at {}".format(fpath))
             if load_children:
                 playbooks.append(p)
+                playbook_names.append(p.defined_in)
             else:
                 playbooks.append(p.defined_in)
+                playbook_names.append(p.defined_in)
     if not load_children:
         playbooks = sorted(playbooks)
     return playbooks
@@ -1118,6 +1123,11 @@ def load_collection(collection_dir, basedir="", load_children=True):
         if colObj.metadata is not None and isinstance(colObj.metadata, dict):
             colObj.dependency["collections"] = colObj.metadata.get("dependencies", {})
 
+    files_file_path = os.path.join(fullpath, "FILES.json")
+    if os.path.exists(files_file_path):
+        with open(files_file_path, "r") as file:
+            colObj.files = json.load(file)
+
     requirements_yml_path = os.path.join(fullpath, "requirements.yml")
     if os.path.exists(requirements_yml_path):
         with open(requirements_yml_path, "r") as file:
@@ -1126,7 +1136,11 @@ def load_collection(collection_dir, basedir="", load_children=True):
             except Exception as e:
                 logging.error("failed to load requirements.yml; {}".format(e.args[0]))
 
-    playbook_files = safe_glob(fullpath + "/playbooks/**/*.yml", recursive=True)
+    playbook_path_patterns = [
+        fullpath + "/playbooks/**/*.yml",
+        fullpath + "/playbooks/**/*.yaml",
+    ]
+    playbook_files = safe_glob(playbook_path_patterns, recursive=True)
     playbooks = []
     for f in playbook_files:
         p = None
@@ -1162,25 +1176,7 @@ def load_collection(collection_dir, basedir="", load_children=True):
             taskfiles = sorted(taskfiles)
         colObj.taskfiles = taskfiles
 
-    role_tasks_files = safe_glob(fullpath + "/roles/*/meta/main.yml", recursive=True)
-    roles = []
-    for f in role_tasks_files:
-        role_dir_path = f.replace("/meta/main.yml", "")
-        try:
-            r = load_role(
-                role_dir_path,
-                collection_name=collection_name,
-                basedir=basedir,
-            )
-        except Exception:
-            logging.exception("error while loading the role at {}".format(f))
-            continue
-        if load_children:
-            roles.append(r)
-        else:
-            roles.append(r.defined_in)
-    if not load_children:
-        roles = sorted(roles)
+    roles = load_roles(fullpath, basedir=basedir, load_children=load_children)
 
     module_files = search_module_files(fullpath)
     modules = []
