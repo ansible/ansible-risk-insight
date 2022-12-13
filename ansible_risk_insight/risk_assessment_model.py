@@ -137,7 +137,7 @@ class RAMClient(object):
                 f = Findings.load(fpath=findings_json)
                 if not isinstance(f, Findings):
                     continue
-                modules = f.root_definitions.get("modules", ObjectList())
+                modules = f.root_definitions.get("definitions", {}).get("modules", [])
                 self.modules_cache[findings_json] = modules
                 modules_json_list.append(findings_json)
             self.modules_json_list_cache = modules_json_list
@@ -156,8 +156,9 @@ class RAMClient(object):
                 f = Findings.load(fpath=findings_json)
                 if not isinstance(f, Findings):
                     continue
+                modules = f.root_definitions.get("definitions", {}).get("modules", [])
                 self.modules_cache[findings_json] = modules
-            for m in modules.items:
+            for m in modules:
                 matched = False
                 if exact_match:
                     if m.fqcn == name:
@@ -210,7 +211,7 @@ class RAMClient(object):
                 f = Findings.load(fpath=findings_json)
                 if not isinstance(f, Findings):
                     continue
-                roles = f.root_definitions.get("roles", ObjectList())
+                roles = f.root_definitions.get("definitions", {}).get("roles", [])
                 self.roles_cache[findings_json] = roles
                 roles_json_list.append(findings_json)
             self.roles_json_list_cache = roles_json_list
@@ -230,9 +231,9 @@ class RAMClient(object):
                 f = Findings.load(fpath=findings_json)
                 if not isinstance(f, Findings):
                     continue
-                roles = f.root_definitions.get("roles", ObjectList())
+                roles = f.root_definitions.get("definitions", {}).get("roles", [])
                 self.roles_cache[findings_json] = roles
-            for r in roles.items:
+            for r in roles:
                 matched = False
                 if exact_match:
                     if r.fqcn == name:
@@ -301,7 +302,7 @@ class RAMClient(object):
                 f = Findings.load(fpath=findings_json)
                 if not isinstance(f, Findings):
                     continue
-                taskfiles = f.root_definitions.get("taskfiles", ObjectList())
+                taskfiles = f.root_definitions.get("definitions", {}).get("taskfiles", [])
                 self.taskfiles_cache[findings_json] = taskfiles
                 taskfiles_json_list.append(findings_json)
             self.taskfiles_json_list_cache = taskfiles_json_list
@@ -332,9 +333,9 @@ class RAMClient(object):
                 f = Findings.load(fpath=findings_json)
                 if not isinstance(f, Findings):
                     continue
-                taskfiles = f.root_definitions.get("taskfiles", ObjectList())
+                taskfiles = f.root_definitions.get("definitions", {}).get("taskfiles", [])
                 self.taskfiles_cache[findings_json] = taskfiles
-            for tf in taskfiles.items:
+            for tf in taskfiles:
                 matched = False
                 if is_key:
                     if tf.key == name:
@@ -407,7 +408,7 @@ class RAMClient(object):
                 f = Findings.load(fpath=findings_json)
                 if not isinstance(f, Findings):
                     continue
-                tasks = f.root_definitions.get("tasks", ObjectList())
+                tasks = f.root_definitions.get("definitions", {}).get("tasks", [])
                 self.tasks_cache[findings_json] = tasks
                 tasks_json_list.append(findings_json)
             self.tasks_json_list_cache = tasks_json_list
@@ -427,9 +428,9 @@ class RAMClient(object):
                 f = Findings.load(fpath=findings_json)
                 if not isinstance(f, Findings):
                     continue
-                tasks = f.root_definitions.get("tasks", ObjectList())
+                tasks = f.root_definitions.get("definitions", {}).get("tasks", [])
                 self.tasks_cache[findings_json] = tasks
-            for t in tasks.items:
+            for t in tasks:
                 matched = False
                 if is_key:
                     if t.key == name:
