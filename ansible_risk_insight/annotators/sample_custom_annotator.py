@@ -17,7 +17,7 @@
 from typing import List
 from ..models import TaskCall, Annotation, RiskAnnotation
 from .variable_resolver import VariableAnnotation, VARIABLE_ANNOTATION_TYPE
-from .risk_annotator_base import RiskAnnotator, RiskType
+from .risk_annotator_base import RiskAnnotator, AnnotatorCategory
 
 
 class SampleCustomAnnotator(RiskAnnotator):
@@ -43,7 +43,7 @@ class SampleCustomAnnotator(RiskAnnotator):
         annotations = []
         # example of package_install
         if resolved_name == "sample.custom.homebrew":
-            res = RiskAnnotation(type=self.type, category=RiskType.PACKAGE_INSTALL)
+            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.PACKAGE_INSTALL)
             res.data = self.homebrew(options)
             for ro in resolved_options:
                 res.resolved_data.append(self.homebrew(ro))

@@ -43,7 +43,7 @@ class Parser:
     def __init__(self, do_save=False):
         self.do_save = do_save
 
-    def run(self, load_data=None, load_json_path=""):
+    def run(self, load_data=None, load_json_path="", collection_name_of_project=""):
 
         ld = Load()
         if load_data is not None:
@@ -81,6 +81,10 @@ class Parser:
             except Exception:
                 logging.exception("failed to load the project {}".format(repo_name))
                 return
+            if obj.my_collection_name:
+                collection_name = obj.my_collection_name
+            if collection_name == "" and collection_name_of_project != "":
+                collection_name = collection_name_of_project
         elif ld.target_type == LoadType.PLAYBOOK:
             playbook_name = ld.target_name
             try:

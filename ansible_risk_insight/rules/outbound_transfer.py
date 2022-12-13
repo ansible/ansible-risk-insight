@@ -16,13 +16,15 @@
 
 from typing import List
 from ..models import RiskAnnotation, TaskCall
-from ..annotators.risk_annotator_base import RiskType, RISK_ANNOTATION_TYPE
-from .base import Rule
+from ..annotators.risk_annotator_base import AnnotatorCategory, RISK_ANNOTATION_TYPE
+from .base import Rule, Severity
 
 
 class OutboundTransferRule(Rule):
     name: str = "OutboundTransfer"
     enabled: bool = True
+    severity: Severity = Severity.MEDIUM
+    tags: list = []
 
     def is_target(self, type: str, name: str) -> bool:
         return True
@@ -33,7 +35,7 @@ class OutboundTransferRule(Rule):
         matched_taskcalls = []
         message = ""
         for taskcall in taskcalls:
-            outbound_annos = taskcall.get_annotation_by_type_and_attr(RISK_ANNOTATION_TYPE, "category", RiskType.OUTBOUND)
+            outbound_annos = taskcall.get_annotation_by_type_and_attr(RISK_ANNOTATION_TYPE, "category", AnnotatorCategory.OUTBOUND)
             for outbound_data in outbound_annos:
                 if not isinstance(outbound_data, RiskAnnotation):
                     continue

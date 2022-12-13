@@ -15,6 +15,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
+import jsonpickle
 
 
 @dataclass
@@ -24,12 +25,31 @@ class Findings:
 
     root_definitions: dict = field(default_factory=dict)
     ext_definitions: dict = field(default_factory=dict)
+    extra_requirements: list = field(default_factory=list)
+    resolve_failures: dict = field(default_factory=dict)
 
     prm: dict = field(default_factory=dict)
     report: dict = field(default_factory=dict)
+
+    summary_txt: str = ""
 
     def simple(self):
         d = self.report.copy()
         d["metadata"] = self.metadata
         d["dependencies"] = self.dependencies
         return d
+
+    def dump(self, fpath=""):
+        json_str = jsonpickle.encode(self, make_refs=False)
+        if fpath:
+            with open(fpath, "w") as file:
+                file.write(json_str)
+        return json_str
+
+    @staticmethod
+    def load(fpath="", json_str=""):
+        if fpath:
+            with open(fpath, "r") as file:
+                json_str = file.read()
+        findings = jsonpickle.decode(json_str)
+        return findings

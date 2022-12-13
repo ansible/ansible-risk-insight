@@ -76,22 +76,22 @@ def set_play_key(obj, parent_key="", parent_local_key=""):
 
 def set_role_key(obj):
     global_key_prefix = make_global_key_prefix(obj.collection, "")
-    global_key = "{} {}{}{}{}".format(obj.type, global_key_prefix, obj.type, key_delimiter, obj.fqcn.lower())
-    local_key = "{} {}{}{}".format(obj.type, obj.type, key_delimiter, obj.defined_in.lower())
+    global_key = "{} {}{}{}{}".format(obj.type, global_key_prefix, obj.type, key_delimiter, obj.fqcn)
+    local_key = "{} {}{}{}".format(obj.type, obj.type, key_delimiter, obj.defined_in)
     obj.key = global_key
     obj.local_key = local_key
 
 
 def set_module_key(obj):
     global_key_prefix = make_global_key_prefix(obj.collection, obj.role)
-    global_key = "{} {}{}{}{}".format(obj.type, global_key_prefix, obj.type, key_delimiter, obj.fqcn.lower())
-    local_key = "{} {}{}{}".format(obj.type, obj.type, key_delimiter, obj.defined_in.lower())
+    global_key = "{} {}{}{}{}".format(obj.type, global_key_prefix, obj.type, key_delimiter, obj.fqcn)
+    local_key = "{} {}{}{}".format(obj.type, obj.type, key_delimiter, obj.defined_in)
     obj.key = global_key
     obj.local_key = local_key
 
 
 def set_collection_key(obj):
-    global_key = "{} {}{}{}".format(obj.type, obj.type, key_delimiter, obj.name.lower())
+    global_key = "{} {}{}{}".format(obj.type, obj.type, key_delimiter, obj.name)
     local_key = global_key
     obj.key = global_key
     obj.local_key = local_key
@@ -224,9 +224,9 @@ def set_taskfile_key(obj):
         global_key_prefix,
         obj.type,
         key_delimiter,
-        obj.defined_in.lower(),
+        obj.defined_in,
     )
-    local_key = "{} {}{}{}".format(obj.type, obj.type, key_delimiter, obj.defined_in.lower())
+    local_key = "{} {}{}{}".format(obj.type, obj.type, key_delimiter, obj.defined_in)
     obj.key = global_key
     obj.local_key = local_key
 
@@ -238,15 +238,15 @@ def set_playbook_key(obj):
         global_key_prefix,
         obj.type,
         key_delimiter,
-        obj.defined_in.lower(),
+        obj.defined_in,
     )
-    local_key = "{} {}{}{}".format(obj.type, obj.type, key_delimiter, obj.defined_in.lower())
+    local_key = "{} {}{}{}".format(obj.type, obj.type, key_delimiter, obj.defined_in)
     obj.key = global_key
     obj.local_key = local_key
 
 
 def set_repository_key(obj):
-    global_key = "{} {}{}{}".format(obj.type, obj.type, key_delimiter, obj.name.lower())
+    global_key = "{} {}{}{}".format(obj.type, obj.type, key_delimiter, obj.name)
     local_key = global_key
     obj.key = global_key
     obj.local_key = local_key

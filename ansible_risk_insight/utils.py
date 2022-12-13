@@ -20,15 +20,22 @@ import requests
 import hashlib
 import yaml
 import logging
+import json
+from tabulate import tabulate
+
+from .findings import Findings
 
 
-def install_galaxy_target(target, target_type, output_dir, source_repository=""):
+def install_galaxy_target(target, target_type, output_dir, source_repository="", target_version=""):
     server_option = ""
-    if source_repository != "" and source_repository is not None:
+    if source_repository:
         server_option = "--server {}".format(source_repository)
-    logging.debug("exec ansible-galaxy cmd: ansible-galaxy {} install {} {} -p {}".format(target_type, target, server_option, output_dir))
+    target_name = target
+    if target_version:
+        target_name = f"{target}:{target_version}"
+    logging.debug("exec ansible-galaxy cmd: ansible-galaxy {} install {} {} -p {}".format(target_type, target_name, server_option, output_dir))
     proc = subprocess.run(
-        "ansible-galaxy {} install {} {} -p {}".format(target_type, target, server_option, output_dir),
+        "ansible-galaxy {} install {} {} -p {}".format(target_type, target_name, server_option, output_dir),
         shell=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -69,7 +76,18 @@ def get_download_metadata(typ: str, install_msg: str):
     return download_url, version, hash
 
 
-def get_installed_metadata(type, name, path, dep_dir=""):
+def get_installed_metadata(type, name, path, dep_dir=None):
+    if dep_dir:
+        dep_dir_alt = os.path.join(dep_dir, "ansible_collections")
+        if os.path.exists(dep_dir_alt):
+            dep_dir = dep_dir_alt
+        parts = name.split(".")
+        if len(parts) == 1:
+            parts.append("dummy")
+        dep_dir_target_path = os.path.join(dep_dir, parts[0], parts[1])
+        download_url, version = get_installed_metadata(type, name, dep_dir_target_path)
+        if download_url or version:
+            return download_url, version
     download_url = ""
     version = ""
     galaxy_yml = "GALAXY.yml"
@@ -106,6 +124,16 @@ def get_hash_of_url(url: str):
     return hash
 
 
+def split_name_and_version(target_name):
+    name = target_name
+    version = ""
+    if ":" in target_name:
+        parts = target_name.split(":")
+        name = parts[0]
+        version = parts[1]
+    return name, version
+
+
 def version_to_num(ver: str):
     if ver == "unknown":
         return 0
@@ -123,3 +151,294 @@ def version_to_num(ver: str):
         if parts[2].isnumeric():
             num += float(parts[2]) * (0.001**2)
     return num
+
+
+def is_url(txt: str):
+    return "://" in txt
+
+
+def indent(multi_line_txt, level=0):
+    lines = multi_line_txt.splitlines()
+    lines = [" " * level + line for line in lines if line.replace(" ", "") != ""]
+    return "\n".join(lines)
+
+
+def report_to_display(data_report: dict):
+    playbook_num_total = data_report["summary"].get("playbooks", {}).get("total", 0)
+    playbook_num_risk_found = data_report["summary"].get("playbooks", {}).get("risk_found", 0)
+    role_num_total = data_report["summary"].get("roles", {}).get("total", 0)
+    role_num_risk_found = data_report["summary"].get("roles", {}).get("risk_found", 0)
+
+    result_txt = ""
+    result_txt += "-" * 90 + "\n"
+    result_txt += "Ansible Risk Insight Report\n"
+    result_txt += "-" * 90 + "\n"
+
+    if playbook_num_total > 0:
+        result_txt += "Playbooks\n"
+        result_txt += "  Total: {}\n".format(playbook_num_total)
+        result_txt += "  Risk Found: {}\n".format(playbook_num_risk_found)
+
+    if role_num_total > 0:
+        result_txt += "Roles\n"
+        result_txt += "  Total: {}\n".format(role_num_total)
+        result_txt += "  Risk Found: {}\n".format(role_num_risk_found)
+
+    if playbook_num_total == 0 and role_num_total == 0:
+        result_txt += "No playbooks and roles found\n"
+
+    result_txt += "-" * 90 + "\n"
+
+    report_num = 1
+    for detail in data_report["details"]:
+        result_txt_for_this_tree = ""
+        do_report = False
+        tree_root_type = detail.get("type", "")
+        tree_root_name = detail.get("name", "")
+        result_txt_for_this_tree += "#{} {} - {}\n".format(report_num, tree_root_type.upper(), tree_root_name)
+        results_list = detail.get("results", [])
+
+        for result_info in results_list:
+            rule_name = result_info.get("rule", {}).get("name", "")
+            result = result_info.get("result", "")
+            if result == "":
+                continue
+            do_report = True
+            result_txt_for_this_tree += rule_name + "\n"
+            result_txt_for_this_tree += indent(result, 0) + "\n"
+        result_txt_for_this_tree += "-" * 90 + "\n"
+        if do_report:
+            result_txt += result_txt_for_this_tree
+            report_num += 1
+    return result_txt
+
+
+def summarize_findings(findings: Findings, show_all: bool = False):
+    metadata = findings.metadata
+    dependencies = findings.dependencies
+    report = findings.report
+    resolve_failures = findings.resolve_failures
+    extra_requirements = findings.extra_requirements
+    return summarize_findings_data(metadata, dependencies, report, resolve_failures, extra_requirements, show_all)
+
+
+def summarize_findings_data(metadata, dependencies, report, resolve_failures, extra_requirements, show_all: bool = False):
+    target_name = metadata.get("name", "")
+    output_lines = []
+    if len(extra_requirements) == 0 or show_all:
+        report_txt = report_to_display(report)
+        output_lines.append(report_txt)
+
+    if len(dependencies) > 0:
+        output_lines.append("External Dependencies")
+        dep_table = [("NAME", "VERSION", "HASH")]
+        for dep_info in dependencies:
+            dep_meta = dep_info.get("metadata", {})
+            dep_name = dep_meta.get("name", "")
+            if dep_name == target_name:
+                continue
+            dep_version = dep_meta.get("version", "")
+            dep_hash = dep_meta.get("hash", "")
+            dep_table.append((dep_name, dep_version, dep_hash))
+        output_lines.append(tabulate(dep_table))
+
+    #     print("-" * 90)
+    #     print("ARI scan completed!")
+    #     print(f"Findings have been saved at: {self.ram_client.make_findings_dir_path(self.type, self.name, self.version, self.hash)}")
+    #     print("-" * 90)
+
+    module_failures = resolve_failures.get("module", {})
+    role_failures = resolve_failures.get("role", {})
+    taskfile_failures = resolve_failures.get("taskfile", {})
+    module_fail_num = len(module_failures)
+    role_fail_num = len(role_failures)
+    taskfile_fail_num = len(taskfile_failures)
+    total_fail_num = module_fail_num + role_fail_num + taskfile_fail_num
+    if total_fail_num > 0:
+        output_lines.append(f"Failed to resolve {module_fail_num} modules, {role_fail_num} roles, {taskfile_fail_num} taskfiles")
+    if module_fail_num > 0:
+        output_lines.append("- modules: ")
+        for module_action in module_failures:
+            called_num = module_failures[module_action]
+            output_lines.append(f"  - {module_action}    ({called_num} times called)")
+    if role_fail_num > 0:
+        output_lines.append("- roles: ")
+        for role_action in role_failures:
+            called_num = role_failures[role_action]
+            output_lines.append(f"  - {role_action}    ({called_num} times called)")
+    if taskfile_fail_num > 0:
+        output_lines.append("- taskfiles: ")
+        for taskfile_action in taskfile_failures:
+            called_num = taskfile_failures[taskfile_action]
+            output_lines.append(f"  - {taskfile_action}    ({called_num} times called)")
+
+    # roles = set()
+    if len(extra_requirements) > 0:
+        unresolved_modules = []
+        unresolved_roles = []
+        suggestion = {}
+        for ext_req in extra_requirements:
+            if ext_req.get("type", "") not in ["role", "module"]:
+                continue
+            req_name = ext_req.get("collection", {}).get("name", None)
+            if req_name is None:
+                continue
+            if req_name == target_name:
+                continue
+            # print(f"[DEBUG] requirement: {ext_req}")
+
+            obj_type = ext_req.get("type", "")
+            obj_name = ext_req.get("name", "")
+            short_name = obj_name.replace(f"{req_name}.", "")
+
+            if obj_type == "module":
+                unresolved_modules.append(ext_req)
+            if obj_type == "role":
+                unresolved_roles.append(ext_req)
+
+            req_version = ext_req.get("collection", {}).get("version", None)
+            req_str = json.dumps([req_name, req_version])
+
+            if req_str not in suggestion:
+                suggestion[req_str] = {"module": [], "role": []}
+            suggestion[req_str][obj_type].append(short_name)
+
+        if len(unresolved_modules) > 0:
+            output_lines.append("Unresolved modules:")
+            table = [("NAME", "USED_IN")]
+            thresh = 4
+            for ext_req in unresolved_modules[:thresh]:
+                obj_name = ext_req.get("name", "")
+                used_in = ext_req.get("used_in", "")
+                req_name = ext_req.get("collection", {}).get("name", None)
+                short_name = obj_name.replace(f"{req_name}.", "")
+                table.append((short_name, used_in))
+            if len(unresolved_modules) > thresh:
+                rest_num = len(unresolved_modules) - thresh
+                table.append(("", f"... and {rest_num} other modules"))
+            output_lines.append(tabulate(table))
+
+        if len(unresolved_roles) > 0:
+            output_lines.append("Unresolved roles:")
+            table = [("NAME", "USED_IN")]
+            thresh = 4
+            for ext_req in unresolved_roles[:thresh]:
+                obj_name = ext_req.get("name", "")
+                used_in = ext_req.get("used_in", "")
+                req_name = ext_req.get("collection", {}).get("name", None)
+                short_name = obj_name.replace(f"{req_name}.", "")
+                table.append((short_name, used_in))
+            if len(unresolved_roles) > thresh:
+                rest_num = len(unresolved_roles) - thresh
+                table.append(("", f"... and {rest_num} other roles"))
+            output_lines.append(tabulate(table))
+
+        req_name_keys = sorted(list(suggestion.keys()))
+        output_lines.append("")
+        output_lines.append("-- Suggested Dependencies --")
+        table_data = [("NAME", "VERSION", "SUGGESTED_FOR")]
+        for req_str in req_name_keys:
+            req_dict = suggestion[req_str]
+            req_module_list = req_dict["module"]
+            req_module_num = len(req_module_list)
+
+            req_role_list = req_dict["role"]
+            req_role_num = len(req_role_list)
+            if req_module_num + req_role_num == 0:
+                continue
+
+            req_info = json.loads(req_str)
+            req_name = req_info[0]
+            req_version = req_info[1]
+
+            summary_str = ""
+            thresh = 3
+            if req_module_num > 0:
+                module_names = ", ".join(req_module_list[:thresh])
+                if req_module_num > thresh:
+                    module_names += ", etc."
+                prefix = "module" if req_module_num == 1 else "modules"
+                module_names += f" (total {req_module_num} {prefix})"
+                summary_str += module_names
+            if req_role_num > 0:
+                if summary_str != "":
+                    summary_str += " and "
+
+                role_names = ", ".join(req_role_list[:thresh])
+                if req_role_num > thresh:
+                    role_names += ", etc."
+                prefix = "role" if req_role_num == 1 else "roles"
+                role_names += f" (total {req_role_num} {prefix})"
+                summary_str += role_names
+            table_data.append((req_name, req_version, summary_str))
+        output_lines.append(tabulate(table_data))
+    output = "\n".join(output_lines)
+    return output
+
+
+def show_all_ram_metadata(ram_meta_list):
+    table = [("NAME", "VERSION", "HASH")]
+    for meta in ram_meta_list:
+        table.append((meta["name"], meta["version"], meta["hash"]))
+    print(tabulate(table))
+
+
+def diff_files_data(files1, files2):
+    files_dict1 = {}
+    for finfo in files1.get("files", []):
+        ftype = finfo.get("ftype", "")
+        if ftype != "file":
+            continue
+        fpath = finfo.get("name", "")
+        hash = finfo.get("chksum_sha256", "")
+        files_dict1[fpath] = hash
+
+    files_dict2 = {}
+    for finfo in files2.get("files", []):
+        ftype = finfo.get("ftype", "")
+        if ftype != "file":
+            continue
+        fpath = finfo.get("name", "")
+        hash = finfo.get("chksum_sha256", "")
+        files_dict2[fpath] = hash
+
+    # TODO: support "replaced" type
+    diffs = []
+    for fpath, hash in files_dict1.items():
+        if fpath in files_dict2:
+            if files_dict2[fpath] == hash:
+                continue
+            else:
+                diffs.append(
+                    {
+                        "type": "updated",
+                        "filepath": fpath,
+                    }
+                )
+        else:
+            diffs.append(
+                {
+                    "type": "created",
+                    "filepath": fpath,
+                }
+            )
+
+    for fpath, hash in files_dict2.items():
+        if fpath in files_dict1:
+            continue
+        else:
+            diffs.append(
+                {
+                    "type": "deleted",
+                    "filepath": fpath,
+                }
+            )
+
+    return diffs
+
+
+def show_diffs(diffs):
+    table = [("NAME", "DIFF_TYPE")]
+    for d in diffs:
+        table.append((d["filepath"], d["type"]))
+    print(tabulate(table))
