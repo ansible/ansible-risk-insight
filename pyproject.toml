@@ -21,6 +21,7 @@ dependencies = [
     "smmap",
     "tabulate",
     "requests",
+    "ansible",
 ]
 dynamic = ["version"]
 
