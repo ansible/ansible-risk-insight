@@ -106,7 +106,7 @@ def load_repository(
     if basedir == "":
         basedir = path
 
-    logging.info("start loading the repo {}".format(repo_path))
+    logging.debug("start loading the repo {}".format(repo_path))
     logging.debug("start loading playbooks")
     repoObj.playbooks = load_playbooks(repo_path, basedir=basedir, load_children=load_children)
     logging.debug("done ... {} playbooks loaded".format(len(repoObj.playbooks)))
@@ -144,7 +144,7 @@ def load_repository(
     repoObj.path = _path
     repoObj.installed_collections_path = installed_collections_path
     repoObj.installed_roles_path = installed_roles_path
-    logging.info("done")
+    logging.debug("done")
 
     return repoObj
 

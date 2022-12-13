@@ -213,18 +213,26 @@ def report_to_display(data_report: dict):
     return result_txt
 
 
-def show_findings(findings: Findings, show_all: bool = False):
+def summarize_findings(findings: Findings, show_all: bool = False):
+    metadata = findings.metadata
+    dependencies = findings.dependencies
+    report = findings.report
+    resolve_failures = findings.resolve_failures
+    extra_requirements = findings.extra_requirements
+    return summarize_findings_data(metadata, dependencies, report, resolve_failures, extra_requirements, show_all)
 
-    target_name = findings.metadata.get("name", "")
 
-    if len(findings.extra_requirements) == 0 or show_all:
-        report_txt = report_to_display(findings.report)
-        print(report_txt)
+def summarize_findings_data(metadata, dependencies, report, resolve_failures, extra_requirements, show_all: bool = False):
+    target_name = metadata.get("name", "")
+    output_lines = []
+    if len(extra_requirements) == 0 or show_all:
+        report_txt = report_to_display(report)
+        output_lines.append(report_txt)
 
-    if len(findings.dependencies) > 0:
-        print("External Dependencies")
+    if len(dependencies) > 0:
+        output_lines.append("External Dependencies")
         dep_table = [("NAME", "VERSION", "HASH")]
-        for dep_info in findings.dependencies:
+        for dep_info in dependencies:
             dep_meta = dep_info.get("metadata", {})
             dep_name = dep_meta.get("name", "")
             if dep_name == target_name:
@@ -232,44 +240,44 @@ def show_findings(findings: Findings, show_all: bool = False):
             dep_version = dep_meta.get("version", "")
             dep_hash = dep_meta.get("hash", "")
             dep_table.append((dep_name, dep_version, dep_hash))
-        print(tabulate(dep_table))
+        output_lines.append(tabulate(dep_table))
 
     #     print("-" * 90)
     #     print("ARI scan completed!")
     #     print(f"Findings have been saved at: {self.ram_client.make_findings_dir_path(self.type, self.name, self.version, self.hash)}")
     #     print("-" * 90)
 
-    module_failures = findings.resolve_failures.get("module", {})
-    role_failures = findings.resolve_failures.get("role", {})
-    taskfile_failures = findings.resolve_failures.get("taskfile", {})
+    module_failures = resolve_failures.get("module", {})
+    role_failures = resolve_failures.get("role", {})
+    taskfile_failures = resolve_failures.get("taskfile", {})
     module_fail_num = len(module_failures)
     role_fail_num = len(role_failures)
     taskfile_fail_num = len(taskfile_failures)
     total_fail_num = module_fail_num + role_fail_num + taskfile_fail_num
     if total_fail_num > 0:
-        print(f"Failed to resolve {module_fail_num} modules, {role_fail_num} roles, {taskfile_fail_num} taskfiles")
+        output_lines.append(f"Failed to resolve {module_fail_num} modules, {role_fail_num} roles, {taskfile_fail_num} taskfiles")
     if module_fail_num > 0:
-        print("- modules: ")
+        output_lines.append("- modules: ")
         for module_action in module_failures:
             called_num = module_failures[module_action]
-            print(f"  - {module_action}    ({called_num} times called)")
+            output_lines.append(f"  - {module_action}    ({called_num} times called)")
     if role_fail_num > 0:
-        print("- roles: ")
+        output_lines.append("- roles: ")
         for role_action in role_failures:
             called_num = role_failures[role_action]
-            print(f"  - {role_action}    ({called_num} times called)")
+            output_lines.append(f"  - {role_action}    ({called_num} times called)")
     if taskfile_fail_num > 0:
-        print("- taskfiles: ")
+        output_lines.append("- taskfiles: ")
         for taskfile_action in taskfile_failures:
             called_num = taskfile_failures[taskfile_action]
-            print(f"  - {taskfile_action}    ({called_num} times called)")
+            output_lines.append(f"  - {taskfile_action}    ({called_num} times called)")
 
     # roles = set()
-    if len(findings.extra_requirements) > 0:
+    if len(extra_requirements) > 0:
         unresolved_modules = []
         unresolved_roles = []
         suggestion = {}
-        for ext_req in findings.extra_requirements:
+        for ext_req in extra_requirements:
             if ext_req.get("type", "") not in ["role", "module"]:
                 continue
             req_name = ext_req.get("collection", {}).get("name", None)
@@ -296,7 +304,7 @@ def show_findings(findings: Findings, show_all: bool = False):
             suggestion[req_str][obj_type].append(short_name)
 
         if len(unresolved_modules) > 0:
-            print("Unresolved modules:")
+            output_lines.append("Unresolved modules:")
             table = [("NAME", "USED_IN")]
             thresh = 4
             for ext_req in unresolved_modules[:thresh]:
@@ -308,10 +316,10 @@ def show_findings(findings: Findings, show_all: bool = False):
             if len(unresolved_modules) > thresh:
                 rest_num = len(unresolved_modules) - thresh
                 table.append(("", f"... and {rest_num} other modules"))
-            print(tabulate(table))
+            output_lines.append(tabulate(table))
 
         if len(unresolved_roles) > 0:
-            print("Unresolved roles:")
+            output_lines.append("Unresolved roles:")
             table = [("NAME", "USED_IN")]
             thresh = 4
             for ext_req in unresolved_roles[:thresh]:
@@ -323,11 +331,11 @@ def show_findings(findings: Findings, show_all: bool = False):
             if len(unresolved_roles) > thresh:
                 rest_num = len(unresolved_roles) - thresh
                 table.append(("", f"... and {rest_num} other roles"))
-            print(tabulate(table))
+            output_lines.append(tabulate(table))
 
         req_name_keys = sorted(list(suggestion.keys()))
-        print("")
-        print("-- Suggested Dependencies --")
+        output_lines.append("")
+        output_lines.append("-- Suggested Dependencies --")
         table_data = [("NAME", "VERSION", "SUGGESTED_FOR")]
         for req_str in req_name_keys:
             req_dict = suggestion[req_str]
@@ -363,8 +371,9 @@ def show_findings(findings: Findings, show_all: bool = False):
                 role_names += f" (total {req_role_num} {prefix})"
                 summary_str += role_names
             table_data.append((req_name, req_version, summary_str))
-        print(tabulate(table_data))
-    return
+        output_lines.append(tabulate(table_data))
+    output = "\n".join(output_lines)
+    return output
 
 
 def show_all_ram_metadata(ram_meta_list):

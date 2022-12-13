@@ -45,11 +45,7 @@ from .dependency_dir_preparator import (
 )
 from .findings import Findings
 from .risk_assessment_model import RAMClient
-from .utils import (
-    escape_url,
-    is_url,
-    show_findings,
-)
+from .utils import escape_url, is_url, summarize_findings, summarize_findings_data
 
 
 class Config:
@@ -343,7 +339,8 @@ class ARIScanner(object):
                 print("The findings are saved at {}".format(self.out_dir))
 
         if not self.silent:
-            show_findings(self.findings, self.show_all)
+            summary = summarize_findings(self.findings, self.show_all)
+            print(summary)
 
         if self.pretty:
             if not self.silent:
@@ -555,6 +552,13 @@ class ARIScanner(object):
         }
         dependencies = self.loaded_dependency_dirs
 
+        summary_txt = summarize_findings_data(
+            metadata,
+            dependencies,
+            data_report,
+            self.resolve_failures,
+            self.extra_requirements,
+        )
         self.findings = Findings(
             metadata=metadata,
             dependencies=dependencies,
@@ -564,6 +568,7 @@ class ARIScanner(object):
             resolve_failures=self.resolve_failures,
             prm=self.prm,
             report=data_report,
+            summary_txt=summary_txt,
         )
         return
 

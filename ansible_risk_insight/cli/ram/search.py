@@ -18,7 +18,7 @@ import argparse
 
 from ...scanner import config
 from ...risk_assessment_model import RAMClient
-from ...utils import split_name_and_version, show_findings
+from ...utils import split_name_and_version
 
 
 class RAMSearchCLI:
@@ -44,4 +44,4 @@ class RAMSearchCLI:
         target_name, target_version = split_name_and_version(target_name)
         findings = ram_client.search_findings(target_name, target_version)
         if findings:
-            show_findings(findings)
+            print(findings.summary_txt)
