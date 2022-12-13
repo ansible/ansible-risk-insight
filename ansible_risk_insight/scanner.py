@@ -45,11 +45,7 @@ from .dependency_dir_preparator import (
 )
 from .findings import Findings
 from .risk_assessment_model import RAMClient
-from .utils import (
-    escape_url,
-    is_url,
-    show_findings,
-)
+from .utils import escape_url, is_url, summarize_findings, summarize_findings_data
 
 
 class Config:
