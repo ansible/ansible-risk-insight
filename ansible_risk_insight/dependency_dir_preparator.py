@@ -177,7 +177,7 @@ class DependencyDirPreparator(object):
                 col_version = cdep.get("version", "")
                 if col_name == "":
                     col_name = cdep.get("source", "")
-                
+
             logging.debug("prepare dir for {}:{}".format(col_name, col_version))
             downloaded_dep = Dependency(
                 name=col_name,
@@ -205,7 +205,7 @@ class DependencyDirPreparator(object):
                 # check cache data
                 if is_exist:
                     logging.debug("found cache data {}".format(targz_file))
-                    metadata_file = os.path.join(targz_file.rsplit('/', 1)[0], download_metadata_file)
+                    metadata_file = os.path.join(targz_file.rsplit("/", 1)[0], download_metadata_file)
                     md = self.find_target_metadata(LoadType.COLLECTION, metadata_file, col_name)
                     downloaded_dep.metadata = md
                 else:
@@ -362,7 +362,7 @@ class DependencyDirPreparator(object):
             self.metadata.download_url = self.target_name
         elif self.target_type == LoadType.COLLECTION:
             sub_download_location = "{}/{}".format(self.download_location, self.target_name)
-            install_msg = self.download_galaxy_collection(self.target_name, sub_download_location, target_version=self.target_version)
+            install_msg = self.download_galaxy_collection(self.target_name, sub_download_location, version=self.target_version)
             metadata = self.extract_collections_metadata(install_msg, sub_download_location)
             metadata_file = self.export_data(metadata, sub_download_location, download_metadata_file)
             md = self.find_target_metadata(LoadType.COLLECTION, metadata_file, self.target_name)
@@ -704,17 +704,17 @@ class DependencyDirPreparator(object):
         files_path = ""
         if type == LoadType.COLLECTION:
             # get manifest.json
-            with tarfile.open(name=filepath, mode='r') as tar:
+            with tarfile.open(name=filepath, mode="r") as tar:
                 for info in tar.getmembers():
                     if info.name.endswith(collection_manifest_json):
                         f = tar.extractfile(info)
                         metafile_path = filepath.replace(".tar.gz", "-{}".format(collection_manifest_json))
-                        with open(metafile_path, 'wb') as c:
+                        with open(metafile_path, "wb") as c:
                             c.write(f.read())
                     if info.name.endswith(collection_files_json):
                         f = tar.extractfile(info)
                         files_path = filepath.replace(".tar.gz", "-{}".format(collection_files_json))
-                        with open(files_path, 'wb') as c:
+                        with open(files_path, "wb") as c:
                             c.write(f.read())
         elif type == LoadType.ROLE:
             # get meta/main.yml path

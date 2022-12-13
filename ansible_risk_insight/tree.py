@@ -598,6 +598,8 @@ class TreeLoader(object):
                                 )
                                 self.extra_requirement_obj_set.add(matched_roles[0]["object"].key)
                             for offspr_obj in matched_roles[0].get("offspring_objects", []):
+                                if hasattr(offspr_obj["object"], "builtin") and offspr_obj["object"].builtin:
+                                    continue
                                 if offspr_obj["object"].key not in self.extra_requirement_obj_set:
                                     self.extra_requirements.append(
                                         {
@@ -640,15 +642,16 @@ class TreeLoader(object):
                             resolved_key = matched_modules[0]["object"].key
                             self.ext_definitions["modules"].add(matched_modules[0]["object"])
                             if matched_modules[0]["object"].key not in self.extra_requirement_obj_set:
-                                self.extra_requirements.append(
-                                    {
-                                        "type": "module",
-                                        "name": matched_modules[0]["object"].fqcn,
-                                        "collection": matched_modules[0]["collection"],
-                                        "used_in": obj.defined_in,
-                                    }
-                                )
-                                self.extra_requirement_obj_set.add(matched_modules[0]["object"].key)
+                                if not matched_modules[0]["object"].builtin:
+                                    self.extra_requirements.append(
+                                        {
+                                            "type": "module",
+                                            "name": matched_modules[0]["object"].fqcn,
+                                            "collection": matched_modules[0]["collection"],
+                                            "used_in": obj.defined_in,
+                                        }
+                                    )
+                                    self.extra_requirement_obj_set.add(matched_modules[0]["object"].key)
                             self.resolved_module_from_ram[target_name] = resolved_key
                 if resolved_key == "":
                     if target_name not in self.resolve_failures["module"]:
@@ -685,6 +688,8 @@ class TreeLoader(object):
                                 )
                                 self.extra_requirement_obj_set.add(matched_roles[0]["object"].key)
                             for offspr_obj in matched_roles[0].get("offspring_objects", []):
+                                if hasattr(offspr_obj["object"], "builtin") and offspr_obj["object"].builtin:
+                                    continue
                                 if offspr_obj["object"].key not in self.extra_requirement_obj_set:
                                     self.extra_requirements.append(
                                         {
@@ -732,6 +737,8 @@ class TreeLoader(object):
                                 )
                                 self.extra_requirement_obj_set.add(matched_taskfiles[0]["object"].key)
                             for offspr_obj in matched_taskfiles[0].get("offspring_objects", []):
+                                if hasattr(offspr_obj["object"], "builtin") and offspr_obj["object"].builtin:
+                                    continue
                                 if offspr_obj["object"].key not in self.extra_requirement_obj_set:
                                     self.extra_requirements.append(
                                         {

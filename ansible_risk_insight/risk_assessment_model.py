@@ -18,12 +18,13 @@ import os
 import json
 from dataclasses import dataclass, field
 
-from .models import LoadType, ObjectList, ExecutableType
+from .models import LoadType, ObjectList, ExecutableType, Module
 from .parser import Parser
 from .findings import Findings
 from .utils import escape_url, version_to_num, diff_files_data
 from .safe_glob import safe_glob
 from .keyutil import get_obj_info_by_key
+from .finder import get_builtin_module_names
 
 
 @dataclass
@@ -76,12 +77,49 @@ class RAMClient(object):
             loaded = True
         return loaded, definitions, mappings
 
+    def search_builtin_module(self, name, used_in=""):
+        builtin_module_names = get_builtin_module_names()
+        short_name = name
+        if "ansible.builtin." in name:
+            short_name = name.split(".")[-1]
+        matched_modules = []
+        if short_name in builtin_module_names:
+            fqcn = f"ansible.builtin.{short_name}"
+            m = Module(
+                name=short_name,
+                fqcn=fqcn,
+                collection="ansible.builtin",
+                builtin=True,
+            )
+            m.set_key()
+            matched_modules.append(
+                {
+                    "type": "module",
+                    "name": fqcn,
+                    "object": m,
+                    "collection": {
+                        "name": m.collection,
+                        "version": "unknown",
+                        "hash": "unknown",
+                    },
+                    "used_in": used_in,
+                }
+            )
+        return matched_modules
+
     def search_module(self, name, exact_match=False, max_match=-1, collection_name="", collection_version="", used_in=""):
         if max_match == 0:
             return []
         args_str = json.dumps([name, exact_match, max_match, collection_name, collection_version])
         if args_str in self.module_search_cache:
             return self.module_search_cache[args_str]
+
+        # check if the module is builtin
+        matched_builtin_modules = self.search_builtin_module(name, used_in)
+        if len(matched_builtin_modules) > 0:
+            self.module_search_cache[args_str] = matched_builtin_modules
+            return matched_builtin_modules
+
         modules_json_list = []
         if self.modules_json_list_cache:
             modules_json_list = self.modules_json_list_cache
