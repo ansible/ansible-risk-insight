@@ -242,7 +242,9 @@ class DependencyDirPreparator(object):
                     downloaded_dep.dir = sub_dependency_dir_path
             else:
                 logging.debug("download dependency {}".format(col_name))
-                is_exist, targz = self.is_download_file_exist(LoadType.COLLECTION, col_name, os.path.join(self.download_location, "collection", col_name))
+                is_exist, targz = self.is_download_file_exist(
+                    LoadType.COLLECTION, col_name, os.path.join(self.download_location, "collection", col_name)
+                )
                 if is_exist:
                     metadata_file = os.path.join(self.download_location, "collection", self.target_name, download_metadata_file)
                     self.install_galaxy_collection_from_targz(targz, sub_dependency_dir_path)
