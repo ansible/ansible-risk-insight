@@ -230,7 +230,7 @@ def make_dicts(root_definitions, ext_definitions):
     for type_key in definitions:
         definitions[type_key].merge(root_definitions.get(type_key, ObjectList()))
         definitions[type_key].merge(ext_definitions.get(type_key, ObjectList()))
-    dicts = {}
+    dicts = {k: {} for k in definitions}
     for type_key, obj_list in definitions.items():
         for obj in obj_list.items:
             obj_dict_key = obj.fqcn if hasattr(obj, "fqcn") else obj.key

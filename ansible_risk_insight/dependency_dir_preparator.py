@@ -38,6 +38,7 @@ from .utils import (
     get_installed_metadata,
     get_hash_of_url,
     is_url,
+    is_local_path,
 )
 from .loader import (
     get_target_name,
@@ -141,6 +142,10 @@ class DependencyDirPreparator(object):
             if self.target_type == LoadType.PROJECT and not is_url(self.target_name):
                 root_install = False
 
+            # if a collection/role is a local path, then skip install (require MANIFEST.json or meta/main.yml to get the actual name)
+            if self.target_type in [LoadType.COLLECTION, LoadType.ROLE] and is_local_path(self.target_name):
+                root_install = False
+
             if root_install:
                 self.src_install()
                 if not self.silent:
@@ -185,14 +190,10 @@ class DependencyDirPreparator(object):
             downloaded_dep.metadata.type = LoadType.COLLECTION
             downloaded_dep.metadata.name = col_name
             downloaded_dep.metadata.cache_enabled = cache_enabled
-            name_parts = col_name.split(".")
             sub_dependency_dir_path = os.path.join(
                 self.dependency_dir_path,
                 "collections",
                 "src",
-                "ansible_collections",
-                name_parts[0],
-                name_parts[1],
             )
 
             if not os.path.exists(sub_dependency_dir_path):
@@ -220,7 +221,8 @@ class DependencyDirPreparator(object):
                 # install collection from tar.gz
                 self.install_galaxy_collection_from_targz(targz_file, sub_dependency_dir_path)
                 downloaded_dep.metadata.cache_dir = targz_file
-                downloaded_dep.dir = sub_dependency_dir_path
+                parts = col_name.split(".")
+                downloaded_dep.dir = os.path.join(sub_dependency_dir_path, "ansible_collections", parts[0], parts[1])
             elif col_name in col_dependency_dirs:
                 logging.debug("use the specified dependency dirs")
                 sub_dependency_dir_path = col_dependency_dirs[col_name]
@@ -258,7 +260,8 @@ class DependencyDirPreparator(object):
                 if md is not None:
                     downloaded_dep.metadata = md
                 downloaded_dep.metadata.source_repository = self.source_repository
-                downloaded_dep.dir = sub_dependency_dir_path
+                parts = col_name.split(".")
+                downloaded_dep.dir = os.path.join(sub_dependency_dir_path, "ansible_collections", parts[0], parts[1])
             self.dependency_dirs.append(asdict(downloaded_dep))
 
         for rdep in role_dependencies:
@@ -355,8 +358,8 @@ class DependencyDirPreparator(object):
             install_msg = install_github_target(self.target_name, tmp_src_dir)
             if not self.silent:
                 logging.debug("STDOUT: {}".format(install_msg))
-            if self.target_dependency_dir == "":
-                raise ValueError("dependency dir is required for project type")
+            # if self.target_dependency_dir == "":
+            #     raise ValueError("dependency dir is required for project type")
             dependency_dir = self.target_dependency_dir
             dst_src_dir = os.path.join(self.target_path_mappings["src"], escape_url(self.target_name))
             self.metadata.download_url = self.target_name
@@ -407,7 +410,7 @@ class DependencyDirPreparator(object):
             self.metadata.metafile_path, _ = self.get_metafile_in_target(self.target_type, root_dst_src_path)
             self.metadata.author = self.get_author(self.target_type, self.metadata.metafile_path)
 
-        if self.target_type == LoadType.PROJECT:
+        if self.target_type == LoadType.PROJECT and self.target_dependency_dir:
             dst_dependency_dir = self.target_path_mappings["dependencies"]
             if not os.path.exists(dst_dependency_dir):
                 os.makedirs(dst_dependency_dir)

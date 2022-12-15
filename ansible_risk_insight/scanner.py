@@ -45,7 +45,14 @@ from .dependency_dir_preparator import (
 )
 from .findings import Findings
 from .risk_assessment_model import RAMClient
-from .utils import escape_url, is_url, summarize_findings, summarize_findings_data
+from .utils import (
+    is_url,
+    is_local_path,
+    escape_url,
+    escape_local_path,
+    summarize_findings,
+    summarize_findings_data,
+)
 
 
 class Config:
@@ -85,6 +92,7 @@ class ARIScanner(object):
     id: str = ""
 
     collection_name: str = ""
+    role_name: str = ""
 
     install_log: str = ""
     tmp_install_dir: tempfile.TemporaryDirectory = None
@@ -136,6 +144,9 @@ class ARIScanner(object):
     def __post_init__(self):
         if self.type == LoadType.COLLECTION or self.type == LoadType.ROLE:
             type_root = self.type + "s"
+            target_name = self.name
+            if is_local_path(target_name):
+                target_name = escape_local_path(target_name)
             self.__path_mappings = {
                 "src": os.path.join(self.root_dir, type_root, "src"),
                 "root_definitions": os.path.join(
@@ -144,7 +155,7 @@ class ARIScanner(object):
                     "root",
                     "definitions",
                     type_root,
-                    self.name,
+                    target_name,
                 ),
                 "ext_definitions": {
                     LoadType.ROLE: os.path.join(self.root_dir, "roles", "definitions"),
@@ -153,12 +164,12 @@ class ARIScanner(object):
                 "index": os.path.join(
                     self.root_dir,
                     type_root,
-                    "{}-{}-index-ext.json".format(self.type, self.name),
+                    "{}-{}-index-ext.json".format(self.type, target_name),
                 ),
                 "install_log": os.path.join(
                     self.root_dir,
                     type_root,
-                    "{}-{}-install.log".format(self.type, self.name),
+                    "{}-{}-install.log".format(self.type, target_name),
                 ),
             }
 
@@ -369,9 +380,15 @@ class ARIScanner(object):
 
         if typ == LoadType.COLLECTION:
             parts = target_name.split(".")
-            target_path = os.path.join(self.root_dir, typ + "s", "src", "ansible_collections", parts[0], parts[1])
+            if is_local_path(target_name):
+                target_path = target_name
+            else:
+                target_path = os.path.join(self.root_dir, typ + "s", "src", "ansible_collections", parts[0], parts[1])
         elif typ == LoadType.ROLE:
-            target_path = os.path.join(self.root_dir, typ + "s", "src", target_name)
+            if is_local_path(target_name):
+                target_path = target_name
+            else:
+                target_path = os.path.join(self.root_dir, typ + "s", "src", target_name)
         elif typ == LoadType.PROJECT:
             if is_url(target_name):
                 target_path = os.path.join(self.get_src_root(), escape_url(target_name))
@@ -541,10 +558,15 @@ class ARIScanner(object):
     def set_report(self):
         coll_type = LoadType.COLLECTION
         coll_name = self.name if self.type == coll_type else ""
+        target_name = self.name
+        if self.collection_name:
+            target_name = self.collection_name
+        if self.role_name:
+            target_name = self.role_name
         data_report = detect(self.taskcalls_in_trees, collection_name=coll_name)
         metadata = {
             "type": self.type,
-            "name": self.name,
+            "name": target_name,
             "version": self.version,
             "source": self.source_repository,
             "download_url": self.download_url,
