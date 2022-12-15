@@ -26,48 +26,6 @@ role_meta_main_yml = "meta/main.yml"
 role_meta_main_yaml = "meta/main.yaml"
 
 
-# def detect_target_type(path, is_ext):
-
-#     if os.path.isfile(path):
-#         # need further check?
-#         return LoadType.PLAYBOOK, [path]
-
-#     if os.path.exists(os.path.join(path, collection_manifest_json)):
-#         return LoadType.COLLECTION, [path]
-#     if os.path.exists(os.path.join(path, role_meta_main_yml)):
-#         return LoadType.ROLE, [path]
-#     if is_ext:
-#         collection_meta_files = safe_glob(
-#             os.path.join(path, "**", collection_manifest_json), recursive=True
-#         )
-#         if len(collection_meta_files) > 0:
-#             collection_path_list = [
-#                 trim_suffix(f, ["/" + collection_manifest_json])
-#                 for f in collection_meta_files
-#             ]
-#             collection_path_list = remove_subdirectories(collection_path_list)
-#             return LoadType.COLLECTION, collection_path_list
-#         role_meta_files = safe_glob(
-#             [
-#                 os.path.join(path, "**", role_meta_main_yml),
-#                 os.path.join(path, "**", role_meta_main_yaml),
-#             ],
-#             recursive=True,
-#         )
-#         if len(role_meta_files) > 0:
-#             role_path_list = [
-#                 trim_suffix(
-#                     f, ["/" + role_meta_main_yml, "/" + role_meta_main_yaml]
-#                 )
-#                 for f in role_meta_files
-#             ]
-#             role_path_list = remove_subdirectories(role_path_list)
-#             return LoadType.ROLE, role_path_list
-#     else:
-#         return LoadType.PROJECT, [path]
-#     return LoadType.UNKNOWN, []
-
-
 # remove a dir which is a sub directory of another dir in the list
 def remove_subdirectories(dir_list):
     sorted_dir_list = sorted(dir_list)
