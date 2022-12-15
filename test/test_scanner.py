@@ -15,17 +15,12 @@
 # limitations under the License.
 
 import pytest
-import json
 
 from ansible_risk_insight.scanner import ARIScanner, config
 from ansible_risk_insight.rules.download_exec import DownloadExecRule
 
 
-@pytest.mark.parametrize(
-    "type, name", [
-        ("project", "test/testdata/projects/my.collection")
-    ]
-)
+@pytest.mark.parametrize("type, name", [("project", "test/testdata/projects/my.collection")])
 def test_scanner_with_project(type, name):
     s = _scan(type, name)
     risk_found_role_count = s.findings.report.get("summary", {}).get("roles", {}).get("risk_found", -1)
@@ -38,11 +33,7 @@ def test_scanner_with_project(type, name):
     assert len(download_exec_result) > 0
 
 
-@pytest.mark.parametrize(
-    "type, name", [
-        ("collection", "community.mongodb")
-    ]
-)
+@pytest.mark.parametrize("type, name", [("collection", "community.mongodb")])
 def test_scanner_with_collection(type, name):
     s = _scan(type, name)
     dep_names = [dep.get("name", "") for dep in s.findings.dependencies]
@@ -51,11 +42,7 @@ def test_scanner_with_collection(type, name):
     assert "ansible.posix" in dep_names
 
 
-@pytest.mark.parametrize(
-    "type, name", [
-        ("role", "test/testdata/roles/test_role")
-    ]
-)
+@pytest.mark.parametrize("type, name", [("role", "test/testdata/roles/test_role")])
 def test_scanner_with_role(type, name):
     s = _scan(type, name)
     risk_found_role_count = s.findings.report.get("summary", {}).get("roles", {}).get("risk_found", -1)
