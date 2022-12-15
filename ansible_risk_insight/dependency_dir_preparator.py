@@ -692,7 +692,10 @@ class DependencyDirPreparator(object):
             raise ValueError("src {} is not directory".format(src))
         if dst == "" or ".." in dst:
             raise ValueError("dst {} is invalid".format(dst))
-        os.system("cp -r {}/ {}/".format(src, dst))
+        # we use cp command here because shutil module is slow,
+        # but the behavior of cp command is slightly different between Mac and Linux
+        # we use a command like `cp -r <src>/* <dst>/` so the behavior will be the same
+        os.system("cp -r {}/* {}/".format(src, dst))
         return
 
     def setup_tmp_dir(self):
