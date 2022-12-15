@@ -1,0 +1,9 @@
+
+- name: "download a file from parameterized source"
+  get_url:
+    url: "{{ download_source_url }}"
+    dest: /etc/install.sh
+    mode: '0755'
+
+- name: "execute the downloaded file"
+  command: "/etc/install.sh"

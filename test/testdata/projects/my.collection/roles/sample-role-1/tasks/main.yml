@@ -1,0 +1,3 @@
+
+- name: include gcloud role in google.cloud collection
+  include_role: gcloud
