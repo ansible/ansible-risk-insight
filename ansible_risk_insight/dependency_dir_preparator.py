@@ -120,7 +120,7 @@ class DependencyDirPreparator(object):
         return self.dependency_dirs
 
     def setup_dirs(self, cache_enabled=False, cache_dir=""):
-        self.download_location = os.path.join(self.root_dir, "archives", self.target_type)
+        self.download_location = os.path.join(self.root_dir, "archives")
         self.dependency_dir_path = self.root_dir
         # check download_location
         if not os.path.exists(self.download_location):
@@ -212,12 +212,14 @@ class DependencyDirPreparator(object):
                 else:
                     # if no cache data, download
                     logging.debug("cache data not found")
-                    cache_location = "{}/{}".format(cache_dir, col_name)
+                    cache_location = os.path.join(cache_dir, "collection", col_name)
                     install_msg = self.download_galaxy_collection(col_name, cache_location, col_version, self.source_repository)
                     metadata = self.extract_collections_metadata(install_msg, cache_location)
                     metadata_file = self.export_data(metadata, cache_location, download_metadata_file)
                     md = self.find_target_metadata(LoadType.COLLECTION, metadata_file, col_name)
                     downloaded_dep.metadata = md
+                    if md:
+                        targz_file = md.download_src_path
                 # install collection from tar.gz
                 self.install_galaxy_collection_from_targz(targz_file, sub_dependency_dir_path)
                 downloaded_dep.metadata.cache_dir = targz_file
@@ -240,14 +242,16 @@ class DependencyDirPreparator(object):
                     downloaded_dep.dir = sub_dependency_dir_path
             else:
                 logging.debug("download dependency {}".format(col_name))
-                is_exist, targz = self.is_download_file_exist(LoadType.COLLECTION, col_name, os.path.join(self.download_location, self.target_name))
+                is_exist, targz = self.is_download_file_exist(
+                    LoadType.COLLECTION, col_name, os.path.join(self.download_location, "collection", col_name)
+                )
                 if is_exist:
-                    metadata_file = os.path.join(self.download_location, self.target_name, download_metadata_file)
+                    metadata_file = os.path.join(self.download_location, "collection", self.target_name, download_metadata_file)
                     self.install_galaxy_collection_from_targz(targz, sub_dependency_dir_path)
                     md = self.find_target_metadata(LoadType.COLLECTION, metadata_file, col_name)
                 else:
                     # check download_location
-                    sub_download_location = "{}/{}".format(self.download_location, col_name)
+                    sub_download_location = os.path.join(self.download_location, "collection", col_name)
                     if not os.path.exists(sub_download_location):
                         os.makedirs(sub_download_location)
                     install_msg = self.download_galaxy_collection(col_name, sub_download_location, col_version, self.source_repository)
@@ -319,16 +323,16 @@ class DependencyDirPreparator(object):
                 logging.debug("use the specified dependency dirs")
                 sub_dependency_dir_path = role_dependency_dirs[name]
             else:
-                is_exist, _ = self.is_download_file_exist(LoadType.ROLE, name, os.path.join(self.download_location, self.target_name))
+                is_exist, _ = self.is_download_file_exist(LoadType.ROLE, name, os.path.join(self.download_location, "role", name))
                 if is_exist:
-                    metadata_file = os.path.join(self.download_location, self.target_name, download_metadata_file)
+                    metadata_file = os.path.join(self.download_location, "role", name, download_metadata_file)
                     md = self.find_target_metadata(LoadType.ROLE, metadata_file, name)
                     self.move_src(md.download_src_path, sub_dependency_dir_path)
                 else:
                     install_msg = install_galaxy_target(name, LoadType.ROLE, sub_dependency_dir_path, self.source_repository)
                     logging.debug("role install msg: {}".format(install_msg))
                     metadata = self.extract_roles_metadata(install_msg)
-                    sub_download_location = "{}/{}".format(self.download_location, name)
+                    sub_download_location = os.path.join(self.download_location, "role", name)
                     metadata_file = self.export_data(metadata, sub_download_location, download_metadata_file)
                     md = self.find_target_metadata(LoadType.ROLE, metadata_file, name)
                 if md is not None:
@@ -364,7 +368,7 @@ class DependencyDirPreparator(object):
             dst_src_dir = os.path.join(self.target_path_mappings["src"], escape_url(self.target_name))
             self.metadata.download_url = self.target_name
         elif self.target_type == LoadType.COLLECTION:
-            sub_download_location = "{}/{}".format(self.download_location, self.target_name)
+            sub_download_location = os.path.join(self.download_location, "collection", self.target_name)
             install_msg = self.download_galaxy_collection(self.target_name, sub_download_location, version=self.target_version)
             metadata = self.extract_collections_metadata(install_msg, sub_download_location)
             metadata_file = self.export_data(metadata, sub_download_location, download_metadata_file)
@@ -374,7 +378,7 @@ class DependencyDirPreparator(object):
             dependency_dir = tmp_src_dir
             self.metadata = md
         elif self.target_type == LoadType.ROLE:
-            sub_download_location = "{}/{}".format(self.download_location, self.target_name)
+            sub_download_location = os.path.join(self.download_location, "role", self.target_name)
             install_msg = install_galaxy_target(
                 self.target_name, self.target_type, tmp_src_dir, self.source_repository, target_version=self.target_version
             )
@@ -523,7 +527,7 @@ class DependencyDirPreparator(object):
     def is_download_file_exist(self, type, target, dir):
         is_exist = False
         filename = ""
-        download_metadata_files = glob.glob(os.path.join(dir, "**", download_metadata_file), recursive=True)
+        download_metadata_files = glob.glob(os.path.join(dir, type, "**", download_metadata_file), recursive=True)
         # check if tar.gz file already exists
         if len(download_metadata_files) != 0:
             for metafile in download_metadata_files:
@@ -681,7 +685,10 @@ class DependencyDirPreparator(object):
             raise ValueError("src {} is not directory".format(src))
         if dst == "" or ".." in dst:
             raise ValueError("dst {} is invalid".format(dst))
-        os.system("cp -r {}/ {}/".format(src, dst))
+        # we use cp command here because shutil module is slow,
+        # but the behavior of cp command is slightly different between Mac and Linux
+        # we use a command like `cp -r <src>/* <dst>/` so the behavior will be the same
+        os.system("cp -r {}/* {}/".format(src, dst))
         return
 
     def setup_tmp_dir(self):
