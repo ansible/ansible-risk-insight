@@ -63,7 +63,7 @@ def find_dependency(type, target, dependency_dir):
             dependencies["dependencies"] = requirements
             dependencies["type"] = LoadType.COLLECTION
             dependencies["file"] = manifestjson
-        
+
     return dependencies
 
 
@@ -227,4 +227,3 @@ def format_dependency_info(dependencies):
     for k, v in dependencies.items():
         results.append({"name": k, "version": v})
     return results
-

@@ -41,8 +41,8 @@ class ARICLI:
         parser.add_argument("target_name", help="Name")
         parser.add_argument("--skip-install", action="store_true", help="if true, skip install for the specified target")
         parser.add_argument("--dependency-dir", nargs="?", help="path to a directory that have dependencies for the target")
-        parser.add_argument("--collection-name", nargs="?", help="if provided, use it as a collection name of the local collection / the project repository")
-        parser.add_argument("--role-name", nargs="?", help="if provided, use it as a role name of the local role / the project repository")
+        parser.add_argument("--collection-name", nargs="?", help="if provided, use it as a collection name")
+        parser.add_argument("--role-name", nargs="?", help="if provided, use it as a role name")
         parser.add_argument("--source", help="source server name in ansible config file (if empty, use public ansible galaxy)")
         parser.add_argument("--pretty", action="store_true", help="show results in a pretty format")
         parser.add_argument("--without-ram", action="store_true", help="if true, RAM data is not used for this scan")
@@ -62,7 +62,7 @@ class ARICLI:
         role_name = ""
         if args.collection_name:
             collection_name = args.collection_name
-        
+
         if args.role_name:
             role_name = args.role_name
 
@@ -78,7 +78,7 @@ class ARICLI:
                 _namespace = coll_meta.get("collection_info", {}).get("namespace", "")
                 _name = coll_meta.get("collection_info", {}).get("name", "")
                 collection_name = f"{_namespace}.{_name}"
-            
+
             role_meta = get_role_metadata(target_name)
             if role_meta:
                 role_name = role_meta.get("galaxy_info", {}).get("role_name", "")
