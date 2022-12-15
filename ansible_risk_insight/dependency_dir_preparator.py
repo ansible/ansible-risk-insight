@@ -407,6 +407,13 @@ class DependencyDirPreparator(object):
         if not os.path.exists(dst_src_dir):
             os.makedirs(dst_src_dir)
         self.move_src(tmp_src_dir, dst_src_dir)
+        print("[DEBUG] self.target_name:", self.target_name)
+        print("[DEBUG] dst_src_dir:", dst_src_dir)
+        sub_dst_src_dir = os.listdir(dst_src_dir)
+        print("[DEBUG] sub_dst_src_dir:", sub_dst_src_dir)
+        if len(sub_dst_src_dir) > 0 and sub_dst_src_dir[0] == "ansible_collections":
+            sub_sub_dst_src_dir = os.listdir(os.path.join(dst_src_dir, sub_dst_src_dir[0]))
+            print("[DEBUG] sub_sub_dst_src_dir:", sub_sub_dst_src_dir)
         root_dst_src_path = "{}/{}".format(dst_src_dir, self.target_name)
         if self.target_type == LoadType.ROLE:
             self.update_role_download_src(metadata_file, dst_src_dir)
