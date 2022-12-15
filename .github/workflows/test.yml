@@ -29,5 +29,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install ARI
         run: pip install -e .
+      - name: Install pytest
+        run: pip install pytest
       - name: Run Tests
         run: pytest test -s
