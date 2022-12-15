@@ -37,7 +37,14 @@ GALAXY_yml = "GALAXY.yml"
 def find_dependency(type, target, dependency_dir):
     dependencies = {"dependencies": "", "type": "", "file": ""}
     logging.debug("search dependency")
-    if dependency_dir is None:
+    if dependency_dir:
+        requirements, paths, metadata = load_existing_dependency_dir(dependency_dir)
+        dependencies["dependencies"] = requirements
+        dependencies["paths"] = paths
+        dependencies["metadata"] = metadata
+        dependencies["type"] = type
+        dependencies["file"] = None
+    else:
         if type == LoadType.PROJECT:
             logging.debug("search project dependency")
             requirements, reqyml = find_project_dependency(target)
@@ -56,13 +63,7 @@ def find_dependency(type, target, dependency_dir):
             dependencies["dependencies"] = requirements
             dependencies["type"] = LoadType.COLLECTION
             dependencies["file"] = manifestjson
-    else:
-        requirements, paths, metadata = load_existing_dependency_dir(dependency_dir)
-        dependencies["dependencies"] = requirements
-        dependencies["paths"] = paths
-        dependencies["metadata"] = metadata
-        dependencies["type"] = type
-        dependencies["file"] = None
+        
     return dependencies
 
 
@@ -153,7 +154,7 @@ def load_dependency_from_galaxy(path):
                 metadata = {}
                 with open(g, "r") as file:
                     metadata = yaml.safe_load(file)
-                    dependencies = metadata.get("dependencies", [])
+                    dependencies = metadata.get("dependencies", {})
                     requirements["collections"] = format_dependency_info(dependencies)
     return requirements, yaml_path
 

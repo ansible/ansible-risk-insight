@@ -1,0 +1,16 @@
+namespace: my
+name: collection
+version: 1.2.3
+readme: README.md
+authors:
+  - Ansible (https://github.com/ansible)
+description: a collection for test
+license_file: null
+tags:
+  - test
+dependencies:
+  google.cloud: '>=1.0.2'
+repository: https://github.com/ansible/ansible-risk-insight
+documentation: https://github.com/ansible/ansible-risk-insight
+homepage: https://github.com/ansible/ansible-risk-insight
+issues: https://github.com/ansible/ansible-risk-insight

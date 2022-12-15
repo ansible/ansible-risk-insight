@@ -113,9 +113,36 @@ def get_installed_metadata(type, name, path, dep_dir=None):
     return download_url, version
 
 
+def get_collection_metadata(path: str):
+    if not os.path.exists(path):
+        return None
+    manifest_json_path = os.path.join(path, "MANIFEST.json")
+    meta = None
+    if os.path.exists(manifest_json_path):
+        with open(manifest_json_path, "r") as file:
+            meta = json.load(file)
+    return meta
+
+
+def get_role_metadata(path: str):
+    if not os.path.exists(path):
+        return None
+    meta_main_yml_path = os.path.join(path, "meta", "main.yml")
+    meta = None
+    if os.path.exists(meta_main_yml_path):
+        with open(meta_main_yml_path, "r") as file:
+            meta = yaml.safe_load(file)
+    return meta
+
+
 def escape_url(url: str):
     base_url = url.split("?")[0]
     replaced = base_url.replace("://", "__").replace("/", "_")
+    return replaced
+
+
+def escape_local_path(path: str):
+    replaced = path.replace("/", "__")
     return replaced
 
 
@@ -156,6 +183,15 @@ def version_to_num(ver: str):
 
 def is_url(txt: str):
     return "://" in txt
+
+
+def is_local_path(txt: str):
+    if is_url(txt):
+        return False
+    if "/" in txt:
+        return True
+    if os.path.exists(txt):
+        return True
 
 
 def indent(multi_line_txt, level=0):

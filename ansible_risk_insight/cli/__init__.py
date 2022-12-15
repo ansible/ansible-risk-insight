@@ -17,7 +17,13 @@
 import argparse
 
 from ..scanner import ARIScanner, config
-from ..utils import is_url, split_name_and_version
+from ..utils import (
+    is_url,
+    is_local_path,
+    get_collection_metadata,
+    get_role_metadata,
+    split_name_and_version,
+)
 
 
 class ARICLI:
@@ -35,7 +41,8 @@ class ARICLI:
         parser.add_argument("target_name", help="Name")
         parser.add_argument("--skip-install", action="store_true", help="if true, skip install for the specified target")
         parser.add_argument("--dependency-dir", nargs="?", help="path to a directory that have dependencies for the target")
-        parser.add_argument("--collection-name", nargs="?", help="if provided, use it as a collection name of the project repository")
+        parser.add_argument("--collection-name", nargs="?", help="if provided, use it as a collection name of the local collection / the project repository")
+        parser.add_argument("--role-name", nargs="?", help="if provided, use it as a role name of the local role / the project repository")
         parser.add_argument("--source", help="source server name in ansible config file (if empty, use public ansible galaxy)")
         parser.add_argument("--pretty", action="store_true", help="show results in a pretty format")
         parser.add_argument("--without-ram", action="store_true", help="if true, RAM data is not used for this scan")
@@ -51,17 +58,30 @@ class ARICLI:
         if args.target_type in ["collection", "role"]:
             target_name, target_version = split_name_and_version(target_name)
 
-        collection_name_of_project = ""
-        if args.target_type == "project":
-            if args.collection_name:
-                collection_name_of_project = args.collection_name
-            else:
-                if is_url(target_name):
-                    pass
-                else:
-                    last_part = target_name.split("/")[-1]
-                    if len(last_part.split(".")) == 2:
-                        collection_name_of_project = last_part
+        collection_name = ""
+        role_name = ""
+        if args.collection_name:
+            collection_name = args.collection_name
+        
+        if args.role_name:
+            role_name = args.role_name
+
+        is_local = False
+        if args.target_type in ["collection", "role"] and is_local_path(target_name):
+            is_local = True
+        if args.target_type == "project" and not is_url(target_name):
+            is_local = True
+
+        if is_local and not collection_name and not role_name:
+            coll_meta = get_collection_metadata(target_name)
+            if coll_meta:
+                _namespace = coll_meta.get("collection_info", {}).get("namespace", "")
+                _name = coll_meta.get("collection_info", {}).get("name", "")
+                collection_name = f"{_namespace}.{_name}"
+            
+            role_meta = get_role_metadata(target_name)
+            if role_meta:
+                role_name = role_meta.get("galaxy_info", {}).get("role_name", "")
 
         c = ARIScanner(
             type=args.target_type,
@@ -69,7 +89,8 @@ class ARICLI:
             version=target_version,
             root_dir=config.data_dir,
             dependency_dir=args.dependency_dir,
-            collection_name=collection_name_of_project,
+            collection_name=collection_name,
+            role_name=role_name,
             do_save=args.save,
             without_ram=args.without_ram,
             source_repository=args.source,
