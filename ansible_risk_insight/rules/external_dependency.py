@@ -16,14 +16,16 @@
 
 from typing import List
 from ..models import ExecutableType, TaskCall
-from .base import Rule, subject_placeholder, Severity
+from .base import Rule, subject_placeholder, Severity, Tag
 
 
 class ExternalDependencyRule(Rule):
-    name: str = "ExternalDependency"
     enabled: bool = False
+    name: str = "ExternalDependency"
+    version: str = "v0.0.1"
     severity: Severity = Severity.LOW
-    tags: list = []
+    tags: list = [Tag.DEPENDENCY]
+
     allow_list: list = []
     separate_report: bool = True
     all_ok_message = "No {} depend on external dependencies".format(subject_placeholder)

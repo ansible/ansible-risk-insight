@@ -93,12 +93,14 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
         do_report = False
         taskcalls = taskcalls_in_tree.taskcalls
         result_dict = {}
+        rule_dict = {}
         rule_count = {
             "total": 0,
             "rule_applied": 0,
             "risk_found": 0,
         }
         for rule in rules:
+            rule_dict[rule.name] = rule
             if not rule.enabled:
                 continue
             rule_count["total"] += 1
@@ -114,13 +116,14 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
         result_list = [
             {
                 "rule": {
-                    "name": rule,
-                    "version": None,
-                    "tags": None,
+                    "name": rule_name,
+                    "version": rule_dict[rule_name].version,
+                    "severity": rule_dict[rule_name].severity,
+                    "tags": rule_dict[rule_name].tags,
                 },
-                "result": result_dict[rule],
+                "result": result_dict[rule_name],
             }
-            for rule in result_dict
+            for rule_name in result_dict
         ]
         data_report["details"].append(
             {

@@ -17,14 +17,15 @@
 from typing import List
 from ..models import RiskAnnotation, TaskCall
 from ..annotators.risk_annotator_base import AnnotatorCategory, RISK_ANNOTATION_TYPE
-from .base import Rule, Severity
+from .base import Rule, Severity, Tag
 
 
 class InboundTransferRule(Rule):
-    name: str = "InboundTransfer"
     enabled: bool = True
+    name: str = "InboundTransfer"
+    version: str = "v0.0.1"
     severity: Severity = Severity.MEDIUM
-    tags: list = []
+    tags: list = [Tag.NETWORK]
 
     def is_target(self, type: str, name: str) -> bool:
         return True
