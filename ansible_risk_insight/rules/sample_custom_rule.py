@@ -16,12 +16,15 @@
 
 from typing import List
 from ..models import TaskCall
-from .base import Rule
+from .base import Rule, Severity, Tag
 
 
 class SampleCustomRule(Rule):
-    name: str = "SampleCustomRule"
     enabled: bool = False
+    name: str = "SampleCustomRule"
+    version: str = "v0.0.1"
+    severity: Severity = Severity.VERY_LOW
+    tags: list = [Tag.DEBUG]
 
     def is_target(self, type: str, name: str) -> bool:
         return True
