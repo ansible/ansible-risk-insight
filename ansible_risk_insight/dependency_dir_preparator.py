@@ -373,7 +373,8 @@ class DependencyDirPreparator(object):
             metadata = self.extract_collections_metadata(install_msg, sub_download_location)
             metadata_file = self.export_data(metadata, sub_download_location, download_metadata_file)
             md = self.find_target_metadata(LoadType.COLLECTION, metadata_file, self.target_name)
-            self.install_galaxy_collection_from_reqfile(md.requirements_file, tmp_src_dir)
+            if md:
+                self.install_galaxy_collection_from_reqfile(md.requirements_file, tmp_src_dir)
             dst_src_dir = self.target_path_mappings["src"]
             dependency_dir = tmp_src_dir
             self.metadata = md

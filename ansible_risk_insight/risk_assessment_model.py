@@ -137,6 +137,9 @@ class RAMClient(object):
                 f = Findings.load(fpath=findings_json)
                 if not isinstance(f, Findings):
                     continue
+                # avoid using unresolved RAM data
+                if f.extra_requirements:
+                    continue
                 modules = f.root_definitions.get("definitions", {}).get("modules", [])
                 self.modules_cache[findings_json] = modules
                 modules_json_list.append(findings_json)
@@ -210,6 +213,9 @@ class RAMClient(object):
             for findings_json in findings_json_list:
                 f = Findings.load(fpath=findings_json)
                 if not isinstance(f, Findings):
+                    continue
+                # avoid using unresolved RAM data
+                if f.extra_requirements:
                     continue
                 roles = f.root_definitions.get("definitions", {}).get("roles", [])
                 self.roles_cache[findings_json] = roles
@@ -301,6 +307,9 @@ class RAMClient(object):
             for findings_json in findings_json_list:
                 f = Findings.load(fpath=findings_json)
                 if not isinstance(f, Findings):
+                    continue
+                # avoid using unresolved RAM data
+                if f.extra_requirements:
                     continue
                 taskfiles = f.root_definitions.get("definitions", {}).get("taskfiles", [])
                 self.taskfiles_cache[findings_json] = taskfiles
@@ -407,6 +416,9 @@ class RAMClient(object):
             for findings_json in findings_json_list:
                 f = Findings.load(fpath=findings_json)
                 if not isinstance(f, Findings):
+                    continue
+                # avoid using unresolved RAM data
+                if f.extra_requirements:
                     continue
                 tasks = f.root_definitions.get("definitions", {}).get("tasks", [])
                 self.tasks_cache[findings_json] = tasks
@@ -585,6 +597,16 @@ class RAMClient(object):
             os.makedirs(out_dir, exist_ok=True)
 
         findings.dump(fpath=os.path.join(out_dir, "findings.json"))
+
+    def save_error(self, error: str, out_dir: str):
+        if out_dir == "":
+            raise ValueError("output dir must be a non-empty value")
+
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir, exist_ok=True)
+
+        with open(os.path.join(out_dir, "error.log"), "w") as file:
+            file.write(error)
 
     def diff(self, target_name, version1, version2):
         findings1 = self.search_findings(target_name=target_name, target_version=version1)

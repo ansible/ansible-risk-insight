@@ -22,6 +22,7 @@ import json
 import tempfile
 import logging
 import jsonpickle
+import datetime
 from dataclasses import dataclass, field
 
 from .models import (
@@ -223,6 +224,7 @@ class ARIScanner(object):
             target_dependency_dir=self.dependency_dir,
             target_path_mappings=self.__path_mappings,
             do_save=self.do_save,
+            silent=self.silent,
             tmp_install_dir=self.tmp_install_dir,
         )
         dep_dirs = ddp.prepare_dir(
@@ -591,6 +593,7 @@ class ARIScanner(object):
             prm=self.prm,
             report=data_report,
             summary_txt=summary_txt,
+            scan_time=datetime.datetime.utcnow().isoformat(),
         )
         return
 
@@ -792,6 +795,11 @@ class ARIScanner(object):
 
     def save_findings(self, out_dir: str):
         self.ram_client.save_findings(self.findings, out_dir)
+
+    def save_error(self, error: str, out_dir: str = ""):
+        if out_dir == "":
+            out_dir = self.ram_client.make_findings_dir_path(self.type, self.name, self.version, self.hash)
+        self.ram_client.save_error(error, out_dir)
 
 
 def tree(root_definitions, ext_definitions, ram_client=None):

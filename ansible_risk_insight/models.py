@@ -358,14 +358,14 @@ class Task(Object, Resolvable):
     possible_candidates: list = field(default_factory=list)
 
     def set_yaml_lines(self, fullpath="", task_name="", module_name="", module_options=None):
-        if module_name == "":
+        if not module_name:
             return
-        elif task_name == "" and module_options is None:
+        if not task_name and not module_options:
             return
         found_line_num = -1
         lines = open(fullpath, "r").read().splitlines()
         for i, line in enumerate(lines):
-            if task_name in line:
+            if task_name and task_name in line:
                 found_line_num = i
                 break
             if "{}:".format(module_name) in line:
@@ -419,6 +419,8 @@ class Task(Object, Resolvable):
         end_found = False
         end_line_num = -1
         for i in range(len(lines)):
+            if index >= len(lines):
+                break
             _line = lines[index]
             is_top_of_block = _line.replace(" ", "").startswith("-")
             if is_top_of_block:

@@ -87,7 +87,7 @@ def find_role_dependency(target):
                     try:
                         metadata = yaml.safe_load(file)
                     except Exception as e:
-                        logging.error("failed to load this yaml file to read metadata; {}".format(e.args[0]))
+                        logging.debug("failed to load this yaml file to read metadata; {}".format(e.args[0]))
 
                     if metadata is not None and isinstance(metadata, dict):
                         requirements["roles"] = metadata.get("dependencies", [])
@@ -135,7 +135,7 @@ def load_requirements(path):
             try:
                 requirements = yaml.safe_load(file)
             except Exception as e:
-                logging.error("failed to load requirements.yml; {}".format(e.args[0]))
+                logging.debug("failed to load requirements.yml; {}".format(e.args[0]))
     else:
         requirements, yaml_path = load_dependency_from_galaxy(path)
     return requirements, yaml_path
