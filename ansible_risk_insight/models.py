@@ -204,7 +204,7 @@ class CallObject(JSONSerializable):
     type: str = ""
     key: str = ""
     called_from: str = ""
-    spec: Object = Object()
+    spec: Object = field(default_factory=Object)
 
     @classmethod
     def from_spec(cls, spec, caller):

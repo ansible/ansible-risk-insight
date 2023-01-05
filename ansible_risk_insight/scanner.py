@@ -104,7 +104,7 @@ class ARIScanner(object):
 
     trees: list = field(default_factory=list)
     # for inventory object
-    additional: ObjectList = ObjectList()
+    additional: ObjectList = field(default_factory=ObjectList)
 
     taskcalls_in_trees: list = field(default_factory=list)
 
