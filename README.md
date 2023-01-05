@@ -8,7 +8,7 @@
 In a virtual environment:
 
 ```
-git clone git@github.com:rurikudo/ansible-risk-insight.git
+git clone git@github.com:ansible/ansible-risk-insight.git
 cd ansible-risk-insight
 pip install -e .
 ```
@@ -26,8 +26,8 @@ ansible-risk-insight collection <collection_name>
 ```
 
 All intermediate files are installed under a temporary directory.
-The src dir which includes dependency collections and roles are moved under command dir for ARI to avoid repeated install from Galaxy repository.
-The location of the ARI common dir can be specified by env variable `ARI_DATA_DIR` (default = /tmp/ari-data)
+The src directory which includes dependency collections and roles are moved under command directory for ARI to avoid repeated install from Galaxy repository.
+The location of the ARI common directory can be specified by environment variable `ARI_DATA_DIR` (default = /tmp/ari-data).
 
 ## Extensibility
 
