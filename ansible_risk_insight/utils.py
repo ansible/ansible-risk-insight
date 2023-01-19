@@ -22,6 +22,8 @@ import yaml
 import logging
 import json
 from tabulate import tabulate
+from inspect import isclass
+from importlib.util import spec_from_file_location, module_from_spec
 
 from .findings import Findings
 
@@ -229,18 +231,15 @@ def report_to_display(data_report: dict):
     for detail in data_report["details"]:
         result_txt_for_this_tree = ""
         do_report = False
-        tree_root_type = detail.get("type", "")
-        tree_root_name = detail.get("name", "")
-        result_txt_for_this_tree += "#{} {} - {}\n".format(report_num, tree_root_type.upper(), tree_root_name)
+        # result_txt_for_this_tree += "#{} {} - {}\n".format(report_num, tree_root_type.upper(), tree_root_name)
         results_list = detail.get("results", [])
 
         for result_info in results_list:
-            rule_name = result_info.get("rule", {}).get("name", "")
             result = result_info.get("result", "")
             if result == "":
                 continue
             do_report = True
-            result_txt_for_this_tree += rule_name + "\n"
+            # result_txt_for_this_tree += rule_name + "\n"
             result_txt_for_this_tree += indent(result, 0) + "\n"
         result_txt_for_this_tree += "-" * 90 + "\n"
         if do_report:
@@ -478,3 +477,39 @@ def show_diffs(diffs):
     for d in diffs:
         table.append((d["filepath"], d["type"]))
     print(tabulate(table))
+
+
+def load_classes_in_dir(dir_path: str, target_class: type, base_dir: str = "", only_subclass: bool = True):
+    search_path = dir_path
+    found = False
+    if os.path.exists(search_path):
+        found = True
+    if not found and base_dir:
+        self_path = os.path.abspath(base_dir)
+        search_path = os.path.join(os.path.dirname(self_path), dir_path)
+        if os.path.exists(search_path):
+            found = True
+
+    if not found:
+        raise ValueError(f'Path not found "{dir_path}"')
+
+    files = os.listdir(search_path)
+    scripts = [os.path.join(search_path, f) for f in files if f[-3:] == ".py"]
+    classes = []
+    for s in scripts:
+        short_module_name = os.path.basename(s)[:-3]
+        spec = spec_from_file_location(short_module_name, s)
+        mod = module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        for k in mod.__dict__:
+            cls = getattr(mod, k)
+            if not callable(cls):
+                continue
+            if not isclass(cls):
+                continue
+            if not issubclass(cls, target_class):
+                continue
+            if only_subclass and cls == target_class:
+                continue
+            classes.append(cls)
+    return classes

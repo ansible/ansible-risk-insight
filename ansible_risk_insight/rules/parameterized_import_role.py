@@ -15,25 +15,24 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from ansible_risk_insight.models import DefaultRiskType as RiskType
-from ansible_risk_insight.models import AnsibleRunContext, RunTargetType, AnnotationCondition
+from ansible_risk_insight.models import AnsibleRunContext, ExecutableType as ActionType, RunTargetType
 from ansible_risk_insight.rules.base import Rule, Severity, Tag, RuleResult
 
 
 @dataclass
-class OutboundRuleResult(RuleResult):
+class ParameterizedImportRoleRuleResult(RuleResult):
     pass
 
 
-class InboundTransferRule(Rule):
-    rule_id: str = "R102"
-    description: str = "An outbound network transfer to a parameterized URL is found"
+class ParameterizedImportRoleRule(Rule):
+    rule_id: str = "R106"
+    description: str = "Import/include a parameterized name of role"
     enabled: bool = True
-    name: str = "OutboundTransfer"
+    name: str = "ParameterizedImportRole"
     version: str = "v0.0.1"
-    severity: Severity = Severity.MEDIUM
-    tags: list = [Tag.NETWORK]
-    result_type: type = OutboundRuleResult
+    severity: Severity = Severity.HIGH
+    tags: list = [Tag.DEPENDENCY]
+    result_type: type = ParameterizedImportRoleRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
@@ -41,15 +40,12 @@ class InboundTransferRule(Rule):
     def check(self, ctx: AnsibleRunContext):
         task = ctx.current
 
-        ac = AnnotationCondition().risk_type(RiskType.OUTBOUND).attr("is_mutable_dest", True)
-        result = task.has_annotation(ac)
-
-        detail = {}
-        if result:
-            anno = task.get_annotation(ac)
-            if anno:
-                detail["from"] = anno.src.value
-                detail["to"] = anno.dest.value
+        role_ref_arg = task.args.get("name")
+        result = task.action_type == ActionType.ROLE_TYPE and role_ref_arg and role_ref_arg.is_mutable
+        role_ref = role_ref_arg.raw if role_ref_arg else None
+        detail = {
+            "role": role_ref,
+        }
 
         rule_result = self.create_result(result=result, detail=detail, task=task)
         return rule_result

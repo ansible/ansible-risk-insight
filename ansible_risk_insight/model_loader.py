@@ -994,10 +994,11 @@ def load_task(
         if vars_in_task is not None and isinstance(vars_in_task, dict):
             variables.update(vars_in_task)
 
+    set_facts = {}
     # if the Task is set_fact, set variables too
     if module_short_name == "set_fact":
         if isinstance(module_options, dict):
-            variables.update(module_options)
+            set_facts.update(module_options)
 
     registered_variables = {}
     # set variables if this task register a new var
@@ -1016,6 +1017,7 @@ def load_task(
     taskObj.options = task_options
     taskObj.variables = variables
     taskObj.registered_variables = registered_variables
+    taskObj.set_facts = set_facts
     taskObj.loop = loop_info
     taskObj.module = module_name
     taskObj.module_options = module_options

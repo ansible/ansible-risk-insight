@@ -14,52 +14,42 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List
-from ..models import RiskAnnotation, TaskCall
-from ..annotators.risk_annotator_base import AnnotatorCategory, RISK_ANNOTATION_TYPE
-from .base import Rule, Severity, Tag
+from dataclasses import dataclass
+from ansible_risk_insight.models import DefaultRiskType as RiskType
+from ansible_risk_insight.models import AnsibleRunContext, RunTargetType, AnnotationCondition
+from ansible_risk_insight.rules.base import Rule, Severity, Tag, RuleResult
+
+
+@dataclass
+class InboundRuleResult(RuleResult):
+    pass
 
 
 class InboundTransferRule(Rule):
+    rule_id: str = "R101"
+    description: str = "A inbound network transfer from a parameterized source is found"
     enabled: bool = True
     name: str = "InboundTransfer"
     version: str = "v0.0.1"
     severity: Severity = Severity.MEDIUM
     tags: list = [Tag.NETWORK]
+    result_type: type = InboundRuleResult
 
-    def is_target(self, type: str, name: str) -> bool:
-        return True
+    def match(self, ctx: AnsibleRunContext) -> bool:
+        return ctx.current.type == RunTargetType.Task
 
-    # IN: tasks with "analyzed_data" (i.e. output from analyzer.py)
-    # OUT: matched: bool, matched_tasks: list[task | tuple[task]], message: str
-    def check(self, taskcalls: List[TaskCall], **kwargs):
-        matched_taskcalls = []
-        message = ""
-        for taskcall in taskcalls:
-            inbound_annos = taskcall.get_annotation_by_type_and_attr(RISK_ANNOTATION_TYPE, "category", AnnotatorCategory.INBOUND)
-            for inbound_data in inbound_annos:
-                if not isinstance(inbound_data, RiskAnnotation):
-                    continue
-                raw_dst = inbound_data.data.get("dest", "")
-                resolved_src = [resolved.get("src", "") for resolved in inbound_data.resolved_data if resolved.get("src", "") != ""]
-                if len(resolved_src) == 0:
-                    resolved_src = ""
-                if len(resolved_src) == 1:
-                    resolved_src = resolved_src[0]
-                is_mutable_src = inbound_data.data.get("undetermined_src", False)
-                mutable_src_vars = inbound_data.data.get("mutable_src_vars", [])
-                mutable_src_vars = ["{{ " + mv + " }}" for mv in mutable_src_vars]
-                if len(mutable_src_vars) == 0:
-                    mutable_src_vars = ""
-                if len(mutable_src_vars) == 1:
-                    mutable_src_vars = mutable_src_vars[0]
-                if is_mutable_src:
-                    matched_taskcalls.append(taskcall)
-                    message += "- From: {}\n".format(mutable_src_vars)
-                    # message += "      (default value: {})\n".format(
-                    #     resolved_src
-                    # )
-                    message += "  To: {}\n".format(raw_dst)
-        matched = len(matched_taskcalls) > 0
-        message = message[:-1] if message.endswith("\n") else message
-        return matched, matched_taskcalls, message
+    def check(self, ctx: AnsibleRunContext):
+        task = ctx.current
+
+        ac = AnnotationCondition().risk_type(RiskType.INBOUND).attr("is_mutable_src", True)
+        result = task.has_annotation(ac)
+
+        detail = {}
+        if result:
+            anno = task.get_annotation(ac)
+            if anno:
+                detail["from"] = anno.src.value
+                detail["to"] = anno.dest.value
+
+        rule_result = self.create_result(result=result, detail=detail, task=task)
+        return rule_result

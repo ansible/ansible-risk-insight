@@ -14,12 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List
-from ..models import ExecutableType, TaskCall
-from .base import Rule, subject_placeholder, Severity, Tag
+from ansible_risk_insight.models import ExecutableType, AnsibleRunContext
+from ansible_risk_insight.rules.base import Rule, subject_placeholder, Severity, Tag, RuleResult
 
 
 class ExternalDependencyRule(Rule):
+    rule_id: str = "R999"
+    description: str = "deprecated"
     enabled: bool = False
     name: str = "ExternalDependency"
     version: str = "v0.0.1"
@@ -30,16 +31,17 @@ class ExternalDependencyRule(Rule):
     separate_report: bool = True
     all_ok_message = "No {} depend on external dependencies".format(subject_placeholder)
 
-    def is_target(self, type: str, name: str) -> bool:
+    def is_target(self, ctx: AnsibleRunContext) -> bool:
         return True
 
     # IN: tasks with "analyzed_data" (i.e. output from analyzer.py)
     # OUT: matched: bool, matched_tasks: list[task | tuple[task]], message: str
-    def check(self, taskcalls: List[TaskCall], **kwargs):
-        collection_name = kwargs.get("collection_name", "")
+    def check(self, ctx: AnsibleRunContext):
+        taskcalls = ctx.taskcalls
+        collection_name = ctx.collection_name
         if collection_name != "":
             self.allow_list.append(collection_name)
-        allow_list = kwargs.get("allow_list", [])
+        allow_list = ctx.get("allow_list", [])
         if len(allow_list) > 0:
             self.allow_list.extend(allow_list)
         matched_taskcalls = []
@@ -69,3 +71,7 @@ class ExternalDependencyRule(Rule):
         matched = len(external_dependencies) > 0
         message = str(external_dependencies)
         return matched, matched_taskcalls, message
+
+
+class ExternalDependencyRuleResult(RuleResult):
+    pass

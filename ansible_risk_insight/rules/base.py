@@ -14,8 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List
-from ..models import TaskCall
+import json
+from dataclasses import dataclass
+from ansible_risk_insight.models import AnsibleRunContext
 
 
 subject_placeholder = "<SUBJECT>"
@@ -48,7 +49,44 @@ class Tag:
     DEBUG = "debug"
 
 
+@dataclass
+class RuleResult(object):
+    result: bool = False
+    file: str = None
+    lines: str = None
+    detail: dict = None
+    error_msg: str = None
+
+    verbose: bool = False
+
+    _rule: any = None
+
+    def print(self):
+        output = f"ruleID={self._rule.rule_id}, severity={self._rule.severity}, description={self._rule.description}, result={self.result}"
+        if self.verbose:
+            output += f", name={self._rule.name}, version={self._rule.version}, tags={self._rule.version}"
+
+        if self.file:
+            output += f", file={self.file}"
+        if self.lines:
+            output += f", lines={self.lines}"
+        if self.detail:
+            output += f", detail={self.detail}"
+        return output
+
+    def to_json(self, detail=None):
+        return json.dumps(detail)
+
+    def error(self):
+        if self.error_msg:
+            return self.error_msg
+        return None
+
+
 class Rule(object):
+    rule_id: str = ""
+    description: str = ""
+
     name: str = ""
     enabled: bool = False
     version: str = ""
@@ -57,8 +95,43 @@ class Rule(object):
     separate_report: bool = False
     all_ok_message: str = ""
 
-    def is_target(self, type: str, name: str) -> bool:
+    result_type: type = RuleResult
+
+    def __init__(self, rule_id: str = "", description: str = "", result_type: type = RuleResult):
+        if rule_id:
+            self.rule_id = rule_id
+        if description:
+            self.description = description
+        if result_type:
+            self.result_type = result_type
+
+        if not self.rule_id:
+            raise ValueError("A rule must have a unique rule_id")
+
+        if not self.description:
+            raise ValueError("A rule must have a description")
+
+        if not self.result_type:
+            raise ValueError("A rule must have a result_type")
+
+    def match(self, ctx: AnsibleRunContext) -> bool:
         raise ValueError("this is a base class method")
 
-    def check(self, taskcalls: List[TaskCall], **kwargs):
+    def check(self, ctx: AnsibleRunContext):
         raise ValueError("this is a base class method")
+
+    def create_result(self, result=False, detail=None, task=None, role=None, playbook=None):
+        file = None
+        lines = None
+        if task:
+            file = task.spec.defined_in
+            lines = "?"
+            if len(task.spec.line_number) == 2:
+                l_num = task.spec.line_number
+                lines = f"L{l_num[0]}-{l_num[1]}"
+        elif role:
+            file = role.spec.defined_in
+        elif playbook:
+            file = playbook.spec.defined_in
+
+        return self.result_type(result=result, file=file, lines=lines, detail=detail, _rule=self)

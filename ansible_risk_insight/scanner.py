@@ -30,6 +30,7 @@ from .models import (
     LoadType,
     ObjectList,
     TaskCallsInTree,
+    AnsibleRunContext,
 )
 from .loader import (
     get_loader_version,
@@ -108,6 +109,7 @@ class ARIScanner(object):
     additional: ObjectList = field(default_factory=ObjectList)
 
     taskcalls_in_trees: list = field(default_factory=list)
+    contexts: list = field(default_factory=list)
 
     data_report: dict = field(default_factory=dict)
 
@@ -524,6 +526,10 @@ class ARIScanner(object):
         taskcalls_in_trees = resolve(self.trees, self.additional)
         self.taskcalls_in_trees = taskcalls_in_trees
 
+        for tree in self.trees:
+            ctx = AnsibleRunContext.from_tree(tree)
+            self.contexts.append(ctx)
+
         if self.do_save:
             root_def_dir = self.__path_mappings["root_definitions"]
             tasks_in_t_path = os.path.join(root_def_dir, "tasks_in_trees.json")
@@ -539,23 +545,23 @@ class ARIScanner(object):
         return self.taskcalls_in_trees
 
     def set_analyzed(self):
-        taskcalls_in_trees = analyze(self.taskcalls_in_trees)
-        self.taskcalls_in_trees = taskcalls_in_trees
+        contexts = analyze(self.contexts)
+        self.contexts = contexts
 
         if self.do_save:
             root_def_dir = self.__path_mappings["root_definitions"]
-            tasks_in_t_a_path = os.path.join(root_def_dir, "tasks_in_trees_with_analysis.json")
-            tasks_in_t_a_lines = []
-            for d in taskcalls_in_trees:
+            contexts_a_path = os.path.join(root_def_dir, "contexts_with_analysis.json")
+            conetxts_a_lines = []
+            for d in contexts:
                 line = jsonpickle.encode(d, make_refs=False)
-                tasks_in_t_a_lines.append(line)
+                conetxts_a_lines.append(line)
 
-            open(tasks_in_t_a_path, "w").write("\n".join(tasks_in_t_a_lines))
+            open(contexts_a_path, "w").write("\n".join(conetxts_a_lines))
 
         return
 
     def get_analyzed(self):
-        return self.taskcalls_in_trees
+        return self.contexts
 
     def set_report(self):
         coll_type = LoadType.COLLECTION
@@ -565,7 +571,7 @@ class ARIScanner(object):
             target_name = self.collection_name
         if self.role_name:
             target_name = self.role_name
-        data_report = detect(self.taskcalls_in_trees, collection_name=coll_name)
+        data_report = detect(self.contexts, collection_name=coll_name)
         metadata = {
             "type": self.type,
             "name": target_name,

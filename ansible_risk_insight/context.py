@@ -30,32 +30,14 @@ from .models import (
     InventoryType,
     Object,
     CallObject,
+    VariableType,
+    mutable_types,
 )
 
 p = Path(__file__).resolve().parent
 ansible_special_variables = open(p / "ansible_variables.txt", "r").read().splitlines()
 _special_var_value = "__ansible_special_variable__"
 variable_block_re = re.compile(r"{{[^}]+}}")
-
-
-class VariableType:
-    NORMAL = "normal"
-    LOOP_VAR = "loop_var"
-    REGISTERED_VARS = "registered_vars"
-    ROLE_DEFAULTS = "role_defaults"
-    ROLE_VARS = "role_vars"
-    INVENTORY_VARS = "inventory_vars"
-    SPECIAL_VARS = "special_vars"
-    PARTIAL_RESOLVE = "partial_resolve"
-    FAILED_TO_RESOLVE = "failed_to_resolve"
-
-
-mutable_types = [
-    VariableType.NORMAL,
-    VariableType.ROLE_DEFAULTS,
-    VariableType.ROLE_VARS,
-    VariableType.INVENTORY_VARS,
-]
 
 
 def get_object(json_path, type, name, cache={}):
@@ -178,26 +160,6 @@ def flatten(var_dict: dict = {}, _prefix: str = ""):
     return flat_vars
 
 
-class VariableType:
-    NORMAL = "normal"
-    LOOP_VAR = "loop_var"
-    REGISTERED_VARS = "registered_vars"
-    ROLE_DEFAULTS = "role_defaults"
-    ROLE_VARS = "role_vars"
-    INVENTORY_VARS = "inventory_vars"
-    SPECIAL_VARS = "special_vars"
-    PARTIAL_RESOLVE = "partial_resolve"
-    FAILED_TO_RESOLVE = "failed_to_resolve"
-
-
-mutable_types = [
-    VariableType.NORMAL,
-    VariableType.ROLE_DEFAULTS,
-    VariableType.ROLE_VARS,
-    VariableType.INVENTORY_VARS,
-]
-
-
 @dataclass
 class Context:
     keep_obj: bool = False
@@ -208,6 +170,7 @@ class Context:
     role_defaults: list = field(default_factory=list)
     role_vars: list = field(default_factory=list)
     registered_vars: list = field(default_factory=list)
+    set_facts: list = field(default_factory=list)
 
     _flat_vars: dict = field(default_factory=dict)
 
@@ -247,8 +210,12 @@ class Context:
             self.update_flat_vars(_spec.variables)
             self.variables.update(_spec.registered_variables)
             self.update_flat_vars(_spec.registered_variables)
+            self.variables.update(_spec.set_facts)
+            self.update_flat_vars(_spec.set_facts)
             for var_name in _spec.registered_variables:
                 self.registered_vars.append(var_name)
+            for var_name in _spec.set_facts:
+                self.set_facts.append(var_name)
         else:
             # Module
             return
@@ -270,6 +237,8 @@ class Context:
             v_type = VariableType.ROLE_DEFAULTS
         elif var_name in self.registered_vars:
             v_type = VariableType.REGISTERED_VARS
+        elif var_name in self.set_facts:
+            v_type = VariableType.SET_FACTS
 
         val = self.variables.get(var_name, None)
         if val is not None:
@@ -316,8 +285,8 @@ class Context:
                 else:
                     return val, v_type
 
-        if var_name in ansible_special_variables:
-            return _special_var_value, VariableType.SPECIAL_VARS
+        # if var_name in ansible_special_variables:
+        #     return _special_var_value, VariableType.SPECIAL_VARS
 
         if var_name.startswith("hostvars[") or var_name.startswith("groups["):
             return (
@@ -368,7 +337,7 @@ class Context:
                 if var_val_in_txt is None and default_var_name != "":
                     var_val_in_txt, _ = self.resolve_variable(default_var_name, resolve_history)
                 if var_val_in_txt is None:
-                    return txt
+                    return resolved_txt
                 if txt == original_block:
                     return var_val_in_txt
                 resolved_txt = resolved_txt.replace(original_block, str(var_val_in_txt))

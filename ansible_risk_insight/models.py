@@ -15,7 +15,8 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Union
+from collections.abc import Callable
 
 # from copy import deepcopy
 import json
@@ -218,6 +219,41 @@ class CallObject(JSONSerializable):
         return instance
 
 
+class RunTargetType:
+    Playbook = "playbookcall"
+    Role = "rolecall"
+    Task = "taskcall"
+
+
+@dataclass
+class RunTarget(object):
+    type: str = ""
+
+
+@dataclass
+class RunTargetList(object):
+    items: List[RunTarget] = field(default_factory=list)
+
+    _i: int = 0
+
+    def __len__(self):
+        return len(self.items)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self._i == len(self.items):
+            self._i = 0
+            raise StopIteration()
+        item = self.items[self._i]
+        self._i += 1
+        return item
+
+    def __getitem__(self, i):
+        return self.items[i]
+
+
 @dataclass
 class Module(Object, Resolvable):
     type: str = "module"
@@ -303,6 +339,268 @@ class TaskCallsInTree(JSONSerializable):
     taskcalls: list = field(default_factory=list)
 
 
+class VariableType:
+    NORMAL = "normal"
+    LOOP_VAR = "loop_var"
+    REGISTERED_VARS = "registered_vars"
+    SET_FACTS = "set_facts"
+    ROLE_DEFAULTS = "role_defaults"
+    ROLE_VARS = "role_vars"
+    INVENTORY_VARS = "inventory_vars"
+    # SPECIAL_VARS = "special_vars"
+    PARTIAL_RESOLVE = "partial_resolve"
+    FAILED_TO_RESOLVE = "failed_to_resolve"
+
+
+mutable_types = [
+    VariableType.NORMAL,
+    VariableType.ROLE_DEFAULTS,
+    VariableType.ROLE_VARS,
+    VariableType.INVENTORY_VARS,
+    VariableType.REGISTERED_VARS,
+    VariableType.SET_FACTS,
+    # should treat the following as mutable
+    VariableType.PARTIAL_RESOLVE,
+    VariableType.FAILED_TO_RESOLVE,
+]
+
+
+# Variable Precedence
+# https://docs.ansible.com/ansible/latest/playbook_guide
+#     /playbooks_variables.html#understanding-variable-precedence
+@dataclass
+class Variable(object):
+    name: str = ""
+    value: any = None
+    type: VariableType = field(default_factory=VariableType)
+
+    @property
+    def is_mutable(self):
+        return self.type in mutable_types
+
+
+class ArgumentsType(object):
+    SIMPLE = "simple"
+    LIST = "list"
+    DICT = "dict"
+
+
+@dataclass
+class Arguments(object):
+    type: ArgumentsType = ""
+    raw: any = None
+    vars: List[Variable] = field(default_factory=list)
+    resolved: bool = False
+    templated: any = None
+    is_mutable: bool = False
+
+    def get(self, key: str = ""):
+        sub_raw = None
+        sub_templated = None
+        if key == "":
+            sub_raw = self.raw
+            sub_templated = self.templated
+        else:
+            if isinstance(self.raw, dict):
+                sub_raw = self.raw.get(key, None)
+                sub_templated = self.templated[0].get(key, None)
+            else:
+                sub_raw = self.raw
+                sub_templated = self.templated
+        if not sub_raw:
+            return None
+
+        _vars = []
+        if isinstance(sub_raw, str):
+            for v in self.vars:
+                if v.name in sub_raw:
+                    _vars.append(v)
+        is_mutable = False
+        for v in _vars:
+            if v.is_mutable:
+                is_mutable = True
+                break
+
+        return Arguments(
+            type=ArgumentsType.SIMPLE,
+            raw=sub_raw,
+            vars=_vars,
+            resolved=self.resolved,
+            templated=sub_templated,
+            is_mutable=is_mutable,
+        )
+
+
+class LocationType:
+    FILE = "file"
+    DIR = "dir"
+    URL = "url"
+
+
+@dataclass
+class Location(object):
+    type: str = ""
+    value: str = ""
+    vars: List[Variable] = field(default_factory=list)
+
+    _args: Arguments = None
+
+    def __post_init__(self):
+        if self._args:
+            self.value = self._args.raw
+            self.vars = self._args.vars
+
+    @property
+    def is_mutable(self):
+        return len(self.vars) > 0
+
+    @property
+    def is_empty(self):
+        return not self.type and not self.value
+
+    def is_inside(self, loc):
+        if not isinstance(loc, Location):
+            raise ValueError(f"is_inside() expect Location but given {type(loc)}")
+        return loc.contains(self)
+
+    def contains(self, target, any=False, all=True):
+        if isinstance(target, list):
+            if any:
+                return self.contains_any(target_list=target)
+            elif all:
+                return self.contains_all(target_list=target)
+            else:
+                raise ValueError('contains() must be run in either "any" or "all" mode')
+
+        else:
+            if not isinstance(target, Location):
+                raise ValueError(f"contains() expect Location or list of Location, but given {type(target)}")
+
+        my_path = self.value
+        target_path = target.value
+        if target_path.startswith(my_path):
+            return True
+        return False
+
+    def contains_any(self, target_list):
+        for target in target_list:
+            if self.contains(target):
+                return True
+        return False
+
+    def contains_all(self, target_list):
+        count = 0
+        for target in target_list:
+            if self.contains(target):
+                count += 1
+        if count == len(target_list):
+            return True
+        return False
+
+
+class AnnotationDetail(object):
+    pass
+
+
+@dataclass
+class NetworkTransferDetail(AnnotationDetail):
+    src: Location = None
+    dest: Location = None
+    is_mutable_src: bool = False
+    is_mutable_dest: bool = False
+
+    _src_arg: Arguments = None
+    _dest_arg: Arguments = None
+
+    def __post_init__(self):
+        if self._src_arg:
+            self.src = Location(_args=self._src_arg)
+            if self._src_arg.is_mutable:
+                self.is_mutable_src = True
+
+        if self._dest_arg:
+            self.dest = Location(_args=self._dest_arg)
+            if self._dest_arg.is_mutable:
+                self.is_mutable_dest = True
+
+
+@dataclass
+class InboundTransferDetail(NetworkTransferDetail):
+    def __post_init__(self):
+        super().__post_init__()
+
+
+@dataclass
+class OutboundTransferDetail(NetworkTransferDetail):
+    def __post_init__(self):
+        super().__post_init__()
+
+
+execution_programs: list = ["sh", "bash", "zsh", "fish", "ash", "python*", "java*", "node*"]
+non_execution_programs: list = ["tar", "gunzip", "unzip", "mv", "cp"]
+
+
+@dataclass
+class CommandExecDetail(AnnotationDetail):
+    command: Arguments = None
+    exec_files: List[Location] = field(default_factory=list)
+
+    def __post_init__(self):
+        self.exec_files = self.extract_exec_files()
+
+    def extract_exec_files(self):
+        cmd_str = self.command.raw
+        if isinstance(cmd_str, list):
+            cmd_str = " ".join(cmd_str)
+        lines = cmd_str.splitlines()
+        exec_files = []
+        for line in lines:
+            parts = []
+            is_in_variable = False
+            concat_p = ""
+            for p in line.split(" "):
+                if "{{" in p and "}}" not in p:
+                    is_in_variable = True
+                if "}}" in p:
+                    is_in_variable = False
+                concat_p += " " + p if concat_p != "" else p
+                if not is_in_variable:
+                    parts.append(concat_p)
+                    concat_p = ""
+            found_program = None
+            for i, p in enumerate(parts):
+                if i == 0:
+                    program = p if "/" not in p else p.split("/")[-1]
+                    # filter out some specific non-exec patterns
+                    if program in non_execution_programs:
+                        break
+                    # if the command string is like "python {{ python_script_path }}",
+                    # {{ python_script_path }} is the exec file instead of "python"
+                    if program in execution_programs:
+                        continue
+                    # for the case that the program name is like "python-3.6"
+                    for exec_p in execution_programs:
+                        if exec_p[-1] == "*":
+                            if program.startswith(exec_p[:-1]):
+                                continue
+                if p.startswith("-"):
+                    continue
+                if found_program is None:
+                    found_program = p
+                    break
+            if found_program:
+                exec_file_name = found_program
+                related_vars = [v for v in self.command.vars if v.name in exec_file_name]
+                location_type = LocationType.FILE
+                exec_file = Location(
+                    type=location_type,
+                    value=exec_file_name,
+                    vars=related_vars,
+                )
+                exec_files.append(exec_file)
+        return exec_files
+
+
 @dataclass
 class Annotation(JSONSerializable):
     type: str = ""
@@ -310,16 +608,198 @@ class Annotation(JSONSerializable):
 
 @dataclass
 class VariableAnnotation(Annotation):
-    resolved_module_options: dict = field(default_factory=dict)
-    resolved_variables: list = field(default_factory=list)
-    mutable_vars_per_mo: dict = field(default_factory=dict)
+    type: str = "variable_annotation"
+    option_value: Arguments = field(default_factory=Arguments)
+
+
+class RiskType:
+    pass
+
+
+class DefaultRiskType(RiskType):
+    NONE = ""
+    CMD_EXEC = "cmd_exec"
+    INBOUND = "inbound_transfer"
+    OUTBOUND = "outbound_transfer"
+    FILE_CHANGE = "file_change"
+    SYSTEM_CHANGE = "system_change"
+    NETWORK_CHANGE = "network_change"
+    CONFIG_CHANGE = "config_change"
+    PACKAGE_INSTALL = "package_install"
+    PRIVILEGE_ESCALATION = "privilege_escalation"
+
+
+def equal(a: any, b: any):
+    type_a = type(a)
+    type_b = type(b)
+    if type_a != type_b:
+        return False
+    if type_a == dict:
+        all_keys = list(a.keys()) + list(b.keys())
+        for key in all_keys:
+            val_a = a.get(key, None)
+            val_b = b.get(key, None)
+            if not equal(val_a, val_b):
+                return False
+    elif type_a == list:
+        if len(a) != len(b):
+            return False
+        for i in range(len(a)):
+            val_a = a[i]
+            val_b = b[i]
+            if not equal(val_a, val_b):
+                return False
+    else:
+        if a != b:
+            return False
+    return True
 
 
 @dataclass
-class RiskAnnotation(Annotation):
-    category: str = ""
-    data: dict = field(default_factory=dict)
-    resolved_data: list = field(default_factory=list)
+class RiskAnnotation(Annotation, NetworkTransferDetail, CommandExecDetail):
+    type: str = "risk_annotation"
+    risk_type: RiskType = ""
+
+    @classmethod
+    def init(cls, risk_type: RiskType, detail: AnnotationDetail):
+        anno = cls()
+        anno.risk_type = risk_type
+        for attr_name in detail.__annotations__:
+            val = getattr(detail, attr_name)
+            setattr(anno, attr_name, val)
+        return anno
+
+    def equal_to(self, anno):
+        if self.type != anno.type:
+            return False
+        if self.risk_type != anno.risk_type:
+            return False
+        self_dict = self.__dict__
+        anno_dict = anno.__dict__
+        if not equal(self_dict, anno_dict):
+            return False
+        return True
+
+
+@dataclass
+class FindCondition(object):
+    def check(self, anno: RiskAnnotation):
+        raise NotImplementedError
+
+
+@dataclass
+class AnnotationCondition(object):
+    type: RiskType = ""
+    attr_conditions: list = field(default_factory=list)
+
+    def risk_type(self, risk_type: RiskType):
+        self.type = risk_type
+        return self
+
+    def attr(self, key: str, val: any):
+        self.attr_conditions.append((key, val))
+        return self
+
+
+@dataclass
+class AttributeCondition(FindCondition):
+    attr: str = None
+    result: any = None
+
+    def check(self, anno: RiskAnnotation):
+        if self.attr:
+            if hasattr(anno.detail, self.attr):
+                anno_value = getattr(anno.detail, self.attr)
+                if anno_value == self.result:
+                    return True
+                if self.result is None:
+                    if isinstance(anno_value, bool) and anno_value:
+                        return True
+        return False
+
+
+@dataclass
+class FunctionCondition(FindCondition):
+    func: Callable = None
+    args: List[any] = None
+    result: any = None
+
+    def check(self, anno: RiskAnnotation):
+        if self.func:
+            if callable(self.func):
+                result = self.func(anno, **self.args)
+                if result == self.result:
+                    return True
+        return False
+
+
+@dataclass
+class RiskAnnotationList(object):
+    items: List[RiskAnnotation] = field(default_factory=list)
+
+    _i: int = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self._i == len(self.items):
+            self._i = 0
+            raise StopIteration()
+        anno = self.items[self._i]
+        self._i += 1
+        return anno
+
+    def after(self, anno: RiskAnnotation):
+        return get_annotations_after(self, anno)
+
+    def filter(self, risk_type: RiskType = ""):
+        current = self
+        if risk_type:
+            current = filter_annotations_by_type(current, risk_type)
+        return current
+
+    def find(self, risk_type: RiskType = "", condition: Union[FindCondition, List[FindCondition]] = None):
+        return search_risk_annotations(self, risk_type, condition)
+
+
+def get_annotations_after(anno_list: RiskAnnotationList, anno: RiskAnnotation):
+    sub_list = []
+    found = False
+    for anno_i in anno_list:
+        if anno_i.equal_to(anno):
+            found = True
+        if found:
+            sub_list.append(anno_i)
+    if not found:
+        raise ValueError(f"Annotation {anno} is not found in the specified AnnotationList")
+    return RiskAnnotationList(sub_list)
+
+
+def filter_annotations_by_type(anno_list: RiskAnnotationList, risk_type: RiskType):
+    sub_list = []
+    for anno_i in anno_list:
+        if anno_i.risk_type == risk_type:
+            sub_list.append(anno_i)
+    return sub_list
+
+
+def search_risk_annotations(anno_list: RiskAnnotationList, risk_type: RiskType = "", condition: Union[FindCondition, List[FindCondition]] = None):
+    matched = []
+    for risk_anno in anno_list:
+        if not isinstance(risk_anno, RiskAnnotation):
+            continue
+        if risk_type:
+            if risk_anno.risk_type != risk_type:
+                continue
+        if condition:
+            if isinstance(condition, FindCondition):
+                condition = [condition]
+            for cond in condition:
+                if cond.check(risk_anno):
+                    matched.append(risk_anno)
+                    break
+    return RiskAnnotationList(matched)
 
 
 class ExecutableType:
@@ -342,6 +822,7 @@ class Task(Object, Resolvable):
     collection: str = ""
     variables: dict = field(default_factory=dict)
     registered_variables: dict = field(default_factory=dict)
+    set_facts: dict = field(default_factory=dict)
     loop: dict = field(default_factory=dict)
     options: dict = field(default_factory=dict)
     module_options: dict = field(default_factory=dict)
@@ -449,6 +930,18 @@ class Task(Object, Resolvable):
         return self
 
     @property
+    def action(self):
+        return self.executable
+
+    @property
+    def resolved_action(self):
+        return self.resolved_name
+
+    @property
+    def line_number(self):
+        return self.line_num_in_file
+
+    @property
     def id(self):
         return json.dumps(
             {
@@ -464,11 +957,12 @@ class Task(Object, Resolvable):
 
 
 @dataclass
-class TaskCall(CallObject):
+class TaskCall(CallObject, RunTarget):
     type: str = "taskcall"
     # annotations are used for storing generic analysis data
     # any Annotators in "annotators" dir can add them to this object
     annotations: List[Annotation] = field(default_factory=list)
+    args: Arguments = field(default_factory=Arguments)
 
     def get_annotation_by_type(self, type_str=""):
         matched = [an for an in self.annotations if an.type == type_str]
@@ -477,6 +971,127 @@ class TaskCall(CallObject):
     def get_annotation_by_type_and_attr(self, type_str="", key="", val=None):
         matched = [an for an in self.annotations if hasattr(an, "type") and an.type == type_str and getattr(an, key, None) == val]
         return matched
+
+    def has_annotation(self, cond: AnnotationCondition):
+        anno = self.get_annotation(cond)
+        if anno:
+            return True
+        return False
+
+    def get_annotation(self, cond: AnnotationCondition):
+        _annotations = self.annotations
+        if cond.type:
+            _annotations = [an for an in _annotations if an.type == RiskAnnotation.type and an.risk_type == cond.type]
+        if cond.attr_conditions:
+            for (key, val) in cond.attr_conditions:
+                _annotations = [an for an in _annotations if hasattr(an, key) and getattr(an, key) == val]
+        if _annotations:
+            return _annotations[0]
+        return None
+
+    @property
+    def resolved_name(self):
+        return self.spec.resolved_name
+
+    @property
+    def resolved_action(self):
+        return self.resolved_name
+
+    @property
+    def action_type(self):
+        return self.spec.executable_type
+
+
+@dataclass
+class AnsibleRunContext(object):
+    sequence: RunTargetList = None
+    root_key: str = ""
+
+    # used by rule check
+    current: RunTarget = None
+    _i: int = 0
+
+    # TODO: implement the following attributes
+    vars: any = None
+    host_info: any = None
+
+    def __len__(self):
+        return len(self.sequence)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self._i == len(self.sequence):
+            self._i = 0
+            self.current = None
+            raise StopIteration()
+        t = self.sequence[self._i]
+        self.current = t
+        self._i += 1
+        return t
+
+    def __getitem__(self, i):
+        return self.sequence[i]
+
+    @staticmethod
+    def from_tree(tree: ObjectList):
+        if not tree:
+            return AnsibleRunContext()
+        if len(tree.items) == 0:
+            return AnsibleRunContext()
+
+        root_key = tree.items[0].spec.key
+        sequence = []
+        for item in tree.items:
+            if not isinstance(item, RunTarget):
+                continue
+            sequence.append(item)
+        return AnsibleRunContext(
+            sequence=sequence,
+            root_key=root_key,
+        )
+
+    @staticmethod
+    def from_targets(targets: List[RunTarget], root_key: str = ""):
+        if not root_key:
+            if len(targets) > 0:
+                root_key = targets[0].spec.key
+        l = RunTargetList(items=targets)
+        return AnsibleRunContext(sequence=l, root_key=root_key)
+
+    def find(self, target: RunTarget):
+        for t in self.sequence:
+            if t.key == target.key:
+                return t
+        return None
+
+    def before(self, target: RunTarget):
+        targets = []
+        for rt in self.sequence:
+            if rt.key == target.key:
+                break
+            targets.append(rt)
+        return AnsibleRunContext.from_targets(targets, root_key=self.root_key)
+
+    def search(self, cond: AnnotationCondition):
+        targets = [t for t in self.sequence if t.type == RunTargetType.Task and t.has_annotation(cond)]
+        return AnsibleRunContext.from_targets(targets, root_key=self.root_key)
+
+    @property
+    def taskcalls(self):
+        return [t for t in self.sequence if t.type == RunTargetType.Task]
+
+    @property
+    def tasks(self):
+        return self.taskcalls
+
+    @property
+    def annotations(self):
+        anno_list = []
+        for tc in self.taskcalls:
+            anno_list.extend(tc.annotations)
+        return RiskAnnotationList(anno_list)
 
 
 @dataclass
@@ -565,7 +1180,7 @@ class Role(Object, Resolvable):
 
 
 @dataclass
-class RoleCall(CallObject):
+class RoleCall(CallObject, RunTarget):
     type: str = "rolecall"
 
 
@@ -685,7 +1300,7 @@ class Playbook(Object, Resolvable):
 
 
 @dataclass
-class PlaybookCall(CallObject):
+class PlaybookCall(CallObject, RunTarget):
     type: str = "playbookcall"
 
 

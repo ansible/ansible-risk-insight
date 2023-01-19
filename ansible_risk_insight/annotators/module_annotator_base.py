@@ -14,21 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from dataclasses import dataclass
 from ansible_risk_insight.models import TaskCall
-from ansible_risk_insight.annotators.risk_annotator_base import RiskAnnotator
+from ansible_risk_insight.annotators.annotator_base import Annotator, AnnotatorResult
 
 
-class AnsibleBuiltinRiskAnnotator(RiskAnnotator):
-    name: str = "ansible.builtin"
-    enabled: bool = True
+class ModuleAnnotator(Annotator):
+    type: str = "module_annotation"
+    fqcn: str = "<module FQCN to be annotated by this>"
 
-    def match(self, task: TaskCall) -> bool:
-        resolved_name = task.spec.resolved_name
-        return resolved_name.startswith("ansible.builtin.")
+    def run(self, task: TaskCall) -> AnnotatorResult:
+        raise ValueError("this is a base class method")
 
-    # embed "analyzed_data" field in Task
-    def run(self, task: TaskCall):
-        if not self.match(task):
-            return []
 
-        return self.run_module_annotators("ansible.builtin", task)
+@dataclass
+class ModuleAnnotatorResult(AnnotatorResult):
+    pass
