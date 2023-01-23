@@ -339,44 +339,87 @@ class TaskCallsInTree(JSONSerializable):
     taskcalls: list = field(default_factory=list)
 
 
-class VariableType:
-    NORMAL = "normal"
-    LOOP_VAR = "loop_var"
-    REGISTERED_VARS = "registered_vars"
-    SET_FACTS = "set_facts"
-    ROLE_DEFAULTS = "role_defaults"
-    ROLE_VARS = "role_vars"
-    INVENTORY_VARS = "inventory_vars"
-    # SPECIAL_VARS = "special_vars"
-    PARTIAL_RESOLVE = "partial_resolve"
-    FAILED_TO_RESOLVE = "failed_to_resolve"
+@dataclass
+class VariablePrecedence(object):
+    name: str = ""
+    order: int = -1
+
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return self.name
+
+    def __eq__(self, __o: object) -> bool:
+        return self.order == __o.order
+
+    def __ne__(self, __o: object) -> bool:
+        return not self.__eq__(__o)
+
+    def __lt__(self, __o: object):
+        return self.order < __o.order
+
+    def __le__(self, __o: object):
+        return self.__lt__(__o) or self.__eq__(__o)
+
+    def __gt__(self, __o: object):
+        return not self.__le__(__o)
+
+    def __ge__(self, __o: object):
+        return not self.__lt__(__o)
 
 
-mutable_types = [
-    VariableType.NORMAL,
-    VariableType.ROLE_DEFAULTS,
-    VariableType.ROLE_VARS,
-    VariableType.INVENTORY_VARS,
-    VariableType.REGISTERED_VARS,
-    VariableType.SET_FACTS,
-    # should treat the following as mutable
-    VariableType.PARTIAL_RESOLVE,
-    VariableType.FAILED_TO_RESOLVE,
-]
+class VariableType(object):
+    # When resolving variables, sometimes find unknown variables (e.g. undefined variable)
+    # so we consider it as one type of variable
+    Unknown = VariablePrecedence("unknown", -100)
+    # Variable Precedence
+    # https://docs.ansible.com/ansible/latest/playbook_guide
+    #     /playbooks_variables.html#understanding-variable-precedence
+    CommandLineValues = VariablePrecedence("command_line_values", 1)
+    RoleDefaults = VariablePrecedence("role_defaults", 2)
+    InventoryFileOrScriptGroupVars = VariablePrecedence("inventory_file_or_script_group_vars", 3)
+    InventoryGroupVarsAll = VariablePrecedence("inventory_group_vars_all", 4)
+    PlaybookGroupVarsAll = VariablePrecedence("playbook_group_vars_all", 5)
+    InventoryGroupVarsAny = VariablePrecedence("inventory_group_vars_any", 6)
+    PlaybookGroupVarsAny = VariablePrecedence("playbook_group_vars_any", 7)
+    InventoryFileOrScriptHostVars = VariablePrecedence("inventory_file_or_script_host_vars", 8)
+    InventoryHostVarsAny = VariablePrecedence("inventory_host_vars_any", 9)
+    PlaybookHostVarsAny = VariablePrecedence("playbook_host_vars_any", 10)
+    HostFactsOrCachedSetFacts = VariablePrecedence("host_facts_or_cached_set_facts", 11)
+    PlayVars = VariablePrecedence("play_vars", 12)
+    PlayVarsPrompt = VariablePrecedence("play_vars_prompt", 13)
+    PlayVarsFiles = VariablePrecedence("play_vars_files", 14)
+    RoleVars = VariablePrecedence("role_vars", 15)
+    BlockVars = VariablePrecedence("block_vars", 16)
+    TaskVars = VariablePrecedence("task_vars", 17)
+    IncludeVars = VariablePrecedence("include_vars", 18)
+    # we deal with set_facts and registered_vars separately
+    # because the expression in a fact will be evaluated everytime it is used
+    SetFacts = VariablePrecedence("set_facts", 19)
+    RegisteredVars = VariablePrecedence("registered_vars", 20)
+    RoleParams = VariablePrecedence("role_params", 21)
+    IncludeParams = VariablePrecedence("include_params", 22)
+    ExtraVars = VariablePrecedence("extra_vars", 23)
+    # vars defined in `loop` cannot be overridden by the vars above
+    # so we put this as a highest precedence var type
+    LoopVars = VariablePrecedence("loop_vars", 24)
 
 
-# Variable Precedence
-# https://docs.ansible.com/ansible/latest/playbook_guide
-#     /playbooks_variables.html#understanding-variable-precedence
+immutable_var_types = [VariableType.LoopVars]
+
+
 @dataclass
 class Variable(object):
     name: str = ""
     value: any = None
-    type: VariableType = field(default_factory=VariableType)
+    type: VariableType = None
+    elements: list = field(default_factory=list)
+    setter: any = None
 
     @property
     def is_mutable(self):
-        return self.type in mutable_types
+        return self.type not in immutable_var_types
 
 
 class ArgumentsType(object):
@@ -930,6 +973,21 @@ class Task(Object, Resolvable):
         return self
 
     @property
+    def defined_vars(self):
+        d_vars = self.variables
+        d_vars.update(self.registered_variables)
+        d_vars.update(self.set_facts)
+        return d_vars
+
+    @property
+    def tags(self):
+        return self.options.get("tags", None)
+
+    @property
+    def when(self):
+        return self.options.get("when", None)
+
+    @property
     def action(self):
         return self.executable
 
@@ -963,6 +1021,7 @@ class TaskCall(CallObject, RunTarget):
     # any Annotators in "annotators" dir can add them to this object
     annotations: List[Annotation] = field(default_factory=list)
     args: Arguments = field(default_factory=Arguments)
+    variables: dict = field(default_factory=dict)
 
     def get_annotation_by_type(self, type_str=""):
         matched = [an for an in self.annotations if an.type == type_str]

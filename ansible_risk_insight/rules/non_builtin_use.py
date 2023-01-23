@@ -41,6 +41,7 @@ class NonBuiltinUseRule(Rule):
         task = ctx.current
 
         result = task.action_type == ActionType.MODULE_TYPE and task.resolved_action and not task.resolved_action.startswith("ansible.builtin.")
+
         detail = {
             "fqcn": task.resolved_name,
         }

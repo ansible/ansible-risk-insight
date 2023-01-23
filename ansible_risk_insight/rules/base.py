@@ -46,6 +46,8 @@ class Tag:
     DEPENDENCY = "dependency"
     SYSTEM = "system"
     PACKAGE = "package"
+    CODING = "coding"
+    VARIABLE = "variable"
     DEBUG = "debug"
 
 

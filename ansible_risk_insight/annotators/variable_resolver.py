@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import List
 from ansible_risk_insight.keyutil import detect_type
@@ -27,6 +28,7 @@ from ansible_risk_insight.models import (
     Arguments,
     ArgumentsType,
     Variable,
+    VariableType,
 )
 from ansible_risk_insight.context import Context, resolve_module_options
 from ansible_risk_insight.annotators.annotator_base import Annotator, AnnotatorResult
@@ -43,17 +45,34 @@ class VariableAnnotator(Annotator):
         resolved = resolve_module_options(self.context, taskcall)
         resolved_module_options = resolved[0]
         resolved_variables = resolved[1]
-        # mutable_vars_per_mo=resolved[2]
+        # mutable_vars_per_mo = resolved[2]
+        used_variables = resolved[3]
         _vars = []
         is_mutable = False
         for rv in resolved_variables:
             v_name = rv.get("key", "")
             v_value = rv.get("value", "")
-            v_type = rv.get("type", "")
+            v_type = rv.get("type", VariableType.Unknown)
+            elements = []
+            if v_name in used_variables:
+                if not isinstance(used_variables[v_name], dict):
+                    continue
+                for u_v_name, info in used_variables[v_name].items():
+                    if u_v_name == v_name:
+                        continue
+                    u_v_value = info.get("value", "")
+                    u_v_type = info.get("type", VariableType.Unknown)
+                    u_v = Variable(
+                        name=u_v_name,
+                        value=u_v_value,
+                        type=u_v_type,
+                    )
+                    elements.append(u_v)
             v = Variable(
                 name=v_name,
                 value=v_value,
                 type=v_type,
+                elements=elements,
             )
             _vars.append(v)
             if v.is_mutable:
@@ -75,6 +94,8 @@ class VariableAnnotator(Annotator):
             is_mutable=is_mutable,
         )
         taskcall.args = args
+        # deep copy the history here because the context is updated by subsequent taskcalls
+        taskcall.variables = deepcopy(self.context.variable_history)
 
         return VariableAnnotatorResult()
 
