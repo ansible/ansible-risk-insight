@@ -857,6 +857,7 @@ class ExecutableType:
 @dataclass
 class BecomeInfo(object):
     enabled: bool = False
+    become: str = ""
     user: str = ""
     method: str = ""
     flags: str = ""
@@ -864,7 +865,12 @@ class BecomeInfo(object):
     @staticmethod
     def from_options(options: dict):
         if "become" in options:
-            enabled = boolean(options.get("become", "false"))
+            become = options.get("become", "")
+            enabled = False
+            try:
+                enabled = boolean(become)
+            except Exception:
+                pass
             user = options.get("become_user", "")
             method = options.get("become_method", "")
             flags = options.get("become_flags", "")
