@@ -66,6 +66,7 @@ class VariableAnnotator(Annotator):
                         name=u_v_name,
                         value=u_v_value,
                         type=u_v_type,
+                        used_in=taskcall.key,
                     )
                     elements.append(u_v)
             v = Variable(
@@ -73,10 +74,16 @@ class VariableAnnotator(Annotator):
                 value=v_value,
                 type=v_type,
                 elements=elements,
+                used_in=taskcall.key,
             )
             _vars.append(v)
             if v.is_mutable:
                 is_mutable = True
+
+        for v in _vars:
+            history = self.context.var_use_history.get(v.name, [])
+            history.append(v)
+            self.context.var_use_history[v.name] = history
 
         m_opts = taskcall.spec.module_options
         if isinstance(m_opts, list):
@@ -95,7 +102,9 @@ class VariableAnnotator(Annotator):
         )
         taskcall.args = args
         # deep copy the history here because the context is updated by subsequent taskcalls
-        taskcall.variables = deepcopy(self.context.variable_history)
+        taskcall.variable_set = deepcopy(self.context.var_set_history)
+        taskcall.variable_use = deepcopy(self.context.var_use_history)
+        taskcall.become = self.context.become
 
         return VariableAnnotatorResult()
 

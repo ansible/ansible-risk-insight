@@ -37,6 +37,7 @@ from .models import (
     TaskFile,
     TaskFormatError,
     Collection,
+    BecomeInfo,
 )
 from .finder import (
     find_best_repo_root_path,
@@ -413,6 +414,7 @@ def load_play(
     pbObj.post_tasks = post_tasks
     pbObj.roles = roles
     pbObj.options = play_options
+    pbObj.become = BecomeInfo.from_options(play_options)
     pbObj.collections_in_play = collections_in_play
 
     return pbObj
@@ -1015,6 +1017,7 @@ def load_task(
             loop_info[loop_var] = task_options.get(k, [])
 
     taskObj.options = task_options
+    taskObj.become = BecomeInfo.from_options(task_options)
     taskObj.variables = variables
     taskObj.registered_variables = registered_variables
     taskObj.set_facts = set_facts

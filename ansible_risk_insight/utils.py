@@ -315,7 +315,7 @@ def summarize_findings_data(metadata, dependencies, report, resolve_failures, ex
         for ext_req in extra_requirements:
             if ext_req.get("type", "") not in ["role", "module"]:
                 continue
-            req_name = ext_req.get("collection", {}).get("name", None)
+            req_name = ext_req.get("defined_in", {}).get("name", None)
             if req_name is None:
                 continue
             if req_name == target_name:
@@ -331,7 +331,7 @@ def summarize_findings_data(metadata, dependencies, report, resolve_failures, ex
             if obj_type == "role":
                 unresolved_roles.append(ext_req)
 
-            req_version = ext_req.get("collection", {}).get("version", None)
+            req_version = ext_req.get("defined_in", {}).get("version", None)
             req_str = json.dumps([req_name, req_version])
 
             if req_str not in suggestion:
@@ -345,7 +345,7 @@ def summarize_findings_data(metadata, dependencies, report, resolve_failures, ex
             for ext_req in unresolved_modules[:thresh]:
                 obj_name = ext_req.get("name", "")
                 used_in = ext_req.get("used_in", "")
-                req_name = ext_req.get("collection", {}).get("name", None)
+                req_name = ext_req.get("defined_in", {}).get("name", None)
                 short_name = obj_name.replace(f"{req_name}.", "")
                 table.append((short_name, used_in))
             if len(unresolved_modules) > thresh:
@@ -360,7 +360,7 @@ def summarize_findings_data(metadata, dependencies, report, resolve_failures, ex
             for ext_req in unresolved_roles[:thresh]:
                 obj_name = ext_req.get("name", "")
                 used_in = ext_req.get("used_in", "")
-                req_name = ext_req.get("collection", {}).get("name", None)
+                req_name = ext_req.get("defined_in", {}).get("name", None)
                 short_name = obj_name.replace(f"{req_name}.", "")
                 table.append((short_name, used_in))
             if len(unresolved_roles) > thresh:

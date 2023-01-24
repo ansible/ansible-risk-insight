@@ -592,7 +592,7 @@ class TreeLoader(object):
                                     {
                                         "type": "role",
                                         "name": matched_roles[0]["object"].fqcn,
-                                        "collection": matched_roles[0]["collection"],
+                                        "defined_in": matched_roles[0]["defined_in"],
                                         "used_in": obj.defined_in,
                                     }
                                 )
@@ -605,7 +605,7 @@ class TreeLoader(object):
                                         {
                                             "type": offspr_obj["type"],
                                             "name": offspr_obj["name"],
-                                            "collection": offspr_obj["collection"],
+                                            "defined_in": offspr_obj["defined_in"],
                                             "used_in": offspr_obj["used_in"],
                                         }
                                     )
@@ -647,7 +647,7 @@ class TreeLoader(object):
                                         {
                                             "type": "module",
                                             "name": matched_modules[0]["object"].fqcn,
-                                            "collection": matched_modules[0]["collection"],
+                                            "defined_in": matched_modules[0]["defined_in"],
                                             "used_in": obj.defined_in,
                                         }
                                     )
@@ -682,7 +682,7 @@ class TreeLoader(object):
                                     {
                                         "type": "role",
                                         "name": matched_roles[0]["object"].fqcn,
-                                        "collection": matched_roles[0]["collection"],
+                                        "defined_in": matched_roles[0]["defined_in"],
                                         "used_in": obj.defined_in,
                                     }
                                 )
@@ -695,7 +695,7 @@ class TreeLoader(object):
                                         {
                                             "type": offspr_obj["type"],
                                             "name": offspr_obj["name"],
-                                            "collection": offspr_obj["collection"],
+                                            "defined_in": offspr_obj["defined_in"],
                                             "used_in": offspr_obj["used_in"],
                                         }
                                     )
@@ -731,7 +731,7 @@ class TreeLoader(object):
                                     {
                                         "type": "taskfile",
                                         "name": matched_taskfiles[0]["object"].key,
-                                        "collection": matched_taskfiles[0]["collection"],
+                                        "defined_in": matched_taskfiles[0]["defined_in"],
                                         "used_in": obj.defined_in,
                                     }
                                 )
@@ -744,7 +744,7 @@ class TreeLoader(object):
                                         {
                                             "type": offspr_obj["type"],
                                             "name": offspr_obj["name"],
-                                            "collection": offspr_obj["collection"],
+                                            "defined_in": offspr_obj["defined_in"],
                                             "used_in": offspr_obj["used_in"],
                                         }
                                     )

@@ -32,6 +32,7 @@ from .models import (
     CallObject,
     Variable,
     VariableType,
+    BecomeInfo,
     immutable_var_types,
 )
 
@@ -173,8 +174,10 @@ class Context:
     registered_vars: list = field(default_factory=list)
     set_facts: list = field(default_factory=list)
 
-    # TODO: implement variable parser for Playbook, Play
-    variable_history: dict = field(default_factory=dict)
+    become: BecomeInfo = None
+
+    var_set_history: dict = field(default_factory=dict)
+    var_use_history: dict = field(default_factory=dict)
 
     _flat_vars: dict = field(default_factory=dict)
 
@@ -192,16 +195,18 @@ class Context:
             self.variables.update(_spec.variables)
             self.update_flat_vars(_spec.variables)
             for key, val in _spec.variables.items():
-                current = self.variable_history.get(key, [])
+                current = self.var_set_history.get(key, [])
                 current.append(Variable(name=key, value=val, type=VariableType.PlaybookGroupVarsAll, setter=_spec.key))
-                self.variable_history[key] = current
+                self.var_set_history[key] = current
         elif isinstance(_spec, Play):
             self.variables.update(_spec.variables)
             self.update_flat_vars(_spec.variables)
             for key, val in _spec.variables.items():
-                current = self.variable_history.get(key, [])
+                current = self.var_set_history.get(key, [])
                 current.append(Variable(name=key, value=val, type=VariableType.PlayVars, setter=_spec.key))
-                self.variable_history[key] = current
+                self.var_set_history[key] = current
+            if _spec.become:
+                self.become = _spec.become
         elif isinstance(_spec, Role):
             self.variables.update(_spec.default_variables)
             self.update_flat_vars(_spec.default_variables)
@@ -212,13 +217,13 @@ class Context:
             for var_name in _spec.variables:
                 self.role_vars.append(var_name)
             for key, val in _spec.default_variables.items():
-                current = self.variable_history.get(key, [])
+                current = self.var_set_history.get(key, [])
                 current.append(Variable(name=key, value=val, type=VariableType.RoleDefaults, setter=_spec.key))
-                self.variable_history[key] = current
+                self.var_set_history[key] = current
             for key, val in _spec.variables.items():
-                current = self.variable_history.get(key, [])
+                current = self.var_set_history.get(key, [])
                 current.append(Variable(name=key, value=val, type=VariableType.RoleVars, setter=_spec.key))
-                self.variable_history[key] = current
+                self.var_set_history[key] = current
         elif isinstance(_spec, Collection):
             self.variables.update(_spec.variables)
             self.update_flat_vars(_spec.variables)
@@ -237,17 +242,19 @@ class Context:
             for var_name in _spec.set_facts:
                 self.set_facts.append(var_name)
             for key, val in _spec.variables.items():
-                current = self.variable_history.get(key, [])
+                current = self.var_set_history.get(key, [])
                 current.append(Variable(name=key, value=val, type=VariableType.TaskVars, setter=_spec.key))
-                self.variable_history[key] = current
+                self.var_set_history[key] = current
             for key, val in _spec.registered_variables.items():
-                current = self.variable_history.get(key, [])
+                current = self.var_set_history.get(key, [])
                 current.append(Variable(name=key, value=val, type=VariableType.RegisteredVars, setter=_spec.key))
-                self.variable_history[key] = current
+                self.var_set_history[key] = current
             for key, val in _spec.set_facts.items():
-                current = self.variable_history.get(key, [])
+                current = self.var_set_history.get(key, [])
                 current.append(Variable(name=key, value=val, type=VariableType.SetFacts, setter=_spec.key))
-                self.variable_history[key] = current
+                self.var_set_history[key] = current
+            if _spec.become:
+                self.become = _spec.become
         else:
             # Module
             return

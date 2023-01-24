@@ -22,6 +22,7 @@ from collections.abc import Callable
 import json
 import jsonpickle
 import logging
+from ansible.module_utils.parsing.convert_bool import boolean
 from .keyutil import (
     set_collection_key,
     set_module_key,
@@ -32,6 +33,7 @@ from .keyutil import (
     set_task_key,
     set_taskfile_key,
     set_call_object_key,
+    get_obj_info_by_key,
 )
 
 logging.basicConfig()
@@ -416,6 +418,7 @@ class Variable(object):
     type: VariableType = None
     elements: list = field(default_factory=list)
     setter: any = None
+    used_in: any = None
 
     @property
     def is_mutable(self):
@@ -852,6 +855,24 @@ class ExecutableType:
 
 
 @dataclass
+class BecomeInfo(object):
+    enabled: bool = False
+    user: str = ""
+    method: str = ""
+    flags: str = ""
+
+    @staticmethod
+    def from_options(options: dict):
+        if "become" in options:
+            enabled = boolean(options.get("become", "false"))
+            user = options.get("become_user", "")
+            method = options.get("become_method", "")
+            flags = options.get("become_flags", "")
+            return BecomeInfo(enabled=enabled, user=user, method=method, flags=flags)
+        return None
+
+
+@dataclass
 class Task(Object, Resolvable):
     type: str = "task"
     name: str = ""
@@ -863,6 +884,7 @@ class Task(Object, Resolvable):
     local_key: str = ""
     role: str = ""
     collection: str = ""
+    become: BecomeInfo = None
     variables: dict = field(default_factory=dict)
     registered_variables: dict = field(default_factory=dict)
     set_facts: dict = field(default_factory=dict)
@@ -1021,7 +1043,9 @@ class TaskCall(CallObject, RunTarget):
     # any Annotators in "annotators" dir can add them to this object
     annotations: List[Annotation] = field(default_factory=list)
     args: Arguments = field(default_factory=Arguments)
-    variables: dict = field(default_factory=dict)
+    variable_set: dict = field(default_factory=dict)
+    variable_use: dict = field(default_factory=dict)
+    become: BecomeInfo = None
 
     def get_annotation_by_type(self, type_str=""):
         matched = [an for an in self.annotations if an.type == type_str]
@@ -1136,6 +1160,22 @@ class AnsibleRunContext(object):
     def search(self, cond: AnnotationCondition):
         targets = [t for t in self.sequence if t.type == RunTargetType.Task and t.has_annotation(cond)]
         return AnsibleRunContext.from_targets(targets, root_key=self.root_key)
+
+    def is_end(self, target: RunTarget):
+        if len(self) == 0:
+            return False
+        return target.key == self.sequence[-1].key
+
+    def is_begin(self, target: RunTarget):
+        if len(self) == 0:
+            return False
+        return target.key == self.sequence[0].key
+
+    @property
+    def info(self):
+        if not self.root_key:
+            return {}
+        return get_obj_info_by_key(self.root_key)
 
     @property
     def taskcalls(self):
@@ -1292,6 +1332,7 @@ class Play(Object, Resolvable):
     roles: list = field(default_factory=list)
     options: dict = field(default_factory=dict)
     collections_in_play: list = field(default_factory=list)
+    become: BecomeInfo = None
     variables: dict = field(default_factory=dict)
 
     def set_key(self, parent_key="", parent_local_key=""):
