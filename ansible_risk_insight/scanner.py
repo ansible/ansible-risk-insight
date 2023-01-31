@@ -19,6 +19,7 @@ import sys
 import copy
 import shutil
 import json
+import yaml
 import tempfile
 import logging
 import jsonpickle
@@ -54,6 +55,7 @@ from .utils import (
     escape_local_path,
     summarize_findings,
     summarize_findings_data,
+    split_target_playbook_fullpath,
 )
 
 
@@ -96,6 +98,8 @@ class ARIScanner(object):
     collection_name: str = ""
     role_name: str = ""
 
+    target_playbook_name: str = None
+
     install_log: str = ""
     tmp_install_dir: tempfile.TemporaryDirectory = None
 
@@ -120,11 +124,13 @@ class ARIScanner(object):
     dependency_dir: str = ""
     target_path: str = ""
     loaded_dependency_dirs: list = field(default_factory=list)
+    use_src_cache: bool = True
 
     prm: dict = field(default_factory=dict)
 
     ram_client: RAMClient = None
-    without_ram: bool = False
+    read_ram: bool = True
+    write_ram: bool = True
 
     do_save: bool = False
     _parser: Parser = None
@@ -138,6 +144,7 @@ class ARIScanner(object):
     show_all: bool = False
     pretty: bool = False
     silent: bool = False
+    output_format: str = ""
 
     extra_requirements: list = field(default_factory=list)
     resolve_failures: dict = field(default_factory=dict)
@@ -176,9 +183,11 @@ class ARIScanner(object):
                 ),
             }
 
-        elif self.type == LoadType.PROJECT:
+        elif self.type == LoadType.PROJECT or self.type == LoadType.PLAYBOOK:
             type_root = self.type + "s"
             proj_name = escape_url(self.name)
+            if self.type == LoadType.PLAYBOOK:
+                _, self.target_playbook_name = split_target_playbook_fullpath(self.name)
             self.__path_mappings = {
                 "src": os.path.join(self.root_dir, type_root, proj_name, "src"),
                 "root_definitions": os.path.join(
@@ -230,7 +239,10 @@ class ARIScanner(object):
             tmp_install_dir=self.tmp_install_dir,
         )
         dep_dirs = ddp.prepare_dir(
-            root_install=root_install, is_src_installed=self.is_src_installed(), cache_enabled=True, cache_dir=os.path.join(self.root_dir, "archives")
+            root_install=root_install,
+            is_src_installed=self.is_src_installed(),
+            cache_enabled=self.use_src_cache,
+            cache_dir=os.path.join(self.root_dir, "archives"),
         )
 
         self.target_path = target_path
@@ -297,7 +309,7 @@ class ARIScanner(object):
                 # use prepared dep dirs
                 dep_scanner.load(prepare_dependencies=False)
 
-                if not self.without_ram:
+                if self.read_ram:
                     # searching findings from ARI RAM and use them if found
                     loaded, ext_defs = self.load_definitions_from_findings(ext_type, ext_name, ext_ver, ext_hash)
                     if loaded:
@@ -314,7 +326,7 @@ class ARIScanner(object):
             logging.debug("load_definition_ext() done")
 
         loaded = False
-        if not self.without_ram and self.type != LoadType.PROJECT:
+        if self.read_ram and self.type != LoadType.PROJECT:
             loaded, root_defs = self.load_definitions_from_findings(self.type, self.name, self.version, self.hash)
             if loaded:
                 self.root_definitions = root_defs
@@ -326,6 +338,12 @@ class ARIScanner(object):
 
         if not self.silent:
             logging.debug("load_definitions_root() done")
+            playbooks_num = len(self.root_definitions["definitions"]["playbooks"])
+            roles_num = len(self.root_definitions["definitions"]["roles"])
+            taskfiles_num = len(self.root_definitions["definitions"]["taskfiles"])
+            tasks_num = len(self.root_definitions["definitions"]["tasks"])
+            modules_num = len(self.root_definitions["definitions"]["modules"])
+            logging.debug(f"playbooks: {playbooks_num}, roles: {roles_num}, taskfiles: {taskfiles_num}, tasks: {tasks_num}, modules: {modules_num}")
 
         self.set_trees()
         if not self.silent:
@@ -345,7 +363,8 @@ class ARIScanner(object):
             # print("ext definitions:", ext_counts)
             # print("root definitions:", root_counts)
 
-        if len(self.extra_requirements) == 0:
+        # save RAM data
+        if self.write_ram:
             self.register_findings_to_db()
 
         if self.out_dir is not None and self.out_dir != "":
@@ -358,8 +377,13 @@ class ARIScanner(object):
             print(summary)
 
         if self.pretty:
-            if not self.silent:
-                print(json.dumps(self.findings.simple(), indent=2))
+            data_str = ""
+            data = json.loads(jsonpickle.encode(self.findings.simple(), make_refs=False))
+            if self.output_format.lower() == "json":
+                data_str = json.dumps(data, indent=2)
+            elif self.output_format.lower() == "yaml":
+                data_str = yaml.safe_dump(data)
+            print(data_str)
 
         return
 
@@ -394,6 +418,11 @@ class ARIScanner(object):
             else:
                 target_path = os.path.join(self.root_dir, typ + "s", "src", target_name)
         elif typ == LoadType.PROJECT:
+            if is_url(target_name):
+                target_path = os.path.join(self.get_src_root(), escape_url(target_name))
+            else:
+                target_path = target_name
+        elif typ == LoadType.PLAYBOOK:
             if is_url(target_name):
                 target_path = os.path.join(self.get_src_root(), escape_url(target_name))
             else:
@@ -487,7 +516,7 @@ class ARIScanner(object):
             if target_path == "":
                 target_path = self.get_source_path(ext_type, ext_name)
             root_load_data = self.create_load_file(ext_type, ext_name, target_path)
-        elif self.type == LoadType.PROJECT:
+        elif self.type in [LoadType.PROJECT, LoadType.PLAYBOOK]:
             src_root = self.get_src_root()
             if target_path == "":
                 target_path = os.path.join(src_root, escape_url(self.name))
@@ -499,9 +528,11 @@ class ARIScanner(object):
 
     def set_trees(self):
         tree_ram_client = None
-        if not self.without_ram:
+        if self.read_ram:
             tree_ram_client = self.ram_client
-        trees, additional, extra_requirements, resolve_failures = tree(self.root_definitions, self.ext_definitions, tree_ram_client)
+        trees, additional, extra_requirements, resolve_failures = tree(
+            self.root_definitions, self.ext_definitions, tree_ram_client, self.target_playbook_name
+        )
         self.trees = trees
         self.additional = additional
         self.extra_requirements = extra_requirements
@@ -808,14 +839,19 @@ class ARIScanner(object):
         self.ram_client.save_error(error, out_dir)
 
 
-def tree(root_definitions, ext_definitions, ram_client=None):
-    tl = TreeLoader(root_definitions, ext_definitions, ram_client)
+def tree(root_definitions, ext_definitions, ram_client=None, target_playbook_path=None):
+    tl = TreeLoader(root_definitions, ext_definitions, ram_client, target_playbook_path)
     trees, additional = tl.run()
     if trees is None:
         raise ValueError("failed to get trees")
     # if node_objects is None:
     #     raise ValueError("failed to get node_objects")
-    return trees, additional, tl.extra_requirements, tl.resolve_failures
+    return (
+        trees,
+        additional,
+        tl.extra_requirements,
+        tl.resolve_failures,
+    )
 
 
 def resolve(trees, additional):

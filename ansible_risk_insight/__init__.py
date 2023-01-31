@@ -18,7 +18,7 @@ import sys
 from .cli import ARICLI
 from .cli.ram import RAMCLI
 
-ari_actions = ["project", "collection", "role"]
+ari_actions = ["project", "playbook", "collection", "role"]
 ram_actions = ["ram"]
 
 all_actions = ari_actions + ram_actions

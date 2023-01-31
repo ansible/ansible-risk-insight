@@ -24,6 +24,7 @@ class NonFQCNUseRuleResult(RuleResult):
     pass
 
 
+@dataclass
 class NonFQCNUseRule(Rule):
     rule_id: str = "R105"
     description: str = "A task with a short module name is found"
@@ -31,7 +32,7 @@ class NonFQCNUseRule(Rule):
     name: str = "NonFQCNUse"
     version: str = "v0.0.1"
     severity: Severity = Severity.LOW
-    tags: list = [Tag.DEPENDENCY]
+    tags: tuple = Tag.DEPENDENCY
     result_type: type = NonFQCNUseRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

@@ -35,7 +35,7 @@ GALAXY_yml = "GALAXY.yml"
 
 
 def find_dependency(type, target, dependency_dir):
-    dependencies = {"dependencies": "", "type": "", "file": ""}
+    dependencies = {"dependencies": {}, "type": "", "file": ""}
     logging.debug("search dependency")
     if dependency_dir:
         requirements, paths, metadata = load_existing_dependency_dir(dependency_dir)

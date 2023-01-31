@@ -14,10 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from dataclasses import dataclass, field
+
 from ansible_risk_insight.models import ExecutableType, AnsibleRunContext
 from ansible_risk_insight.rules.base import Rule, subject_placeholder, Severity, Tag, RuleResult
 
 
+@dataclass
 class ExternalDependencyRule(Rule):
     rule_id: str = "R999"
     description: str = "deprecated"
@@ -25,9 +28,9 @@ class ExternalDependencyRule(Rule):
     name: str = "ExternalDependency"
     version: str = "v0.0.1"
     severity: Severity = Severity.LOW
-    tags: list = [Tag.DEPENDENCY]
+    tags: tuple = Tag.DEPENDENCY
 
-    allow_list: list = []
+    allow_list: list = field(default_factory=list)
     separate_report: bool = True
     all_ok_message = "No {} depend on external dependencies".format(subject_placeholder)
 

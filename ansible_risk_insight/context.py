@@ -173,6 +173,7 @@ class Context:
     role_vars: list = field(default_factory=list)
     registered_vars: list = field(default_factory=list)
     set_facts: list = field(default_factory=list)
+    task_vars: list = field(default_factory=list)
 
     become: BecomeInfo = None
 

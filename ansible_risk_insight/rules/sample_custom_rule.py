@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from dataclasses import dataclass
+
 from ansible_risk_insight.models import AnsibleRunContext
 from ansible_risk_insight.rules.base import Rule, Severity, Tag, RuleResult
 
@@ -22,6 +24,7 @@ class SampleCustomRuleResult(RuleResult):
     pass
 
 
+@dataclass
 class SampleCustomRule(Rule):
     rule_id: str = "R999"
     description: str = "sample rule"
@@ -29,7 +32,7 @@ class SampleCustomRule(Rule):
     name: str = "SampleCustomRule"
     version: str = "v0.0.1"
     severity: Severity = Severity.VERY_LOW
-    tags: list = [Tag.DEBUG]
+    tags: tuple = Tag.DEBUG
 
     def is_target(self, ctx: AnsibleRunContext) -> bool:
         return True

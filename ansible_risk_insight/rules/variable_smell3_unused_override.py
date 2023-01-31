@@ -14,10 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from dataclasses import dataclass
+
 from ansible_risk_insight.models import AnsibleRunContext, RunTargetType
 from ansible_risk_insight.rules.base import Rule, Severity, Tag
 
 
+@dataclass
 class UnusedOverrideRule(Rule):
     rule_id: str = "R204"
     description: str = "A variable is not successfully re-defined because of low precedence"
@@ -25,7 +28,7 @@ class UnusedOverrideRule(Rule):
     name: str = "UnusedOverride"
     version: str = "v0.0.1"
     severity: Severity = Severity.LOW
-    tags: list = [Tag.VARIABLE]
+    tags: tuple = Tag.VARIABLE
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task

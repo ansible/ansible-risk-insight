@@ -50,6 +50,9 @@ from .finder import (
     search_taskfiles_for_playbooks,
     module_dir_patterns,
 )
+from .utils import (
+    split_target_playbook_fullpath,
+)
 from .awx_utils import could_be_playbook
 
 # collection info direcotry can be something like
@@ -81,6 +84,7 @@ def load_repository(
     installed_roles_path="",
     my_collection_name="",
     basedir="",
+    target_playbook_path="",
     load_children=True,
 ):
     repoObj = Repository()
@@ -145,6 +149,7 @@ def load_repository(
     repoObj.path = _path
     repoObj.installed_collections_path = installed_collections_path
     repoObj.installed_roles_path = installed_roles_path
+    repoObj.target_playbook_path = target_playbook_path
     logging.debug("done")
 
     return repoObj
@@ -479,7 +484,7 @@ def load_playbook(path, role_name="", collection_name="", basedir=""):
             try:
                 data = yaml.safe_load(file)
             except Exception as e:
-                logging.debug("failed to load this yaml file to load playbook; {}".format(e.args[0]))
+                logging.debug(f"failed to load this yaml file to load playbook; {e}")
     if data is None:
         return pbObj
     if not isinstance(data, list):
@@ -559,7 +564,7 @@ def load_role(
     if os.path.exists(os.path.join(basedir, path)):
         fullpath = os.path.normpath(os.path.join(basedir, path))
     if fullpath == "":
-        raise ValueError(f"directory not found: {path}")
+        raise ValueError(f"directory not found: {path}, {basedir}")
     meta_file_path = ""
     defaults_dir_path = ""
     vars_dir_path = ""
@@ -1220,7 +1225,8 @@ def load_object(loadObj):
     elif target_type == LoadType.ROLE:
         obj = load_role(path=path, basedir=path, load_children=False)
     elif target_type == LoadType.PLAYBOOK:
-        obj = load_playbook(path=path, role_name="", collection_name="", basedir=path)
+        basedir, target_playbook_path = split_target_playbook_fullpath(path)
+        obj = load_repository(path=basedir, basedir=basedir, target_playbook_path=target_playbook_path, load_children=False)
     elif target_type == LoadType.PROJECT:
         obj = load_repository(path=path, basedir=path, load_children=False)
 

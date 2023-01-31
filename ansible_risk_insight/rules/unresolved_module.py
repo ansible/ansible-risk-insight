@@ -24,14 +24,16 @@ class UnresolvedModuleRuleResult(RuleResult):
     pass
 
 
+@dataclass
 class UnresolvedModuleRule(Rule):
     rule_id: str = "R110"
-    description: str = "A task uses an unresolved module"
+    description: str = "Unresolved module is found"
     enabled: bool = True
     name: str = "UnresolvedModule"
     version: str = "v0.0.1"
     severity: Severity = Severity.LOW
-    tags: list = [Tag.DEPENDENCY]
+    tags: tuple = Tag.DEPENDENCY
+
     result_type: type = UnresolvedModuleRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

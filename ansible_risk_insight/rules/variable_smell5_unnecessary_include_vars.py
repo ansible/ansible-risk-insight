@@ -14,10 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from dataclasses import dataclass
+
 from ansible_risk_insight.models import AnsibleRunContext, RunTargetType, ExecutableType as ActionType
 from ansible_risk_insight.rules.base import Rule, Severity, Tag
 
 
+@dataclass
 class UnnecessaryIncludeVarsRule(Rule):
     rule_id: str = "R206"
     description: str = "include_vars is used without any condition"
@@ -25,7 +28,7 @@ class UnnecessaryIncludeVarsRule(Rule):
     name: str = "UnnecessaryIncludeVars"
     version: str = "v0.0.1"
     severity: Severity = Severity.LOW
-    tags: list = [Tag.VARIABLE]
+    tags: tuple = Tag.VARIABLE
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task

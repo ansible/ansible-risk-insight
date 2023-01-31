@@ -163,6 +163,16 @@ def split_name_and_version(target_name):
     return name, version
 
 
+def split_target_playbook_fullpath(fullpath: str):
+    basedir = os.path.dirname(fullpath)
+    if "/playbooks/" in fullpath:
+        basedir = fullpath.split("/playbooks/")[0]
+    target_playbook_path = fullpath.replace(basedir, "")
+    if target_playbook_path[0] == "/":
+        target_playbook_path = target_playbook_path[1:]
+    return basedir, target_playbook_path
+
+
 def version_to_num(ver: str):
     if ver == "unknown":
         return 0
@@ -203,49 +213,50 @@ def indent(multi_line_txt, level=0):
 
 def report_to_display(data_report: dict):
     playbook_num_total = data_report["summary"].get("playbooks", {}).get("total", 0)
-    playbook_num_risk_found = data_report["summary"].get("playbooks", {}).get("risk_found", 0)
+    # playbook_num_risk_found = data_report["summary"].get("playbooks", {}).get("risk_found", 0)
     role_num_total = data_report["summary"].get("roles", {}).get("total", 0)
-    role_num_risk_found = data_report["summary"].get("roles", {}).get("risk_found", 0)
+    # role_num_risk_found = data_report["summary"].get("roles", {}).get("risk_found", 0)
 
-    result_txt = ""
-    result_txt += "-" * 90 + "\n"
-    result_txt += "Ansible Risk Insight Report\n"
-    result_txt += "-" * 90 + "\n"
+    output_txt = ""
+    output_txt += "-" * 90 + "\n"
+    output_txt += "Ansible Risk Insight Report\n"
+    output_txt += "-" * 90 + "\n"
 
-    if playbook_num_total > 0:
-        result_txt += "Playbooks\n"
-        result_txt += "  Total: {}\n".format(playbook_num_total)
-        result_txt += "  Risk Found: {}\n".format(playbook_num_risk_found)
+    if playbook_num_total + role_num_total == 0:
+        output_txt += "No playbooks and roles found\n"
+    else:
+        found_contents = ""
+        if playbook_num_total > 0:
+            found_contents += f"{playbook_num_total} playbooks"
 
-    if role_num_total > 0:
-        result_txt += "Roles\n"
-        result_txt += "  Total: {}\n".format(role_num_total)
-        result_txt += "  Risk Found: {}\n".format(role_num_risk_found)
+        if role_num_total > 0:
+            if found_contents != "":
+                found_contents += " and "
+            found_contents += f"{role_num_total} roles"
 
-    if playbook_num_total == 0 and role_num_total == 0:
-        result_txt += "No playbooks and roles found\n"
+        output_txt += f"{found_contents} found\n"
 
-    result_txt += "-" * 90 + "\n"
+    output_txt += "-" * 90 + "\n"
 
     report_num = 1
     for detail in data_report["details"]:
-        result_txt_for_this_tree = ""
+        output_txt_for_this_tree = ""
         do_report = False
-        # result_txt_for_this_tree += "#{} {} - {}\n".format(report_num, tree_root_type.upper(), tree_root_name)
+        # output_txt_for_this_tree += "#{} {} - {}\n".format(report_num, tree_root_type.upper(), tree_root_name)
         results_list = detail.get("results", [])
 
         for result_info in results_list:
-            result = result_info.get("result", "")
-            if result == "":
+            output = result_info.get("output", "")
+            if output == "":
                 continue
             do_report = True
-            # result_txt_for_this_tree += rule_name + "\n"
-            result_txt_for_this_tree += indent(result, 0) + "\n"
-        result_txt_for_this_tree += "-" * 90 + "\n"
+            # output_txt_for_this_tree += rule_name + "\n"
+            output_txt_for_this_tree += indent(output, 0) + "\n"
+        output_txt_for_this_tree += "-" * 90 + "\n"
         if do_report:
-            result_txt += result_txt_for_this_tree
+            output_txt += output_txt_for_this_tree
             report_num += 1
-    return result_txt
+    return output_txt
 
 
 def summarize_findings(findings: Findings, show_all: bool = False):
@@ -260,9 +271,9 @@ def summarize_findings(findings: Findings, show_all: bool = False):
 def summarize_findings_data(metadata, dependencies, report, resolve_failures, extra_requirements, show_all: bool = False):
     target_name = metadata.get("name", "")
     output_lines = []
-    if len(extra_requirements) == 0 or show_all:
-        report_txt = report_to_display(report)
-        output_lines.append(report_txt)
+
+    report_txt = report_to_display(report)
+    output_lines.append(report_txt)
 
     if len(dependencies) > 0:
         output_lines.append("External Dependencies")
@@ -497,19 +508,22 @@ def load_classes_in_dir(dir_path: str, target_class: type, base_dir: str = "", o
     scripts = [os.path.join(search_path, f) for f in files if f[-3:] == ".py"]
     classes = []
     for s in scripts:
-        short_module_name = os.path.basename(s)[:-3]
-        spec = spec_from_file_location(short_module_name, s)
-        mod = module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        for k in mod.__dict__:
-            cls = getattr(mod, k)
-            if not callable(cls):
-                continue
-            if not isclass(cls):
-                continue
-            if not issubclass(cls, target_class):
-                continue
-            if only_subclass and cls == target_class:
-                continue
-            classes.append(cls)
+        try:
+            short_module_name = os.path.basename(s)[:-3]
+            spec = spec_from_file_location(short_module_name, s)
+            mod = module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            for k in mod.__dict__:
+                cls = getattr(mod, k)
+                if not callable(cls):
+                    continue
+                if not isclass(cls):
+                    continue
+                if not issubclass(cls, target_class):
+                    continue
+                if only_subclass and cls == target_class:
+                    continue
+                classes.append(cls)
+        except Exception as e:
+            raise ValueError(f"failed to load module {s}: {e}")
     return classes

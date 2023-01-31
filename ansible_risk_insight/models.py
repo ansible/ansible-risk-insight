@@ -17,6 +17,7 @@
 from dataclasses import dataclass, field
 from typing import List, Union
 from collections.abc import Callable
+from tabulate import tabulate
 
 # from copy import deepcopy
 import json
@@ -208,22 +209,28 @@ class CallObject(JSONSerializable):
     key: str = ""
     called_from: str = ""
     spec: Object = field(default_factory=Object)
+    depth: int = -1
 
     @classmethod
     def from_spec(cls, spec, caller):
         instance = cls()
         instance.spec = spec
         caller_key = "None"
+        depth = 0
         if caller is not None:
             instance.called_from = caller.key
             caller_key = caller.key
+            depth = caller.depth + 1
+        instance.depth = depth
         instance.key = set_call_object_key(cls.__name__, spec.key, caller_key)
         return instance
 
 
 class RunTargetType:
     Playbook = "playbookcall"
+    Play = "playcall"
     Role = "rolecall"
+    TaskFile = "taskfilecall"
     Task = "taskcall"
 
 
@@ -410,6 +417,18 @@ class VariableType(object):
 
 immutable_var_types = [VariableType.LoopVars]
 
+var_type_table_label = [
+    VariableType.IncludeParams,
+    VariableType.RoleVars,
+    VariableType.RegisteredVars,
+    VariableType.SetFacts,
+    VariableType.IncludeVars,
+    VariableType.TaskVars,
+    VariableType.RoleVars,
+    VariableType.PlayVars,
+    VariableType.RoleDefaults,
+]
+
 
 @dataclass
 class Variable(object):
@@ -423,6 +442,31 @@ class Variable(object):
     @property
     def is_mutable(self):
         return self.type not in immutable_var_types
+
+
+@dataclass
+class VariableDict(object):
+    _dict: dict = field(default_factory=dict)
+
+    @staticmethod
+    def print_table(data: dict):
+        d = VariableDict(_dict=data)
+        table = []
+        for v_name in d._dict:
+            v_list = d._dict[v_name]
+            row = {"NAME": v_name}
+            for p in var_type_table_label:
+                value = "-"
+                for v in v_list:
+                    if v.type != p:
+                        continue
+                    value = v.value
+                    if isinstance(value, str) and value == "":
+                        value = '""'
+                type_label = p.name.upper()
+                row[type_label] = value
+            table.append(row)
+        return tabulate(table, headers="keys")
 
 
 class ArgumentsType(object):
@@ -1233,7 +1277,7 @@ class TaskFile(Object, Resolvable):
 
 
 @dataclass
-class TaskFileCall(CallObject):
+class TaskFileCall(CallObject, RunTarget):
     type: str = "taskfilecall"
 
 
@@ -1365,7 +1409,7 @@ class Play(Object, Resolvable):
 
 
 @dataclass
-class PlayCall(CallObject):
+class PlayCall(CallObject, RunTarget):
     type: str = "playcall"
 
 
@@ -1440,6 +1484,9 @@ class Repository(Object, Resolvable):
 
     playbooks: list = field(default_factory=list)
     roles: list = field(default_factory=list)
+
+    # for playbook scan
+    target_playbook_path: str = ""
 
     requirements: dict = field(default_factory=dict)
 

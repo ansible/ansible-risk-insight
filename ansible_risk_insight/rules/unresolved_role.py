@@ -20,20 +20,20 @@ from ansible_risk_insight.rules.base import Rule, Severity, Tag, RuleResult
 
 
 @dataclass
-class NonBuiltinUseRuleResult(RuleResult):
+class UnresolvedRoleRuleResult(RuleResult):
     pass
 
 
 @dataclass
-class NonBuiltinUseRule(Rule):
-    rule_id: str = "R104"
-    description: str = "Non-builtin module is used"
+class UnresolvedRoleRule(Rule):
+    rule_id: str = "R111"
+    description: str = "Unresolved role is found"
     enabled: bool = True
-    name: str = "NonBuiltinUse"
+    name: str = "UnresolvedRole"
     version: str = "v0.0.1"
     severity: Severity = Severity.LOW
     tags: tuple = Tag.DEPENDENCY
-    result_type: type = NonBuiltinUseRuleResult
+    result_type: type = UnresolvedRoleRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
@@ -41,10 +41,9 @@ class NonBuiltinUseRule(Rule):
     def check(self, ctx: AnsibleRunContext):
         task = ctx.current
 
-        result = task.action_type == ActionType.MODULE_TYPE and task.resolved_action and not task.resolved_action.startswith("ansible.builtin.")
-
+        result = task.action_type == ActionType.ROLE_TYPE and task.spec.action and not task.resolved_action
         detail = {
-            "fqcn": task.resolved_name,
+            "role": task.spec.action,
         }
 
         rule_result = self.create_result(result=result, detail=detail, task=task)

@@ -24,6 +24,7 @@ class ParameterizedImportTaskfileRuleResult(RuleResult):
     pass
 
 
+@dataclass
 class ParameterizedImportTaskfileRule(Rule):
     rule_id: str = "R107"
     description: str = "Import/include a parameterized name of taskfile"
@@ -31,7 +32,7 @@ class ParameterizedImportTaskfileRule(Rule):
     name: str = "ParameterizedImportTaskfile"
     version: str = "v0.0.1"
     severity: Severity = Severity.MEDIUM
-    tags: list = [Tag.DEPENDENCY]
+    tags: tuple = Tag.DEPENDENCY
     result_type: type = ParameterizedImportTaskfileRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

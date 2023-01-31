@@ -25,6 +25,7 @@ class OutboundRuleResult(RuleResult):
     pass
 
 
+@dataclass
 class InboundTransferRule(Rule):
     rule_id: str = "R102"
     description: str = "An outbound network transfer to a parameterized URL is found"
@@ -32,7 +33,7 @@ class InboundTransferRule(Rule):
     name: str = "OutboundTransfer"
     version: str = "v0.0.1"
     severity: Severity = Severity.MEDIUM
-    tags: list = [Tag.NETWORK]
+    tags: tuple = Tag.NETWORK
     result_type: type = OutboundRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

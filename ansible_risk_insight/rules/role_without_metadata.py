@@ -24,6 +24,7 @@ class RoleWithoutMetadataRuleResult(RuleResult):
     pass
 
 
+@dataclass
 class RoleWithoutMetadataRule(Rule):
     rule_id: str = "R108"
     description: str = "A role without metadata is used"
@@ -31,7 +32,7 @@ class RoleWithoutMetadataRule(Rule):
     name: str = "RoleWithoutMetadata"
     version: str = "v0.0.1"
     severity: Severity = Severity.LOW
-    tags: list = [Tag.DEPENDENCY]
+    tags: tuple = Tag.DEPENDENCY
     result_type: type = RoleWithoutMetadataRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

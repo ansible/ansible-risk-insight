@@ -24,6 +24,7 @@ class ParameterizedImportRoleRuleResult(RuleResult):
     pass
 
 
+@dataclass
 class ParameterizedImportRoleRule(Rule):
     rule_id: str = "R106"
     description: str = "Import/include a parameterized name of role"
@@ -31,7 +32,7 @@ class ParameterizedImportRoleRule(Rule):
     name: str = "ParameterizedImportRole"
     version: str = "v0.0.1"
     severity: Severity = Severity.HIGH
-    tags: list = [Tag.DEPENDENCY]
+    tags: tuple = Tag.DEPENDENCY
     result_type: type = ParameterizedImportRoleRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

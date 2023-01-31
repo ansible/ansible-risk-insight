@@ -63,7 +63,7 @@ class RAMClient(object):
     def make_findings_dir_path(self, type, name, version, hash):
         type_root = type + "s"
         dir_name = name
-        if type == LoadType.PROJECT:
+        if type in [LoadType.PROJECT, LoadType.PLAYBOOK]:
             dir_name = escape_url(name)
         ver_str = version if version != "" else "unknown"
         hash_str = hash if hash != "" else "unknown"
@@ -78,9 +78,12 @@ class RAMClient(object):
         mappings = {}
         if os.path.exists(findings_path):
             findings = Findings.load(fpath=findings_path)
-            definitions = findings.root_definitions.get("definitions", {})
-            mappings = findings.root_definitions.get("mappings", {})
-            loaded = True
+            # use RAM only if no unresolved dependency
+            # (RAM should be fully-resolved specs as much as possible)
+            if findings and len(findings.extra_requirements) == 0:
+                definitions = findings.root_definitions.get("definitions", {})
+                mappings = findings.root_definitions.get("mappings", {})
+                loaded = True
         return loaded, definitions, mappings
 
     def search_builtin_module(self, name, used_in=""):
@@ -189,7 +192,7 @@ class RAMClient(object):
                             "name": m.fqcn,
                             "object": m,
                             "defined_in": {
-                                "type": parts[-5][:-1],  # collection or role
+                                "type": parts[-6][:-1],  # collection or role
                                 "name": parts[-4],
                                 "version": parts[-3],
                                 "hash": parts[-2],

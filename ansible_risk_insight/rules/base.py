@@ -63,6 +63,12 @@ class RuleResult(object):
 
     _rule: any = None
 
+    def __post_init__(self):
+        if self.result:
+            self.result = True
+        else:
+            self.result = False
+
     def print(self):
         output = f"ruleID={self._rule.rule_id}, severity={self._rule.severity}, description={self._rule.description}, result={self.result}"
         if self.verbose:
@@ -85,6 +91,7 @@ class RuleResult(object):
         return None
 
 
+@dataclass
 class Rule(object):
     rule_id: str = ""
     description: str = ""
@@ -93,28 +100,23 @@ class Rule(object):
     enabled: bool = False
     version: str = ""
     severity: str = ""
-    tags: list = []
+    tags: tuple = ()
     separate_report: bool = False
     all_ok_message: str = ""
 
     result_type: type = RuleResult
 
-    def __init__(self, rule_id: str = "", description: str = "", result_type: type = RuleResult):
+    def __post_init__(self, rule_id: str = "", description: str = ""):
         if rule_id:
             self.rule_id = rule_id
         if description:
             self.description = description
-        if result_type:
-            self.result_type = result_type
 
         if not self.rule_id:
             raise ValueError("A rule must have a unique rule_id")
 
         if not self.description:
             raise ValueError("A rule must have a description")
-
-        if not self.result_type:
-            raise ValueError("A rule must have a result_type")
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         raise ValueError("this is a base class method")

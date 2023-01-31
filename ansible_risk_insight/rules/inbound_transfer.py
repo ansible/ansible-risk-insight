@@ -25,6 +25,7 @@ class InboundRuleResult(RuleResult):
     pass
 
 
+@dataclass
 class InboundTransferRule(Rule):
     rule_id: str = "R101"
     description: str = "A inbound network transfer from a parameterized source is found"
@@ -32,7 +33,7 @@ class InboundTransferRule(Rule):
     name: str = "InboundTransfer"
     version: str = "v0.0.1"
     severity: Severity = Severity.MEDIUM
-    tags: list = [Tag.NETWORK]
+    tags: tuple = Tag.NETWORK
     result_type: type = InboundRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

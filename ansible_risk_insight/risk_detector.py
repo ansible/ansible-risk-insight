@@ -37,6 +37,8 @@ def key2name(key: str):
 def load_rules():
     _rule_classes = load_classes_in_dir("rules", Rule, __file__)
     _rules = [r() for r in _rule_classes]
+    _rules = sorted(_rules, key=lambda r: int(r.rule_id[-3:]))
+
     return _rules
 
 
@@ -59,9 +61,11 @@ def detect(contexts: List[AnsibleRunContext], collection_name: str = ""):
     playbook_count = {"total": 0, "risk_found": 0}
     role_count = {"total": 0, "risk_found": 0}
 
-    data_report = {"summary": {}, "details": []}
+    data_report = {"summary": {}, "details": [], "node_rule_results": []}
     role_to_playbook_mappings = {}
     risk_found_playbooks = set()
+
+    node_rule_results = []
 
     num = len(contexts)
     for i, ctx in enumerate(contexts):
@@ -86,8 +90,26 @@ def detect(contexts: List[AnsibleRunContext], collection_name: str = ""):
         else:
             role_count["total"] += 1
 
+        single_node_rule_result = {"root": tree_root_name, "type": tree_root_type, "result_per_node": []}
+        for t in ctx:
+            ctx.current = t
+            node_results = {"node": t, "results": []}
+            for rule in rules:
+                if not rule.enabled:
+                    continue
+                matched = rule.match(ctx)
+                single_data = {"rule": rule, "matched": matched, "result": None, "output": None}
+                if matched:
+                    result = rule.check(ctx)
+                    single_data["result"] = result
+                    single_data["output"] = result.print()
+                node_results["results"].append(single_data)
+            single_node_rule_result["result_per_node"].append(node_results)
+        node_rule_results.append(single_node_rule_result)
+
         do_report = False
-        result_dict = {}
+        output_dict = {}
+        data_dict = {}
         rule_dict = {}
         rule_count = {
             "total": 0,
@@ -116,7 +138,9 @@ def detect(contexts: List[AnsibleRunContext], collection_name: str = ""):
                 rule_count["risk_found"] += 1
                 do_report = True
                 messages = [r.print() for r in triggered_results]
-                result_dict[rule.name] = "\n".join(messages)
+                detail_data = [r.detail for r in triggered_results]
+                output_dict[rule.name] = "\n".join(messages)
+                data_dict[rule.name] = detail_data
         result_list = [
             {
                 "rule": {
@@ -125,9 +149,10 @@ def detect(contexts: List[AnsibleRunContext], collection_name: str = ""):
                     "severity": rule_dict[rule_name].severity,
                     "tags": rule_dict[rule_name].tags,
                 },
-                "result": result_dict[rule_name],
+                "output": output_dict[rule_name],
+                "data": data_dict[rule_name],
             }
-            for rule_name in result_dict
+            for rule_name in output_dict
         ]
         data_report["details"].append(
             {
@@ -158,6 +183,7 @@ def detect(contexts: List[AnsibleRunContext], collection_name: str = ""):
             "total": role_count["total"],
             "risk_found": role_count["risk_found"],
         }
+    data_report["node_rule_results"] = node_rule_results
 
     return data_report
 

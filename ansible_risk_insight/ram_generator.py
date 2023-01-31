@@ -23,10 +23,13 @@ from .scanner import ARIScanner, config
 class RiskAssessmentModelGenerator(object):
     _queue: list = []
     _resume: int = -1
+    _update: bool = False
 
-    def __init__(self, target_list=[], resume=-1):
+    def __init__(self, target_list=[], resume=-1, update=False, parallel=True):
         self._queue = target_list
         self._resume = resume
+        self._update = update
+        self._parallel = parallel
 
     def run(self):
         num = len(self._queue)
@@ -45,16 +48,25 @@ class RiskAssessmentModelGenerator(object):
             _type, _name = target_info
             input_list.append((i, num, _type, _name))
 
-        joblib.Parallel(n_jobs=-1)(joblib.delayed(self.scan)(i, num, _type, _name) for (i, num, _type, _name) in input_list)
+        if self._parallel:
+            joblib.Parallel(n_jobs=-1)(joblib.delayed(self.scan)(i, num, _type, _name) for (i, num, _type, _name) in input_list)
+        else:
+            for (i, num, _type, _name) in input_list:
+                self.scan(i, num, _type, _name)
 
     def scan(self, i, num, type, name):
         print(f"[{i+1}/{num}] {type} {name}")
+        use_src_cache = True
+        if self._update:
+            # disable dependency cache when update mode to avoid using the old src
+            use_src_cache = False
         try:
             s = ARIScanner(
                 type=type,
                 name=name,
                 root_dir=config.data_dir,
                 silent=True,
+                use_src_cache=use_src_cache,
             )
             s.prepare_dependencies()
             s.load()

@@ -25,6 +25,7 @@ class DownloadExecRuleResult(RuleResult):
     pass
 
 
+@dataclass
 class DownloadExecRule(Rule):
     rule_id: str = "R103"
     description: str = "A downloaded file from parameterized source is executed"
@@ -32,7 +33,7 @@ class DownloadExecRule(Rule):
     name: str = "Download & Exec"
     version: str = "v0.0.1"
     severity: Severity = Severity.HIGH
-    tags: list = [Tag.NETWORK, Tag.COMMAND]
+    tags: tuple = (Tag.NETWORK, Tag.COMMAND)
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task

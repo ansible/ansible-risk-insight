@@ -14,10 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from dataclasses import dataclass
+
 from ansible_risk_insight.models import AnsibleRunContext, RunTargetType
 from ansible_risk_insight.rules.base import Rule, Severity, Tag
 
 
+@dataclass
 class TaskWithoutNameRule(Rule):
     rule_id: str = "R109"
     description: str = "A task without name is found"
@@ -25,7 +28,7 @@ class TaskWithoutNameRule(Rule):
     name: str = "TaskWithoutName"
     version: str = "v0.0.1"
     severity: Severity = Severity.LOW
-    tags: list = [Tag.DEPENDENCY]
+    tags: tuple = Tag.DEPENDENCY
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task

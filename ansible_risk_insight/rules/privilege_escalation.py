@@ -14,18 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from dataclasses import dataclass
+
 from ansible_risk_insight.models import AnsibleRunContext, RunTargetType
 from ansible_risk_insight.rules.base import Rule, Severity, Tag
 
 
+@dataclass
 class PrivilegeEscalationRule(Rule):
-    rule_id: str = "R111"
+    rule_id: str = "R112"
     description: str = "Privilege escalation is found"
     enabled: bool = True
     name: str = "PrivilegeEscalation"
     version: str = "v0.0.1"
     severity: Severity = Severity.MEDIUM
-    tags: list = [Tag.SYSTEM]
+    tags: tuple = Tag.SYSTEM
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
