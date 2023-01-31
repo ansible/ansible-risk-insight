@@ -15,26 +15,38 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from ansible_risk_insight.models import DefaultRiskType as RiskType
-from ansible_risk_insight.models import AnsibleRunContext, RunTargetType, AnnotationCondition
+
+from ansible_risk_insight.models import AnsibleRunContext, RunTargetType, VariableDict
 from ansible_risk_insight.rules.base import Rule, Severity, Tag, RuleResult
 
 
 @dataclass
-class InboundRuleResult(RuleResult):
-    pass
+class ShowVariablesRuleResult(RuleResult):
+    def print(self):
+        variables = self.detail["variables"]
+        var_table = "None"
+        if variables:
+            var_table = "\n" + VariableDict.print_table(variables)
+        output = f"ruleID={self._rule.rule_id}, \
+            severity={self._rule.severity}, \
+            description={self._rule.description}, \
+            result={self.result}, \
+            file={self.file}, \
+            lines={self.lines}, \
+            variables={var_table}\n"
+        return output
 
 
 @dataclass
-class InboundTransferRule(Rule):
-    rule_id: str = "R101"
-    description: str = "A inbound network transfer from a parameterized source is found"
+class ShowVariablesRule(Rule):
+    rule_id: str = "R115"
+    description: str = "Show all variables"
     enabled: bool = True
-    name: str = "InboundTransfer"
+    name: str = "ShowVariables"
     version: str = "v0.0.1"
-    severity: Severity = Severity.MEDIUM
-    tags: tuple = Tag.NETWORK
-    result_type: type = InboundRuleResult
+    severity: Severity = Severity.LOW
+    tags: tuple = Tag.VARIABLE
+    result_type: type = ShowVariablesRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
@@ -42,15 +54,8 @@ class InboundTransferRule(Rule):
     def check(self, ctx: AnsibleRunContext):
         task = ctx.current
 
-        ac = AnnotationCondition().risk_type(RiskType.INBOUND).attr("is_mutable_src", True)
-        result = task.has_annotation(ac)
-
-        detail = {}
-        if result:
-            anno = task.get_annotation(ac)
-            if anno:
-                detail["from"] = anno.src.value
-                detail["to"] = anno.dest.value
+        result = True
+        detail = {"variables": task.variable_set}
 
         rule_result = self.create_result(result=result, detail=detail, task=task)
         return rule_result

@@ -15,26 +15,20 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from ansible_risk_insight.models import DefaultRiskType as RiskType
-from ansible_risk_insight.models import AnsibleRunContext, RunTargetType, AnnotationCondition
-from ansible_risk_insight.rules.base import Rule, Severity, Tag, RuleResult
+
+from ansible_risk_insight.models import AnsibleRunContext, RunTargetType, VariableType
+from ansible_risk_insight.rules.base import Rule, Severity, Tag
 
 
 @dataclass
-class InboundRuleResult(RuleResult):
-    pass
-
-
-@dataclass
-class InboundTransferRule(Rule):
-    rule_id: str = "R101"
-    description: str = "A inbound network transfer from a parameterized source is found"
+class UndefinedVariableRule(Rule):
+    rule_id: str = "R114"
+    description: str = "Undefined variable is found"
     enabled: bool = True
-    name: str = "InboundTransfer"
+    name: str = "UndefinedVariable"
     version: str = "v0.0.1"
-    severity: Severity = Severity.MEDIUM
-    tags: tuple = Tag.NETWORK
-    result_type: type = InboundRuleResult
+    severity: Severity = Severity.LOW
+    tags: tuple = Tag.VARIABLE
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
@@ -42,15 +36,15 @@ class InboundTransferRule(Rule):
     def check(self, ctx: AnsibleRunContext):
         task = ctx.current
 
-        ac = AnnotationCondition().risk_type(RiskType.INBOUND).attr("is_mutable_src", True)
-        result = task.has_annotation(ac)
-
+        result = False
         detail = {}
-        if result:
-            anno = task.get_annotation(ac)
-            if anno:
-                detail["from"] = anno.src.value
-                detail["to"] = anno.dest.value
+        for v_name in task.variable_use:
+            v = task.variable_use[v_name]
+            if v and v[-1].type == VariableType.Unknown:
+                result = True
+                current = detail.get("undefined_variables", [])
+                current.append(v_name)
+                detail["undefined_variables"] = current
 
         rule_result = self.create_result(result=result, detail=detail, task=task)
         return rule_result

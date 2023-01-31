@@ -19,10 +19,11 @@ import os
 import logging
 from typing import List
 
-from .models import TaskCallsInTree
+from .models import AnsibleRunContext
 from .keyutil import detect_type, key_delimiter
 from .analyzer import load_taskcalls_in_trees
-from . import rules
+from .utils import load_classes_in_dir
+from .rules.base import Rule
 
 
 def key2name(key: str):
@@ -34,9 +35,10 @@ def key2name(key: str):
 
 
 def load_rules():
-    _rules = []
-    for rule in rules.__all__:
-        _rules.append(getattr(rules, rule)())
+    _rule_classes = load_classes_in_dir("rules", Rule, __file__)
+    _rules = [r() for r in _rule_classes]
+    _rules = sorted(_rules, key=lambda r: int(r.rule_id[-3:]))
+
     return _rules
 
 
@@ -51,26 +53,25 @@ def make_subject_str(playbook_num: int, role_num: int):
     return subject
 
 
-def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = ""):
+def detect(contexts: List[AnsibleRunContext], collection_name: str = ""):
     rules = load_rules()
-    extra_check_args = {}
-    if collection_name != "":
-        extra_check_args["collection_name"] = collection_name
 
     report_num = 1
 
     playbook_count = {"total": 0, "risk_found": 0}
     role_count = {"total": 0, "risk_found": 0}
 
-    data_report = {"summary": {}, "details": []}
+    data_report = {"summary": {}, "details": [], "node_rule_results": []}
     role_to_playbook_mappings = {}
     risk_found_playbooks = set()
 
-    num = len(taskcalls_in_trees)
-    for i, taskcalls_in_tree in enumerate(taskcalls_in_trees):
-        if not isinstance(taskcalls_in_tree, TaskCallsInTree):
+    node_rule_results = []
+
+    num = len(contexts)
+    for i, ctx in enumerate(contexts):
+        if not isinstance(ctx, AnsibleRunContext):
             continue
-        tree_root_key = taskcalls_in_tree.root_key
+        tree_root_key = ctx.root_key
         tree_root_type = detect_type(tree_root_key)
         tree_root_name = key2name(tree_root_key)
 
@@ -78,9 +79,8 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
         if is_playbook:
             playbook_count["total"] += 1
 
-            taskcalls = taskcalls_in_tree.taskcalls
-            for taskcall in taskcalls:
-                parts = taskcall.spec.defined_in.split("/")
+            for task in ctx.taskcalls:
+                parts = task.spec.defined_in.split("/")
                 if parts[0] == "roles":
                     role_name = parts[1]
                     _mappings = role_to_playbook_mappings.get(role_name, [])
@@ -90,9 +90,26 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
         else:
             role_count["total"] += 1
 
+        single_node_rule_result = {"root": tree_root_name, "type": tree_root_type, "result_per_node": []}
+        for t in ctx:
+            ctx.current = t
+            node_results = {"node": t, "results": []}
+            for rule in rules:
+                if not rule.enabled:
+                    continue
+                matched = rule.match(ctx)
+                single_data = {"rule": rule, "matched": matched, "result": None, "output": None}
+                if matched:
+                    result = rule.check(ctx)
+                    single_data["result"] = result
+                    single_data["output"] = result.print()
+                node_results["results"].append(single_data)
+            single_node_rule_result["result_per_node"].append(node_results)
+        node_rule_results.append(single_node_rule_result)
+
         do_report = False
-        taskcalls = taskcalls_in_tree.taskcalls
-        result_dict = {}
+        output_dict = {}
+        data_dict = {}
         rule_dict = {}
         rule_count = {
             "total": 0,
@@ -104,15 +121,26 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
             if not rule.enabled:
                 continue
             rule_count["total"] += 1
-            if not rule.is_target(type=tree_root_type, name=tree_root_name):
-                continue
             rule_count["rule_applied"] += 1
-            rule_name = rule.name
-            matched, _, message = rule.check(taskcalls, **extra_check_args)
-            if matched:
+            results = []
+            triggered_results = []
+            for t in ctx:
+                ctx.current = t
+                if not rule.match(ctx):
+                    continue
+                result = rule.check(ctx)
+                if not result:
+                    continue
+                results.append(result)
+                if result.result:
+                    triggered_results.append(result)
+            if triggered_results:
                 rule_count["risk_found"] += 1
                 do_report = True
-                result_dict[rule_name] = message
+                messages = [r.print() for r in triggered_results]
+                detail_data = [r.detail for r in triggered_results]
+                output_dict[rule.name] = "\n".join(messages)
+                data_dict[rule.name] = detail_data
         result_list = [
             {
                 "rule": {
@@ -121,9 +149,10 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
                     "severity": rule_dict[rule_name].severity,
                     "tags": rule_dict[rule_name].tags,
                 },
-                "result": result_dict[rule_name],
+                "output": output_dict[rule_name],
+                "data": data_dict[rule_name],
             }
-            for rule_name in result_dict
+            for rule_name in output_dict
         ]
         data_report["details"].append(
             {
@@ -154,6 +183,7 @@ def detect(taskcalls_in_trees: List[TaskCallsInTree], collection_name: str = "")
             "total": role_count["total"],
             "risk_found": role_count["risk_found"],
         }
+    data_report["node_rule_results"] = node_rule_results
 
     return data_report
 

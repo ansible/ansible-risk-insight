@@ -14,52 +14,43 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List
-from ..models import RiskAnnotation, TaskCall
-from ..annotators.risk_annotator_base import AnnotatorCategory, RISK_ANNOTATION_TYPE
-from .base import Rule, Severity, Tag
+from dataclasses import dataclass
+from ansible_risk_insight.models import DefaultRiskType as RiskType
+from ansible_risk_insight.models import AnsibleRunContext, RunTargetType, AnnotationCondition
+from ansible_risk_insight.rules.base import Rule, Severity, Tag, RuleResult
 
 
-class OutboundTransferRule(Rule):
+@dataclass
+class OutboundRuleResult(RuleResult):
+    pass
+
+
+@dataclass
+class InboundTransferRule(Rule):
+    rule_id: str = "R102"
+    description: str = "An outbound network transfer to a parameterized URL is found"
     enabled: bool = True
     name: str = "OutboundTransfer"
     version: str = "v0.0.1"
     severity: Severity = Severity.MEDIUM
-    tags: list = [Tag.NETWORK]
+    tags: tuple = Tag.NETWORK
+    result_type: type = OutboundRuleResult
 
-    def is_target(self, type: str, name: str) -> bool:
-        return True
+    def match(self, ctx: AnsibleRunContext) -> bool:
+        return ctx.current.type == RunTargetType.Task
 
-    # IN: tasks with "analyzed_data" (i.e. output from analyzer.py)
-    # OUT: matched: bool, matched_tasks: list[task | tuple[task]], message: str
-    def check(self, taskcalls: List[TaskCall], **kwargs):
-        matched_taskcalls = []
-        message = ""
-        for taskcall in taskcalls:
-            outbound_annos = taskcall.get_annotation_by_type_and_attr(RISK_ANNOTATION_TYPE, "category", AnnotatorCategory.OUTBOUND)
-            for outbound_data in outbound_annos:
-                if not isinstance(outbound_data, RiskAnnotation):
-                    continue
-                raw_src = outbound_data.data.get("src", "")
-                resolved_dst = [resolved.get("dest", "") for resolved in outbound_data.resolved_data if resolved.get("dest", "") != ""]
-                if len(resolved_dst) == 0:
-                    resolved_dst = ""
-                if len(resolved_dst) == 1:
-                    resolved_dst = resolved_dst[0]
-                is_mutable_dst = outbound_data.data.get("undetermined_dest", False)
-                mutable_dst_vars = outbound_data.data.get("mutable_dest_vars", [])
-                mutable_dst_vars = ["{{ " + mv + " }}" for mv in mutable_dst_vars]
-                if len(mutable_dst_vars) == 0:
-                    mutable_dst_vars = ""
-                if len(mutable_dst_vars) == 1:
-                    mutable_dst_vars = mutable_dst_vars[0]
-                if is_mutable_dst:
-                    matched_taskcalls.append(taskcall)
-                    message += "- From: {}\n".format(raw_src)
-                    message += "  To: {}\n".format(mutable_dst_vars)
-                    # message += "      (default value: {})\n".format(
-                    #     resolved_dst
-                    # )
-        matched = len(matched_taskcalls) > 0
-        message = message[:-1] if message.endswith("\n") else message
-        return matched, matched_taskcalls, message
+    def check(self, ctx: AnsibleRunContext):
+        task = ctx.current
+
+        ac = AnnotationCondition().risk_type(RiskType.OUTBOUND).attr("is_mutable_dest", True)
+        result = task.has_annotation(ac)
+
+        detail = {}
+        if result:
+            anno = task.get_annotation(ac)
+            if anno:
+                detail["from"] = anno.src.value
+                detail["to"] = anno.dest.value
+
+        rule_result = self.create_result(result=result, detail=detail, task=task)
+        return rule_result

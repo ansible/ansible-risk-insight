@@ -15,32 +15,33 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-
-from ansible_risk_insight.models import AnsibleRunContext
+from ansible_risk_insight.models import AnsibleRunContext, RunTargetType
 from ansible_risk_insight.rules.base import Rule, Severity, Tag, RuleResult
 
 
-class SampleCustomRuleResult(RuleResult):
+@dataclass
+class RoleWithoutMetadataRuleResult(RuleResult):
     pass
 
 
 @dataclass
-class SampleCustomRule(Rule):
-    rule_id: str = "R999"
-    description: str = "sample rule"
-    enabled: bool = False
-    name: str = "SampleCustomRule"
+class RoleWithoutMetadataRule(Rule):
+    rule_id: str = "R108"
+    description: str = "A role without metadata is used"
+    enabled: bool = True
+    name: str = "RoleWithoutMetadata"
     version: str = "v0.0.1"
-    severity: Severity = Severity.VERY_LOW
-    tags: tuple = Tag.DEBUG
+    severity: Severity = Severity.LOW
+    tags: tuple = Tag.DEPENDENCY
+    result_type: type = RoleWithoutMetadataRuleResult
 
-    def is_target(self, ctx: AnsibleRunContext) -> bool:
-        return True
+    def match(self, ctx: AnsibleRunContext) -> bool:
+        return ctx.current.type == RunTargetType.Role
 
     def check(self, ctx: AnsibleRunContext):
-        task = ctx.current
+        role = ctx.current
 
-        # define a condition for this rule here
-        result = task.spec.name == ""
+        result = not role.spec.metadata
 
-        return SampleCustomRuleResult(result=result, task=task)
+        rule_result = self.create_result(result=result, role=role)
+        return rule_result

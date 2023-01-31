@@ -14,41 +14,104 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from copy import deepcopy
+from dataclasses import dataclass
 from typing import List
-from ..keyutil import detect_type
-from ..models import (
+from ansible_risk_insight.keyutil import detect_type
+from ansible_risk_insight.models import (
     ObjectList,
     Repository,
     Playbook,
     Role,
     TaskCall,
-    Annotation,
     VariableAnnotation,
+    Arguments,
+    ArgumentsType,
+    Variable,
+    VariableType,
 )
-from ..context import Context, resolve_module_options
-from .annotator_base import Annotator
-
-
-VARIABLE_ANNOTATION_TYPE = "variable_annotation"
+from ansible_risk_insight.context import Context, resolve_module_options
+from ansible_risk_insight.annotators.annotator_base import Annotator, AnnotatorResult
 
 
 class VariableAnnotator(Annotator):
-    type: str = VARIABLE_ANNOTATION_TYPE
+    type: str = VariableAnnotation.type
     context: Context = None
 
     def __init__(self, context: Context):
         self.context = context
 
-    def run(self, taskcall: TaskCall) -> List[Annotation]:
+    def run(self, taskcall: TaskCall):
         resolved = resolve_module_options(self.context, taskcall)
-        va = VariableAnnotation(
-            type=self.type,
-            resolved_module_options=resolved[0],
-            resolved_variables=resolved[1],
-            mutable_vars_per_mo=resolved[2],
+        resolved_module_options = resolved[0]
+        resolved_variables = resolved[1]
+        # mutable_vars_per_mo = resolved[2]
+        used_variables = resolved[3]
+        _vars = []
+        is_mutable = False
+        for rv in resolved_variables:
+            v_name = rv.get("key", "")
+            v_value = rv.get("value", "")
+            v_type = rv.get("type", VariableType.Unknown)
+            elements = []
+            if v_name in used_variables:
+                if not isinstance(used_variables[v_name], dict):
+                    continue
+                for u_v_name, info in used_variables[v_name].items():
+                    if u_v_name == v_name:
+                        continue
+                    u_v_value = info.get("value", "")
+                    u_v_type = info.get("type", VariableType.Unknown)
+                    u_v = Variable(
+                        name=u_v_name,
+                        value=u_v_value,
+                        type=u_v_type,
+                        used_in=taskcall.key,
+                    )
+                    elements.append(u_v)
+            v = Variable(
+                name=v_name,
+                value=v_value,
+                type=v_type,
+                elements=elements,
+                used_in=taskcall.key,
+            )
+            _vars.append(v)
+            if v.is_mutable:
+                is_mutable = True
+
+        for v in _vars:
+            history = self.context.var_use_history.get(v.name, [])
+            history.append(v)
+            self.context.var_use_history[v.name] = history
+
+        m_opts = taskcall.spec.module_options
+        if isinstance(m_opts, list):
+            args_type = ArgumentsType.LIST
+        elif isinstance(m_opts, dict):
+            args_type = ArgumentsType.DICT
+        else:
+            args_type = ArgumentsType.SIMPLE
+        args = Arguments(
+            type=args_type,
+            raw=m_opts,
+            vars=_vars,
+            resolved=True,  # TODO: False if not resolved
+            templated=resolved_module_options,
+            is_mutable=is_mutable,
         )
-        annotations = [va]
-        return annotations
+        taskcall.args = args
+        # deep copy the history here because the context is updated by subsequent taskcalls
+        taskcall.variable_set = deepcopy(self.context.var_set_history)
+        taskcall.variable_use = deepcopy(self.context.var_use_history)
+        taskcall.become = self.context.become
+
+        return VariableAnnotatorResult()
+
+
+@dataclass
+class VariableAnnotatorResult(AnnotatorResult):
+    pass
 
 
 def tree_to_task_list(tree, node_objects):
@@ -135,8 +198,11 @@ def resolve_variables(tree: ObjectList, additional: ObjectList) -> List[TaskCall
         depth_dict[call_obj.key] = depth_lvl
         context.add(call_obj, depth_lvl)
         if isinstance(call_obj, TaskCall):
-            var_annos = VariableAnnotator(context=context).run(call_obj)
-            call_obj.annotations.extend(var_annos)
+            result = VariableAnnotator(context=context).run(call_obj)
+            if not result:
+                continue
+            if result.annotations:
+                call_obj.annotations.extend(result.annotations)
             resolved_taskcalls.append(call_obj)
     return resolved_taskcalls
 

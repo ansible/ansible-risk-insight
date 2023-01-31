@@ -32,6 +32,7 @@ class Findings:
     report: dict = field(default_factory=dict)
 
     summary_txt: str = ""
+    scan_time: str = ""
 
     def simple(self):
         d = self.report.copy()
