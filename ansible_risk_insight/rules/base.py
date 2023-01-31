@@ -29,6 +29,7 @@ class Severity:
     MEDIUM = "medium"
     LOW = "low"
     VERY_LOW = "very_low"
+    NONE = "none"
 
 
 _severity_level_mapping = {

@@ -27,7 +27,7 @@ class ListAllUsedVariablesRule(Rule):
     enabled: bool = True
     name: str = "ListAllUsedVariables"
     version: str = "v0.0.1"
-    severity: Severity = Severity.LOW
+    severity: Severity = Severity.NONE
     tags: tuple = (Tag.VARIABLE)
 
     def match(self, ctx: AnsibleRunContext) -> bool:

@@ -27,7 +27,7 @@ class PrivilegeEscalationRule(Rule):
     enabled: bool = True
     name: str = "PrivilegeEscalation"
     version: str = "v0.0.1"
-    severity: Severity = Severity.MEDIUM
+    severity: Severity = Severity.HIGH
     tags: tuple = (Tag.SYSTEM)
 
     def match(self, ctx: AnsibleRunContext) -> bool:

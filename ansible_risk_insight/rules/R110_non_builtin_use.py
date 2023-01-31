@@ -31,7 +31,7 @@ class NonBuiltinUseRule(Rule):
     enabled: bool = True
     name: str = "NonBuiltinUse"
     version: str = "v0.0.1"
-    severity: Severity = Severity.LOW
+    severity: Severity = Severity.VERY_LOW
     tags: tuple = (Tag.DEPENDENCY)
     result_type: type = NonBuiltinUseRuleResult
 

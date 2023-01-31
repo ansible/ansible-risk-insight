@@ -36,7 +36,13 @@ def key2name(key: str):
 
 def load_rules():
     _rule_classes = load_classes_in_dir("rules", Rule, __file__)
-    _rules = [r() for r in _rule_classes]
+    _rules = []
+    for r in _rule_classes:
+        try:
+            _rule = r()
+            _rules.append(_rule)
+        except Exception:
+            raise ValueError(f"failed to load a rule: {r}")
     _rules = sorted(_rules, key=lambda r: int(r.rule_id[-3:]))
 
     return _rules

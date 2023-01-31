@@ -25,7 +25,13 @@ from .utils import load_classes_in_dir
 
 def load_annotators(ctx: AnsibleRunContext = None):
     _annotator_classes = load_classes_in_dir("annotators", RiskAnnotator, __file__)
-    _annotators = [a(context=ctx) for a in _annotator_classes]
+    _annotators = []
+    for a in _annotator_classes:
+        try:
+            _annotator = a(context=ctx)
+            _annotators.append(_annotator)
+        except Exception:
+            raise ValueError(f"failed to load an annotator: {a}")
     return _annotators
 
 

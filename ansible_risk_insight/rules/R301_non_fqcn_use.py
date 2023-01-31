@@ -31,7 +31,7 @@ class NonFQCNUseRule(Rule):
     enabled: bool = True
     name: str = "NonFQCNUse"
     version: str = "v0.0.1"
-    severity: Severity = Severity.LOW
+    severity: Severity = Severity.VERY_LOW
     tags: tuple = (Tag.DEPENDENCY)
     result_type: type = NonFQCNUseRuleResult
 
@@ -41,7 +41,13 @@ class NonFQCNUseRule(Rule):
     def check(self, ctx: AnsibleRunContext):
         task = ctx.current
 
-        result = task.action_type == ActionType.MODULE_TYPE and task.spec.action and task.resolved_action and task.spec.action != task.resolved_action
+        result = (
+            task.action_type == ActionType.MODULE_TYPE
+            and task.spec.action
+            and task.resolved_action
+            and task.spec.action != task.resolved_action
+            and not task.resolved_action.startswith("ansible.builtin.")
+        )
         detail = {
             "module": task.spec.action,
             "fqcn": task.resolved_name,
