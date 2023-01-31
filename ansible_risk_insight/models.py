@@ -626,6 +626,86 @@ class OutboundTransferDetail(NetworkTransferDetail):
         super().__post_init__()
 
 
+@dataclass
+class PackageInstallDetail(AnnotationDetail):
+    pkg: any = ""
+    version: any = ""
+    is_mutable_pkg: bool = False
+    disable_validate_certs: bool = False
+    allow_downgrade: bool = False
+
+    _pkg_arg: Arguments = None
+    _version_arg: Arguments = None
+    _allow_downgrade_arg: Arguments = None
+    _validate_certs_arg: Arguments = None
+
+    def __post_init__(self):
+        if self._pkg_arg:
+            self.pkg = self._pkg_arg.raw
+            if self._pkg_arg.is_mutable:
+                self.is_mutable_pkg = True
+        if self._version_arg:
+            self.version = self._version_arg.vars
+        if self._allow_downgrade_arg:
+            if _convert_to_bool(self._allow_downgrade_arg.raw):
+                self.allow_downgrade = True
+        if self._validate_certs_arg:
+            if not _convert_to_bool(self._validate_certs_arg.raw):
+                self.disable_validate_certs = True
+
+
+@dataclass
+class KeyConfigChangeDetail(AnnotationDetail):
+    is_deletion: bool = False
+    is_mutable_key: bool = False
+    key: str = ""
+
+    _key_arg: Arguments = None
+    _state_arg: Arguments = None
+
+    def __post_init__(self):
+        if self._key_arg:
+            self.key = self._key_arg.vars
+            if self._key_arg.is_mutable:
+                self.is_mutable_key = True
+        if self._state_arg.raw == "absent":
+            self.is_deletion = True
+
+
+@dataclass
+class FileChangeDetail(AnnotationDetail):
+    path: Location = None
+    src: Location = None
+    is_mutable_path: bool = False
+    is_mutable_src: bool = False
+    is_unsafe_write: bool = False
+    is_deletion: bool = False
+    is_insecure_permissions: bool = False
+
+    _path_arg: Arguments = None
+    _src_arg: Arguments = None
+    _mode_arg: Arguments = None
+    _state_arg: Arguments = None
+    _unsafe_write_arg: Arguments = None
+
+    def __post_init__(self):
+        if self._mode_arg and self._mode_arg.raw in ["1777", "0777"]:
+            self.is_insecure_permissions = True
+        if self._state_arg and self._state_arg.raw == "absent":
+            self.is_deletion = True
+        if self._path_arg:
+            self.path = Location(_args=self._path_arg)
+            if self._path_arg.is_mutable:
+                self.is_mutable_path = True
+        if self._src_arg:
+            self.src = Location(_args=self._src_arg)
+            if self._src_arg.is_mutable:
+                self.is_mutable_src = True
+        if self._unsafe_write_arg:
+            if _convert_to_bool(self._unsafe_write_arg.raw):
+                self.is_unsafe_write = True
+
+
 execution_programs: list = ["sh", "bash", "zsh", "fish", "ash", "python*", "java*", "node*"]
 non_execution_programs: list = ["tar", "gunzip", "unzip", "mv", "cp"]
 
@@ -689,6 +769,17 @@ class CommandExecDetail(AnnotationDetail):
                 )
                 exec_files.append(exec_file)
         return exec_files
+
+
+def _convert_to_bool(a: any):
+    if type(a) is bool:
+        return bool(a)
+    if type(a) is str:
+        if a == "true" or a == "True" or a == "yes":
+            return True
+        else:
+            return False
+    return None
 
 
 @dataclass

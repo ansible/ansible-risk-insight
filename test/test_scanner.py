@@ -17,7 +17,7 @@
 import pytest
 
 from ansible_risk_insight.scanner import ARIScanner, config
-from ansible_risk_insight.rules.download_exec import DownloadExecRule
+from ansible_risk_insight.rules.R103_download_exec import DownloadExecRule
 
 
 @pytest.mark.parametrize("type, name", [("project", "test/testdata/projects/my.collection")])
