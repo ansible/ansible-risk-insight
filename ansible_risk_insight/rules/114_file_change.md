@@ -6,7 +6,7 @@ The `file change` rule identifies parameterized file change.
 ```
 - name: Update sshd configuration
   ansible.builtin.template:
-    src: {{ sshd_config }}
+    src: {{ sshd_config }} # <-- This parameter can be overwritten.
     dest: /etc/ssh/sshd_config
 ```
 ### Correct code

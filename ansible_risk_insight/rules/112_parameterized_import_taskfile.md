@@ -1,6 +1,6 @@
 
 ##  parameterized import taskfile
-The `parameterized import role` rule identifies whether a task imports or includes a parameterized task file.
+The `parameterized import taskfile` rule identifies whether a task imports or includes a parameterized task file.
 
 ### Problematic code
 

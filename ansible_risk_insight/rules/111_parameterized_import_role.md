@@ -1,5 +1,5 @@
 ##  parameterized import role
-The `parameterized import role` rule identifies whether a task imports or includes a parameterized role.
+The `parameterized import role` rule checks whether a task imports or includes a parameterized role.
 
 ### Problematic code
 
