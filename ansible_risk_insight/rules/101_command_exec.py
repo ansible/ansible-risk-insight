@@ -32,8 +32,8 @@ class CommandExecRule(Rule):
     enabled: bool = True
     name: str = "CommandExec"
     version: str = "v0.0.1"
-    severity: Severity = Severity.VERY_LOW
-    tags: tuple = Tag.COMMAND
+    severity: Severity = Severity.LOW
+    tags: tuple = (Tag.COMMAND)
     result_type: type = CommandExecRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

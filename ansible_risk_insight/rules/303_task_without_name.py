@@ -28,7 +28,7 @@ class TaskWithoutNameRule(Rule):
     name: str = "TaskWithoutName"
     version: str = "v0.0.1"
     severity: Severity = Severity.LOW
-    tags: tuple = Tag.DEPENDENCY
+    tags: tuple = (Tag.DEPENDENCY)
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task

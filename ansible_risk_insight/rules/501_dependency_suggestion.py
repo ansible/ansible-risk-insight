@@ -33,7 +33,7 @@ class DependencySuggestionRule(Rule):
     name: str = "DependencySuggestion"
     version: str = "v0.0.1"
     severity: Severity = Severity.LOW
-    tags: tuple = Tag.DEPENDENCY
+    tags: tuple = (Tag.DEPENDENCY)
     result_type: type = DependencySuggestionRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

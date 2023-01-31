@@ -32,8 +32,8 @@ class KeyConfigChangeRule(Rule):
     enabled: bool = True
     name: str = "ConfigChange"
     version: str = "v0.0.1"
-    severity: Severity = Severity.VERY_LOW
-    tags: tuple = Tag.SYSTEM
+    severity: Severity = Severity.LOW
+    tags: tuple = (Tag.SYSTEM)
     result_type: type = KeyConfigChangeResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

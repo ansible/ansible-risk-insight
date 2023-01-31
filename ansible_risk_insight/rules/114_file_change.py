@@ -33,7 +33,7 @@ class FileChangeRule(Rule):
     name: str = "ConfigChange"
     version: str = "v0.0.1"
     severity: Severity = Severity.LOW
-    tags: tuple = Tag.SYSTEM
+    tags: tuple = (Tag.SYSTEM)
     result_type: type = FileChangeResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

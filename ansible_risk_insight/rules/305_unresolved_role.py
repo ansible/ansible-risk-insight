@@ -32,7 +32,7 @@ class UnresolvedRoleRule(Rule):
     name: str = "UnresolvedRole"
     version: str = "v0.0.1"
     severity: Severity = Severity.LOW
-    tags: tuple = Tag.DEPENDENCY
+    tags: tuple = (Tag.DEPENDENCY)
     result_type: type = UnresolvedRoleRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

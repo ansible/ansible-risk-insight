@@ -33,7 +33,7 @@ class InboundTransferRule(Rule):
     name: str = "OutboundTransfer"
     version: str = "v0.0.1"
     severity: Severity = Severity.MEDIUM
-    tags: tuple = Tag.NETWORK
+    tags: tuple = (Tag.NETWORK)
     result_type: type = OutboundRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

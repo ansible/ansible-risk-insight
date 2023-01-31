@@ -32,7 +32,7 @@ class DownloadExecRule(Rule):
     enabled: bool = True
     name: str = "Download & Exec"
     version: str = "v0.0.1"
-    severity: Severity = Severity.HIGH
+    severity: Severity = (Severity.HIGH)
     tags: tuple = (Tag.NETWORK, Tag.COMMAND)
 
     def match(self, ctx: AnsibleRunContext) -> bool:

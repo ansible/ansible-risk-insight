@@ -33,8 +33,8 @@ class FilePermissionRule(Rule):
     enabled: bool = False
     name: str = "FilePermissionRule"
     version: str = "v0.0.1"
-    severity: Severity = Severity.LOW
-    tags: tuple = Tag.SYSTEM
+    severity: Severity = Severity.MEDIUM
+    tags: tuple = (Tag.SYSTEM)
     result_type: type = FilePermissionRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

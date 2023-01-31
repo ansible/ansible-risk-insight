@@ -32,7 +32,7 @@ class ParameterizedImportTaskfileRule(Rule):
     name: str = "ParameterizedImportTaskfile"
     version: str = "v0.0.1"
     severity: Severity = Severity.MEDIUM
-    tags: tuple = Tag.DEPENDENCY
+    tags: tuple = (Tag.DEPENDENCY)
     result_type: type = ParameterizedImportTaskfileRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

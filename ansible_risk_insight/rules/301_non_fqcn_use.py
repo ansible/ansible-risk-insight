@@ -32,7 +32,7 @@ class NonFQCNUseRule(Rule):
     name: str = "NonFQCNUse"
     version: str = "v0.0.1"
     severity: Severity = Severity.LOW
-    tags: tuple = Tag.DEPENDENCY
+    tags: tuple = (Tag.DEPENDENCY)
     result_type: type = NonFQCNUseRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

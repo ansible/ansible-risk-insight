@@ -28,7 +28,7 @@ class ExternalDependencyRule(Rule):
     name: str = "ExternalDependency"
     version: str = "v0.0.1"
     severity: Severity = Severity.LOW
-    tags: tuple = Tag.DEPENDENCY
+    tags: tuple = (Tag.DEPENDENCY)
 
     allow_list: list = field(default_factory=list)
     separate_report: bool = True

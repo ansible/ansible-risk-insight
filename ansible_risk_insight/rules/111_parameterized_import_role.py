@@ -32,7 +32,7 @@ class ParameterizedImportRoleRule(Rule):
     name: str = "ParameterizedImportRole"
     version: str = "v0.0.1"
     severity: Severity = Severity.HIGH
-    tags: tuple = Tag.DEPENDENCY
+    tags: tuple = (Tag.DEPENDENCY)
     result_type: type = ParameterizedImportRoleRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

@@ -34,7 +34,7 @@ class ListAllInboundSrcRule(Rule):
     name: str = "ListAllInboundSrcRule"
     version: str = "v0.0.1"
     severity: Severity = Severity.VERY_LOW
-    tags: tuple = Tag.DEBUG
+    tags: tuple = (Tag.DEBUG)
     result_type: type = ListAllInboundSrcRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

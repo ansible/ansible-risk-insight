@@ -33,7 +33,7 @@ class PkgInstallRule(Rule):
     name: str = "PkgInstall"
     version: str = "v0.0.1"
     severity: Severity = Severity.MEDIUM
-    tags: tuple = Tag.PACKAGE
+    tags: tuple = (Tag.PACKAGE)
     result_type: type = PkgInstallRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

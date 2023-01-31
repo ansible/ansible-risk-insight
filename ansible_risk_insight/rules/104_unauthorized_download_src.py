@@ -42,8 +42,8 @@ class InvalidDownloadSourceRule(Rule):
     enabled: bool = True
     name: str = "InvalidDownloadSource"
     version: str = "v0.0.1"
-    severity: Severity = Severity.MEDIUM
-    tags: tuple = Tag.NETWORK
+    severity: Severity = Severity.HIGH
+    tags: tuple = (Tag.NETWORK)
     result_type: type = InvalidDownloadSourceRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

@@ -32,8 +32,8 @@ class InsecurePkgInstallRule(Rule):
     enabled: bool = True
     name: str = "InsecurePkgInstall"
     version: str = "v0.0.1"
-    severity: Severity = Severity.MEDIUM
-    tags: tuple = Tag.PACKAGE
+    severity: Severity = Severity.HIGH
+    tags: tuple = (Tag.PACKAGE)
     result_type: type = InsecurePkgInstallRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

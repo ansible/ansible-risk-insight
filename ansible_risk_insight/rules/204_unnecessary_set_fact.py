@@ -28,7 +28,7 @@ class UnnecessarySetFactRule(Rule):
     name: str = "UnnecessarySetFact"
     version: str = "v0.0.1"
     severity: Severity = Severity.LOW
-    tags: tuple = Tag.VARIABLE
+    tags: tuple = (Tag.VARIABLE)
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task

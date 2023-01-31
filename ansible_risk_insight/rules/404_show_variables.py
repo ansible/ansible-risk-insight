@@ -45,7 +45,7 @@ class ShowVariablesRule(Rule):
     name: str = "ShowVariables"
     version: str = "v0.0.1"
     severity: Severity = Severity.LOW
-    tags: tuple = Tag.VARIABLE
+    tags: tuple = (Tag.VARIABLE)
     result_type: type = ShowVariablesRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:
