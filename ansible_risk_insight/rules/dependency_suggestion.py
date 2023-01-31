@@ -15,26 +15,26 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from ansible_risk_insight.models import DefaultRiskType as RiskType
-from ansible_risk_insight.models import AnsibleRunContext, RunTargetType, AnnotationCondition
+
+from ansible_risk_insight.models import AnsibleRunContext, RunTargetType
 from ansible_risk_insight.rules.base import Rule, Severity, Tag, RuleResult
 
 
 @dataclass
-class InboundRuleResult(RuleResult):
+class DependencySuggestionRuleResult(RuleResult):
     pass
 
 
 @dataclass
-class InboundTransferRule(Rule):
-    rule_id: str = "R101"
-    description: str = "A inbound network transfer from a parameterized source is found"
+class DependencySuggestionRule(Rule):
+    rule_id: str = "R116"
+    description: str = "Suggest dependencies for unresolved modules/roles"
     enabled: bool = True
-    name: str = "InboundTransfer"
+    name: str = "DependencySuggestion"
     version: str = "v0.0.1"
-    severity: Severity = Severity.MEDIUM
-    tags: tuple = Tag.NETWORK
-    result_type: type = InboundRuleResult
+    severity: Severity = Severity.LOW
+    tags: tuple = Tag.DEPENDENCY
+    result_type: type = DependencySuggestionRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
@@ -42,15 +42,17 @@ class InboundTransferRule(Rule):
     def check(self, ctx: AnsibleRunContext):
         task = ctx.current
 
-        ac = AnnotationCondition().risk_type(RiskType.INBOUND).attr("is_mutable_src", True)
-        result = task.has_annotation(ac)
-
+        result = False
         detail = {}
-        if result:
-            anno = task.get_annotation(ac)
-            if anno:
-                detail["from"] = anno.src.value
-                detail["to"] = anno.dest.value
+        if task.spec.possible_candidates:
+            result = True
+            detail["type"] = task.spec.executable_type.lower()
+            detail["fqcn"] = task.spec.possible_candidates[0][0]
+            req_info = task.spec.possible_candidates[0][1]
+            detail["suggestion"] = {}
+            detail["suggestion"]["type"] = req_info.get("type", "")
+            detail["suggestion"]["name"] = req_info.get("name", "")
+            detail["suggestion"]["version"] = req_info.get("version", "")
 
         rule_result = self.create_result(result=result, detail=detail, task=task)
         return rule_result

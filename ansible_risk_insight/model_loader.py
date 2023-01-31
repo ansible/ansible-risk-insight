@@ -37,6 +37,7 @@ from .models import (
     TaskFile,
     TaskFormatError,
     Collection,
+    BecomeInfo,
 )
 from .finder import (
     find_best_repo_root_path,
@@ -48,6 +49,9 @@ from .finder import (
     search_module_files,
     search_taskfiles_for_playbooks,
     module_dir_patterns,
+)
+from .utils import (
+    split_target_playbook_fullpath,
 )
 from .awx_utils import could_be_playbook
 
@@ -80,6 +84,7 @@ def load_repository(
     installed_roles_path="",
     my_collection_name="",
     basedir="",
+    target_playbook_path="",
     load_children=True,
 ):
     repoObj = Repository()
@@ -144,6 +149,7 @@ def load_repository(
     repoObj.path = _path
     repoObj.installed_collections_path = installed_collections_path
     repoObj.installed_roles_path = installed_roles_path
+    repoObj.target_playbook_path = target_playbook_path
     logging.debug("done")
 
     return repoObj
@@ -215,13 +221,13 @@ def load_inventory(path, basedir=""):
             try:
                 data = yaml.safe_load(file)
             except Exception as e:
-                logging.error("failed to load this yaml file (inventory); {}".format(e.args[0]))
+                logging.debug("failed to load this yaml file (inventory); {}".format(e.args[0]))
     elif file_ext == ".json":
         with open(fullpath, "r") as file:
             try:
                 data = json.load(file)
             except Exception as e:
-                logging.error("failed to load this json file (inventory); {}".format(e.args[0]))
+                logging.debug("failed to load this json file (inventory); {}".format(e.args[0]))
     invObj.variables = data
     return invObj
 
@@ -276,8 +282,8 @@ def load_play(
     import_playbook = ""
     __pre_task_blocks = get_task_blocks(task_dict_list=data_block.get("pre_tasks", []))
     __task_blocks = get_task_blocks(task_dict_list=data_block.get("tasks", []))
-    pre_task_num = len(__pre_task_blocks)
-    task_num = len(__task_blocks)
+    pre_task_num = len(__pre_task_blocks) if __pre_task_blocks else 0
+    task_num = len(__task_blocks) if __task_blocks else 0
     for k, v in data_block.items():
         if k == "name":
             pass
@@ -413,6 +419,7 @@ def load_play(
     pbObj.post_tasks = post_tasks
     pbObj.roles = roles
     pbObj.options = play_options
+    pbObj.become = BecomeInfo.from_options(play_options)
     pbObj.collections_in_play = collections_in_play
 
     return pbObj
@@ -477,7 +484,7 @@ def load_playbook(path, role_name="", collection_name="", basedir=""):
             try:
                 data = yaml.safe_load(file)
             except Exception as e:
-                logging.error("failed to load this yaml file to load playbook; {}".format(e.args[0]))
+                logging.debug(f"failed to load this yaml file to load playbook; {e}")
     if data is None:
         return pbObj
     if not isinstance(data, list):
@@ -557,7 +564,7 @@ def load_role(
     if os.path.exists(os.path.join(basedir, path)):
         fullpath = os.path.normpath(os.path.join(basedir, path))
     if fullpath == "":
-        raise ValueError(f"directory not found: {path}")
+        raise ValueError(f"directory not found: {path}, {basedir}")
     meta_file_path = ""
     defaults_dir_path = ""
     vars_dir_path = ""
@@ -576,7 +583,7 @@ def load_role(
             try:
                 roleObj.metadata = yaml.safe_load(file)
             except Exception as e:
-                logging.error("failed to load this yaml file to raed metadata; {}".format(e.args[0]))
+                logging.debug("failed to load this yaml file to raed metadata; {}".format(e.args[0]))
 
             if roleObj.metadata is not None and isinstance(roleObj.metadata, dict):
                 roleObj.dependency["roles"] = roleObj.metadata.get("dependencies", [])
@@ -588,7 +595,7 @@ def load_role(
             try:
                 roleObj.requirements = yaml.safe_load(file)
             except Exception as e:
-                logging.error("failed to load requirements.yml; {}".format(e.args[0]))
+                logging.debug("failed to load requirements.yml; {}".format(e.args[0]))
 
     parts = tasks_dir_path.split("/")
     if len(parts) < 2:
@@ -653,7 +660,7 @@ def load_role(
                         continue
                     default_variables.update(vars_in_yaml)
                 except Exception as e:
-                    logging.error("failed to load this yaml file to raed default" " variables; {}".format(e.args[0]))
+                    logging.debug("failed to load this yaml file to raed default" " variables; {}".format(e.args[0]))
         roleObj.default_variables = default_variables
 
     if os.path.exists(vars_dir_path):
@@ -670,7 +677,7 @@ def load_role(
                         continue
                     variables.update(vars_in_yaml)
                 except Exception as e:
-                    logging.error("failed to load this yaml file to raed variables; {}".format(e.args[0]))
+                    logging.debug("failed to load this yaml file to raed variables; {}".format(e.args[0]))
         roleObj.variables = variables
 
     modules = []
@@ -771,7 +778,7 @@ def load_requirements(path):
             try:
                 requirements = yaml.safe_load(file)
             except Exception as e:
-                logging.error("failed to load requirements.yml; {}".format(e.args[0]))
+                logging.debug("failed to load requirements.yml; {}".format(e.args[0]))
     return requirements
 
 
@@ -994,10 +1001,11 @@ def load_task(
         if vars_in_task is not None and isinstance(vars_in_task, dict):
             variables.update(vars_in_task)
 
+    set_facts = {}
     # if the Task is set_fact, set variables too
     if module_short_name == "set_fact":
         if isinstance(module_options, dict):
-            variables.update(module_options)
+            set_facts.update(module_options)
 
     registered_variables = {}
     # set variables if this task register a new var
@@ -1014,8 +1022,10 @@ def load_task(
             loop_info[loop_var] = task_options.get(k, [])
 
     taskObj.options = task_options
+    taskObj.become = BecomeInfo.from_options(task_options)
     taskObj.variables = variables
     taskObj.registered_variables = registered_variables
+    taskObj.set_facts = set_facts
     taskObj.loop = loop_info
     taskObj.module = module_name
     taskObj.module_options = module_options
@@ -1134,7 +1144,7 @@ def load_collection(collection_dir, basedir="", load_children=True):
             try:
                 colObj.requirements = yaml.safe_load(file)
             except Exception as e:
-                logging.error("failed to load requirements.yml; {}".format(e.args[0]))
+                logging.debug("failed to load requirements.yml; {}".format(e.args[0]))
 
     playbook_path_patterns = [
         fullpath + "/playbooks/**/*.yml",
@@ -1215,7 +1225,8 @@ def load_object(loadObj):
     elif target_type == LoadType.ROLE:
         obj = load_role(path=path, basedir=path, load_children=False)
     elif target_type == LoadType.PLAYBOOK:
-        obj = load_playbook(path=path, role_name="", collection_name="", basedir=path)
+        basedir, target_playbook_path = split_target_playbook_fullpath(path)
+        obj = load_repository(path=basedir, basedir=basedir, target_playbook_path=target_playbook_path, load_children=False)
     elif target_type == LoadType.PROJECT:
         obj = load_repository(path=path, basedir=path, load_children=False)
 

@@ -37,6 +37,9 @@ from .model_loader import (
     load_role,
     load_taskfile,
 )
+from .utils import (
+    split_target_playbook_fullpath,
+)
 
 
 class Parser:
@@ -86,14 +89,10 @@ class Parser:
             if collection_name == "" and collection_name_of_project != "":
                 collection_name = collection_name_of_project
         elif ld.target_type == LoadType.PLAYBOOK:
+            basedir, target_playbook_path = split_target_playbook_fullpath(ld.path)
             playbook_name = ld.target_name
             try:
-                obj = load_playbook(
-                    path=ld.path,
-                    role_name="",
-                    collection_name="",
-                    basedir=ld.path,
-                )
+                obj = load_repository(path=basedir, basedir=basedir, target_playbook_path=target_playbook_path)
             except Exception:
                 logging.exception("failed to load the playbook {}".format(playbook_name))
                 return
@@ -106,16 +105,22 @@ class Parser:
             "modules": [],
             "playbooks": [],
         }
+
+        basedir = ld.path
+        if ld.target_type == LoadType.PLAYBOOK:
+            basedir, _ = split_target_playbook_fullpath(ld.path)
+
         roles = []
         for role_path in ld.roles:
             try:
                 r = load_role(
                     path=role_path,
                     collection_name=collection_name,
-                    basedir=ld.path,
+                    basedir=basedir,
                 )
                 roles.append(r)
-            except Exception:
+            except Exception as e:
+                logging.debug(f"failed to load a role: {e}")
                 continue
             mappings["roles"].append([role_path, r.key])
 
@@ -128,7 +133,8 @@ class Parser:
                     collection_name=collection_name,
                     basedir=ld.path,
                 )
-            except Exception:
+            except Exception as e:
+                logging.debug(f"failed to load a taskfile: {e}")
                 continue
             taskfiles.append(tf)
             mappings["taskfiles"].append([taskfile_path, tf.key])
@@ -141,9 +147,10 @@ class Parser:
                     path=playbook_path,
                     role_name=role_name,
                     collection_name=collection_name,
-                    basedir=ld.path,
+                    basedir=basedir,
                 )
-            except Exception:
+            except Exception as e:
+                logging.debug(f"failed to load a playbook: {e}")
                 continue
             playbooks.append(p)
             mappings["playbooks"].append([playbook_path, p.key])
@@ -166,9 +173,10 @@ class Parser:
                     module_file_path=module_path,
                     role_name=role_name,
                     collection_name=collection_name,
-                    basedir=ld.path,
+                    basedir=basedir,
                 )
-            except Exception:
+            except Exception as e:
+                logging.debug(f"failed to load a module: {e}")
                 continue
             modules.append(m)
             mappings["modules"].append([module_path, m.key])
@@ -190,7 +198,7 @@ class Parser:
             roles.append(r)
             mappings["roles"].append([role_path, r.key])
         elif ld.target_type == LoadType.PLAYBOOK:
-            playbooks = [obj]
+            pass
         elif ld.target_type == LoadType.PROJECT:
             projects = [obj]
 

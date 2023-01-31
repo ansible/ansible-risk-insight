@@ -19,9 +19,10 @@ import sys
 from .search import RAMSearchCLI
 from .list import RAMListCLI
 from .diff import RAMDiffCLI
+from .generate import RAMGenerateCLI
 
 
-ram_actions = ["search", "list", "diff"]
+ram_actions = ["search", "list", "diff", "generate"]
 
 
 class RAMCLI:
@@ -45,6 +46,8 @@ class RAMCLI:
                 self._cli = RAMListCLI()
             elif action == "diff":
                 self._cli = RAMDiffCLI()
+            elif action == "generate":
+                self._cli = RAMGenerateCLI()
             else:
                 raise ValueError(f"The action {action} is not supported")
         else:

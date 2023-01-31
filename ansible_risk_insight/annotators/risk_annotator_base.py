@@ -14,34 +14,69 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List
-from ..models import Annotation, TaskCall
-from .annotator_base import Annotator
-
-
-RISK_ANNOTATION_TYPE = "risk_annotation"
-
-
-class AnnotatorCategory:
-    NONE = ""
-    CMD_EXEC = "cmd_exec"
-    INBOUND = "inbound_transfer"
-    OUTBOUND = "outbound_transfer"
-    FILE_CHANGE = "file_change"
-    SYSTEM_CHANGE = "system_change"
-    NETWORK_CHANGE = "network_change"
-    CONFIG_CHANGE = "config_change"
-    PACKAGE_INSTALL = "package_install"
-    PRIVILEGE_ESCALATION = "privilege_escalation"
+from dataclasses import dataclass
+from ansible_risk_insight.models import TaskCall, RiskAnnotation
+from ansible_risk_insight.utils import load_classes_in_dir
+from ansible_risk_insight.annotators.annotator_base import Annotator, AnnotatorResult
+from ansible_risk_insight.annotators.module_annotator_base import ModuleAnnotator, ModuleAnnotatorResult
 
 
 class RiskAnnotator(Annotator):
-    type: str = RISK_ANNOTATION_TYPE
+    type: str = RiskAnnotation.type
     name: str = ""
     enabled: bool = False
 
-    def match(self, taskcall: TaskCall) -> bool:
+    module_annotator_cache: dict = {}
+
+    def match(self, task: TaskCall) -> bool:
         raise ValueError("this is a base class method")
 
-    def run(self, taskcall: TaskCall) -> List[Annotation]:
+    def run(self, task: TaskCall):
         raise ValueError("this is a base class method")
+
+    def load_module_annotators(self, dir_path: str):
+        if dir_path in self.module_annotator_cache:
+            return self.module_annotator_cache[dir_path]
+
+        annotator_classes = load_classes_in_dir(dir_path, ModuleAnnotator, __file__)
+        module_annotators = []
+        for a_c in annotator_classes:
+            annotator = a_c(context=self.context)
+            module_annotators.append(annotator)
+        if module_annotators:
+            self.module_annotator_cache[dir_path] = module_annotators
+        return module_annotators
+
+    def run_module_annotators(self, dir_path: str, task: TaskCall) -> ModuleAnnotatorResult:
+        if not dir_path:
+            return []
+
+        resolved_name = task.spec.resolved_name
+        module_annotators = self.load_module_annotators(dir_path)
+
+        # TODO: need to consider annotator precedence
+
+        annotations = []
+
+        for annotator in module_annotators:
+            if not isinstance(annotator, ModuleAnnotator):
+                continue
+            if not annotator.fqcn:
+                continue
+            if resolved_name != annotator.fqcn:
+                continue
+
+            result = annotator.run(task)
+            if not result:
+                continue
+
+            if result.annotations:
+                annotations.extend(result.annotations)
+        if annotations:
+            return ModuleAnnotatorResult(annotations=annotations)
+        return None
+
+
+@dataclass
+class RiskAnnotatorResult(AnnotatorResult):
+    pass

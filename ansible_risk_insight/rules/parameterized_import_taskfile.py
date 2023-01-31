@@ -15,26 +15,25 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from ansible_risk_insight.models import DefaultRiskType as RiskType
-from ansible_risk_insight.models import AnsibleRunContext, RunTargetType, AnnotationCondition
+from ansible_risk_insight.models import AnsibleRunContext, ExecutableType as ActionType, RunTargetType
 from ansible_risk_insight.rules.base import Rule, Severity, Tag, RuleResult
 
 
 @dataclass
-class InboundRuleResult(RuleResult):
+class ParameterizedImportTaskfileRuleResult(RuleResult):
     pass
 
 
 @dataclass
-class InboundTransferRule(Rule):
-    rule_id: str = "R101"
-    description: str = "A inbound network transfer from a parameterized source is found"
+class ParameterizedImportTaskfileRule(Rule):
+    rule_id: str = "R107"
+    description: str = "Import/include a parameterized name of taskfile"
     enabled: bool = True
-    name: str = "InboundTransfer"
+    name: str = "ParameterizedImportTaskfile"
     version: str = "v0.0.1"
     severity: Severity = Severity.MEDIUM
-    tags: tuple = Tag.NETWORK
-    result_type: type = InboundRuleResult
+    tags: tuple = Tag.DEPENDENCY
+    result_type: type = ParameterizedImportTaskfileRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
@@ -42,15 +41,20 @@ class InboundTransferRule(Rule):
     def check(self, ctx: AnsibleRunContext):
         task = ctx.current
 
-        ac = AnnotationCondition().risk_type(RiskType.INBOUND).attr("is_mutable_src", True)
-        result = task.has_annotation(ac)
+        # import_tasks: xxx.yml
+        #   or
+        # import_tasks:
+        #   file: yyy.yml
 
-        detail = {}
-        if result:
-            anno = task.get_annotation(ac)
-            if anno:
-                detail["from"] = anno.src.value
-                detail["to"] = anno.dest.value
+        taskfile_ref_arg = task.args.get("file")
+        if not taskfile_ref_arg:
+            taskfile_ref_arg = task.args
+
+        result = task.action_type == ActionType.TASKFILE_TYPE and taskfile_ref_arg and taskfile_ref_arg.is_mutable
+        taskfile_ref = taskfile_ref_arg.raw if taskfile_ref_arg else None
+        detail = {
+            "taskfile": taskfile_ref,
+        }
 
         rule_result = self.create_result(result=result, detail=detail, task=task)
         return rule_result
