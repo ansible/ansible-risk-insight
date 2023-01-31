@@ -25,6 +25,7 @@ class InsecurePkgInstallRuleResult(RuleResult):
     pass
 
 
+@dataclass
 class InsecurePkgInstallRule(Rule):
     rule_id: str = "R107"
     description: str = "A package installation with insecure option is found"
@@ -32,7 +33,7 @@ class InsecurePkgInstallRule(Rule):
     name: str = "InsecurePkgInstall"
     version: str = "v0.0.1"
     severity: Severity = Severity.MEDIUM
-    tags: list = [Tag.PACKAGE]
+    tags: tuple = Tag.PACKAGE
     result_type: type = InsecurePkgInstallRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

@@ -25,6 +25,7 @@ class KeyConfigChangeResult(RuleResult):
     pass
 
 
+@dataclass
 class KeyConfigChangeRule(Rule):
     rule_id: str = "R109"
     description: str = "Key configuration is changed"
@@ -32,7 +33,7 @@ class KeyConfigChangeRule(Rule):
     name: str = "ConfigChange"
     version: str = "v0.0.1"
     severity: Severity = Severity.VERY_LOW
-    tags: list = [Tag.SYSTEM]
+    tags: tuple = Tag.SYSTEM
     result_type: type = KeyConfigChangeResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

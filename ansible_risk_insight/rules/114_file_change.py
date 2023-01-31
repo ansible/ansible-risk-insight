@@ -25,6 +25,7 @@ class FileChangeResult(RuleResult):
     pass
 
 
+@dataclass
 class FileChangeRule(Rule):
     rule_id: str = "R114"
     description: str = "Parameterized file change is found"
@@ -32,7 +33,7 @@ class FileChangeRule(Rule):
     name: str = "ConfigChange"
     version: str = "v0.0.1"
     severity: Severity = Severity.LOW
-    tags: list = [Tag.SYSTEM]
+    tags: tuple = Tag.SYSTEM
     result_type: type = FileChangeResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

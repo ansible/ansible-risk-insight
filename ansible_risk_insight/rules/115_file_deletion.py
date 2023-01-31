@@ -14,15 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from dataclasses import dataclass
+
 from ansible_risk_insight.models import DefaultRiskType as RiskType
 from ansible_risk_insight.models import AnsibleRunContext, RunTargetType, AnnotationCondition
 from ansible_risk_insight.rules.base import Rule, Severity, Tag, RuleResult
 
 
+@dataclass
 class FileDeletionRuleResult(RuleResult):
     pass
 
 
+@dataclass
 class FileDeletionRule(Rule):
     rule_id: str = "R115"
     description: str = "File deletion found. Directories will be recursively deleted."
@@ -30,7 +34,7 @@ class FileDeletionRule(Rule):
     name: str = "FileDeletionRule"
     version: str = "v0.0.1"
     severity: Severity = Severity.LOW
-    tags: list = [Tag.SYSTEM]
+    tags: tuple = Tag.SYSTEM
     result_type: type = FileDeletionRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

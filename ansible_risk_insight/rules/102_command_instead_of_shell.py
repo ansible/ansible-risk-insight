@@ -14,14 +14,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from dataclasses import dataclass
+
 from ansible_risk_insight.models import AnsibleRunContext, ExecutableType as ActionType, RunTargetType
 from ansible_risk_insight.rules.base import Rule, Severity, Tag, RuleResult
 
 
+@dataclass
 class UseShellResult(RuleResult):
     pass
 
 
+@dataclass
 class UseShellRule(Rule):
     rule_id: str = "R102"
     description: str = "Use 'command' module instead of 'shell' "
@@ -29,7 +33,7 @@ class UseShellRule(Rule):
     name: str = "UseShellRule"
     version: str = "v0.0.1"
     severity: Severity = Severity.VERY_LOW
-    tags: list = [Tag.DEBUG]
+    tags: tuple = Tag.DEBUG
     result_type: type = UseShellResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

@@ -14,23 +14,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from dataclasses import dataclass
+
 from ansible_risk_insight.models import DefaultRiskType as RiskType
 from ansible_risk_insight.models import AnsibleRunContext, RunTargetType, AnnotationCondition
 from ansible_risk_insight.rules.base import Rule, Severity, Tag, RuleResult
 
 
+@dataclass
 class ListAllInboundSrcRuleResult(RuleResult):
     pass
 
 
+@dataclass
 class ListAllInboundSrcRule(Rule):
-    rule_id: str = "401"
+    rule_id: str = "R401"
     description: str = "List all inbound sources"
     enabled: bool = True
     name: str = "ListAllInboundSrcRule"
     version: str = "v0.0.1"
     severity: Severity = Severity.VERY_LOW
-    tags: list = [Tag.DEBUG]
+    tags: tuple = Tag.DEBUG
     result_type: type = ListAllInboundSrcRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

@@ -35,6 +35,7 @@ class InvalidDownloadSourceRuleResult(RuleResult):
     pass
 
 
+@dataclass
 class InvalidDownloadSourceRule(Rule):
     rule_id: str = "R104"
     description: str = "A network transfer from unauthorized source is found."
@@ -42,7 +43,7 @@ class InvalidDownloadSourceRule(Rule):
     name: str = "InvalidDownloadSource"
     version: str = "v0.0.1"
     severity: Severity = Severity.MEDIUM
-    tags: list = [Tag.NETWORK]
+    tags: tuple = Tag.NETWORK
     result_type: type = InvalidDownloadSourceRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

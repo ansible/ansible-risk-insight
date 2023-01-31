@@ -25,6 +25,7 @@ class CommandExecRuleResult(RuleResult):
     pass
 
 
+@dataclass
 class CommandExecRule(Rule):
     rule_id: str = "R101"
     description: str = "A parameterized command execution found"
@@ -32,7 +33,7 @@ class CommandExecRule(Rule):
     name: str = "CommandExec"
     version: str = "v0.0.1"
     severity: Severity = Severity.VERY_LOW
-    tags: list = [Tag.COMMAND]
+    tags: tuple = Tag.COMMAND
     result_type: type = CommandExecRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

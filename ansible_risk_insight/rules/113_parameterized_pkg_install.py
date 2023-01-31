@@ -25,6 +25,7 @@ class PkgInstallRuleResult(RuleResult):
     pass
 
 
+@dataclass
 class PkgInstallRule(Rule):
     rule_id: str = "R113"
     description: str = "A parameterized pkg installation is found"
@@ -32,7 +33,7 @@ class PkgInstallRule(Rule):
     name: str = "PkgInstall"
     version: str = "v0.0.1"
     severity: Severity = Severity.MEDIUM
-    tags: list = [Tag.PACKAGE]
+    tags: tuple = Tag.PACKAGE
     result_type: type = PkgInstallRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:
