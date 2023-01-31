@@ -26,6 +26,5 @@ class SubversionAnnotator(ModuleAnnotator):
     def run(self, task: TaskCall) -> List[Annotation]:
         src = task.args.get("repo")
         dest = task.args.get("dest")
-        
         annotation = RiskAnnotation.init(risk_type=DefaultRiskType.INBOUND, detail=InboundTransferDetail(_src_arg=src, _dest_arg=dest))
         return ModuleAnnotatorResult(annotations=[annotation])

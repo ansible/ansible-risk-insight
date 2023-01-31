@@ -65,7 +65,7 @@ class InvalidDownloadSourceRule(Rule):
 
         rule_result = self.create_result(result=result, detail=detail, task=task)
         return rule_result
-    
+
     def is_allowed_url(self, src, allow_list, deny_list):
         matched = True
         if len(allow_list) > 0:

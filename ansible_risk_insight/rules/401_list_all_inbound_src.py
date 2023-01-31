@@ -56,6 +56,6 @@ class ListAllInboundSrcRule(Rule):
             if len(src_list) > 0:
                 result = True
                 detail["inbound_src"] = src_list
-        
+
         rule_result = self.create_result(result=result, detail=detail, task=task)
         return rule_result

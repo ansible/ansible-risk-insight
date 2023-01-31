@@ -46,12 +46,12 @@ class FileDeletionRule(Rule):
         # define a condition for this rule here
         ac = AnnotationCondition().risk_type(RiskType.FILE_CHANGE).attr("is_delete", True).attr("is_mutable_path", True)
         result = task.has_annotation(ac)
-        
+
         detail = {}
         if result:
             anno = task.get_annotation(ac)
             if anno:
                 detail["path"] = anno.path.value
-                
+
         rule_result = self.create_result(result=result, detail=detail, task=task)
         return rule_result

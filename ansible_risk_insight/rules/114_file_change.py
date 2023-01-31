@@ -57,6 +57,6 @@ class FileChangeRule(Rule):
             anno = task.get_annotation(ac2)
             if anno:
                 detail["src"] = anno.src.value
-                
+
         rule_result = self.create_result(result=result, detail=detail, task=task)
         return rule_result

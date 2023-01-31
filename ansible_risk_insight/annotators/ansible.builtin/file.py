@@ -32,6 +32,6 @@ class FileAnnotator(ModuleAnnotator):
         if task.args.get("state") is not None:
             state = task.args.get("state")
 
-        annotation = RiskAnnotation.init(risk_type=DefaultRiskType.FILE_CHANGE, 
+        annotation = RiskAnnotation.init(risk_type=DefaultRiskType.FILE_CHANGE,
                                          detail=FileChangeDetail(_path_arg=path, _state_arg=state, _mode_arg=mode, _unsafe_write_arg=unsafe_writes))
         return ModuleAnnotatorResult(annotations=[annotation])

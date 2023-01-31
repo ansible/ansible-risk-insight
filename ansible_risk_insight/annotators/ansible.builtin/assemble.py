@@ -28,6 +28,6 @@ class AssembleAnnotator(ModuleAnnotator):
         src = task.args.get("src")
         unsafe_writes = task.args.get("unsafe_writes")
 
-        annotation = RiskAnnotation.init(risk_type=DefaultRiskType.FILE_CHANGE, 
+        annotation = RiskAnnotation.init(risk_type=DefaultRiskType.FILE_CHANGE,
                                          detail=FileChangeDetail(_path_arg=path, _src_arg=src, _unsafe_write_arg=unsafe_writes))
         return ModuleAnnotatorResult(annotations=[annotation])
