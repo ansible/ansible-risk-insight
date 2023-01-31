@@ -1,0 +1,35 @@
+name: pytest
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '**'
+      - '!**.md'
+      - '!doc/**'
+      - '!**.txt'
+      - '!LICENSE'
+      - 'test/**'
+    branches: ['main', 'release-*']
+  pull_request:
+
+jobs:
+  pytest:
+    name: Run tests with pytest
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.8, 3.9]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install ARI
+        run: pip install -e .
+      - name: Install pytest
+        run: pip install pytest
+      - name: Run Tests
+        run: pytest test -s

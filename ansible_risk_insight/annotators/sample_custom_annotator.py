@@ -15,9 +15,9 @@
 # limitations under the License.
 
 from typing import List
-from ..models import TaskCall, Annotation, RiskAnnotation
-from .variable_resolver import VariableAnnotation, VARIABLE_ANNOTATION_TYPE
-from .risk_annotator_base import RiskAnnotator, AnnotatorCategory
+from ansible_risk_insight.models import TaskCall, Annotation, RiskAnnotation, DefaultRiskType
+from ansible_risk_insight.annotators.variable_resolver import VariableAnnotation
+from ansible_risk_insight.annotators.risk_annotator_base import RiskAnnotator
 
 
 class SampleCustomAnnotator(RiskAnnotator):
@@ -31,19 +31,17 @@ class SampleCustomAnnotator(RiskAnnotator):
         return False
 
     # extract analyzed_data from task and embed it
-    def run(self, taskcall: TaskCall) -> List[Annotation]:
-        if not self.match(taskcall):
-            return taskcall
-        resolved_name = taskcall.spec.resolved_name
-        options = taskcall.spec.module_options
-        var_annos = taskcall.get_annotation_by_type(VARIABLE_ANNOTATION_TYPE)
+    def run(self, task: TaskCall) -> List[Annotation]:
+        resolved_name = task.spec.resolved_name
+        options = task.spec.module_options
+        var_annos = task.get_annotation_by_type(VariableAnnotation.type)
         var_anno = var_annos[0] if len(var_annos) > 0 else VariableAnnotation()
         resolved_options = var_anno.resolved_module_options
 
         annotations = []
         # example of package_install
         if resolved_name == "sample.custom.homebrew":
-            res = RiskAnnotation(type=self.type, category=AnnotatorCategory.PACKAGE_INSTALL)
+            res = RiskAnnotation(type=self.type, category=DefaultRiskType.PACKAGE_INSTALL)
             res.data = self.homebrew(options)
             for ro in resolved_options:
                 res.resolved_data.append(self.homebrew(ro))

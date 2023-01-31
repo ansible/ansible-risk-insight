@@ -18,8 +18,12 @@ import os
 import json
 from dataclasses import dataclass, field
 
-from .models import LoadType, ObjectList, ExecutableType, Module
-from .parser import Parser
+from .models import (
+    LoadType,
+    ObjectList,
+    ExecutableType,
+    Module,
+)
 from .findings import Findings
 from .utils import escape_url, version_to_num, diff_files_data
 from .safe_glob import safe_glob
@@ -59,7 +63,7 @@ class RAMClient(object):
     def make_findings_dir_path(self, type, name, version, hash):
         type_root = type + "s"
         dir_name = name
-        if type == LoadType.PROJECT:
+        if type in [LoadType.PROJECT, LoadType.PLAYBOOK]:
             dir_name = escape_url(name)
         ver_str = version if version != "" else "unknown"
         hash_str = hash if hash != "" else "unknown"
@@ -68,13 +72,18 @@ class RAMClient(object):
 
     def load_definitions_from_findings(self, type, name, version, hash):
         findings_dir = self.make_findings_dir_path(type, name, version, hash)
-        defs_dir = os.path.join(findings_dir, "root")
+        findings_path = os.path.join(findings_dir, "findings.json")
         loaded = False
         definitions = {}
         mappings = {}
-        if os.path.exists(defs_dir):
-            definitions, mappings = Parser.restore_definition_objects(defs_dir)
-            loaded = True
+        if os.path.exists(findings_path):
+            findings = Findings.load(fpath=findings_path)
+            # use RAM only if no unresolved dependency
+            # (RAM should be fully-resolved specs as much as possible)
+            if findings and len(findings.extra_requirements) == 0:
+                definitions = findings.root_definitions.get("definitions", {})
+                mappings = findings.root_definitions.get("mappings", {})
+                loaded = True
         return loaded, definitions, mappings
 
     def search_builtin_module(self, name, used_in=""):
@@ -97,7 +106,8 @@ class RAMClient(object):
                     "type": "module",
                     "name": fqcn,
                     "object": m,
-                    "collection": {
+                    "defined_in": {
+                        "type": "collection",
                         "name": m.collection,
                         "version": "unknown",
                         "hash": "unknown",
@@ -125,8 +135,12 @@ class RAMClient(object):
             findings_json_list = self.findings_json_list_cache
         else:
             search_patterns = os.path.join(self.root_dir, "collections", "findings", "*", "*", "*", "findings.json")
-            findings_json_list = safe_glob(search_patterns)
-            findings_json_list = sort_by_version(findings_json_list)
+            findings_json_list_coll = safe_glob(search_patterns)
+            findings_json_list_coll = sort_by_version(findings_json_list_coll)
+            search_patterns = os.path.join(self.root_dir, "roles", "findings", "*", "*", "*", "findings.json")
+            findings_json_list_role = safe_glob(search_patterns)
+            findings_json_list_role = sort_by_version(findings_json_list_role)
+            findings_json_list = findings_json_list_coll + findings_json_list_role
             self.findings_json_list_cache = findings_json_list
 
         modules_json_list = []
@@ -136,6 +150,9 @@ class RAMClient(object):
             for findings_json in findings_json_list:
                 f = Findings.load(fpath=findings_json)
                 if not isinstance(f, Findings):
+                    continue
+                # avoid using unresolved RAM data
+                if f.extra_requirements:
                     continue
                 modules = f.root_definitions.get("definitions", {}).get("modules", [])
                 self.modules_cache[findings_json] = modules
@@ -174,7 +191,8 @@ class RAMClient(object):
                             "type": "module",
                             "name": m.fqcn,
                             "object": m,
-                            "collection": {
+                            "defined_in": {
+                                "type": parts[-6][:-1],  # collection or role
                                 "name": parts[-4],
                                 "version": parts[-3],
                                 "hash": parts[-2],
@@ -199,8 +217,12 @@ class RAMClient(object):
             findings_json_list = self.findings_json_list_cache
         else:
             search_patterns = os.path.join(self.root_dir, "collections", "findings", "*", "*", "*", "findings.json")
-            findings_json_list = safe_glob(search_patterns)
-            findings_json_list = sort_by_version(findings_json_list)
+            findings_json_list_coll = safe_glob(search_patterns)
+            findings_json_list_coll = sort_by_version(findings_json_list_coll)
+            search_patterns = os.path.join(self.root_dir, "roles", "findings", "*", "*", "*", "findings.json")
+            findings_json_list_role = safe_glob(search_patterns)
+            findings_json_list_role = sort_by_version(findings_json_list_role)
+            findings_json_list = findings_json_list_coll + findings_json_list_role
             self.findings_json_list_cache = findings_json_list
 
         roles_json_list = []
@@ -210,6 +232,9 @@ class RAMClient(object):
             for findings_json in findings_json_list:
                 f = Findings.load(fpath=findings_json)
                 if not isinstance(f, Findings):
+                    continue
+                # avoid using unresolved RAM data
+                if f.extra_requirements:
                     continue
                 roles = f.root_definitions.get("definitions", {}).get("roles", [])
                 self.roles_cache[findings_json] = roles
@@ -266,7 +291,8 @@ class RAMClient(object):
                             "name": r.fqcn,
                             "object": r,
                             "offspring_objects": offspring_objects,
-                            "collection": {
+                            "defined_in": {
+                                "type": parts[-5][:-1],  # collection or role
                                 "name": parts[-4],
                                 "version": parts[-3],
                                 "hash": parts[-2],
@@ -290,8 +316,12 @@ class RAMClient(object):
             findings_json_list = self.findings_json_list_cache
         else:
             search_patterns = os.path.join(self.root_dir, "collections", "findings", "*", "*", "*", "findings.json")
-            findings_json_list = safe_glob(search_patterns)
-            findings_json_list = sort_by_version(findings_json_list)
+            findings_json_list_coll = safe_glob(search_patterns)
+            findings_json_list_coll = sort_by_version(findings_json_list_coll)
+            search_patterns = os.path.join(self.root_dir, "roles", "findings", "*", "*", "*", "findings.json")
+            findings_json_list_role = safe_glob(search_patterns)
+            findings_json_list_role = sort_by_version(findings_json_list_role)
+            findings_json_list = findings_json_list_coll + findings_json_list_role
             self.findings_json_list_cache = findings_json_list
 
         taskfiles_json_list = []
@@ -301,6 +331,9 @@ class RAMClient(object):
             for findings_json in findings_json_list:
                 f = Findings.load(fpath=findings_json)
                 if not isinstance(f, Findings):
+                    continue
+                # avoid using unresolved RAM data
+                if f.extra_requirements:
                     continue
                 taskfiles = f.root_definitions.get("definitions", {}).get("taskfiles", [])
                 self.taskfiles_cache[findings_json] = taskfiles
@@ -370,7 +403,8 @@ class RAMClient(object):
                             "name": tf.key,
                             "object": tf,
                             "offspring_objects": offspring_objects,
-                            "collection": {
+                            "defined_in": {
+                                "type": parts[-5][:-1],  # collection or role
                                 "name": parts[-4],
                                 "version": parts[-3],
                                 "hash": parts[-2],
@@ -397,9 +431,14 @@ class RAMClient(object):
             findings_json_list = self.findings_json_list_cache
         else:
             search_patterns = os.path.join(self.root_dir, "collections", "findings", "*", "*", "*", "findings.json")
-            findings_json_list = safe_glob(search_patterns)
-            findings_json_list = sort_by_version(findings_json_list)
+            findings_json_list_coll = safe_glob(search_patterns)
+            findings_json_list_coll = sort_by_version(findings_json_list_coll)
+            search_patterns = os.path.join(self.root_dir, "roles", "findings", "*", "*", "*", "findings.json")
+            findings_json_list_role = safe_glob(search_patterns)
+            findings_json_list_role = sort_by_version(findings_json_list_role)
+            findings_json_list = findings_json_list_coll + findings_json_list_role
             self.findings_json_list_cache = findings_json_list
+
         tasks_json_list = []
         if self.tasks_json_list_cache:
             tasks_json_list = self.tasks_json_list_cache
@@ -407,6 +446,9 @@ class RAMClient(object):
             for findings_json in findings_json_list:
                 f = Findings.load(fpath=findings_json)
                 if not isinstance(f, Findings):
+                    continue
+                # avoid using unresolved RAM data
+                if f.extra_requirements:
                     continue
                 tasks = f.root_definitions.get("definitions", {}).get("tasks", [])
                 self.tasks_cache[findings_json] = tasks
@@ -474,7 +516,8 @@ class RAMClient(object):
                             "name": t.key,
                             "object": t,
                             "offspring_objects": offspring_objects,
-                            "collection": {
+                            "defined_in": {
+                                "type": parts[-5][:-1],  # collection or role
                                 "name": parts[-4],
                                 "version": parts[-3],
                                 "hash": parts[-2],
@@ -498,8 +541,13 @@ class RAMClient(object):
         type_str = obj_type + "s"
 
         search_patterns = os.path.join(self.root_dir, "collections", "findings", parent_name, "*", "*", "root", f"{type_str}.json")
-        obj_json_list = safe_glob(search_patterns)
-        obj_json_list = sort_by_version(obj_json_list)
+        obj_json_list_coll = safe_glob(search_patterns)
+        obj_json_list_coll = sort_by_version(obj_json_list_coll)
+        search_patterns = os.path.join(self.root_dir, "roles", "findings", parent_name, "*", "*", "root", f"{type_str}.json")
+        obj_json_list_role = safe_glob(search_patterns)
+        obj_json_list_role = sort_by_version(obj_json_list_role)
+        obj_json_list = obj_json_list_coll + obj_json_list_role
+
         matched_obj = None
         for obj_json in obj_json_list:
             objs = ObjectList()
@@ -509,7 +557,8 @@ class RAMClient(object):
                 parts = obj_json.split("/")
                 matched_obj = {
                     "object": obj,
-                    "collection": {
+                    "defined_in": {
+                        "type": parts[-6][:-1],  # collection or role
                         "name": parts[-5],
                         "version": parts[-4],
                         "hash": parts[-3],
@@ -523,8 +572,12 @@ class RAMClient(object):
             findings_json_list = self.findings_json_list_cache
         else:
             search_patterns = os.path.join(self.root_dir, "collections", "findings", "*", "*", "*", "findings.json")
-            findings_json_list = safe_glob(search_patterns)
-            findings_json_list = sort_by_version(findings_json_list)
+            findings_json_list_coll = safe_glob(search_patterns)
+            findings_json_list_coll = sort_by_version(findings_json_list_coll)
+            search_patterns = os.path.join(self.root_dir, "roles", "findings", "*", "*", "*", "findings.json")
+            findings_json_list_role = safe_glob(search_patterns)
+            findings_json_list_role = sort_by_version(findings_json_list_role)
+            findings_json_list = findings_json_list_coll + findings_json_list_role
             self.findings_json_list_cache = findings_json_list
 
         metadata_list = []
@@ -533,7 +586,7 @@ class RAMClient(object):
 
             metadata_list.append(
                 {
-                    "type": "collection",
+                    "type": parts[-5][:-1],  # collection or role
                     "name": parts[-4],
                     "version": parts[-3],
                     "hash": parts[-2],
@@ -585,6 +638,16 @@ class RAMClient(object):
             os.makedirs(out_dir, exist_ok=True)
 
         findings.dump(fpath=os.path.join(out_dir, "findings.json"))
+
+    def save_error(self, error: str, out_dir: str):
+        if out_dir == "":
+            raise ValueError("output dir must be a non-empty value")
+
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir, exist_ok=True)
+
+        with open(os.path.join(out_dir, "error.log"), "w") as file:
+            file.write(error)
 
     def diff(self, target_name, version1, version2):
         findings1 = self.search_findings(target_name=target_name, target_version=version1)

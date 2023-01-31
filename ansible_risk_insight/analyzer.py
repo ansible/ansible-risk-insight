@@ -18,14 +18,14 @@ import argparse
 import json
 import logging
 from typing import List
-from ansible_risk_insight import annotators
-from .models import TaskCallsInTree
+from ansible_risk_insight.annotators.risk_annotator_base import RiskAnnotator
+from .models import TaskCallsInTree, AnsibleRunContext
+from .utils import load_classes_in_dir
 
 
-def load_annotators():
-    _annotators = []
-    for annotator in annotators.__all__:
-        _annotators.append(getattr(annotators, annotator)())
+def load_annotators(ctx: AnsibleRunContext = None):
+    _annotator_classes = load_classes_in_dir("annotators", RiskAnnotator, __file__)
+    _annotators = [a(context=ctx) for a in _annotator_classes]
     return _annotators
 
 
@@ -42,28 +42,29 @@ def load_taskcalls_in_trees(path: str) -> List[TaskCallsInTree]:
     return taskcalls_in_trees
 
 
-def analyze(taskcalls_in_trees: List[TaskCallsInTree]):
-    # risk annotator
-    _annotators = load_annotators()
-
-    num = len(taskcalls_in_trees)
-    for i, taskcalls_in_tree in enumerate(taskcalls_in_trees):
-        if not isinstance(taskcalls_in_tree, TaskCallsInTree):
+def analyze(contexts: List[AnsibleRunContext]):
+    num = len(contexts)
+    for i, ctx in enumerate(contexts):
+        if not isinstance(ctx, AnsibleRunContext):
             continue
-        for j, taskcall in enumerate(taskcalls_in_tree.taskcalls):
+        for j, t in enumerate(ctx.tasks):
             annotator = None
+            _annotators = load_annotators(ctx)
             for ax in _annotators:
                 if not ax.enabled:
                     continue
-                if ax.match(taskcall=taskcall):
+                if ax.match(task=t):
                     annotator = ax
                     break
             if annotator is None:
                 continue
-            annotations = annotator.run(taskcall)
-            taskcalls_in_trees[i].taskcalls[j].annotations.extend(annotations)
+            result = annotator.run(task=t)
+            if not result:
+                continue
+            if result.annotations:
+                t.annotations.extend(result.annotations)
         logging.debug("analyze() {}/{} done".format(i + 1, num))
-    return taskcalls_in_trees
+    return contexts
 
 
 def main():

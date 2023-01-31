@@ -35,9 +35,16 @@ GALAXY_yml = "GALAXY.yml"
 
 
 def find_dependency(type, target, dependency_dir):
-    dependencies = {"dependencies": "", "type": "", "file": ""}
+    dependencies = {"dependencies": {}, "type": "", "file": ""}
     logging.debug("search dependency")
-    if dependency_dir is None:
+    if dependency_dir:
+        requirements, paths, metadata = load_existing_dependency_dir(dependency_dir)
+        dependencies["dependencies"] = requirements
+        dependencies["paths"] = paths
+        dependencies["metadata"] = metadata
+        dependencies["type"] = type
+        dependencies["file"] = None
+    else:
         if type == LoadType.PROJECT:
             logging.debug("search project dependency")
             requirements, reqyml = find_project_dependency(target)
@@ -56,13 +63,7 @@ def find_dependency(type, target, dependency_dir):
             dependencies["dependencies"] = requirements
             dependencies["type"] = LoadType.COLLECTION
             dependencies["file"] = manifestjson
-    else:
-        requirements, paths, metadata = load_existing_dependency_dir(dependency_dir)
-        dependencies["dependencies"] = requirements
-        dependencies["paths"] = paths
-        dependencies["metadata"] = metadata
-        dependencies["type"] = type
-        dependencies["file"] = None
+
     return dependencies
 
 
@@ -86,7 +87,7 @@ def find_role_dependency(target):
                     try:
                         metadata = yaml.safe_load(file)
                     except Exception as e:
-                        logging.error("failed to load this yaml file to read metadata; {}".format(e.args[0]))
+                        logging.debug("failed to load this yaml file to read metadata; {}".format(e.args[0]))
 
                     if metadata is not None and isinstance(metadata, dict):
                         requirements["roles"] = metadata.get("dependencies", [])
@@ -134,7 +135,7 @@ def load_requirements(path):
             try:
                 requirements = yaml.safe_load(file)
             except Exception as e:
-                logging.error("failed to load requirements.yml; {}".format(e.args[0]))
+                logging.debug("failed to load requirements.yml; {}".format(e.args[0]))
     else:
         requirements, yaml_path = load_dependency_from_galaxy(path)
     return requirements, yaml_path
@@ -153,7 +154,7 @@ def load_dependency_from_galaxy(path):
                 metadata = {}
                 with open(g, "r") as file:
                     metadata = yaml.safe_load(file)
-                    dependencies = metadata.get("dependencies", [])
+                    dependencies = metadata.get("dependencies", {})
                     requirements["collections"] = format_dependency_info(dependencies)
     return requirements, yaml_path
 
@@ -226,4 +227,3 @@ def format_dependency_info(dependencies):
     for k, v in dependencies.items():
         results.append({"name": k, "version": v})
     return results
-
