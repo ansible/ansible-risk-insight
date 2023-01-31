@@ -25,9 +25,7 @@ class RpmKeyAnnotator(ModuleAnnotator):
 
     def run(self, task: TaskCall) -> List[Annotation]:
         key = task.args.get("key")
-        state = "present"
-        if task.args.get("state") is not None:
-            state = task.args.get("state")
+        state = task.args.get("state")
 
         annotation = RiskAnnotation.init(risk_type=DefaultRiskType.CONFIG_CHANGE,
                                          detail=KeyConfigChangeDetail(_key_arg=key, _state_arg=state))

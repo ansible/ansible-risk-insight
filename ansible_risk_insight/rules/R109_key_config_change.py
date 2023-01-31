@@ -49,8 +49,7 @@ class KeyConfigChangeRule(Rule):
         if result:
             anno = task.get_annotation(ac)
             if anno:
-                detail["key"] = anno.key.raw
-                detail["state"] = anno.state.raw
+                detail["key"] = anno.key
 
         rule_result = self.create_result(result=result, detail=detail, task=task)
         return rule_result

@@ -32,9 +32,8 @@ class AptKeyAnnotator(ModuleAnnotator):
             key = task.args.get("data")
         if key is None:
             key = task.args.get("keyserver")
-        state = "present"
-        if task.args.get("state") is not None:
-            state = task.args.get("state")
+
+        state = task.args.get("state")
 
         annotation = RiskAnnotation.init(risk_type=DefaultRiskType.CONFIG_CHANGE,
                                          detail=KeyConfigChangeDetail(_key_arg=key, _state_arg=state))

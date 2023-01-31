@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ansible_risk_insight.models import RiskAnnotation, TaskCall, DefaultRiskType, OutboundTransferDetail, InboundTransferDetail
+from ansible_risk_insight.models import RiskAnnotation, TaskCall, DefaultRiskType, OutboundTransferDetail
 from ansible_risk_insight.annotators.module_annotator_base import ModuleAnnotator, ModuleAnnotatorResult
 
 
@@ -30,10 +30,5 @@ class URIAnnotator(ModuleAnnotator):
             annotation = RiskAnnotation.init(
                 risk_type=DefaultRiskType.OUTBOUND,
                 detail=OutboundTransferDetail(_dest_arg=url, _src_arg=body),
-            )
-        else:
-            annotation = RiskAnnotation.init(
-                risk_type=DefaultRiskType.INBOUND,
-                detail=InboundTransferDetail(_src_arg=url),
             )
         return ModuleAnnotatorResult(annotations=[annotation])

@@ -27,7 +27,7 @@ class InboundRuleResult(RuleResult):
 
 @dataclass
 class InboundTransferRule(Rule):
-    rule_id: str = "R106"
+    rule_id: str = "R101"
     description: str = "A inbound network transfer from a parameterized source is found"
     enabled: bool = True
     name: str = "InboundTransfer"

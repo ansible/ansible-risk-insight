@@ -26,10 +26,7 @@ class BlockinfileAnnotator(ModuleAnnotator):
     def run(self, task: TaskCall) -> List[Annotation]:
         path = task.args.get("path")
         unsafe_writes = task.args.get("unsafe_writes")
-
-        state = "present"
-        if task.args.get("state") is not None:
-            state = task.args.get("state")
+        state = task.args.get("state")
 
         annotation = RiskAnnotation.init(risk_type=DefaultRiskType.FILE_CHANGE,
                                          detail=FileChangeDetail(_path_arg=path, _state_arg=state, _unsafe_write_arg=unsafe_writes))
