@@ -1,0 +1,1 @@
+../../ansible_risk_insight/rules/R301_non_fqcn_use.md

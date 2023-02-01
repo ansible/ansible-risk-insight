@@ -1,0 +1,43 @@
+---
+site_name: Ansible Risk Insight Documentation
+site_url: https://ansible-risk-insight.readthedocs.io/
+repo_url: https://github.com/ansible/ansible-risk-insight
+copyright: Copyright © 2023 Red Hat, Inc.
+docs_dir: docs
+# strict: true
+
+theme: 
+  name: readthedocs
+  features:
+    - content.code.copy
+    - content.action.edit
+    - navigation.expand
+    - navigation.sections
+    - navigation.instant
+    - navigation.indexes
+    - navigation.tracking
+    - toc.integrate
+
+nav:
+  - User Guide:
+      - home: index.md
+      - installing.md
+  - Rules:
+      - rules/R101_command_exec.md
+      - rules/R102_command_instead_of_shell.md
+      - rules/R103_download_exec.md
+      - rules/R104_unauthorized_download_src.md
+      - rules/R105_outbound_transfer.md
+      - rules/R106_inbound_transfer.md
+      - rules/R107_pkg_install_with_insecure_option.md
+      - rules/R108_privilege_escalation.md
+      - rules/R109_key_config_change.md
+      - rules/R110_non_builtin_use.md
+      - rules/R111_parameterized_import_role.md
+      - rules/R112_parameterized_import_taskfile.md
+      - rules/R113_parameterized_pkg_install.md
+      - rules/R114_file_change.md
+      - rules/R115_file_deletion.md
+      - rules/R116_insecure_file_permission.md
+      - rules/R301_non_fqcn_use.md
+
