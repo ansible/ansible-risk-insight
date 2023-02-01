@@ -22,6 +22,7 @@ nav:
   - User Guide:
       - home: index.md
       - installing.md
+      - customize_rules.md
   - Rules:
       - rules/R101_command_exec.md
       - rules/R102_command_instead_of_shell.md
