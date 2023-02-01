@@ -1,0 +1,1 @@
+../../ansible_risk_insight/rules/R102_command_instead_of_shell.md

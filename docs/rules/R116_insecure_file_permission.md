@@ -1,0 +1,1 @@
+../../ansible_risk_insight/rules/R116_insecure_file_permission.md
