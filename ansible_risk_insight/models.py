@@ -452,18 +452,28 @@ class VariableDict(object):
     def print_table(data: dict):
         d = VariableDict(_dict=data)
         table = []
+        type_labels = []
+        found_type_label_names = []
+        for v_list in d._dict.values():
+            for v in v_list:
+                if v.type.name in found_type_label_names:
+                    continue
+                type_labels.append(v.type)
+                found_type_label_names.append(v.type.name)
+        type_labels = sorted(type_labels, key=lambda x: x.order, reverse=True)
+
         for v_name in d._dict:
             v_list = d._dict[v_name]
             row = {"NAME": v_name}
-            for p in var_type_table_label:
+            for t in type_labels:
                 value = "-"
                 for v in v_list:
-                    if v.type != p:
+                    if v.type != t:
                         continue
                     value = v.value
                     if isinstance(value, str) and value == "":
                         value = '""'
-                type_label = p.name.upper()
+                type_label = t.name.upper()
                 row[type_label] = value
             table.append(row)
         return tabulate(table, headers="keys")

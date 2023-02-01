@@ -61,6 +61,5 @@ def _scan(type, name):
         name=name,
         root_dir=config.data_dir,
     )
-    s.prepare_dependencies()
-    s.load()
+    s.load(prepare_dependencies=True)
     return s

@@ -68,8 +68,7 @@ class RiskAssessmentModelGenerator(object):
                 silent=True,
                 use_src_cache=use_src_cache,
             )
-            s.prepare_dependencies()
-            s.load()
+            s.load(prepare_dependencies=True)
         except Exception:
             error = traceback.format_exc()
             s.save_error(error)

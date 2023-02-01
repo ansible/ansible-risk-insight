@@ -56,6 +56,7 @@ from .utils import (
     summarize_findings,
     summarize_findings_data,
     split_target_playbook_fullpath,
+    open_ui_for_findings,
 )
 
 
@@ -145,6 +146,7 @@ class ARIScanner(object):
     pretty: bool = False
     silent: bool = False
     output_format: str = ""
+    open_ui: bool = False
 
     extra_requirements: list = field(default_factory=list)
     resolve_failures: dict = field(default_factory=dict)
@@ -255,7 +257,21 @@ class ARIScanner(object):
 
     def load(self, prepare_dependencies=False):
 
-        if prepare_dependencies:
+        metdata_loaded = False
+        if self.read_ram:
+            loaded, metadata, dependencies = self.load_metadata_from_findings(self.type, self.name, self.version)
+            logging.debug(f"metadata loaded: {loaded}")
+            if loaded:
+                self.target_path = self.make_target_path(self.type, self.name)
+                self.version = metadata.get("version", "")
+                self.hash = metadata.get("hash", "")
+                self.download_url = metadata.get("download_url", "")
+                self.loaded_dependency_dirs = dependencies
+                metdata_loaded = True
+                if not self.silent:
+                    logging.debug(f'Use metadata for "{self.name}" in RAM DB')
+
+        if prepare_dependencies and not metdata_loaded:
             self.prepare_dependencies()
 
         ext_list = []
@@ -326,8 +342,9 @@ class ARIScanner(object):
             logging.debug("load_definition_ext() done")
 
         loaded = False
-        if self.read_ram and self.type != LoadType.PROJECT:
-            loaded, root_defs = self.load_definitions_from_findings(self.type, self.name, self.version, self.hash)
+        if self.read_ram:
+            loaded, root_defs = self.load_definitions_from_findings(self.type, self.name, self.version, self.hash, allow_unresolved=True)
+            logging.debug(f"spec data loaded: {loaded}")
             if loaded:
                 self.root_definitions = root_defs
                 if not self.silent:
@@ -384,6 +401,9 @@ class ARIScanner(object):
             elif self.output_format.lower() == "yaml":
                 data_str = yaml.safe_dump(data)
             print(data_str)
+
+        if self.open_ui:
+            open_ui_for_findings(self.findings, root_dir=self.root_dir)
 
         return
 
@@ -691,6 +711,10 @@ class ARIScanner(object):
             "path_mappings": self.__path_mappings,
         }
 
+    def load_metadata_from_findings(self, type, name, version):
+        loaded, metadata, dependencies = self.ram_client.load_metadata_from_findings(type, name, version)
+        return loaded, metadata, dependencies
+
     def load_ext_definitions_from_findings(self, type, name, version, hash):
         loaded, definitions, mappings = self.ram_client.load_definitions_from_findings(type, name, version, hash)
         if loaded:
@@ -724,8 +748,8 @@ class ARIScanner(object):
             "mappings": mappings,
         }
 
-    def load_definitions_from_findings(self, type, name, version, hash):
-        loaded, definitions, mappings = self.ram_client.load_definitions_from_findings(type, name, version, hash)
+    def load_definitions_from_findings(self, type, name, version, hash, allow_unresolved=False):
+        loaded, definitions, mappings = self.ram_client.load_definitions_from_findings(type, name, version, hash, allow_unresolved)
         definitions_dict = {}
         if loaded:
             definitions_dict = {

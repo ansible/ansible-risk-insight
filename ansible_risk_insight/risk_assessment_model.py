@@ -70,7 +70,15 @@ class RAMClient(object):
         out_dir = os.path.join(self.root_dir, type_root, "findings", dir_name, ver_str, hash_str)
         return out_dir
 
-    def load_definitions_from_findings(self, type, name, version, hash):
+    def load_metadata_from_findings(self, type, name, version, hash="*"):
+        findings = self.search_findings(name, version, type)
+        if not findings:
+            return False, None, None
+        if not isinstance(findings, Findings):
+            return False, None, None
+        return True, findings.metadata, findings.dependencies
+
+    def load_definitions_from_findings(self, type, name, version, hash, allow_unresolved=False):
         findings_dir = self.make_findings_dir_path(type, name, version, hash)
         findings_path = os.path.join(findings_dir, "findings.json")
         loaded = False
@@ -80,7 +88,7 @@ class RAMClient(object):
             findings = Findings.load(fpath=findings_path)
             # use RAM only if no unresolved dependency
             # (RAM should be fully-resolved specs as much as possible)
-            if findings and len(findings.extra_requirements) == 0:
+            if findings and (len(findings.extra_requirements) == 0 or allow_unresolved):
                 definitions = findings.root_definitions.get("definitions", {})
                 mappings = findings.root_definitions.get("mappings", {})
                 loaded = True
@@ -594,16 +602,23 @@ class RAMClient(object):
             )
         return metadata_list
 
-    def search_findings(self, target_name, target_version):
+    def search_findings(self, target_name, target_version, target_type=None):
         if not target_name:
             raise ValueError("target name must be specified for searching RAM data")
         if not target_version:
             target_version = "*"
-        search_patterns = os.path.join(self.root_dir, "collections", "findings", target_name, target_version, "*", "findings.json")
+        search_patterns = []
+        if not target_type or target_type == "collection":
+            search_patterns.append(os.path.join(self.root_dir, "collections", "findings", target_name, target_version, "*", "findings.json"))
+        if not target_type or target_type == "role":
+            search_patterns.append(os.path.join(self.root_dir, "roles", "findings", target_name, target_version, "*", "findings.json"))
+        if not target_type or target_type == "project":
+            e_target_name = escape_url(target_name)
+            search_patterns.append(os.path.join(self.root_dir, "projects", "findings", e_target_name, target_version, "*", "findings.json"))
+        if not target_type or target_type == "playbook":
+            e_target_name = escape_url(target_name)
+            search_patterns.append(os.path.join(self.root_dir, "playbooks", "findings", e_target_name, target_version, "*", "findings.json"))
         found_path_list = safe_glob(search_patterns)
-        if len(found_path_list) == 0:
-            search_patterns = os.path.join(self.root_dir, "roles", "findings", target_name, target_version, "*", "findings.json")
-            found_path_list = safe_glob(search_patterns)
         latest_findings_path = ""
         if len(found_path_list) == 1:
             latest_findings_path = found_path_list[0]
