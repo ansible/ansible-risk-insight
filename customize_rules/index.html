@@ -3,18 +3,18 @@
 <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://ansible-risk-insight.readthedocs.io/installing/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://ansible-risk-insight.readthedocs.io/customize_rules/" />
       <link rel="shortcut icon" href="../img/favicon.ico" />
-    <title>Installing - Ansible Risk Insight Documentation</title>
+    <title>Rule definitions - Ansible Risk Insight Documentation</title>
     <link rel="stylesheet" href="../css/theme.css" />
     <link rel="stylesheet" href="../css/theme_extra.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.5.0/styles/github.min.css" />
     
       <script>
         // Current page data
-        var mkdocs_page_name = "Installing";
-        var mkdocs_page_input_path = "installing.md";
-        var mkdocs_page_url = "/installing/";
+        var mkdocs_page_name = "Rule definitions";
+        var mkdocs_page_input_path = "customize_rules.md";
+        var mkdocs_page_url = "/customize_rules/";
       </script>
     
     <script src="../js/jquery-3.6.0.min.js" defer></script>
@@ -44,13 +44,15 @@
               <ul class="current">
                   <li class="toctree-l1"><a class="reference internal" href="..">home</a>
                   </li>
-                  <li class="toctree-l1 current"><a class="reference internal current" href="./">Installing</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../installing/">Installing</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="./">Rule definitions</a>
     <ul class="current">
-    <li class="toctree-l2"><a class="reference internal" href="#installing-from-github">Installing from GitHub</a>
+    <li class="toctree-l2"><a class="reference internal" href="#match-and-check-methods">match and check methods</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#define-custom-rule-result-type">Define custom rule result type</a>
     </li>
     </ul>
-                  </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../customize_rules/">Rule definitions</a>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Rules</span></p>
@@ -105,9 +107,9 @@
   <ul class="wy-breadcrumbs">
     <li><a href=".." class="icon icon-home" alt="Docs"></a> &raquo;</li>
           <li>User Guide &raquo;</li>
-      <li>Installing</li>
+      <li>Rule definitions</li>
     <li class="wy-breadcrumbs-aside">
-          <a href="https://github.com/ansible/ansible-risk-insight/edit/master/docs/installing.md" class="icon icon-github"> Edit on GitHub</a>
+          <a href="https://github.com/ansible/ansible-risk-insight/edit/master/docs/customize_rules.md" class="icon icon-github"> Edit on GitHub</a>
     </li>
   </ul>
   <hr/>
@@ -115,17 +117,100 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             <div class="section" itemprop="articleBody">
               
-                <h1 id="installing">Installing</h1>
-<h2 id="installing-from-github">Installing from GitHub</h2>
-<p>You can install ARI from GitHub source code using <code>pip</code> command.</p>
-<pre><code class="language-bash">$ pip install git+https://github.com/ansible/ansible-risk-insight.git
+                <h1 id="rule-definitions">Rule definitions</h1>
+<p>You can define each custom rule in a single Python class file.</p>
+<p>Each rule definition should have the following parts:</p>
+<p>[required]
+- <code>rule_id</code> is a unique identifier among rules
+- <code>description</code> explains what the rule checks for.
+- <code>enabled</code> determines whether the rule is used or not.</p>
+<p>[optional]
+- <code>tags</code> specifies one or more tags for including or excluding the rule.
+- <code>severity</code> represents the risk impact if the rule condition is matched.
+- <code>result_type</code> specifies the result type class instead of the default one.</p>
+<h2 id="match-and-check-methods">match and check methods</h2>
+<p>Each rule definition should also have <code>match</code> and <code>check</code> methods:</p>
+<p><code>match</code> takes the <code>context</code> information and returns True if the rule should check this target.</p>
+<p>When ARI is scanning a playbook, ARI updates the context by focusing on each runnable target such as Playbook, Role and Task.</p>
+<p>The current object of the context can be accessed by <code>ctx.current</code>, so if the rule is only for tasks, you can define a <code>match</code> method like the following.</p>
+<pre><code class="language-python">from dataclasses import dataclass
+from ansible_risk_insight.models import AnsibleRunContext, RunTargetType, ExecutableType as ActionType
+from ansible_risk_insight.rules.base import Rule
+
+@dataclass
+class NonBuiltinUseRule(Rule):
+    rule_id: str = &quot;R110&quot;
+    description: str = &quot;Non-builtin module is used&quot;
+    enabled: bool = True
+
+    def match(self, ctx: AnsibleRunContext) -&gt; bool:
+        return ctx.current.type == RunTargetType.Task
+</code></pre>
+<p><code>check</code> also takes the context, but it returns a RuleResult object.</p>
+<p>Normally, you can make this result object just by preparing the following 3 things.</p>
+<ul>
+<li><code>result</code> represents if the target (e.g. task) met with the rule condition or not</li>
+<li><code>detail</code> is the data shown in the result (console output / UI)</li>
+<li>target itself (e.g. task or role)</li>
+</ul>
+<p>Then you can call <code>self.create_result()</code> like below to create result object.</p>
+<p>In the example below, the rule condition is composed of 3 conditions - 1. the task invokes a module (not import/include), 2. the module was resolved and 3. the module is not "ansbile.builtin" one.</p>
+<p>A task has a FQCN of the resolved module as <code>task.resovled_name</code>, so the information is included in <code>detail</code>.</p>
+<pre><code class="language-python">
+
+    def check(self, ctx: AnsibleRunContext):
+        task = ctx.current
+
+        result = (
+            task.action_type == ActionType.MODULE_TYPE and 
+            task.resolved_action and
+            not task.resolved_action.startswith(&quot;ansible.builtin.&quot;)
+        )
+
+        detail = {
+            &quot;fqcn&quot;: task.resolved_name,
+        }
+
+        rule_result = self.create_result(result=result, detail=detail, task=task)
+        return rule_result
+</code></pre>
+<h2 id="define-custom-rule-result-type">Define custom rule result type</h2>
+<p>To customize the output format of the result data, you can define your own rule result class.</p>
+<p>A custom rule result class should have a method <code>print</code>:</p>
+<p><code>print</code> is a method for formatting the output string of the rule result.</p>
+<p>It can access rule properties by <code>self._rule</code>, and it has detail as <code>self.detail</code>.</p>
+<p>Also it has the original file information of the task such as file name with <code>self.file</code> and line number of the task block with <code>self.lines</code>.</p>
+<p>To enable your own RuleResult, you can specify the class name in the <code>result_type</code> field in rules like below.</p>
+<pre><code class="language-python">from dataclasses import dataclass
+from ansible_risk_insight.rules.base import RuleResult
+
+
+@dataclass
+class NonBuiltinUseRuleResult(RuleResult):
+    def print(self):
+        output = f&quot;ruleID={self._rule.rule_id}, \
+            description={self._rule.description}, \
+            result={self.result}, \
+            file={self.file}, \
+            lines={self.lines}, \
+            detail={self.detail}\n&quot;
+        return output
+
+
+@dataclass
+class NonBuiltinUseRule(Rule):
+    rule_id: str = &quot;R110&quot;
+    description: str = &quot;Non-builtin module is used&quot;
+    enabled: bool = True
+    risk_type: type = NonBuiltinUseRuleResult
+
 </code></pre>
               
             </div>
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
-        <a href=".." class="btn btn-neutral float-left" title="home"><span class="icon icon-circle-arrow-left"></span> Previous</a>
-        <a href="../customize_rules/" class="btn btn-neutral float-right" title="Rule definitions">Next <span class="icon icon-circle-arrow-right"></span></a>
+        <a href="../installing/" class="btn btn-neutral float-left" title="Installing"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../rules/R101_command_exec/" class="btn btn-neutral float-right" title="R101 command exec">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
   <hr/>
@@ -153,10 +238,10 @@
         </span>
     
     
-      <span><a href=".." style="color: #fcfcfc">&laquo; Previous</a></span>
+      <span><a href="../installing/" style="color: #fcfcfc">&laquo; Previous</a></span>
     
     
-      <span><a href="../customize_rules/" style="color: #fcfcfc">Next &raquo;</a></span>
+      <span><a href="../rules/R101_command_exec/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>
