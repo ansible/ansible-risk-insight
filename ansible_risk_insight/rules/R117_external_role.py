@@ -41,7 +41,9 @@ class ExternalRoleRule(Rule):
     def check(self, ctx: AnsibleRunContext):
         role = ctx.current
 
-        result = role.spec.metadata and isinstance(role.spec.metadata, dict) and role.spec.metadata.get("galaxy_info", None)
+        result = (
+            not ctx.is_begin(role) and role.spec.metadata and isinstance(role.spec.metadata, dict) and role.spec.metadata.get("galaxy_info", None)
+        )
 
         rule_result = self.create_result(result=result, role=role)
         return rule_result
