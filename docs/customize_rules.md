@@ -7,7 +7,7 @@ Each rule definition should have the following parts:
 [required]
 - `rule_id` is a unique identifier among rules
 - `description` explains what the rule checks for.
-- `enabled` determines whther the rule is used or not.
+- `enabled` determines whether the rule is used or not.
 
 [optional]
 - `tags` specifies one or more tags for including or excluding the rule.
@@ -23,7 +23,7 @@ Each rule definition should also have `match` and `check` methods:
 
 When ARI is scanning a playbook, ARI updates the context by focusing on each runnable target such as Playbook, Role and Task.
 
-The current object of the context can be accessed by `ctx.current`, so if the rule is only for tasks, you can define `match` method like the following.
+The current object of the context can be accessed by `ctx.current`, so if the rule is only for tasks, you can define a `match` method like the following.
 
 
 ```python
@@ -84,11 +84,11 @@ A custom rule result class should have a method `print`:
 
 `print` is a method for formatting the output string of the rule result.
 
-It can access rule proprties by `self._rule`, and it has detail as `self.detail`.
+It can access rule properties by `self._rule`, and it has detail as `self.detail`.
 
 Also it has the original file information of the task such as file name with `self.file` and line number of the task block with `self.lines`.
 
-To enable your own RuleResult, you can specify the class name in `result_type` field in rules like below.
+To enable your own RuleResult, you can specify the class name in the `result_type` field in rules like below.
 
 
 ```python
