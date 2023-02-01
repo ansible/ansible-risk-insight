@@ -1,17 +1,6 @@
-# Welcome to MkDocs
+# Ansible Risk Insight Documentation
 
-For full documentation visit [mkdocs.org](https://www.mkdocs.org).
+## About Ansible Risk Insight
 
-## Commands
+Ansible Risk Insight (ARI) is a command-line tool for assessing quality and potential risks of the Ansible content of playbooks, roles, and collections. ARI understands the taxonomy of Ansible data structures and content types and do context analysis on task call tree across dependencies and variable tracking in static-analytics fashion. ARI can be extensible with customizable rules. 
 
-* `mkdocs new [dir-name]` - Create a new project.
-* `mkdocs serve` - Start the live-reloading docs server.
-* `mkdocs build` - Build the documentation site.
-* `mkdocs -h` - Print help message and exit.
-
-## Project layout
-
-    mkdocs.yml    # The configuration file.
-    docs/
-        index.md  # The documentation homepage.
-        ...       # Other markdown pages, images and other files.
