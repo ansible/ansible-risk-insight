@@ -1,0 +1,1 @@
+../../ansible_risk_insight/rules/R111_parameterized_import_role.md

@@ -1,0 +1,1 @@
+../../ansible_risk_insight/rules/R108_privilege_escalation.md
