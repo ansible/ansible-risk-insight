@@ -5,11 +5,13 @@ You can define each custom rule in a single Python class file.
 Each rule definition should have the following parts:
 
 [required]
+
 - `rule_id` is a unique identifier among rules
 - `description` explains what the rule checks for.
 - `enabled` determines whether the rule is used or not.
 
 [optional]
+
 - `tags` specifies one or more tags for including or excluding the rule.
 - `severity` represents the risk impact if the rule condition is matched.
 - `result_type` specifies the result type class instead of the default one.
