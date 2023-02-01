@@ -532,7 +532,7 @@ def load_classes_in_dir(dir_path: str, target_class: type, base_dir: str = "", o
     return classes
 
 
-def open_ui_for_findings(f: Findings, root_dir=None):
+def open_ui_for_findings(f: Findings, image: str, root_dir=None):
     results = f.report.get("node_rule_results", [])
     if not results:
         raise ValueError("no result found: failed to open the UI")
@@ -546,7 +546,6 @@ def open_ui_for_findings(f: Findings, root_dir=None):
     with open(fpath, "w") as f:
         f.write(json_str)
 
-    image = "ghcr.io/hirokuni-kitahara/ari-ui:dev"
     name = "ari-ui"
     port = "5173:5173"
     volume = f"{tmpdir}:/app/src/aridata"

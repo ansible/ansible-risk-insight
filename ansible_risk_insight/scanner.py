@@ -59,10 +59,13 @@ from .utils import (
     open_ui_for_findings,
 )
 
+default_ui_image = "ghcr.io/hirokuni-kitahara/ari-ui:dev"
+
 
 class Config:
     data_dir: str = os.environ.get("ARI_DATA_DIR", os.path.join("/tmp", "ari-data"))
     log_level: str = os.environ.get("ARI_LOG_LEVEL", "info").lower()
+    ui_image: str = os.environ.get("ARI_UI_IMAGE", default_ui_image)
 
 
 collection_manifest_json = "MANIFEST.json"
@@ -147,6 +150,7 @@ class ARIScanner(object):
     silent: bool = False
     output_format: str = ""
     open_ui: bool = False
+    ui_image: str = ""
 
     extra_requirements: list = field(default_factory=list)
     resolve_failures: dict = field(default_factory=dict)
@@ -403,7 +407,7 @@ class ARIScanner(object):
             print(data_str)
 
         if self.open_ui:
-            open_ui_for_findings(self.findings, root_dir=self.root_dir)
+            open_ui_for_findings(f=self.findings, image=self.ui_image, root_dir=self.root_dir)
 
         return
 

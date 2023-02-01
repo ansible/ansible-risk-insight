@@ -119,6 +119,7 @@ class ARICLI:
             silent=silent,
             pretty=pretty,
             open_ui=open_ui,
+            ui_image=config.ui_image,
             output_format=args.output,
         )
         if not silent and not pretty:
