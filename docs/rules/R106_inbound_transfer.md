@@ -1,0 +1,1 @@
+../../ansible_risk_insight/rules/R106_inbound_transfer.md

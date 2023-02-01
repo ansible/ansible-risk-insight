@@ -1,0 +1,1 @@
+../../ansible_risk_insight/rules/R107_pkg_install_with_insecure_option.md

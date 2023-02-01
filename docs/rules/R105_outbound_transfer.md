@@ -1,0 +1,1 @@
+../../ansible_risk_insight/rules/R105_outbound_transfer.md
