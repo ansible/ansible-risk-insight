@@ -6,7 +6,7 @@ Each rule definition should have the following parts:
 
 [required]
 
-- `rule_id` is a unique identifier among rules
+- `rule_id` is a unique identifier among rules.
 - `description` explains what the rule checks for.
 - `enabled` determines whether the rule is used or not.
 
