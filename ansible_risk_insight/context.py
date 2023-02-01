@@ -37,7 +37,7 @@ from .models import (
 )
 
 p = Path(__file__).resolve().parent
-ansible_special_variables = open(p / "ansible_variables.txt", "r").read().splitlines()
+ansible_special_variables = [line.replace("\n", "") for line in open(p / "ansible_variables.txt", "r").read().splitlines()]
 _special_var_value = "__ansible_special_variable__"
 variable_block_re = re.compile(r"{{[^}]+}}")
 
@@ -274,6 +274,10 @@ class Context:
         _resolve_history = resolve_history.copy()
 
         v_type = None
+        if var_name in ansible_special_variables:
+            v_type = VariableType.HostFacts
+            return None, v_type, resolve_history
+
         if var_name in self.role_vars:
             v_type = VariableType.RoleVars
         elif var_name in self.role_defaults:
@@ -599,7 +603,7 @@ def resolve_module_options(context: Context, taskcall: TaskCall):
                         new_var = {
                             "key": var_name,
                             "value": None,
-                            "type": VariableType.Unknown,
+                            "type": v_type,
                         }
                         if not resolved_vars_contains(resolved_vars, new_var):
                             resolved_vars.append(new_var)
@@ -659,7 +663,7 @@ def resolve_module_options(context: Context, taskcall: TaskCall):
                         new_var = {
                             "key": var_name,
                             "value": None,
-                            "type": VariableType.Unknown,
+                            "type": v_type,
                         }
                         if not resolved_vars_contains(resolved_vars, new_var):
                             resolved_vars.append(new_var)

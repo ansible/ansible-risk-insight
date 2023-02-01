@@ -395,7 +395,7 @@ class VariableType(object):
     InventoryFileOrScriptHostVars = VariablePrecedence("inventory_file_or_script_host_vars", 8)
     InventoryHostVarsAny = VariablePrecedence("inventory_host_vars_any", 9)
     PlaybookHostVarsAny = VariablePrecedence("playbook_host_vars_any", 10)
-    HostFactsOrCachedSetFacts = VariablePrecedence("host_facts_or_cached_set_facts", 11)
+    HostFacts = VariablePrecedence("host_facts", 11)
     PlayVars = VariablePrecedence("play_vars", 12)
     PlayVarsPrompt = VariablePrecedence("play_vars_prompt", 13)
     PlayVarsFiles = VariablePrecedence("play_vars_files", 14)
@@ -416,18 +416,6 @@ class VariableType(object):
 
 
 immutable_var_types = [VariableType.LoopVars]
-
-var_type_table_label = [
-    VariableType.IncludeParams,
-    VariableType.RoleVars,
-    VariableType.RegisteredVars,
-    VariableType.SetFacts,
-    VariableType.IncludeVars,
-    VariableType.TaskVars,
-    VariableType.RoleVars,
-    VariableType.PlayVars,
-    VariableType.RoleDefaults,
-]
 
 
 @dataclass
