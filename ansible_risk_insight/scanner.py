@@ -866,6 +866,24 @@ class ARIScanner(object):
             out_dir = self.ram_client.make_findings_dir_path(self.type, self.name, self.version, self.hash)
         self.ram_client.save_error(error, out_dir)
 
+    def get_rule_result(self, rule_id: str = "*"):
+        node_rule_results = self.findings.report.get("node_rule_results", [])
+        all_results = []
+        matched = []
+        for single_tree_results in node_rule_results:
+            for single_node_results in single_tree_results.get("result_per_node", []):
+                if rule_id == "*":
+                    target_results = single_node_results.get("results", [])
+                else:
+                    # extract the target result by rule id
+                    target_results = [r for r in single_node_results.get("results", []) if r.get("rule", {}).rule_id == rule_id]
+                # get matched result
+                matched = [r["result"] for r in target_results if r.get("matched", False) and r.get("result", {}).result]
+                all_results.extend(matched)
+        if len(all_results) != 0:
+            return True, all_results
+        return False, all_results
+
 
 def tree(root_definitions, ext_definitions, ram_client=None, target_playbook_path=None):
     tl = TreeLoader(root_definitions, ext_definitions, ram_client, target_playbook_path)
