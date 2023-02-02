@@ -16,8 +16,15 @@
 
 from dataclasses import dataclass
 
-from ansible_risk_insight.models import AnsibleRunContext, RunTargetType, VariableDict
-from ansible_risk_insight.rules.base import Rule, Severity, Tag, RuleResult
+from ansible_risk_insight.models import (
+    AnsibleRunContext,
+    VariableDict,
+    RunTargetType,
+    Rule,
+    Severity,
+    RuleTag as Tag,
+    RuleResult,
+)
 
 
 @dataclass
@@ -45,7 +52,7 @@ class ShowVariablesRule(Rule):
     name: str = "ShowVariables"
     version: str = "v0.0.1"
     severity: Severity = Severity.NONE
-    tags: tuple = (Tag.VARIABLE)
+    tags: tuple = Tag.VARIABLE
     result_type: type = ShowVariablesRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

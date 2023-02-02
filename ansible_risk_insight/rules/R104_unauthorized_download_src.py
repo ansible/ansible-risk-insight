@@ -14,20 +14,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from dataclasses import dataclass
-from ansible_risk_insight.models import DefaultRiskType as RiskType
-from ansible_risk_insight.models import AnsibleRunContext, RunTargetType, AnnotationCondition
-from ansible_risk_insight.rules.base import Rule, Severity, Tag, RuleResult
 import re
+from dataclasses import dataclass
+from ansible_risk_insight.models import (
+    AnsibleRunContext,
+    RunTargetType,
+    DefaultRiskType as RiskType,
+    AnnotationCondition,
+    Rule,
+    Severity,
+    RuleTag as Tag,
+    RuleResult,
+)
 
 
-allow_url_list = [
-    "https://*"
-]
+allow_url_list = ["https://*"]
 
-deny_url_list = [
-    "http://*"
-]
+deny_url_list = ["http://*"]
 
 
 @dataclass
@@ -43,7 +46,7 @@ class InvalidDownloadSourceRule(Rule):
     name: str = "InvalidDownloadSource"
     version: str = "v0.0.1"
     severity: Severity = Severity.HIGH
-    tags: tuple = (Tag.NETWORK)
+    tags: tuple = Tag.NETWORK
     result_type: type = InvalidDownloadSourceRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

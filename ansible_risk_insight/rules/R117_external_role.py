@@ -15,8 +15,14 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from ansible_risk_insight.models import AnsibleRunContext, RunTargetType
-from ansible_risk_insight.rules.base import Rule, Severity, Tag, RuleResult
+from ansible_risk_insight.models import (
+    AnsibleRunContext,
+    RunTargetType,
+    Rule,
+    Severity,
+    RuleTag as Tag,
+    RuleResult,
+)
 
 
 @dataclass

@@ -57,9 +57,11 @@ def test_scanner_with_role(type, name):
 
 def _scan(type, name):
     s = ARIScanner(
-        type=type,
-        name=name,
         root_dir=config.data_dir,
     )
-    s.load(prepare_dependencies=True)
+    s.evaluate(
+        type=type,
+        name=name,
+        install_dependencies=True,
+    )
     return s

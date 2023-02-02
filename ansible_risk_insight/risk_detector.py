@@ -19,11 +19,10 @@ import os
 import logging
 from typing import List
 
-from .models import AnsibleRunContext
+from .models import AnsibleRunContext, ARIResult, TreeResult, NodeResult, RuleResultSet, Rule
 from .keyutil import detect_type, key_delimiter
 from .analyzer import load_taskcalls_in_trees
 from .utils import load_classes_in_dir
-from .rules.base import Rule
 
 
 def key2name(key: str):
@@ -67,11 +66,11 @@ def detect(contexts: List[AnsibleRunContext], collection_name: str = ""):
     playbook_count = {"total": 0, "risk_found": 0}
     role_count = {"total": 0, "risk_found": 0}
 
-    data_report = {"summary": {}, "details": [], "node_rule_results": []}
+    data_report = {"summary": {}, "details": [], "ari_result": None}
     role_to_playbook_mappings = {}
     risk_found_playbooks = set()
 
-    node_rule_results = []
+    ari_result = ARIResult()
 
     num = len(contexts)
     for i, ctx in enumerate(contexts):
@@ -80,6 +79,11 @@ def detect(contexts: List[AnsibleRunContext], collection_name: str = ""):
         tree_root_key = ctx.root_key
         tree_root_type = detect_type(tree_root_key)
         tree_root_name = key2name(tree_root_key)
+
+        t_result = TreeResult(
+            tree_type=tree_root_type,
+            tree_name=tree_root_name,
+        )
 
         is_playbook = tree_root_type == "playbook"
         if is_playbook:
@@ -96,22 +100,33 @@ def detect(contexts: List[AnsibleRunContext], collection_name: str = ""):
         else:
             role_count["total"] += 1
 
-        single_node_rule_result = {"root": tree_root_name, "type": tree_root_type, "result_per_node": []}
         for t in ctx:
             ctx.current = t
-            node_results = {"node": t, "results": []}
+            n_result = NodeResult(node=t)
             for rule in rules:
                 if not rule.enabled:
                     continue
                 matched = rule.match(ctx)
                 single_data = {"rule": rule, "matched": matched, "result": None, "output": None}
+                result = None
+                verdict = None
+                output = None
                 if matched:
                     result = rule.check(ctx)
+                    verdict = result.result
+                    output = result.print()
                     single_data["result"] = result
-                    single_data["output"] = result.print()
-                node_results["results"].append(single_data)
-            single_node_rule_result["result_per_node"].append(node_results)
-        node_rule_results.append(single_node_rule_result)
+                    single_data["output"] = output
+                r_result = RuleResultSet(
+                    rule=rule,
+                    result=result,
+                    matched=matched,
+                    verdict=verdict,
+                    output=output,
+                )
+                n_result.rules.append(r_result)
+            t_result.nodes.append(n_result)
+        ari_result.trees.append(t_result)
 
         do_report = False
         output_dict = {}
@@ -189,7 +204,7 @@ def detect(contexts: List[AnsibleRunContext], collection_name: str = ""):
             "total": role_count["total"],
             "risk_found": role_count["risk_found"],
         }
-    data_report["node_rule_results"] = node_rule_results
+    data_report["ari_result"] = ari_result
 
     return data_report
 

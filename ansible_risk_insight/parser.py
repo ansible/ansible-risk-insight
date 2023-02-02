@@ -54,7 +54,7 @@ class Parser:
         elif load_json_path != "":
             if not os.path.exists(load_json_path):
                 raise ValueError("file not found: {}".format(load_json_path))
-            ld.from_json(open(load_json_path, "r").read())
+            ld = Load.from_json(open(load_json_path, "r").read())
 
         collection_name = ""
         role_name = ""
@@ -273,7 +273,7 @@ class Parser:
         mapping_path = os.path.join(input_dir, "mappings.json")
         if not os.path.exists(mapping_path):
             raise ValueError("file not found: {}".format(mapping_path))
-        ld.from_json(open(mapping_path, "r").read())
+        ld = Load.from_json(open(mapping_path, "r").read())
         return definitions, ld
 
     @classmethod
@@ -328,8 +328,7 @@ def _load_object_list(cls, input_path):
     if os.path.exists(input_path):
         with open(input_path, "r") as f:
             for line in f:
-                obj = cls()
-                obj.from_json(line)
+                obj = cls.from_json(line)
                 obj_list.append(obj)
     return obj_list
 

@@ -16,8 +16,15 @@
 
 from dataclasses import dataclass
 
-from ansible_risk_insight.models import AnsibleRunContext, ExecutableType as ActionType, RunTargetType
-from ansible_risk_insight.rules.base import Rule, Severity, Tag, RuleResult
+from ansible_risk_insight.models import (
+    AnsibleRunContext,
+    RunTargetType,
+    ExecutableType as ActionType,
+    Rule,
+    Severity,
+    RuleTag as Tag,
+    RuleResult,
+)
 
 
 @dataclass
@@ -33,7 +40,7 @@ class UseShellRule(Rule):
     name: str = "UseShellRule"
     version: str = "v0.0.1"
     severity: Severity = Severity.VERY_LOW
-    tags: tuple = (Tag.COMMAND)
+    tags: tuple = Tag.COMMAND
     result_type: type = UseShellResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:
@@ -43,10 +50,12 @@ class UseShellRule(Rule):
         task = ctx.current
 
         # define a condition for this rule here
-        result = task.action_type == ActionType.MODULE_TYPE and \
-            task.spec.action and \
-            task.resolved_action and \
-            task.resolved_action == "ansible.builtin.shell"
+        result = (
+            task.action_type == ActionType.MODULE_TYPE
+            and task.spec.action
+            and task.resolved_action
+            and task.resolved_action == "ansible.builtin.shell"
+        )
 
         rule_result = self.create_result(result=result, task=task)
         return rule_result

@@ -15,9 +15,16 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from ansible_risk_insight.models import DefaultRiskType as RiskType
-from ansible_risk_insight.models import AnsibleRunContext, RunTargetType, AnnotationCondition
-from ansible_risk_insight.rules.base import Rule, Severity, Tag, RuleResult
+from ansible_risk_insight.models import (
+    AnsibleRunContext,
+    RunTargetType,
+    DefaultRiskType as RiskType,
+    AnnotationCondition,
+    Rule,
+    Severity,
+    RuleTag as Tag,
+    RuleResult,
+)
 
 
 @dataclass
@@ -32,7 +39,7 @@ class DownloadExecRule(Rule):
     enabled: bool = True
     name: str = "Download & Exec"
     version: str = "v0.0.1"
-    severity: Severity = (Severity.HIGH)
+    severity: Severity = Severity.HIGH
     tags: tuple = (Tag.NETWORK, Tag.COMMAND)
 
     def match(self, ctx: AnsibleRunContext) -> bool:

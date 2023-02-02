@@ -16,8 +16,14 @@
 
 from dataclasses import dataclass
 
-from ansible_risk_insight.models import AnsibleRunContext, RunTargetType
-from ansible_risk_insight.rules.base import Rule, Severity, Tag, RuleResult
+from ansible_risk_insight.models import (
+    AnsibleRunContext,
+    RunTargetType,
+    Rule,
+    Severity,
+    RuleTag as Tag,
+    RuleResult,
+)
 
 
 @dataclass
@@ -33,7 +39,7 @@ class DependencySuggestionRule(Rule):
     name: str = "DependencySuggestion"
     version: str = "v0.0.1"
     severity: Severity = Severity.NONE
-    tags: tuple = (Tag.DEPENDENCY)
+    tags: tuple = Tag.DEPENDENCY
     result_type: type = DependencySuggestionRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

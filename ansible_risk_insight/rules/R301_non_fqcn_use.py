@@ -15,8 +15,15 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from ansible_risk_insight.models import AnsibleRunContext, ExecutableType as ActionType, RunTargetType
-from ansible_risk_insight.rules.base import Rule, Severity, Tag, RuleResult
+from ansible_risk_insight.models import (
+    AnsibleRunContext,
+    RunTargetType,
+    ExecutableType as ActionType,
+    Rule,
+    Severity,
+    RuleTag as Tag,
+    RuleResult,
+)
 
 
 @dataclass
@@ -32,7 +39,7 @@ class NonFQCNUseRule(Rule):
     name: str = "NonFQCNUse"
     version: str = "v0.0.1"
     severity: Severity = Severity.VERY_LOW
-    tags: tuple = (Tag.DEPENDENCY)
+    tags: tuple = Tag.DEPENDENCY
     result_type: type = NonFQCNUseRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

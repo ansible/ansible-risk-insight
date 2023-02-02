@@ -16,8 +16,13 @@
 
 from dataclasses import dataclass
 
-from ansible_risk_insight.models import AnsibleRunContext, RunTargetType
-from ansible_risk_insight.rules.base import Rule, Severity, Tag
+from ansible_risk_insight.models import (
+    AnsibleRunContext,
+    RunTargetType,
+    Rule,
+    Severity,
+    RuleTag as Tag,
+)
 
 
 @dataclass
@@ -28,7 +33,7 @@ class UnconditionalOverrideRule(Rule):
     name: str = "UnconditionalOverride"
     version: str = "v0.0.1"
     severity: Severity = Severity.VERY_LOW
-    tags: tuple = (Tag.VARIABLE)
+    tags: tuple = Tag.VARIABLE
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task

@@ -62,13 +62,15 @@ class RiskAssessmentModelGenerator(object):
             use_src_cache = False
         try:
             s = ARIScanner(
-                type=type,
-                name=name,
                 root_dir=config.data_dir,
                 silent=True,
+            )
+            s.evaluate(
+                type=type,
+                name=name,
+                install_dependencies=True,
                 use_src_cache=use_src_cache,
             )
-            s.load(prepare_dependencies=True)
         except Exception:
             error = traceback.format_exc()
             s.save_error(error)

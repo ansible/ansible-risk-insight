@@ -15,9 +15,16 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from ansible_risk_insight.models import DefaultRiskType as RiskType
-from ansible_risk_insight.models import AnsibleRunContext, RunTargetType, AnnotationCondition
-from ansible_risk_insight.rules.base import Rule, Severity, Tag, RuleResult
+from ansible_risk_insight.models import (
+    AnsibleRunContext,
+    RunTargetType,
+    DefaultRiskType as RiskType,
+    AnnotationCondition,
+    Rule,
+    Severity,
+    RuleTag as Tag,
+    RuleResult,
+)
 
 
 @dataclass
@@ -33,7 +40,7 @@ class InsecurePkgInstallRule(Rule):
     name: str = "InsecurePkgInstall"
     version: str = "v0.0.1"
     severity: Severity = Severity.HIGH
-    tags: tuple = (Tag.PACKAGE)
+    tags: tuple = Tag.PACKAGE
     result_type: type = InsecurePkgInstallRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:

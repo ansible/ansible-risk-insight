@@ -65,8 +65,7 @@ def get_object(json_path, type, name, cache={}):
     else:
         json_type, json_str = cached[0], cached[1]
     if json_type == "role":
-        r = Role()
-        r.from_json(json_str)
+        r = Role.from_json(json_str)
         if type == "collection":
             raise ValueError("collection cannot be gotten in a role")
         if type == "role":

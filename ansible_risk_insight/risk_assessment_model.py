@@ -558,8 +558,7 @@ class RAMClient(object):
 
         matched_obj = None
         for obj_json in obj_json_list:
-            objs = ObjectList()
-            objs.from_json(fpath=obj_json)
+            objs = ObjectList.from_json(fpath=obj_json)
             obj = objs.find_by_key(obj_key)
             if obj is not None:
                 parts = obj_json.split("/")

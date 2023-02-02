@@ -533,11 +533,11 @@ def load_classes_in_dir(dir_path: str, target_class: type, base_dir: str = "", o
 
 
 def open_ui_for_findings(f: Findings, image: str, root_dir=None):
-    results = f.report.get("node_rule_results", [])
-    if not results:
+    result = f.report.get("ari_result", None)
+    if not result:
         raise ValueError("no result found: failed to open the UI")
 
-    single_result = results[0]
+    single_result = result.trees[0]
     tmpdir = os.path.join(os.path.expanduser("~"), ".ari", "tmp")
     os.makedirs(tmpdir, exist_ok=True)
     json_str = jsonpickle.encode(single_result, make_refs=False)

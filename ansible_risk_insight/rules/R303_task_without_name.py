@@ -16,8 +16,13 @@
 
 from dataclasses import dataclass
 
-from ansible_risk_insight.models import AnsibleRunContext, RunTargetType
-from ansible_risk_insight.rules.base import Rule, Severity, Tag
+from ansible_risk_insight.models import (
+    AnsibleRunContext,
+    RunTargetType,
+    Rule,
+    Severity,
+    RuleTag as Tag,
+)
 
 
 @dataclass
@@ -28,7 +33,7 @@ class TaskWithoutNameRule(Rule):
     name: str = "TaskWithoutName"
     version: str = "v0.0.1"
     severity: Severity = Severity.LOW
-    tags: tuple = (Tag.DEPENDENCY)
+    tags: tuple = Tag.DEPENDENCY
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task

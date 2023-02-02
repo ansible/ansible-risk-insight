@@ -40,8 +40,7 @@ def load_taskcalls_in_trees(path: str) -> List[TaskCallsInTree]:
     try:
         with open(path, "r") as file:
             for line in file:
-                taskcalls_in_tree = TaskCallsInTree()
-                taskcalls_in_tree.from_json(line)
+                taskcalls_in_tree = TaskCallsInTree.from_json(line)
                 taskcalls_in_trees.append(taskcalls_in_tree)
     except Exception as e:
         raise ValueError("failed to load the json file {} {}".format(path, e))

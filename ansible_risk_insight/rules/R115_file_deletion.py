@@ -16,9 +16,16 @@
 
 from dataclasses import dataclass
 
-from ansible_risk_insight.models import DefaultRiskType as RiskType
-from ansible_risk_insight.models import AnsibleRunContext, RunTargetType, AnnotationCondition
-from ansible_risk_insight.rules.base import Rule, Severity, Tag, RuleResult
+from ansible_risk_insight.models import (
+    AnsibleRunContext,
+    RunTargetType,
+    DefaultRiskType as RiskType,
+    AnnotationCondition,
+    Rule,
+    Severity,
+    RuleTag as Tag,
+    RuleResult,
+)
 
 
 @dataclass
@@ -34,7 +41,7 @@ class FileDeletionRule(Rule):
     name: str = "FileDeletionRule"
     version: str = "v0.0.1"
     severity: Severity = Severity.LOW
-    tags: tuple = (Tag.SYSTEM)
+    tags: tuple = Tag.SYSTEM
     result_type: type = FileDeletionRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:
