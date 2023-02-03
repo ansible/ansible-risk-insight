@@ -119,6 +119,7 @@ class SingleScan(object):
     __path_mappings: dict = field(default_factory=dict)
 
     install_dependencies: bool = False
+
     dependency_dir: str = ""
     target_path: str = ""
     loaded_dependency_dirs: list = field(default_factory=list)
@@ -533,6 +534,26 @@ class SingleScan(object):
         self.download_url = metadata.get("download_url", "")
         self.loaded_dependency_dirs = dependencies
 
+    def set_metadata_findings(self):
+        target_name = self.name
+        if self.collection_name:
+            target_name = self.collection_name
+        if self.role_name:
+            target_name = self.role_name
+        metadata = {
+            "type": self.type,
+            "name": target_name,
+            "version": self.version,
+            "source": self.source_repository,
+            "download_url": self.download_url,
+            "hash": self.hash,
+        }
+        dependencies = self.loaded_dependency_dirs
+        self.findings = Findings(
+            metadata=metadata,
+            dependencies=dependencies,
+        )
+
     def load_index(self):
         index_location = self.__path_mappings["index"]
         with open(index_location, "r") as f:
@@ -574,6 +595,8 @@ class ARIScanner(object):
         hash: str = "",
         target_path: str = "",
         dependency_dir: str = "",
+        download_only: bool = False,
+        use_src_cache: bool = False,
         source_repository: str = "",
         out_dir: str = "",
     ):
@@ -588,6 +611,7 @@ class ARIScanner(object):
             hash=hash,
             target_path=target_path,
             dependency_dir=dependency_dir,
+            use_src_cache=use_src_cache,
             source_repository=source_repository,
             out_dir=out_dir,
             root_dir=self.root_dir,
@@ -608,7 +632,14 @@ class ARIScanner(object):
                     logging.debug(f'Use metadata for "{scandata.name}" in RAM DB')
 
         if scandata.install_dependencies and not metdata_loaded:
+            print(f"start preparing {scandata.type} {scandata.name}")
             scandata._prepare_dependencies()
+            print(f"finished preparing {scandata.type} {scandata.name}")
+
+        if download_only:
+            scandata.set_metadata_findings()
+            self.register_findings_to_ram(scandata.findings)
+            return None
 
         ext_list = []
         ext_list.extend(

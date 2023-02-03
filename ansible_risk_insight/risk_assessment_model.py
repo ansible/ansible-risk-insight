@@ -91,7 +91,8 @@ class RAMClient(object):
             if findings and (len(findings.extra_requirements) == 0 or allow_unresolved):
                 definitions = findings.root_definitions.get("definitions", {})
                 mappings = findings.root_definitions.get("mappings", {})
-                loaded = True
+                if mappings:
+                    loaded = True
         return loaded, definitions, mappings
 
     def search_builtin_module(self, name, used_in=""):
