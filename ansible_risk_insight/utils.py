@@ -493,6 +493,63 @@ def show_diffs(diffs):
     print(tabulate(table))
 
 
+def get_documentation_in_module_file(fpath: str):
+    if not fpath:
+        return ""
+    if not os.path.exists(fpath):
+        return ""
+    lines = []
+    with open(fpath, "r") as file:
+        for line in file:
+            lines.append(line)
+    doc_lines = []
+    is_inside_doc = False
+    quotation = ""
+    for line in lines:
+        stripped_line = line.strip()
+
+        if is_inside_doc and quotation and stripped_line.startswith(quotation):
+            is_inside_doc = False
+            break
+
+        if is_inside_doc:
+            doc_lines.append(line)
+
+        if stripped_line.startswith("DOCUMENTATION"):
+            is_inside_doc = True
+            quotation = stripped_line.split("=")[1].strip()
+            if quotation and quotation[0] == "r":
+                quotation = quotation[1:]
+    return "\n".join(doc_lines)
+
+
+def get_class_by_arg_type(arg_type: str):
+    if not isinstance(arg_type, str):
+        return None
+
+    mapping = {
+        "str": str,
+        "list": list,
+        "dict": dict,
+        "bool": bool,
+        "int": int,
+        "float": float,
+        # ARI handles `path` as a string
+        "path": str,
+        "raw": any,
+        # TODO: check actual types of the following
+        "jsonarg": str,
+        "json": str,
+        "bytes": str,
+        "bits": str,
+    }
+
+    if arg_type not in mapping:
+        return None
+
+    return mapping[arg_type]
+
+
 def load_classes_in_dir(dir_path: str, target_class: type, base_dir: str = "", only_subclass: bool = True):
     search_path = dir_path
     found = False
@@ -528,7 +585,7 @@ def load_classes_in_dir(dir_path: str, target_class: type, base_dir: str = "", o
                     continue
                 classes.append(cls)
         except Exception as e:
-            raise ValueError(f"failed to load module {s}: {e}")
+            raise ValueError(f"failed to load a rule module {s}: {e}")
     return classes
 
 

@@ -22,13 +22,12 @@ from .models import (
     LoadType,
     ObjectList,
     ExecutableType,
-    Module,
 )
 from .findings import Findings
 from .utils import escape_url, version_to_num, diff_files_data
 from .safe_glob import safe_glob
 from .keyutil import get_obj_info_by_key
-from .finder import get_builtin_module_names
+from .model_loader import load_builtin_modules
 
 
 @dataclass
@@ -48,6 +47,8 @@ class RAMClient(object):
 
     module_search_cache: dict = field(default_factory=dict)
     task_search_cache: dict = field(default_factory=dict)
+
+    builtin_modules_cache: dict = field(default_factory=dict)
 
     def register(self, findings: Findings):
         metadata = findings.metadata
@@ -96,24 +97,22 @@ class RAMClient(object):
         return loaded, definitions, mappings
 
     def search_builtin_module(self, name, used_in=""):
-        builtin_module_names = get_builtin_module_names()
+        builtin_modules = {}
+        if self.builtin_modules_cache:
+            builtin_modules = self.builtin_modules_cache
+        else:
+            builtin_modules = load_builtin_modules()
+            self.builtin_modules_cache = builtin_modules
         short_name = name
         if "ansible.builtin." in name:
             short_name = name.split(".")[-1]
         matched_modules = []
-        if short_name in builtin_module_names:
-            fqcn = f"ansible.builtin.{short_name}"
-            m = Module(
-                name=short_name,
-                fqcn=fqcn,
-                collection="ansible.builtin",
-                builtin=True,
-            )
-            m.set_key()
+        if short_name in builtin_modules:
+            m = builtin_modules[short_name]
             matched_modules.append(
                 {
                     "type": "module",
-                    "name": fqcn,
+                    "name": m.fqcn,
                     "object": m,
                     "defined_in": {
                         "type": "collection",

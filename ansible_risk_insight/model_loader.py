@@ -20,6 +20,8 @@ import logging
 import os
 import re
 import yaml
+from ansible.module_utils.parsing.convert_bool import boolean
+
 from .safe_glob import safe_glob
 from .models import (
     ExecutableType,
@@ -32,12 +34,14 @@ from .models import (
     Repository,
     Role,
     Module,
+    ModuleArgument,
     RoleInPlay,
     Task,
     TaskFile,
     TaskFormatError,
     Collection,
     BecomeInfo,
+    ObjectList,
 )
 from .finder import (
     find_best_repo_root_path,
@@ -52,6 +56,8 @@ from .finder import (
 )
 from .utils import (
     split_target_playbook_fullpath,
+    get_documentation_in_module_file,
+    get_class_by_arg_type,
 )
 from .awx_utils import could_be_playbook
 
@@ -820,6 +826,14 @@ def load_module(module_file_path, collection_name="", role_name="", basedir=""):
     moduleObj = Module()
     if module_file_path == "":
         raise ValueError("require module file path to load a Module")
+    fullpath = ""
+    if os.path.exists(module_file_path) and module_file_path != "" and module_file_path != ".":
+        fullpath = module_file_path
+    if os.path.exists(os.path.join(basedir, module_file_path)):
+        fullpath = os.path.normpath(os.path.join(basedir, module_file_path))
+    if fullpath == "":
+        raise ValueError(f"module file not found: {module_file_path}, {basedir}")
+
     file_name = os.path.basename(module_file_path)
     module_name = file_name.replace(".py", "")
 
@@ -846,21 +860,52 @@ def load_module(module_file_path, collection_name="", role_name="", basedir=""):
             if defined_in.startswith("/"):
                 defined_in = defined_in[1:]
     moduleObj.defined_in = defined_in
+
+    arguments = []
+    doc_yaml = get_documentation_in_module_file(fullpath)
+    if doc_yaml:
+        doc_dict = yaml.safe_load(doc_yaml)
+        arg_specs = doc_dict.get("options", {})
+        for arg_name in arg_specs:
+            arg_spec = arg_specs[arg_name]
+            arg = ModuleArgument(
+                name=arg_name,
+                type=get_class_by_arg_type(arg_spec.get("type", "")),
+                required=boolean(arg_spec.get("required", "false")),
+                description=arg_spec.get("description", ""),
+                default=arg_spec.get("default", None),
+                choices=arg_spec.get("choices", None),
+                aliases=arg_spec.get("aliases", None),
+            )
+            arguments.append(arg)
+    moduleObj.arguments = arguments
+
     moduleObj.set_key()
 
     return moduleObj
+
+
+builtin_modules_file_name = "ansible_builtin_modules.json"
+
+
+def load_builtin_modules():
+    data_path = os.path.join(__file__, builtin_modules_file_name)
+    module_list = ObjectList()
+    module_list.from_json(fpath=data_path)
+    module_dict = {m.name: m for m in module_list}
+    return module_dict
 
 
 # modules in a SCM repo should be in `library` dir in the best practice case
 # https://docs.ansible.com/ansible/2.8/user_guide/playbooks_best_practices.html
 # however, it is often defined in `plugins/modules` directory,
 # so we search both the directories
-def load_modules(path, basedir="", collection_name="", load_children=True):
+def load_modules(path, basedir="", collection_name="", module_dir_paths=[], load_children=True):
     if path == "":
         return []
     if not os.path.exists(path):
         return []
-    module_files = search_module_files(path)
+    module_files = search_module_files(path, module_dir_paths)
 
     if len(module_files) == 0:
         return []

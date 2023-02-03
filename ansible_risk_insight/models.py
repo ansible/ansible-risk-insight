@@ -259,6 +259,17 @@ class RunTargetList(object):
 
 
 @dataclass
+class ModuleArgument(object):
+    name: str = ""
+    type: type = None
+    default: any = None
+    required: bool = False
+    description: str = ""
+    choices: list = field(default_factory=list)
+    aliases: list = field(default_factory=list)
+
+
+@dataclass
 class Module(Object, Resolvable):
     type: str = "module"
     name: str = ""
@@ -267,6 +278,7 @@ class Module(Object, Resolvable):
     local_key: str = ""
     collection: str = ""
     role: str = ""
+    arguments: list = field(default_factory=list)
     defined_in: str = ""
     builtin: bool = False
     used_in: list = field(default_factory=list)  # resolved later
@@ -1180,6 +1192,8 @@ class TaskCall(CallObject, RunTarget):
     variable_set: dict = field(default_factory=dict)
     variable_use: dict = field(default_factory=dict)
     become: BecomeInfo = None
+
+    _module: Module = None
 
     def get_annotation_by_type(self, type_str=""):
         matched = [an for an in self.annotations if an.type == type_str]
