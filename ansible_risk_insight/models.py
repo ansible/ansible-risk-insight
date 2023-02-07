@@ -23,6 +23,7 @@ from tabulate import tabulate
 # from copy import deepcopy
 import json
 import jsonpickle
+import yaml
 import logging
 from ansible.module_utils.parsing.convert_bool import boolean
 from .keyutil import (
@@ -1150,6 +1151,16 @@ class Task(Object, Resolvable):
         self.line_num_in_file = [begin_line_num + 1, end_line_num + 1]
         return
 
+    def yaml(self):
+        task_data = {}
+        if self.name:
+            task_data["name"] = self.name
+        if self.module:
+            task_data[self.module] = self.module_options
+        for k, v in self.options.items():
+            task_data[k] = v
+        return yaml.dump([task_data], sort_keys=False)
+
     def set_key(self, parent_key="", parent_local_key=""):
         set_task_key(self, parent_key, parent_local_key)
 
@@ -1199,6 +1210,58 @@ class Task(Object, Resolvable):
 
 
 @dataclass
+class MutableContent(object):
+    original: str = ""
+    mutated: str = ""
+
+    _task_spec: Task = None
+
+    def __post_init__(self):
+        if not self.mutated:
+            self.mutated = self.original
+
+    @staticmethod
+    def from_task_spec(task_spec):
+        mc = MutableContent(
+            original=task_spec.yaml_lines,
+            _task_spec=task_spec,
+        )
+        return mc
+
+    def set_module_name(self, module_name):
+        self._task_spec.module = module_name
+        self.mutated = self._task_spec.yaml()
+        return self
+
+    def replace_key(self, old_key: str, new_key: str):
+        raise NotImplementedError
+
+    def replace_value(self, old_value: str, new_value: str):
+        raise NotImplementedError
+
+    def replace_module_arg_key(self, old_key: str, new_key: str):
+        if old_key in self._task_spec.module_options:
+            value = self._task_spec.module_options[old_key]
+            self._task_spec.module_options.pop(old_key)
+            self._task_spec.module_options[new_key] = value
+        self.mutated = self._task_spec.yaml()
+        return self
+
+    def replace_module_arg_value(self, old_value: any, new_value: any):
+        for k, v in self._task_spec.module_options.items():
+            if type(v) != type(old_value):
+                continue
+            if v != old_value:
+                continue
+            self._task_spec.module_options[k] = new_value
+        self.mutated = self._task_spec.yaml()
+        return self
+
+    def yaml(self):
+        return self.original, self.mutated
+
+
+@dataclass
 class TaskCall(CallObject, RunTarget):
     type: str = "taskcall"
     # annotations are used for storing generic analysis data
@@ -1210,6 +1273,7 @@ class TaskCall(CallObject, RunTarget):
     become: BecomeInfo = None
 
     module: Module = None
+    content: MutableContent = None
 
     def get_annotation_by_type(self, type_str=""):
         matched = [an for an in self.annotations if an.type == type_str]
