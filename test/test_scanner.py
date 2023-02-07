@@ -62,6 +62,5 @@ def _scan(type, name):
     s.evaluate(
         type=type,
         name=name,
-        install_dependencies=True,
     )
-    return s
+    return s.get_last_scandata()

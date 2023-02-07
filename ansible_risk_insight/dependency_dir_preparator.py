@@ -246,7 +246,7 @@ class DependencyDirPreparator(object):
                     LoadType.COLLECTION, col_name, os.path.join(self.download_location, "collection", col_name)
                 )
                 if is_exist:
-                    metadata_file = os.path.join(self.download_location, "collection", self.target_name, download_metadata_file)
+                    metadata_file = os.path.join(self.download_location, "collection", col_name, download_metadata_file)
                     self.install_galaxy_collection_from_targz(targz, sub_dependency_dir_path)
                     md = self.find_target_metadata(LoadType.COLLECTION, metadata_file, col_name)
                 else:
@@ -537,11 +537,12 @@ class DependencyDirPreparator(object):
                     is_exist = True
                     filename = md.download_src_path
         else:
-            namepart = target.replace(".", "-")
-            for file in os.listdir(dir):
-                if file.endswith(".tar.gz") and namepart in file:
-                    is_exist = True
-                    filename = file
+            if os.path.exists(dir):
+                namepart = target.replace(".", "-")
+                for file in os.listdir(dir):
+                    if file.endswith(".tar.gz") and namepart in file:
+                        is_exist = True
+                        filename = file
         return is_exist, filename
 
     def install_galaxy_role_from_reqfile(self, file, output_dir):

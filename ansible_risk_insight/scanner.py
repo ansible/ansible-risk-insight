@@ -801,6 +801,9 @@ class ARIScanner(object):
     def save_findings(self, findings: Findings, out_dir: str):
         self.ram_client.save_findings(findings, out_dir)
 
+    def get_last_scandata(self):
+        return self._current
+
     def save_error(self, error: str, out_dir: str = ""):
         if out_dir == "":
             type = self._current.type
