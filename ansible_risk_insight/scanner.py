@@ -60,6 +60,7 @@ from .utils import (
 class Config:
     data_dir: str = os.environ.get("ARI_DATA_DIR", os.path.join("/tmp", "ari-data"))
     log_level: str = os.environ.get("ARI_LOG_LEVEL", "info").lower()
+    rules_dir: str = os.environ.get("ARI_RULES_DIR", os.path.join(os.path.dirname(__file__), "rules"))
 
 
 collection_manifest_json = "MANIFEST.json"
@@ -138,6 +139,7 @@ class SingleScan(object):
 
     # the following are set by ARIScanner
     root_dir: str = ""
+    rules_dir: str = ""
     do_save: bool = False
     silent: bool = False
     _parser: Parser = None
@@ -468,14 +470,12 @@ class SingleScan(object):
         return
 
     def apply_rules(self):
-        coll_type = LoadType.COLLECTION
-        coll_name = self.name if self.type == coll_type else ""
         target_name = self.name
         if self.collection_name:
             target_name = self.collection_name
         if self.role_name:
             target_name = self.role_name
-        data_report = detect(self.contexts, collection_name=coll_name)
+        data_report = detect(self.contexts, rules_dir=self.rules_dir)
         metadata = {
             "type": self.type,
             "name": target_name,
@@ -559,6 +559,7 @@ class SingleScan(object):
 @dataclass
 class ARIScanner(object):
     root_dir: str = ""
+    rules_dir: str = config.rules_dir
 
     ram_client: RAMClient = None
     read_ram: bool = True
@@ -613,6 +614,7 @@ class ARIScanner(object):
             source_repository=source_repository,
             out_dir=out_dir,
             root_dir=self.root_dir,
+            rules_dir=self.rules_dir,
             do_save=self.do_save,
             silent=self.silent,
             _parser=self._parser,
@@ -707,7 +709,7 @@ class ARIScanner(object):
             logging.debug("load_definition_ext() done")
 
         loaded = False
-        if self.read_ram:
+        if self.read_ram and scandata.type != LoadType.PLAYBOOK:
             loaded, root_defs = self.load_definitions_from_ram(scandata.type, scandata.name, scandata.version, scandata.hash, allow_unresolved=True)
             logging.debug(f"spec data loaded: {loaded}")
             if loaded:

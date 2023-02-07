@@ -33,15 +33,17 @@ def key2name(key: str):
         return key.split(key_delimiter)[-1]
 
 
-def load_rules():
-    _rule_classes = load_classes_in_dir("rules", Rule, __file__)
+def load_rules(rules_dir: str = ""):
+    rules_dir_list = rules_dir.split(":")
     _rules = []
-    for r in _rule_classes:
-        try:
-            _rule = r()
-            _rules.append(_rule)
-        except Exception:
-            raise ValueError(f"failed to load a rule: {r}")
+    for _rules_dir in rules_dir_list:
+        _rule_classes = load_classes_in_dir(_rules_dir, Rule)
+        for r in _rule_classes:
+            try:
+                _rule = r()
+                _rules.append(_rule)
+            except Exception:
+                raise ValueError(f"failed to load a rule: {r}")
     _rules = sorted(_rules, key=lambda r: int(r.rule_id[-3:]))
     _rules = sorted(_rules, key=lambda r: r.precedence)
 
@@ -59,8 +61,8 @@ def make_subject_str(playbook_num: int, role_num: int):
     return subject
 
 
-def detect(contexts: List[AnsibleRunContext], collection_name: str = ""):
-    rules = load_rules()
+def detect(contexts: List[AnsibleRunContext], rules_dir: str = ""):
+    rules = load_rules(rules_dir)
 
     report_num = 1
 

@@ -500,7 +500,7 @@ def get_documentation_by_ansible_doc_command(fqcn: str, module_dir_path: str = "
     cmd_args = [f"ansible-doc {fqcn} --json {module_path_option}"]
     proc = subprocess.run(cmd_args, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     if proc.stderr:
-        logging.error(f"error while getting the documentation for module `{fqcn}`: {proc.stderr}")
+        logging.debug(f"error while getting the documentation for module `{fqcn}`: {proc.stderr}")
         return ""
     wrapper_dict = json.loads(proc.stdout)
     doc_dict = wrapper_dict.get(fqcn, {}).get("doc", {})
