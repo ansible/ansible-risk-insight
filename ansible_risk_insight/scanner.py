@@ -54,16 +54,12 @@ from .utils import (
     summarize_findings,
     summarize_findings_data,
     split_target_playbook_fullpath,
-    open_ui_for_findings,
 )
-
-default_ui_image = "ghcr.io/hirokuni-kitahara/ari-ui:dev"
 
 
 class Config:
     data_dir: str = os.environ.get("ARI_DATA_DIR", os.path.join("/tmp", "ari-data"))
     log_level: str = os.environ.get("ARI_LOG_LEVEL", "info").lower()
-    ui_image: str = os.environ.get("ARI_UI_IMAGE", default_ui_image)
 
 
 collection_manifest_json = "MANIFEST.json"
@@ -575,8 +571,6 @@ class ARIScanner(object):
     pretty: bool = False
     silent: bool = False
     output_format: str = ""
-    open_ui: bool = False
-    ui_image: str = ""
 
     _current: SingleScan = None
 
@@ -775,9 +769,6 @@ class ARIScanner(object):
             elif self.output_format.lower() == "yaml":
                 data_str = yaml.safe_dump(data)
             print(data_str)
-
-        if self.open_ui:
-            open_ui_for_findings(f=scandata.findings, image=self.ui_image, root_dir=self.root_dir)
 
         return scandata.findings.report.get("ari_result", None)
 

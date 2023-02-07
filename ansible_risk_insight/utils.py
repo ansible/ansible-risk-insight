@@ -15,15 +15,12 @@
 # limitations under the License.
 
 import os
-import time
 import subprocess
 import requests
 import hashlib
 import yaml
 import logging
 import json
-import jsonpickle
-import webbrowser
 from tabulate import tabulate
 from inspect import isclass
 from importlib.util import spec_from_file_location, module_from_spec
@@ -611,51 +608,3 @@ def load_classes_in_dir(dir_path: str, target_class: type, base_dir: str = "", o
         except Exception as e:
             raise ValueError(f"failed to load a rule module {s}: {e}")
     return classes
-
-
-def open_ui_for_findings(f: Findings, image: str, root_dir=None):
-    result = f.report.get("ari_result", None)
-    if not result:
-        raise ValueError("no result found: failed to open the UI")
-
-    single_result = result.trees[0]
-    tmpdir = os.path.join(os.path.expanduser("~"), ".ari", "tmp")
-    os.makedirs(tmpdir, exist_ok=True)
-    json_str = jsonpickle.encode(single_result, make_refs=False)
-    fname = "result.json"
-    fpath = os.path.join(tmpdir, fname)
-    with open(fpath, "w") as f:
-        f.write(json_str)
-
-    name = "ari-ui"
-    port = "5173:5173"
-    volume = f"{tmpdir}:/app/src/aridata"
-
-    print("Opening the UI in a few seconds...")
-
-    cmd_args = [f"docker stop {name}"]
-    _ = subprocess.run(cmd_args, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-
-    cmd_args = [f"docker run --rm -d -p {port} -v {volume} --name {name} {image}"]
-    proc = subprocess.run(cmd_args, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    if proc.stderr:
-        logging.error(f"error while running the UI: {proc.stderr}")
-
-    max_trial = 10
-    interval = 0.2
-    default_url = "http://localhost:5173"
-    for i in range(max_trial):
-        retry = False
-        try:
-            response = requests.get(default_url)
-            if not response.ok:
-                retry = True
-        except Exception:
-            retry = True
-            pass
-        if retry:
-            interval *= 1.2
-            time.sleep(interval)
-    webbrowser.open(default_url)
-
-    return

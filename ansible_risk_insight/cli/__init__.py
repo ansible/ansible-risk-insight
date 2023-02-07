@@ -49,7 +49,6 @@ class ARICLI:
         parser.add_argument("--show-all", action="store_true", help="if true, show findings even if missing dependencies are found")
         parser.add_argument("-o", "--output", help="if specified, show findings in json/yaml format", choices={"json", "yaml"})
         parser.add_argument("--out-dir", help="output directory for findings")
-        parser.add_argument("--ui", action="store_true", help="if true, show results in the UI by opening browser")
         args = parser.parse_args()
         self.args = args
 
@@ -100,8 +99,6 @@ class ARICLI:
             read_ram = False
             write_ram = True
 
-        open_ui = args.ui
-
         c = ARIScanner(
             root_dir=config.data_dir,
             do_save=args.save,
@@ -110,8 +107,6 @@ class ARICLI:
             show_all=args.show_all,
             silent=silent,
             pretty=pretty,
-            open_ui=open_ui,
-            ui_image=config.ui_image,
             output_format=args.output,
         )
         if not silent and not pretty:
