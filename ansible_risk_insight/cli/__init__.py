@@ -88,7 +88,7 @@ class ARICLI:
             if role_meta:
                 role_name = role_meta.get("galaxy_info", {}).get("role_name", "")
 
-        rules_dir = ""
+        rules_dir = config.rules_dir
         if args.rules_dir_without_default:
             rules_dir = args.rules_dir_without_default
         elif args.rules_dir:
