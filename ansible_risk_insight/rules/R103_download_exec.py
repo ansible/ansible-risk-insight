@@ -15,14 +15,16 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from ansible_risk_insight.models import DefaultRiskType as RiskType
-from ansible_risk_insight.models import AnsibleRunContext, RunTargetType, AnnotationCondition
-from ansible_risk_insight.rules.base import Rule, Severity, Tag, RuleResult
-
-
-@dataclass
-class DownloadExecRuleResult(RuleResult):
-    pass
+from ansible_risk_insight.models import (
+    AnsibleRunContext,
+    RunTargetType,
+    DefaultRiskType as RiskType,
+    AnnotationCondition,
+    Rule,
+    Severity,
+    RuleTag as Tag,
+    RuleResult,
+)
 
 
 @dataclass
@@ -32,28 +34,28 @@ class DownloadExecRule(Rule):
     enabled: bool = True
     name: str = "Download & Exec"
     version: str = "v0.0.1"
-    severity: Severity = (Severity.HIGH)
+    severity: Severity = Severity.HIGH
     tags: tuple = (Tag.NETWORK, Tag.COMMAND)
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
 
-    def check(self, ctx: AnsibleRunContext):
+    def process(self, ctx: AnsibleRunContext):
         task = ctx.current
 
-        result = False
+        verdict = False
         detail = {}
 
         ac = AnnotationCondition().risk_type(RiskType.CMD_EXEC)
-        if task.has_annotation(ac):
-            cmd_an = task.get_annotation(ac)
+        if task.has_annotation_by_condition(ac):
+            cmd_an = task.get_annotation_by_condition(ac)
             if cmd_an:
                 detail["command"] = cmd_an.command.raw
 
             ac2 = AnnotationCondition().risk_type(RiskType.INBOUND).attr("is_mutable_src", True)
             inbound_tasks = ctx.before(task).search(ac2)
             for inbound_task in inbound_tasks:
-                inbound_an = inbound_task.get_annotation(ac2)
+                inbound_an = inbound_task.get_annotation_by_condition(ac2)
                 if not inbound_an:
                     continue
                 detail["src"] = inbound_an.src.value
@@ -65,7 +67,6 @@ class DownloadExecRule(Rule):
                 matched_files = [f for f in executed_files if f.is_inside(download_location)]
                 if matched_files:
                     detail["executed_file"] = [f.value for f in matched_files]
-                    result = True
+                    verdict = True
 
-        rule_result = self.create_result(result=result, detail=detail, task=task)
-        return rule_result
+        return RuleResult(verdict=verdict, detail=detail, file=task.file_info(), rule=self.get_metadata())

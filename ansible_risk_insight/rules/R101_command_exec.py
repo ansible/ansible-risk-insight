@@ -16,13 +16,15 @@
 
 from dataclasses import dataclass
 from ansible_risk_insight.models import DefaultRiskType as RiskType
-from ansible_risk_insight.models import AnsibleRunContext, RunTargetType, AnnotationCondition
-from ansible_risk_insight.rules.base import Rule, Severity, Tag, RuleResult
-
-
-@dataclass
-class CommandExecRuleResult(RuleResult):
-    pass
+from ansible_risk_insight.models import (
+    AnsibleRunContext,
+    RunTargetType,
+    AnnotationCondition,
+    Rule,
+    Severity,
+    RuleTag as Tag,
+    RuleResult,
+)
 
 
 @dataclass
@@ -33,23 +35,21 @@ class CommandExecRule(Rule):
     name: str = "CommandExec"
     version: str = "v0.0.1"
     severity: Severity = Severity.LOW
-    tags: tuple = (Tag.COMMAND)
-    result_type: type = CommandExecRuleResult
+    tags: tuple = Tag.COMMAND
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
 
-    def check(self, ctx: AnsibleRunContext):
+    def process(self, ctx: AnsibleRunContext):
         task = ctx.current
 
         ac = AnnotationCondition().risk_type(RiskType.CMD_EXEC).attr("is_mutable_cmd", True)
-        result = task.has_annotation(ac)
+        verdict = task.has_annotation_by_condition(ac)
 
         detail = {}
-        if result:
-            anno = task.get_annotation(ac)
+        if verdict:
+            anno = task.get_annotation_by_condition(ac)
             if anno:
                 detail["cmd"] = anno.command.raw
 
-        rule_result = self.create_result(result=result, detail=detail, task=task)
-        return rule_result
+        return RuleResult(verdict=verdict, detail=detail, file=task.file_info(), rule=self.get_metadata())

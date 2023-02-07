@@ -490,6 +490,87 @@ def show_diffs(diffs):
     print(tabulate(table))
 
 
+def get_documentation_by_ansible_doc_command(fqcn: str, module_dir_path: str = ""):
+    if not fqcn:
+        return ""
+
+    module_path_option = ""
+    if module_dir_path:
+        module_path_option = f"--module-path {module_dir_path}"
+    cmd_args = [f"ansible-doc {fqcn} --json {module_path_option}"]
+    proc = subprocess.run(cmd_args, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if proc.stderr:
+        logging.error(f"error while getting the documentation for module `{fqcn}`: {proc.stderr}")
+        return ""
+    wrapper_dict = json.loads(proc.stdout)
+    doc_dict = wrapper_dict.get(fqcn, {}).get("doc", {})
+    return yaml.safe_dump(doc_dict)
+
+
+def get_documentation_in_module_file(fpath: str):
+    if not fpath:
+        return ""
+    if not os.path.exists(fpath):
+        return ""
+    lines = []
+    with open(fpath, "r") as file:
+        for line in file:
+            lines.append(line)
+    doc_lines = []
+    is_inside_doc = False
+    quotation = ""
+    for line in lines:
+        stripped_line = line.strip()
+
+        if is_inside_doc and quotation and stripped_line.startswith(quotation):
+            is_inside_doc = False
+            break
+
+        if is_inside_doc:
+            if quotation:
+                doc_lines.append(line)
+            else:
+                if "'''" in line:
+                    quotation = "'''"
+                if '"""' in line:
+                    quotation = '"""'
+
+        if stripped_line.startswith("DOCUMENTATION"):
+            is_inside_doc = True
+            if "'''" in line:
+                quotation = "'''"
+            if '"""' in line:
+                quotation = '"""'
+    return "\n".join(doc_lines)
+
+
+def get_class_by_arg_type(arg_type: str):
+    if not isinstance(arg_type, str):
+        return None
+
+    mapping = {
+        "str": str,
+        "list": list,
+        "dict": dict,
+        "bool": bool,
+        "int": int,
+        "float": float,
+        # ARI handles `path` as a string
+        "path": str,
+        "raw": any,
+        # TODO: check actual types of the following
+        "jsonarg": str,
+        "json": str,
+        "bytes": str,
+        "bits": str,
+    }
+
+    if arg_type not in mapping:
+        return None
+
+    return mapping[arg_type]
+
+
 def load_classes_in_dir(dir_path: str, target_class: type, base_dir: str = "", only_subclass: bool = True):
     search_path = dir_path
     found = False
@@ -525,5 +606,5 @@ def load_classes_in_dir(dir_path: str, target_class: type, base_dir: str = "", o
                     continue
                 classes.append(cls)
         except Exception as e:
-            raise ValueError(f"failed to load module {s}: {e}")
+            raise ValueError(f"failed to load a rule module {s}: {e}")
     return classes

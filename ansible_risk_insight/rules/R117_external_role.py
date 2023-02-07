@@ -18,7 +18,6 @@ from dataclasses import dataclass
 from ansible_risk_insight.models import (
     AnsibleRunContext,
     RunTargetType,
-    ExecutableType as ActionType,
     Rule,
     Severity,
     RuleTag as Tag,
@@ -27,25 +26,29 @@ from ansible_risk_insight.models import (
 
 
 @dataclass
-class NonBuiltinUseRule(Rule):
-    rule_id: str = "R110"
-    description: str = "Non-builtin module is used"
+class ExternalRoleRuleResult(RuleResult):
+    pass
+
+
+@dataclass
+class ExternalRoleRule(Rule):
+    rule_id: str = "R117"
+    description: str = "An external role is used"
     enabled: bool = True
-    name: str = "NonBuiltinUse"
+    name: str = "ExternalRole"
     version: str = "v0.0.1"
     severity: Severity = Severity.VERY_LOW
     tags: tuple = Tag.DEPENDENCY
+    result_type: type = ExternalRoleRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:
-        return ctx.current.type == RunTargetType.Task
+        return ctx.current.type == RunTargetType.Role
 
     def process(self, ctx: AnsibleRunContext):
-        task = ctx.current
+        role = ctx.current
 
-        verdict = task.action_type == ActionType.MODULE_TYPE and task.resolved_action and not task.resolved_action.startswith("ansible.builtin.")
+        verdict = (
+            not ctx.is_begin(role) and role.spec.metadata and isinstance(role.spec.metadata, dict) and role.spec.metadata.get("galaxy_info", None)
+        )
 
-        detail = {
-            "fqcn": task.resolved_name,
-        }
-
-        return RuleResult(verdict=verdict, detail=detail, file=task.file_info(), rule=self.get_metadata())
+        return RuleResult(verdict=verdict, file=role.file_info(), rule=self.get_metadata())

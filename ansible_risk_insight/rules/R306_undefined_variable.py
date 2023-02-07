@@ -16,8 +16,15 @@
 
 from dataclasses import dataclass
 
-from ansible_risk_insight.models import AnsibleRunContext, RunTargetType, VariableType
-from ansible_risk_insight.rules.base import Rule, Severity, Tag
+from ansible_risk_insight.models import (
+    AnsibleRunContext,
+    RunTargetType,
+    VariableType,
+    Rule,
+    Severity,
+    RuleTag as Tag,
+    RuleResult,
+)
 
 
 @dataclass
@@ -28,23 +35,22 @@ class UndefinedVariableRule(Rule):
     name: str = "UndefinedVariable"
     version: str = "v0.0.1"
     severity: Severity = Severity.LOW
-    tags: tuple = (Tag.VARIABLE)
+    tags: tuple = Tag.VARIABLE
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
 
-    def check(self, ctx: AnsibleRunContext):
+    def process(self, ctx: AnsibleRunContext):
         task = ctx.current
 
-        result = False
+        verdict = False
         detail = {}
         for v_name in task.variable_use:
             v = task.variable_use[v_name]
             if v and v[-1].type == VariableType.Unknown:
-                result = True
+                verdict = True
                 current = detail.get("undefined_variables", [])
                 current.append(v_name)
                 detail["undefined_variables"] = current
 
-        rule_result = self.create_result(result=result, detail=detail, task=task)
-        return rule_result
+        return RuleResult(verdict=verdict, detail=detail, file=task.file_info(), rule=self.get_metadata())

@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from dataclasses import dataclass, field
 from typing import List, Union
 from collections.abc import Callable
@@ -59,9 +60,12 @@ class JSONSerializable(object):
     def to_json(self):
         return jsonpickle.encode(self, make_refs=False)
 
-    def from_json(self, json_str):
+    @classmethod
+    def from_json(cls, json_str):
+        instance = cls()
         loaded = jsonpickle.decode(json_str)
-        self.__dict__.update(loaded.__dict__)
+        instance.__dict__.update(loaded.__dict__)
+        return instance
 
 
 class Resolvable(object):
@@ -140,24 +144,16 @@ class ObjectList(JSONSerializable):
     def to_one_line_json(self):
         return jsonpickle.encode(self.items, make_refs=False)
 
-    def from_json(self, json_str="", fpath=""):
+    @classmethod
+    def from_json(cls, json_str="", fpath=""):
+        instance = cls()
         if fpath != "":
             json_str = open(fpath, "r").read()
         lines = json_str.splitlines()
         items = [jsonpickle.decode(obj_str) for obj_str in lines]
-        self.items = items
-        self._update_dict()
-        # return copy.deepcopy(self)
-
-    # def from_json(cls, json_str="", fpath=""):
-    #     if fpath != "":
-    #         json_str = open(fpath, "r").read()
-    #     lines = json_str.splitlines()
-    #     items = [jsonpickle.decode(obj_str) for obj_str in lines]
-    #     objlist = ObjectList()
-    #     objlist.items = items
-    #     objlist._update_dict()
-    #     return objlist
+        instance.items = items
+        instance._update_dict()
+        return instance
 
     def add(self, obj, update_dict=True):
         self.items.append(obj)
@@ -238,6 +234,11 @@ class RunTargetType:
 class RunTarget(object):
     type: str = ""
 
+    def file_info(self):
+        file = self.spec.defined_in
+        lines = None
+        return file, lines
+
 
 @dataclass
 class RunTargetList(object):
@@ -264,6 +265,23 @@ class RunTargetList(object):
 
 
 @dataclass
+class ModuleArgument(object):
+    name: str = ""
+    type: type = None
+    default: any = None
+    required: bool = False
+    description: str = ""
+    choices: list = field(default_factory=list)
+    aliases: list = field(default_factory=list)
+
+    def available_keys(self):
+        keys = [self.name]
+        if self.aliases:
+            keys.extend(self.aliases)
+        return keys
+
+
+@dataclass
 class Module(Object, Resolvable):
     type: str = "module"
     name: str = ""
@@ -272,6 +290,7 @@ class Module(Object, Resolvable):
     local_key: str = ""
     collection: str = ""
     role: str = ""
+    arguments: list = field(default_factory=list)
     defined_in: str = ""
     builtin: bool = False
     used_in: list = field(default_factory=list)  # resolved later
@@ -395,7 +414,7 @@ class VariableType(object):
     InventoryFileOrScriptHostVars = VariablePrecedence("inventory_file_or_script_host_vars", 8)
     InventoryHostVarsAny = VariablePrecedence("inventory_host_vars_any", 9)
     PlaybookHostVarsAny = VariablePrecedence("playbook_host_vars_any", 10)
-    HostFactsOrCachedSetFacts = VariablePrecedence("host_facts_or_cached_set_facts", 11)
+    HostFacts = VariablePrecedence("host_facts", 11)
     PlayVars = VariablePrecedence("play_vars", 12)
     PlayVarsPrompt = VariablePrecedence("play_vars_prompt", 13)
     PlayVarsFiles = VariablePrecedence("play_vars_files", 14)
@@ -416,18 +435,6 @@ class VariableType(object):
 
 
 immutable_var_types = [VariableType.LoopVars]
-
-var_type_table_label = [
-    VariableType.IncludeParams,
-    VariableType.RoleVars,
-    VariableType.RegisteredVars,
-    VariableType.SetFacts,
-    VariableType.IncludeVars,
-    VariableType.TaskVars,
-    VariableType.RoleVars,
-    VariableType.PlayVars,
-    VariableType.RoleDefaults,
-]
 
 
 @dataclass
@@ -452,18 +459,28 @@ class VariableDict(object):
     def print_table(data: dict):
         d = VariableDict(_dict=data)
         table = []
+        type_labels = []
+        found_type_label_names = []
+        for v_list in d._dict.values():
+            for v in v_list:
+                if v.type.name in found_type_label_names:
+                    continue
+                type_labels.append(v.type)
+                found_type_label_names.append(v.type.name)
+        type_labels = sorted(type_labels, key=lambda x: x.order, reverse=True)
+
         for v_name in d._dict:
             v_list = d._dict[v_name]
             row = {"NAME": v_name}
-            for p in var_type_table_label:
+            for t in type_labels:
                 value = "-"
                 for v in v_list:
-                    if v.type != p:
+                    if v.type != t:
                         continue
                     value = v.value
                     if isinstance(value, str) and value == "":
                         value = '""'
-                type_label = p.name.upper()
+                type_label = t.name.upper()
                 row[type_label] = value
             table.append(row)
         return tabulate(table, headers="keys")
@@ -784,6 +801,10 @@ def _convert_to_bool(a: any):
 
 @dataclass
 class Annotation(JSONSerializable):
+    key: str = ""
+    value: any = None
+
+    # TODO: avoid Annotation variants and remove `type`
     type: str = ""
 
 
@@ -1188,6 +1209,8 @@ class TaskCall(CallObject, RunTarget):
     variable_use: dict = field(default_factory=dict)
     become: BecomeInfo = None
 
+    module: Module = None
+
     def get_annotation_by_type(self, type_str=""):
         matched = [an for an in self.annotations if an.type == type_str]
         return matched
@@ -1196,13 +1219,27 @@ class TaskCall(CallObject, RunTarget):
         matched = [an for an in self.annotations if hasattr(an, "type") and an.type == type_str and getattr(an, key, None) == val]
         return matched
 
-    def has_annotation(self, cond: AnnotationCondition):
-        anno = self.get_annotation(cond)
+    def set_annotation(self, key: str, value: any):
+        self.annotations.append(Annotation(key=key, value=value))
+        return
+
+    def get_annotation(self, key: str, __default: any = None):
+        value = __default
+        for an in self.annotations:
+            if not hasattr(an, "key"):
+                continue
+            if getattr(an, "key") == key:
+                value = getattr(an, "value", __default)
+                break
+        return value
+
+    def has_annotation_by_condition(self, cond: AnnotationCondition):
+        anno = self.get_annotation_by_condition(cond)
         if anno:
             return True
         return False
 
-    def get_annotation(self, cond: AnnotationCondition):
+    def get_annotation_by_condition(self, cond: AnnotationCondition):
         _annotations = self.annotations
         if cond.type:
             _annotations = [an for an in _annotations if an.type == RiskAnnotation.type and an.risk_type == cond.type]
@@ -1212,6 +1249,14 @@ class TaskCall(CallObject, RunTarget):
         if _annotations:
             return _annotations[0]
         return None
+
+    def file_info(self):
+        file = self.spec.defined_in
+        lines = "?"
+        if len(self.spec.line_number) == 2:
+            l_num = self.spec.line_number
+            lines = f"L{l_num[0]}-{l_num[1]}"
+        return file, lines
 
     @property
     def resolved_name(self):
@@ -1299,7 +1344,7 @@ class AnsibleRunContext(object):
         return AnsibleRunContext.from_targets(targets, root_key=self.root_key)
 
     def search(self, cond: AnnotationCondition):
-        targets = [t for t in self.sequence if t.type == RunTargetType.Task and t.has_annotation(cond)]
+        targets = [t for t in self.sequence if t.type == RunTargetType.Task and t.has_annotation_by_condition(cond)]
         return AnsibleRunContext.from_targets(targets, root_key=self.root_key)
 
     def is_end(self, target: RunTarget):
@@ -1660,3 +1705,271 @@ class GalaxyArtifact(Repository):
     playbook_dict: dict = field(default_factory=dict)
     # make it easier to search a collection
     collection_dict: dict = field(default_factory=dict)
+
+
+# following ansible-lint severity levels
+class Severity:
+    VERY_HIGH = "very_high"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+    VERY_LOW = "very_low"
+    NONE = "none"
+
+
+_severity_level_mapping = {
+    Severity.VERY_HIGH: 5,
+    Severity.HIGH: 4,
+    Severity.MEDIUM: 3,
+    Severity.LOW: 2,
+    Severity.VERY_LOW: 1,
+    Severity.NONE: 0,
+}
+
+
+class RuleTag:
+    NETWORK = "network"
+    COMMAND = "command"
+    DEPENDENCY = "dependency"
+    SYSTEM = "system"
+    PACKAGE = "package"
+    CODING = "coding"
+    VARIABLE = "variable"
+    QUALITY = "quality"
+    DEBUG = "debug"
+
+
+@dataclass
+class RuleMetadata(object):
+    rule_id: str = ""
+    description: str = ""
+    name: str = ""
+
+    version: str = ""
+    severity: str = ""
+    tags: tuple = ()
+
+
+@dataclass
+class RuleResult(object):
+    rule: RuleMetadata = None
+
+    verdict: bool = False
+    detail: dict = None
+    file: tuple = None
+    error: str = None
+
+    matched: bool = False
+
+    def __post_init__(self):
+        if self.verdict:
+            self.verdict = True
+        else:
+            self.verdict = False
+
+    def set_value(self, key: str, value: any):
+        self.detail[key] = value
+
+    def get_detail(self):
+        return self.detail
+
+
+@dataclass
+class Rule(RuleMetadata):
+    enabled: bool = False
+    # `precedence` represents the order of the rule evaluation.
+    # A rule with a lower number will be evaluated earlier than others.
+    precedence: int = 10
+
+    def __post_init__(self, rule_id: str = "", description: str = ""):
+        if rule_id:
+            self.rule_id = rule_id
+        if description:
+            self.description = description
+
+        if not self.rule_id:
+            raise ValueError("A rule must have a unique rule_id")
+
+        if not self.description:
+            raise ValueError("A rule must have a description")
+
+    def match(self, ctx: AnsibleRunContext) -> bool:
+        raise ValueError("this is a base class method")
+
+    def process(self, ctx: AnsibleRunContext):
+        raise ValueError("this is a base class method")
+
+    def print(self, result: RuleResult):
+        output = f"ruleID={self.rule_id}, severity={self.severity}, description={self.description}, result={result.verdict}"
+
+        if result.file:
+            output += f", file={result.file}"
+        if result.detail:
+            output += f", detail={result.detail}"
+        return output
+
+    def to_json(self, result: RuleResult):
+        return json.dumps(result.detail)
+
+    def error(self, result: RuleResult):
+        if result.error:
+            return result.error
+        return None
+
+    def get_metadata(self):
+        return RuleMetadata(
+            rule_id=self.rule_id,
+            description=self.description,
+            name=self.name,
+            version=self.version,
+            severity=self.severity,
+            tags=self.tags,
+        )
+
+
+@dataclass
+class NodeResult(JSONSerializable):
+    node: RunTarget = None
+    rules: List[RuleResult] = field(default_factory=list)
+
+    def results(self):
+        return self.rules
+
+    def find_result(self, rule_id: str):
+        filtered = [r for r in self.rules if r.rule.rule_id == rule_id]
+        if not filtered:
+            return None
+        return filtered[0]
+
+    def search_results(
+        self,
+        rule_id: Union[str, list] = None,
+        tag: Union[str, list] = None,
+        matched: bool = None,
+        verdict: bool = None,
+    ):
+        if not rule_id and not tag:
+            return self.rules
+
+        filtered = self.rules
+        if rule_id:
+            target_rule_ids = []
+            if isinstance(rule_id, str):
+                target_rule_ids = [rule_id]
+            elif isinstance(rule_id, list):
+                target_rule_ids = rule_id
+            filtered = [r for r in filtered if r.rule.rule_id in target_rule_ids]
+
+        if tag:
+            target_tags = []
+            if isinstance(tag, str):
+                target_tags = [tag]
+            elif isinstance(tag, list):
+                target_tags = tag
+            filtered = [r for r in filtered for t in r.rule.tags if t in target_tags]
+
+        if matched is not None:
+            filtered = [r for r in filtered if r.matched == matched]
+
+        if verdict is not None:
+            filtered = [r for r in filtered if r.verdict == verdict]
+
+        return filtered
+
+
+@dataclass
+class TreeResult(JSONSerializable):
+    tree_type: str = ""  # playbook or role
+    tree_name: str = ""
+    nodes: List[NodeResult] = field(default_factory=list)
+
+    def applied_rules(self):
+        results = []
+        for n in self.nodes:
+            matched_rules = n.search_results(matched=True)
+            if matched_rules:
+                results.extend()
+        return results
+
+    def matched_rules(self):
+        results = []
+        for n in self.nodes:
+            matched_rules = n.search_results(verdict=True)
+            if matched_rules:
+                results.extend()
+        return results
+
+    def tasks(self):
+        return self._filter(TaskCall)
+
+    def task(self, name):
+        return self._find_by_name(name)
+
+    def roles(self):
+        return self._filter(RoleCall)
+
+    def role(self, name):
+        return self._find_by_name(name)
+
+    def playbooks(self):
+        return self._filter(PlaybookCall)
+
+    def playbook(self, name):
+        return self._find_by_name(name)
+
+    def plays(self):
+        return self._filter(PlayCall)
+
+    def play(self, name):
+        return self._find_by_name(name)
+
+    def taskfiles(self):
+        return self._filter(TaskFileCall)
+
+    def taskfile(self, name):
+        return self._find_by_name(name)
+
+    def _find_by_name(self, name):
+        filtered_nodes = [nr for nr in self.nodes if nr.node.spec.name == name]
+        if not filtered_nodes:
+            return None
+        return filtered_nodes[0]
+
+    def _filter(self, type):
+        filtered_nodes = [nr for nr in self.nodes if isinstance(nr.node, type)]
+        return TreeResult(tree_type=self.tree_type, tree_name=self.tree_name, nodes=filtered_nodes)
+
+
+@dataclass
+class ARIResult(JSONSerializable):
+    trees: List[TreeResult] = field(default_factory=list)
+
+    def playbooks(self):
+        return self._filter("playbook")
+
+    def playbook(self, name="", path=""):
+        if name:
+            return self._find_by_name(name)
+
+        # TODO: use path correctly
+        if path:
+            name = os.path.basename(path)
+            return self._find_by_name(name)
+
+        return None
+
+    def roles(self):
+        return self._filter("role")
+
+    def role(self, name):
+        return self._find_by_name(name)
+
+    def _find_by_name(self, name):
+        filtered_trees = [tr for tr in self.trees if tr.tree_name == name]
+        if not filtered_trees:
+            return None
+        return filtered_trees[0]
+
+    def _filter(self, type_str):
+        filtered_trees = [tr for tr in self.trees if tr.tree_type == type_str]
+        return ARIResult(trees=filtered_trees)

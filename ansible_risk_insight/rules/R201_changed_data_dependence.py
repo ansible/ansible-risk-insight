@@ -16,8 +16,14 @@
 
 from dataclasses import dataclass
 
-from ansible_risk_insight.models import AnsibleRunContext, RunTargetType
-from ansible_risk_insight.rules.base import Rule, Severity, Tag
+from ansible_risk_insight.models import (
+    AnsibleRunContext,
+    RunTargetType,
+    Rule,
+    Severity,
+    RuleTag as Tag,
+    RuleResult,
+)
 
 
 @dataclass
@@ -27,16 +33,16 @@ class ChangedDataDependenceRule(Rule):
     enabled: bool = True
     name: str = "ChangedDataDependence"
     version: str = "v0.0.1"
-    severity: Severity = Severity.LOW
-    tags: tuple = (Tag.VARIABLE)
+    severity: Severity = Severity.VERY_LOW
+    tags: tuple = Tag.VARIABLE
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
 
-    def check(self, ctx: AnsibleRunContext):
+    def process(self, ctx: AnsibleRunContext):
         task = ctx.current
 
-        result = False
+        verdict = False
         detail = {"variables": []}
         if task.spec.defined_vars:
             for v in task.spec.defined_vars:
@@ -48,7 +54,6 @@ class ChangedDataDependenceRule(Rule):
                             "defined_by": [d.setter for d in all_definitions],
                         }
                     )
-                    result = True
+                    verdict = True
 
-        rule_result = self.create_result(result=result, detail=detail, task=task)
-        return rule_result
+        return RuleResult(verdict=verdict, detail=detail, file=task.file_info(), rule=self.get_metadata())

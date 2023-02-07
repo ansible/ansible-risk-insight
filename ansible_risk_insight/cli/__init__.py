@@ -100,18 +100,10 @@ class ARICLI:
             write_ram = True
 
         c = ARIScanner(
-            type=args.target_type,
-            name=target_name,
-            version=target_version,
             root_dir=config.data_dir,
-            dependency_dir=args.dependency_dir,
-            collection_name=collection_name,
-            role_name=role_name,
             do_save=args.save,
             read_ram=read_ram,
             write_ram=write_ram,
-            source_repository=args.source,
-            out_dir=args.out_dir,
             show_all=args.show_all,
             silent=silent,
             pretty=pretty,
@@ -120,7 +112,16 @@ class ARICLI:
         if not silent and not pretty:
             print("Start preparing dependencies")
         root_install = not args.skip_install
-        c.prepare_dependencies(root_install=root_install)
         if not silent and not pretty:
             print("Start scanning")
-        c.load()
+        c.evaluate(
+            type=args.target_type,
+            name=target_name,
+            version=target_version,
+            install_dependencies=root_install,
+            dependency_dir=args.dependency_dir,
+            collection_name=collection_name,
+            role_name=role_name,
+            source_repository=args.source,
+            out_dir=args.out_dir,
+        )
