@@ -22,6 +22,7 @@ from ansible_risk_insight.models import (
     Rule,
     Severity,
     RuleTag as Tag,
+    RuleResult,
 )
 
 
@@ -38,10 +39,10 @@ class UnusedOverrideRule(Rule):
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
 
-    def check(self, ctx: AnsibleRunContext):
+    def process(self, ctx: AnsibleRunContext):
         task = ctx.current
 
-        result = False
+        verdict = False
         detail = {"variables": []}
         if task.spec.defined_vars:
             for v in task.spec.defined_vars:
@@ -57,7 +58,6 @@ class UnusedOverrideRule(Rule):
                                 "new_precedence": new_prec,
                             }
                         )
-                        result = True
+                        verdict = True
 
-        rule_result = self.create_result(result=result, detail=detail, task=task)
-        return rule_result
+        return RuleResult(verdict=verdict, detail=detail, file=task.file_info(), rule=self.get_metadata())

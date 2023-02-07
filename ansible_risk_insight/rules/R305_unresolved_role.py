@@ -45,13 +45,12 @@ class UnresolvedRoleRule(Rule):
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
 
-    def check(self, ctx: AnsibleRunContext):
+    def process(self, ctx: AnsibleRunContext):
         task = ctx.current
 
-        result = task.action_type == ActionType.ROLE_TYPE and task.spec.action and not task.resolved_action
+        verdict = task.action_type == ActionType.ROLE_TYPE and task.spec.action and not task.resolved_action
         detail = {
             "role": task.spec.action,
         }
 
-        rule_result = self.create_result(result=result, detail=detail, task=task)
-        return rule_result
+        return RuleResult(verdict=verdict, detail=detail, file=task.file_info(), rule=self.get_metadata())

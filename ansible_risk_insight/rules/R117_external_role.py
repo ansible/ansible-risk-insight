@@ -44,12 +44,11 @@ class ExternalRoleRule(Rule):
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Role
 
-    def check(self, ctx: AnsibleRunContext):
+    def process(self, ctx: AnsibleRunContext):
         role = ctx.current
 
-        result = (
+        verdict = (
             not ctx.is_begin(role) and role.spec.metadata and isinstance(role.spec.metadata, dict) and role.spec.metadata.get("galaxy_info", None)
         )
 
-        rule_result = self.create_result(result=result, role=role)
-        return rule_result
+        return RuleResult(verdict=verdict, file=role.file_info(), rule=self.get_metadata())

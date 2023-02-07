@@ -46,17 +46,16 @@ class PkgInstallRule(Rule):
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
 
-    def check(self, ctx: AnsibleRunContext):
+    def process(self, ctx: AnsibleRunContext):
         task = ctx.current
 
         ac = AnnotationCondition().risk_type(RiskType.PACKAGE_INSTALL).attr("is_mutable_pkg", True)
-        result = task.has_annotation(ac)
+        verdict = task.has_annotation_by_condition(ac)
 
         detail = {}
-        if result:
-            anno = task.get_annotation(ac)
+        if verdict:
+            anno = task.get_annotation_by_condition(ac)
             if anno:
                 detail["pkg"] = anno.pkg
 
-        rule_result = self.create_result(result=result, detail=detail, task=task)
-        return rule_result
+        return RuleResult(verdict=verdict, detail=detail, file=task.file_info(), rule=self.get_metadata())

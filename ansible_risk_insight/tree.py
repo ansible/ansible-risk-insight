@@ -488,6 +488,7 @@ class TreeLoader(object):
                 if len(child_objects.items) > 0:
                     c_obj = child_objects.items[0]
                     if taskcall.spec.executable_type == ExecutableType.MODULE_TYPE:
+                        taskcall.module = c_obj.spec
                         if c_key in from_ram:
                             req_info = from_ram[c_key]
                             taskcall.spec.possible_candidates = [(c_obj.spec.fqcn, req_info)]

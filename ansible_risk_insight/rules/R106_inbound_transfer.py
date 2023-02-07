@@ -46,18 +46,17 @@ class InboundTransferRule(Rule):
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
 
-    def check(self, ctx: AnsibleRunContext):
+    def process(self, ctx: AnsibleRunContext):
         task = ctx.current
 
         ac = AnnotationCondition().risk_type(RiskType.INBOUND).attr("is_mutable_src", True)
-        result = task.has_annotation(ac)
+        verdict = task.has_annotation_by_condition(ac)
 
         detail = {}
-        if result:
-            anno = task.get_annotation(ac)
+        if verdict:
+            anno = task.get_annotation_by_condition(ac)
             if anno:
                 detail["from"] = anno.src.value
                 detail["to"] = anno.dest.value
 
-        rule_result = self.create_result(result=result, detail=detail, task=task)
-        return rule_result
+        return RuleResult(verdict=verdict, detail=detail, file=task.file_info(), rule=self.get_metadata())

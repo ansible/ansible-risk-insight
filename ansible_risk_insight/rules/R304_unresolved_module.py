@@ -27,11 +27,6 @@ from ansible_risk_insight.models import (
 
 
 @dataclass
-class UnresolvedModuleRuleResult(RuleResult):
-    pass
-
-
-@dataclass
 class UnresolvedModuleRule(Rule):
     rule_id: str = "R304"
     description: str = "Unresolved module is found"
@@ -41,18 +36,15 @@ class UnresolvedModuleRule(Rule):
     severity: Severity = Severity.LOW
     tags: tuple = Tag.DEPENDENCY
 
-    result_type: type = UnresolvedModuleRuleResult
-
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
 
-    def check(self, ctx: AnsibleRunContext):
+    def process(self, ctx: AnsibleRunContext):
         task = ctx.current
 
-        result = task.action_type == ActionType.MODULE_TYPE and task.spec.action and not task.resolved_action
+        verdict = task.action_type == ActionType.MODULE_TYPE and task.spec.action and not task.resolved_action
         detail = {
             "module": task.spec.action,
         }
 
-        rule_result = self.create_result(result=result, detail=detail, task=task)
-        return rule_result
+        return RuleResult(verdict=verdict, detail=detail, file=task.file_info(), rule=self.get_metadata())

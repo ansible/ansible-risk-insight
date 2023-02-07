@@ -29,11 +29,6 @@ from ansible_risk_insight.models import (
 
 
 @dataclass
-class ListAllInboundSrcRuleResult(RuleResult):
-    pass
-
-
-@dataclass
 class ListAllInboundSrcRule(Rule):
     rule_id: str = "R401"
     description: str = "List all inbound sources"
@@ -42,27 +37,25 @@ class ListAllInboundSrcRule(Rule):
     version: str = "v0.0.1"
     severity: Severity = Severity.VERY_LOW
     tags: tuple = Tag.DEBUG
-    result_type: type = ListAllInboundSrcRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
 
-    def check(self, ctx: AnsibleRunContext):
+    def process(self, ctx: AnsibleRunContext):
         task = ctx.current
 
         ac = AnnotationCondition().risk_type(RiskType.INBOUND)
-        result = False
+        verdict = False
         detail = {}
         src_list = []
         if ctx.is_end(task):
             tasks = ctx.search(ac)
             for t in tasks:
-                anno = t.get_annotation(ac)
+                anno = t.get_annotation_by_condition(ac)
                 if anno:
                     src_list.append(anno.src.value)
             if len(src_list) > 0:
-                result = True
+                verdict = True
                 detail["inbound_src"] = src_list
 
-        rule_result = self.create_result(result=result, detail=detail, task=task)
-        return rule_result
+        return RuleResult(verdict=verdict, detail=detail, file=task.file_info(), rule=self.get_metadata())

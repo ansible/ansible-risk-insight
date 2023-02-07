@@ -56,7 +56,7 @@ from .finder import (
 )
 from .utils import (
     split_target_playbook_fullpath,
-    get_documentation_in_module_file,
+    get_documentation_by_ansible_doc_command,
     get_class_by_arg_type,
 )
 from .awx_utils import could_be_playbook
@@ -861,16 +861,25 @@ def load_module(module_file_path, collection_name="", role_name="", basedir=""):
                 defined_in = defined_in[1:]
     moduleObj.defined_in = defined_in
 
+    module_dir = os.path.dirname(fullpath)
     arguments = []
-    doc_yaml = get_documentation_in_module_file(fullpath)
+    # doc_yaml = get_documentation_in_module_file(fullpath)
+    doc_yaml = get_documentation_by_ansible_doc_command(moduleObj.fqcn, module_dir)
     if doc_yaml:
-        doc_dict = yaml.safe_load(doc_yaml)
+        doc_dict = {}
+        try:
+            doc_dict = yaml.safe_load(doc_yaml)
+        except Exception:
+            logging.debug(f"failed to load the arguments documentation of the module: {module_name}")
         arg_specs = doc_dict.get("options", {})
         for arg_name in arg_specs:
             arg_spec = arg_specs[arg_name]
+            arg_value_type = get_class_by_arg_type(arg_spec.get("type", ""))
+            if not arg_value_type:
+                arg_value_type = str
             arg = ModuleArgument(
                 name=arg_name,
-                type=get_class_by_arg_type(arg_spec.get("type", "")),
+                type=arg_value_type,
                 required=boolean(arg_spec.get("required", "false")),
                 description=arg_spec.get("description", ""),
                 default=arg_spec.get("default", None),
@@ -889,10 +898,11 @@ builtin_modules_file_name = "ansible_builtin_modules.json"
 
 
 def load_builtin_modules():
-    data_path = os.path.join(__file__, builtin_modules_file_name)
+    base_path = os.path.dirname(__file__)
+    data_path = os.path.join(base_path, builtin_modules_file_name)
     module_list = ObjectList()
     module_list.from_json(fpath=data_path)
-    module_dict = {m.name: m for m in module_list}
+    module_dict = {m.name: m for m in module_list.items}
     return module_dict
 
 
@@ -1288,10 +1298,14 @@ def load_object(loadObj):
 
 def find_playbook_role_module(path):
     playbooks = load_playbooks(path, basedir=path, load_children=False)
-    root_role = load_role(path, basedir=path, load_children=False)
+    root_role = None
+    try:
+        root_role = load_role(path, basedir=path, load_children=False)
+    except Exception:
+        pass
     sub_roles = load_roles(path, basedir=path, load_children=False)
     roles = []
-    if root_role.metadata is not None and len(root_role.metadata) > 0:
+    if root_role and root_role.metadata:
         roles.append(".")
     if len(sub_roles) > 0:
         roles.extend(sub_roles)

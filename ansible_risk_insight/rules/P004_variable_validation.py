@@ -15,26 +15,27 @@
 # limitations under the License.
 
 from dataclasses import dataclass
+
 from ansible_risk_insight.models import (
     AnsibleRunContext,
     RunTargetType,
-    ExecutableType as ActionType,
     Rule,
     Severity,
     RuleTag as Tag,
-    RuleResult,
+    VariableType,
 )
 
 
 @dataclass
-class NonBuiltinUseRule(Rule):
-    rule_id: str = "R110"
-    description: str = "Non-builtin module is used"
+class VariableValidationRule(Rule):
+    rule_id: str = "P004"
+    description: str = "Validate variables and set annotations"
     enabled: bool = True
-    name: str = "NonBuiltinUse"
+    name: str = "VariableValidation"
     version: str = "v0.0.1"
-    severity: Severity = Severity.VERY_LOW
-    tags: tuple = Tag.DEPENDENCY
+    severity: Severity = Severity.NONE
+    tags: tuple = Tag.QUALITY
+    precedence: int = 0
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
@@ -42,10 +43,18 @@ class NonBuiltinUseRule(Rule):
     def process(self, ctx: AnsibleRunContext):
         task = ctx.current
 
-        verdict = task.action_type == ActionType.MODULE_TYPE and task.resolved_action and not task.resolved_action.startswith("ansible.builtin.")
+        undefined_variables = []
+        unnecessary_loop = []
+        for v_name in task.variable_use:
+            v = task.variable_use[v_name]
+            if v and v[-1].type == VariableType.Unknown:
+                if v_name not in undefined_variables:
+                    undefined_variables.append(v_name)
+                if v_name not in unnecessary_loop:
+                    if v_name.startswith("item."):
+                        unnecessary_loop.append({"name": v_name, "suggested": v_name.replace("item.", "")})
 
-        detail = {
-            "fqcn": task.resolved_name,
-        }
+        task.set_annotation("variable.undefined_vars", undefined_variables)
+        task.set_annotation("variable.unnecessary_loop_vars", unnecessary_loop)
 
-        return RuleResult(verdict=verdict, detail=detail, file=task.file_info(), rule=self.get_metadata())
+        return None

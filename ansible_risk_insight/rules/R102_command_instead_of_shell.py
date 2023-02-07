@@ -28,11 +28,6 @@ from ansible_risk_insight.models import (
 
 
 @dataclass
-class UseShellResult(RuleResult):
-    pass
-
-
-@dataclass
 class UseShellRule(Rule):
     rule_id: str = "R102"
     description: str = "Use 'command' module instead of 'shell' "
@@ -41,21 +36,19 @@ class UseShellRule(Rule):
     version: str = "v0.0.1"
     severity: Severity = Severity.VERY_LOW
     tags: tuple = Tag.COMMAND
-    result_type: type = UseShellResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
 
-    def check(self, ctx: AnsibleRunContext):
+    def process(self, ctx: AnsibleRunContext):
         task = ctx.current
 
         # define a condition for this rule here
-        result = (
+        verdict = (
             task.action_type == ActionType.MODULE_TYPE
             and task.spec.action
             and task.resolved_action
             and task.resolved_action == "ansible.builtin.shell"
         )
 
-        rule_result = self.create_result(result=result, task=task)
-        return rule_result
+        return RuleResult(verdict=verdict, file=task.file_info(), rule=self.get_metadata())

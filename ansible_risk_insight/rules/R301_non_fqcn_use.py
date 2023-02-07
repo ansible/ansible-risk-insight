@@ -27,11 +27,6 @@ from ansible_risk_insight.models import (
 
 
 @dataclass
-class NonFQCNUseRuleResult(RuleResult):
-    pass
-
-
-@dataclass
 class NonFQCNUseRule(Rule):
     rule_id: str = "R301"
     description: str = "A task with a short module name is found"
@@ -40,15 +35,14 @@ class NonFQCNUseRule(Rule):
     version: str = "v0.0.1"
     severity: Severity = Severity.VERY_LOW
     tags: tuple = Tag.DEPENDENCY
-    result_type: type = NonFQCNUseRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
 
-    def check(self, ctx: AnsibleRunContext):
+    def process(self, ctx: AnsibleRunContext):
         task = ctx.current
 
-        result = (
+        verdict = (
             task.action_type == ActionType.MODULE_TYPE
             and task.spec.action
             and task.resolved_action
@@ -60,5 +54,4 @@ class NonFQCNUseRule(Rule):
             "fqcn": task.resolved_name,
         }
 
-        rule_result = self.create_result(result=result, detail=detail, task=task)
-        return rule_result
+        return RuleResult(verdict=verdict, detail=detail, file=task.file_info(), rule=self.get_metadata())

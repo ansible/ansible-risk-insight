@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from dataclasses import dataclass, field
 from typing import List, Union
 from collections.abc import Callable
@@ -233,6 +234,11 @@ class RunTargetType:
 class RunTarget(object):
     type: str = ""
 
+    def file_info(self):
+        file = self.spec.defined_in
+        lines = None
+        return file, lines
+
 
 @dataclass
 class RunTargetList(object):
@@ -267,6 +273,12 @@ class ModuleArgument(object):
     description: str = ""
     choices: list = field(default_factory=list)
     aliases: list = field(default_factory=list)
+
+    def available_keys(self):
+        keys = [self.name]
+        if self.aliases:
+            keys.extend(self.aliases)
+        return keys
 
 
 @dataclass
@@ -789,6 +801,10 @@ def _convert_to_bool(a: any):
 
 @dataclass
 class Annotation(JSONSerializable):
+    key: str = ""
+    value: any = None
+
+    # TODO: avoid Annotation variants and remove `type`
     type: str = ""
 
 
@@ -1193,7 +1209,7 @@ class TaskCall(CallObject, RunTarget):
     variable_use: dict = field(default_factory=dict)
     become: BecomeInfo = None
 
-    _module: Module = None
+    module: Module = None
 
     def get_annotation_by_type(self, type_str=""):
         matched = [an for an in self.annotations if an.type == type_str]
@@ -1203,13 +1219,27 @@ class TaskCall(CallObject, RunTarget):
         matched = [an for an in self.annotations if hasattr(an, "type") and an.type == type_str and getattr(an, key, None) == val]
         return matched
 
-    def has_annotation(self, cond: AnnotationCondition):
-        anno = self.get_annotation(cond)
+    def set_annotation(self, key: str, value: any):
+        self.annotations.append(Annotation(key=key, value=value))
+        return
+
+    def get_annotation(self, key: str, __default: any = None):
+        value = __default
+        for an in self.annotations:
+            if not hasattr(an, "key"):
+                continue
+            if getattr(an, "key") == key:
+                value = getattr(an, "value", __default)
+                break
+        return value
+
+    def has_annotation_by_condition(self, cond: AnnotationCondition):
+        anno = self.get_annotation_by_condition(cond)
         if anno:
             return True
         return False
 
-    def get_annotation(self, cond: AnnotationCondition):
+    def get_annotation_by_condition(self, cond: AnnotationCondition):
         _annotations = self.annotations
         if cond.type:
             _annotations = [an for an in _annotations if an.type == RiskAnnotation.type and an.risk_type == cond.type]
@@ -1219,6 +1249,14 @@ class TaskCall(CallObject, RunTarget):
         if _annotations:
             return _annotations[0]
         return None
+
+    def file_info(self):
+        file = self.spec.defined_in
+        lines = "?"
+        if len(self.spec.line_number) == 2:
+            l_num = self.spec.line_number
+            lines = f"L{l_num[0]}-{l_num[1]}"
+        return file, lines
 
     @property
     def resolved_name(self):
@@ -1306,7 +1344,7 @@ class AnsibleRunContext(object):
         return AnsibleRunContext.from_targets(targets, root_key=self.root_key)
 
     def search(self, cond: AnnotationCondition):
-        targets = [t for t in self.sequence if t.type == RunTargetType.Task and t.has_annotation(cond)]
+        targets = [t for t in self.sequence if t.type == RunTargetType.Task and t.has_annotation_by_condition(cond)]
         return AnsibleRunContext.from_targets(targets, root_key=self.root_key)
 
     def is_end(self, target: RunTarget):
@@ -1697,63 +1735,51 @@ class RuleTag:
     PACKAGE = "package"
     CODING = "coding"
     VARIABLE = "variable"
+    QUALITY = "quality"
     DEBUG = "debug"
 
 
 @dataclass
+class RuleMetadata(object):
+    rule_id: str = ""
+    description: str = ""
+    name: str = ""
+
+    version: str = ""
+    severity: str = ""
+    tags: tuple = ()
+
+
+@dataclass
 class RuleResult(object):
-    result: bool = False
-    file: str = None
-    lines: str = None
+    rule: RuleMetadata = None
+
+    verdict: bool = False
     detail: dict = None
-    error_msg: str = None
+    file: tuple = None
+    error: str = None
 
-    verbose: bool = False
-
-    _rule: any = None
+    matched: bool = False
 
     def __post_init__(self):
-        if self.result:
-            self.result = True
+        if self.verdict:
+            self.verdict = True
         else:
-            self.result = False
-
-    def print(self):
-        output = f"ruleID={self._rule.rule_id}, severity={self._rule.severity}, description={self._rule.description}, result={self.result}"
-        if self.verbose:
-            output += f", name={self._rule.name}, version={self._rule.version}, tags={self._rule.version}"
-
-        if self.file:
-            output += f", file={self.file}"
-        if self.lines:
-            output += f", lines={self.lines}"
-        if self.detail:
-            output += f", detail={self.detail}"
-        return output
-
-    def to_json(self, detail=None):
-        return json.dumps(detail)
-
-    def error(self):
-        if self.error_msg:
-            return self.error_msg
-        return None
+            self.verdict = False
 
     def set_value(self, key: str, value: any):
         self.detail[key] = value
 
+    def get_detail(self):
+        return self.detail
+
 
 @dataclass
-class Rule(object):
-    rule_id: str = ""
-    description: str = ""
-
-    name: str = ""
+class Rule(RuleMetadata):
     enabled: bool = False
-    version: str = ""
-    severity: str = ""
-    tags: tuple = ()
-    result_type: type = RuleResult
+    # `precedence` represents the order of the rule evaluation.
+    # A rule with a lower number will be evaluated earlier than others.
+    precedence: int = 10
 
     def __post_init__(self, rule_id: str = "", description: str = ""):
         if rule_id:
@@ -1770,47 +1796,41 @@ class Rule(object):
     def match(self, ctx: AnsibleRunContext) -> bool:
         raise ValueError("this is a base class method")
 
-    def check(self, ctx: AnsibleRunContext):
+    def process(self, ctx: AnsibleRunContext):
         raise ValueError("this is a base class method")
 
-    def create_result(self, result=False, detail=None, task=None, role=None, playbook=None):
-        file = None
-        lines = None
-        if task:
-            file = task.spec.defined_in
-            lines = "?"
-            if len(task.spec.line_number) == 2:
-                l_num = task.spec.line_number
-                lines = f"L{l_num[0]}-{l_num[1]}"
-        elif role:
-            file = role.spec.defined_in
-        elif playbook:
-            file = playbook.spec.defined_in
+    def print(self, result: RuleResult):
+        output = f"ruleID={self.rule_id}, severity={self.severity}, description={self.description}, result={result.verdict}"
 
-        return self.result_type(result=result, file=file, lines=lines, detail=detail, _rule=self)
+        if result.file:
+            output += f", file={result.file}"
+        if result.detail:
+            output += f", detail={result.detail}"
+        return output
 
+    def to_json(self, result: RuleResult):
+        return json.dumps(result.detail)
 
-@dataclass
-class RuleResultSet(JSONSerializable):
-    rule: Rule = None
-    result: RuleResult = None
-    matched: bool = None
-    verdict: bool = None
-    output: str = None
+    def error(self, result: RuleResult):
+        if result.error:
+            return result.error
+        return None
 
-    def to_json(self):
-        # remove `_rule` in result to avoid duplicate
-        self.result._rule = None
-        return super().to_json()
-
-    def get_value(self, key: str, default_value: any = None):
-        return self.result.detail.get(key, default_value)
+    def get_metadata(self):
+        return RuleMetadata(
+            rule_id=self.rule_id,
+            description=self.description,
+            name=self.name,
+            version=self.version,
+            severity=self.severity,
+            tags=self.tags,
+        )
 
 
 @dataclass
 class NodeResult(JSONSerializable):
     node: RunTarget = None
-    rules: List[RuleResultSet] = field(default_factory=list)
+    rules: List[RuleResult] = field(default_factory=list)
 
     def results(self):
         return self.rules
@@ -1927,8 +1947,16 @@ class ARIResult(JSONSerializable):
     def playbooks(self):
         return self._filter("playbook")
 
-    def playbook(self, name):
-        return self._find_by_name(name)
+    def playbook(self, name="", path=""):
+        if name:
+            return self._find_by_name(name)
+
+        # TODO: use path correctly
+        if path:
+            name = os.path.basename(path)
+            return self._find_by_name(name)
+
+        return None
 
     def roles(self):
         return self._filter("role")

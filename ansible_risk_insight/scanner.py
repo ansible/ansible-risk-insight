@@ -587,10 +587,11 @@ class ARIScanner(object):
     def evaluate(
         self,
         type: str,
-        name: str,
+        name: str = "",
+        path: str = "",
         collection_name: str = "",
         role_name: str = "",
-        install_dependencies: bool = False,
+        install_dependencies: bool = True,
         version: str = "",
         hash: str = "",
         target_path: str = "",
@@ -600,6 +601,9 @@ class ARIScanner(object):
         source_repository: str = "",
         out_dir: str = "",
     ):
+
+        if not name and path:
+            name = path
 
         scandata = SingleScan(
             type=type,

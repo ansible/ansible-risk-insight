@@ -493,6 +493,23 @@ def show_diffs(diffs):
     print(tabulate(table))
 
 
+def get_documentation_by_ansible_doc_command(fqcn: str, module_dir_path: str = ""):
+    if not fqcn:
+        return ""
+
+    module_path_option = ""
+    if module_dir_path:
+        module_path_option = f"--module-path {module_dir_path}"
+    cmd_args = [f"ansible-doc {fqcn} --json {module_path_option}"]
+    proc = subprocess.run(cmd_args, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if proc.stderr:
+        logging.error(f"error while getting the documentation for module `{fqcn}`: {proc.stderr}")
+        return ""
+    wrapper_dict = json.loads(proc.stdout)
+    doc_dict = wrapper_dict.get(fqcn, {}).get("doc", {})
+    return yaml.safe_dump(doc_dict)
+
+
 def get_documentation_in_module_file(fpath: str):
     if not fpath:
         return ""
@@ -513,13 +530,20 @@ def get_documentation_in_module_file(fpath: str):
             break
 
         if is_inside_doc:
-            doc_lines.append(line)
+            if quotation:
+                doc_lines.append(line)
+            else:
+                if "'''" in line:
+                    quotation = "'''"
+                if '"""' in line:
+                    quotation = '"""'
 
         if stripped_line.startswith("DOCUMENTATION"):
             is_inside_doc = True
-            quotation = stripped_line.split("=")[1].strip()
-            if quotation and quotation[0] == "r":
-                quotation = quotation[1:]
+            if "'''" in line:
+                quotation = "'''"
+            if '"""' in line:
+                quotation = '"""'
     return "\n".join(doc_lines)
 
 

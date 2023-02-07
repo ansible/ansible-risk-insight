@@ -23,6 +23,7 @@ from ansible_risk_insight.models import (
     Rule,
     Severity,
     RuleTag as Tag,
+    RuleResult,
 )
 
 
@@ -39,7 +40,7 @@ class UnnecessarySetFactRule(Rule):
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
 
-    def check(self, ctx: AnsibleRunContext):
+    def process(self, ctx: AnsibleRunContext):
         task = ctx.current
 
         args = task.args.raw
@@ -55,9 +56,8 @@ class UnnecessarySetFactRule(Rule):
                     current = detail.get("impure_args", [])
                     detail["impure_args"] = current.append(v)
 
-        result = (
+        verdict = (
             task.action_type == ActionType.MODULE_TYPE and task.resolved_action and task.resolved_action == "ansible.builtin.set_fact" and is_impure
         )
 
-        rule_result = self.create_result(result=result, detail=detail, task=task)
-        return rule_result
+        return RuleResult(verdict=verdict, detail=detail, file=task.file_info(), rule=self.get_metadata())

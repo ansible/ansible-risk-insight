@@ -19,7 +19,7 @@ import os
 import logging
 from typing import List
 
-from .models import AnsibleRunContext, ARIResult, TreeResult, NodeResult, RuleResultSet, Rule
+from .models import AnsibleRunContext, ARIResult, TreeResult, NodeResult, RuleResult, Rule
 from .keyutil import detect_type, key_delimiter
 from .analyzer import load_taskcalls_in_trees
 from .utils import load_classes_in_dir
@@ -43,6 +43,7 @@ def load_rules():
         except Exception:
             raise ValueError(f"failed to load a rule: {r}")
     _rules = sorted(_rules, key=lambda r: int(r.rule_id[-3:]))
+    _rules = sorted(_rules, key=lambda r: r.precedence)
 
     return _rules
 
@@ -107,23 +108,12 @@ def detect(contexts: List[AnsibleRunContext], collection_name: str = ""):
                 if not rule.enabled:
                     continue
                 matched = rule.match(ctx)
-                single_data = {"rule": rule, "matched": matched, "result": None, "output": None}
-                result = None
-                verdict = None
-                output = None
+                r_result = RuleResult(file=t.file_info(), rule=rule.get_metadata())
                 if matched:
-                    result = rule.check(ctx)
-                    verdict = result.result
-                    output = result.print()
-                    single_data["result"] = result
-                    single_data["output"] = output
-                r_result = RuleResultSet(
-                    rule=rule,
-                    result=result,
-                    matched=matched,
-                    verdict=verdict,
-                    output=output,
-                )
+                    tmp_result = rule.process(ctx)
+                    if tmp_result:
+                        r_result = tmp_result
+                    r_result.matched = matched
                 n_result.rules.append(r_result)
             t_result.nodes.append(n_result)
         ari_result.trees.append(t_result)
@@ -145,20 +135,22 @@ def detect(contexts: List[AnsibleRunContext], collection_name: str = ""):
             rule_count["rule_applied"] += 1
             results = []
             triggered_results = []
+            triggered_messages = []
             for t in ctx:
                 ctx.current = t
                 if not rule.match(ctx):
                     continue
-                result = rule.check(ctx)
+                result = rule.process(ctx)
                 if not result:
                     continue
                 results.append(result)
-                if result.result:
+                if result.verdict:
                     triggered_results.append(result)
+                    triggered_messages.append(rule.print(result))
             if triggered_results:
                 rule_count["risk_found"] += 1
                 do_report = True
-                messages = [r.print() for r in triggered_results]
+                messages = triggered_messages
                 detail_data = [r.detail for r in triggered_results]
                 output_dict[rule.name] = "\n".join(messages)
                 data_dict[rule.name] = detail_data

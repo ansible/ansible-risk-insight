@@ -26,11 +26,6 @@ from ansible_risk_insight.models import (
 
 
 @dataclass
-class RoleWithoutMetadataRuleResult(RuleResult):
-    pass
-
-
-@dataclass
 class RoleWithoutMetadataRule(Rule):
     rule_id: str = "R302"
     description: str = "A role without metadata is used"
@@ -39,15 +34,13 @@ class RoleWithoutMetadataRule(Rule):
     version: str = "v0.0.1"
     severity: Severity = Severity.LOW
     tags: tuple = Tag.DEPENDENCY
-    result_type: type = RoleWithoutMetadataRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Role
 
-    def check(self, ctx: AnsibleRunContext):
+    def process(self, ctx: AnsibleRunContext):
         role = ctx.current
 
-        result = not role.spec.metadata
+        verdict = not role.spec.metadata
 
-        rule_result = self.create_result(result=result, role=role)
-        return rule_result
+        return RuleResult(verdict=verdict, file=role.file_info(), rule=self.get_metadata())

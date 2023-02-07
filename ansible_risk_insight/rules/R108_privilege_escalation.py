@@ -22,6 +22,7 @@ from ansible_risk_insight.models import (
     Rule,
     Severity,
     RuleTag as Tag,
+    RuleResult,
 )
 
 
@@ -38,13 +39,12 @@ class PrivilegeEscalationRule(Rule):
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
 
-    def check(self, ctx: AnsibleRunContext):
+    def process(self, ctx: AnsibleRunContext):
         task = ctx.current
 
-        result = task.become and task.become.enabled
+        verdict = task.become and task.become.enabled
         detail = {}
-        if result:
+        if verdict:
             detail = task.become.__dict__
 
-        rule_result = self.create_result(result=result, detail=detail, task=task)
-        return rule_result
+        return RuleResult(verdict=verdict, detail=detail, file=task.file_info(), rule=self.get_metadata())

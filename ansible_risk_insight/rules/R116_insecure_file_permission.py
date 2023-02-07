@@ -29,11 +29,6 @@ from ansible_risk_insight.models import (
 
 
 @dataclass
-class FilePermissionRuleResult(RuleResult):
-    pass
-
-
-@dataclass
 class FilePermissionRule(Rule):
     rule_id: str = "R116"
     description: str = "File permission is not secure."
@@ -42,17 +37,15 @@ class FilePermissionRule(Rule):
     version: str = "v0.0.1"
     severity: Severity = Severity.MEDIUM
     tags: tuple = Tag.SYSTEM
-    result_type: type = FilePermissionRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
 
-    def check(self, ctx: AnsibleRunContext):
+    def process(self, ctx: AnsibleRunContext):
         task = ctx.current
 
         # define a condition for this rule here
         ac = AnnotationCondition().risk_type(RiskType.FILE_CHANGE).attr("is_insecure_permissions", True)
-        result = task.has_annotation(ac)
+        verdict = task.has_annotation_by_condition(ac)
 
-        rule_result = self.create_result(result=result, task=task)
-        return rule_result
+        return RuleResult(verdict=verdict, file=task.file_info(), rule=self.get_metadata())

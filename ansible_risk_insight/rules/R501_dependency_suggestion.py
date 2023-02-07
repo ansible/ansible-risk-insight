@@ -27,11 +27,6 @@ from ansible_risk_insight.models import (
 
 
 @dataclass
-class DependencySuggestionRuleResult(RuleResult):
-    pass
-
-
-@dataclass
 class DependencySuggestionRule(Rule):
     rule_id: str = "R501"
     description: str = "Suggest dependencies for unresolved modules/roles"
@@ -40,18 +35,17 @@ class DependencySuggestionRule(Rule):
     version: str = "v0.0.1"
     severity: Severity = Severity.NONE
     tags: tuple = Tag.DEPENDENCY
-    result_type: type = DependencySuggestionRuleResult
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
 
-    def check(self, ctx: AnsibleRunContext):
+    def process(self, ctx: AnsibleRunContext):
         task = ctx.current
 
-        result = False
+        verdict = False
         detail = {}
         if task.spec.possible_candidates:
-            result = True
+            verdict = True
             detail["type"] = task.spec.executable_type.lower()
             detail["fqcn"] = task.spec.possible_candidates[0][0]
             req_info = task.spec.possible_candidates[0][1]
@@ -60,5 +54,4 @@ class DependencySuggestionRule(Rule):
             detail["suggestion"]["name"] = req_info.get("name", "")
             detail["suggestion"]["version"] = req_info.get("version", "")
 
-        rule_result = self.create_result(result=result, detail=detail, task=task)
-        return rule_result
+        return RuleResult(verdict=verdict, detail=detail, file=task.file_info(), rule=self.get_metadata())

@@ -23,6 +23,7 @@ from ansible_risk_insight.models import (
     Rule,
     Severity,
     RuleTag as Tag,
+    RuleResult,
 )
 
 
@@ -39,10 +40,10 @@ class UnnecessaryIncludeVarsRule(Rule):
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
 
-    def check(self, ctx: AnsibleRunContext):
+    def process(self, ctx: AnsibleRunContext):
         task = ctx.current
 
-        result = (
+        verdict = (
             task.action_type == ActionType.MODULE_TYPE
             and task.resolved_action
             and task.resolved_action == "ansible.builtin.include_vars"
@@ -50,5 +51,4 @@ class UnnecessaryIncludeVarsRule(Rule):
             and not task.spec.when
         )
 
-        rule_result = self.create_result(result=result, task=task)
-        return rule_result
+        return RuleResult(verdict=verdict, file=task.file_info(), rule=self.get_metadata())
