@@ -20,7 +20,7 @@ from typing import List, Union
 from collections.abc import Callable
 from tabulate import tabulate
 
-# from copy import deepcopy
+from copy import deepcopy
 import json
 import jsonpickle
 import yaml
@@ -1224,7 +1224,7 @@ class MutableContent(object):
     def from_task_spec(task_spec):
         mc = MutableContent(
             original=task_spec.yaml_lines,
-            _task_spec=task_spec,
+            _task_spec=deepcopy(task_spec),
         )
         return mc
 
