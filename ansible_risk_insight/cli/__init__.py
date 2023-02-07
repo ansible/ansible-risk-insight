@@ -49,6 +49,10 @@ class ARICLI:
         parser.add_argument("--show-all", action="store_true", help="if true, show findings even if missing dependencies are found")
         parser.add_argument("-o", "--output", help="if specified, show findings in json/yaml format", choices={"json", "yaml"})
         parser.add_argument("--out-dir", help="output directory for findings")
+        parser.add_argument(
+            "-r", "--rules-dir", help=f"specify custom rule directories. use `-R` instead to ignore default rules in {config.rules_dir}"
+        )
+        parser.add_argument("-R", "--rules-dir-without-default", help="specify custom rule directories and ignore default rules")
         args = parser.parse_args()
         self.args = args
 
@@ -84,6 +88,12 @@ class ARICLI:
             if role_meta:
                 role_name = role_meta.get("galaxy_info", {}).get("role_name", "")
 
+        rules_dir = ""
+        if args.rules_dir_without_default:
+            rules_dir = args.rules_dir_without_default
+        elif args.rules_dir:
+            rules_dir = args.rules_dir + ":" + config.rules_dir
+
         silent = False
         pretty = False
         if args.output:
@@ -101,6 +111,7 @@ class ARICLI:
 
         c = ARIScanner(
             root_dir=config.data_dir,
+            rules_dir=rules_dir,
             do_save=args.save,
             read_ram=read_ram,
             write_ram=write_ram,
