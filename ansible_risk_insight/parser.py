@@ -43,11 +43,11 @@ from .utils import (
 
 
 class Parser:
-    def __init__(self, do_save=False):
+    def __init__(self, do_save=False, use_ansible_doc=True):
         self.do_save = do_save
+        self.use_ansible_doc = use_ansible_doc
 
     def run(self, load_data=None, load_json_path="", collection_name_of_project=""):
-
         ld = Load()
         if load_data is not None:
             ld = load_data
@@ -65,6 +65,7 @@ class Parser:
                 obj = load_collection(
                     collection_dir=ld.path,
                     basedir=ld.path,
+                    use_ansible_doc=self.use_ansible_doc,
                     load_children=False,
                 )
             except Exception:
@@ -73,14 +74,14 @@ class Parser:
         elif ld.target_type == LoadType.ROLE:
             role_name = ld.target_name
             try:
-                obj = load_role(path=ld.path, basedir=ld.path, load_children=False)
+                obj = load_role(path=ld.path, basedir=ld.path, use_ansible_doc=self.use_ansible_doc, load_children=False)
             except Exception:
                 logging.exception("failed to load the role {}".format(role_name))
                 return
         elif ld.target_type == LoadType.PROJECT:
             repo_name = ld.target_name
             try:
-                obj = load_repository(path=ld.path, basedir=ld.path)
+                obj = load_repository(path=ld.path, basedir=ld.path, use_ansible_doc=self.use_ansible_doc)
             except Exception:
                 logging.exception("failed to load the project {}".format(repo_name))
                 return
@@ -92,7 +93,7 @@ class Parser:
             basedir, target_playbook_path = split_target_playbook_fullpath(ld.path)
             playbook_name = ld.target_name
             try:
-                obj = load_repository(path=basedir, basedir=basedir, target_playbook_path=target_playbook_path)
+                obj = load_repository(path=basedir, basedir=basedir, target_playbook_path=target_playbook_path, use_ansible_doc=self.use_ansible_doc)
             except Exception:
                 logging.exception("failed to load the playbook {}".format(playbook_name))
                 return
@@ -117,6 +118,7 @@ class Parser:
                     path=role_path,
                     collection_name=collection_name,
                     basedir=basedir,
+                    use_ansible_doc=self.use_ansible_doc,
                 )
                 roles.append(r)
             except Exception as e:
@@ -174,6 +176,7 @@ class Parser:
                     role_name=role_name,
                     collection_name=collection_name,
                     basedir=basedir,
+                    use_ansible_doc=self.use_ansible_doc,
                 )
             except Exception as e:
                 logging.debug(f"failed to load a module: {e}")
@@ -194,7 +197,7 @@ class Parser:
             collections = [obj]
         elif ld.target_type == LoadType.ROLE:
             role_path = "."
-            r = load_role(path=role_path, name=ld.target_name, basedir=ld.path)
+            r = load_role(path=role_path, name=ld.target_name, basedir=ld.path, use_ansible_doc=self.use_ansible_doc)
             roles.append(r)
             mappings["roles"].append([role_path, r.key])
         elif ld.target_type == LoadType.PLAYBOOK:

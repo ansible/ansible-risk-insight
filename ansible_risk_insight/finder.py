@@ -150,6 +150,7 @@ def search_module_files(path, module_dir_paths=[]):
                     continue
                 if ext == ".py" or ext == "":
                     file_list.append(os.path.join(dirpath, file))
+    file_list = sorted(file_list)
     return file_list
 
 
