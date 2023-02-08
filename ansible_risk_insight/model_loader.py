@@ -57,6 +57,7 @@ from .finder import (
 from .utils import (
     split_target_playbook_fullpath,
     get_documentation_by_ansible_doc_command,
+    get_documentation_in_module_file,
     get_class_by_arg_type,
 )
 from .awx_utils import could_be_playbook
@@ -91,6 +92,7 @@ def load_repository(
     my_collection_name="",
     basedir="",
     target_playbook_path="",
+    use_ansible_doc=True,
     load_children=True,
 ):
     repoObj = Repository()
@@ -122,13 +124,14 @@ def load_repository(
     repoObj.playbooks = load_playbooks(repo_path, basedir=basedir, load_children=load_children)
     logging.debug("done ... {} playbooks loaded".format(len(repoObj.playbooks)))
     logging.debug("start loading roles")
-    repoObj.roles = load_roles(repo_path, basedir=basedir, load_children=load_children)
+    repoObj.roles = load_roles(repo_path, basedir=basedir, use_ansible_doc=use_ansible_doc, load_children=load_children)
     logging.debug("done ... {} roles loaded".format(len(repoObj.roles)))
     logging.debug("start loading modules (that are defined in this repository)")
     repoObj.modules = load_modules(
         repo_path,
         basedir=basedir,
         collection_name=repoObj.my_collection_name,
+        use_ansible_doc=use_ansible_doc,
         load_children=load_children,
     )
     logging.debug("done ... {} modules loaded".format(len(repoObj.modules)))
@@ -561,6 +564,7 @@ def load_role(
     collection_name="",
     module_dir_paths=[],
     basedir="",
+    use_ansible_doc=True,
     load_children=True,
 ):
     roleObj = Role()
@@ -696,6 +700,7 @@ def load_role(
                 collection_name=collection_name,
                 role_name=fqcn,
                 basedir=basedir,
+                use_ansible_doc=use_ansible_doc,
             )
         except Exception:
             logging.exception("error while loading the module at {}".format(module_file_path))
@@ -747,7 +752,7 @@ def load_role(
     return roleObj
 
 
-def load_roles(path, basedir="", load_children=True):
+def load_roles(path, basedir="", use_ansible_doc=True, load_children=True):
     if path == "":
         return []
     roles_patterns = ["roles", "playbooks/roles", "playbook/roles"]
@@ -764,7 +769,7 @@ def load_roles(path, basedir="", load_children=True):
     for dir_name in dirs:
         role_dir = os.path.join(roles_dir_path, dir_name)
         try:
-            r = load_role(role_dir, basedir=basedir)
+            r = load_role(role_dir, basedir=basedir, use_ansible_doc=use_ansible_doc)
         except Exception:
             logging.exception("error while loading the role at {}".format(role_dir))
         if load_children:
@@ -822,7 +827,7 @@ def load_installed_roles(installed_roles_path):
     return roles
 
 
-def load_module(module_file_path, collection_name="", role_name="", basedir=""):
+def load_module(module_file_path, collection_name="", role_name="", basedir="", use_ansible_doc=True):
     moduleObj = Module()
     if module_file_path == "":
         raise ValueError("require module file path to load a Module")
@@ -863,8 +868,13 @@ def load_module(module_file_path, collection_name="", role_name="", basedir=""):
 
     module_dir = os.path.dirname(fullpath)
     arguments = []
-    # doc_yaml = get_documentation_in_module_file(fullpath)
-    doc_yaml = get_documentation_by_ansible_doc_command(moduleObj.fqcn, module_dir)
+    doc_yaml = ""
+    if use_ansible_doc:
+        # use `ansible-doc` command for the accurate documentation
+        doc_yaml = get_documentation_by_ansible_doc_command(moduleObj.fqcn, module_dir)
+    else:
+        # parse the script file for a quick scan (this does not contain doc from `doc_fragments`)
+        doc_yaml = get_documentation_in_module_file(fullpath)
     if doc_yaml:
         doc_dict = {}
         try:
@@ -874,9 +884,7 @@ def load_module(module_file_path, collection_name="", role_name="", basedir=""):
         arg_specs = doc_dict.get("options", {})
         for arg_name in arg_specs:
             arg_spec = arg_specs[arg_name]
-            arg_value_type = get_class_by_arg_type(arg_spec.get("type", ""))
-            if not arg_value_type:
-                arg_value_type = str
+            arg_value_type = get_class_by_arg_type(arg_spec.get("type", None))
             arg = ModuleArgument(
                 name=arg_name,
                 type=arg_value_type,
@@ -910,7 +918,7 @@ def load_builtin_modules():
 # https://docs.ansible.com/ansible/2.8/user_guide/playbooks_best_practices.html
 # however, it is often defined in `plugins/modules` directory,
 # so we search both the directories
-def load_modules(path, basedir="", collection_name="", module_dir_paths=[], load_children=True):
+def load_modules(path, basedir="", collection_name="", module_dir_paths=[], use_ansible_doc=True, load_children=True):
     if path == "":
         return []
     if not os.path.exists(path):
@@ -927,6 +935,7 @@ def load_modules(path, basedir="", collection_name="", module_dir_paths=[], load
                 module_file_path,
                 collection_name=collection_name,
                 basedir=basedir,
+                use_ansible_doc=use_ansible_doc,
             )
         except Exception:
             logging.exception("error while loading the module at {}".format(module_file_path))
@@ -1166,7 +1175,7 @@ def load_taskfiles(path, basedir="", load_children=True):
     return taskfiles
 
 
-def load_collection(collection_dir, basedir="", load_children=True):
+def load_collection(collection_dir, basedir="", use_ansible_doc=True, load_children=True):
     colObj = Collection()
     fullpath = ""
     if os.path.exists(collection_dir):
@@ -1241,14 +1250,16 @@ def load_collection(collection_dir, basedir="", load_children=True):
             taskfiles = sorted(taskfiles)
         colObj.taskfiles = taskfiles
 
-    roles = load_roles(fullpath, basedir=basedir, load_children=load_children)
+    roles = load_roles(fullpath, basedir=basedir, use_ansible_doc=use_ansible_doc, load_children=load_children)
 
     module_files = search_module_files(fullpath)
     modules = []
+    if not load_children:
+        use_ansible_doc = False
     for f in module_files:
         m = None
         try:
-            m = load_module(f, collection_name=collection_name, basedir=basedir)
+            m = load_module(f, collection_name=collection_name, basedir=basedir, use_ansible_doc=use_ansible_doc)
         except Exception:
             logging.exception("error while loading the module at {}".format(f))
             continue
@@ -1296,18 +1307,18 @@ def load_object(loadObj):
     loadObj.timestamp = datetime.datetime.utcnow().isoformat()
 
 
-def find_playbook_role_module(path):
+def find_playbook_role_module(path, use_ansible_doc=True):
     playbooks = load_playbooks(path, basedir=path, load_children=False)
     root_role = None
     try:
-        root_role = load_role(path, basedir=path, load_children=False)
+        root_role = load_role(path, basedir=path, use_ansible_doc=use_ansible_doc, load_children=False)
     except Exception:
         pass
-    sub_roles = load_roles(path, basedir=path, load_children=False)
+    sub_roles = load_roles(path, basedir=path, use_ansible_doc=use_ansible_doc, load_children=False)
     roles = []
     if root_role and root_role.metadata:
         roles.append(".")
     if len(sub_roles) > 0:
         roles.extend(sub_roles)
-    modules = load_modules(path, basedir=path, load_children=False)
+    modules = load_modules(path, basedir=path, use_ansible_doc=use_ansible_doc, load_children=False)
     return playbooks, roles, modules

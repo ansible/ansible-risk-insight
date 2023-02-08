@@ -34,7 +34,6 @@ from .models import (
     LoadType,
     CallObject,
     TaskCall,
-    MutableContent,
     call_obj_from_spec,
 )
 from .finder import get_builtin_module_names
@@ -486,7 +485,6 @@ class TreeLoader(object):
             )
             if isinstance(call_obj, TaskCall):
                 taskcall = call_obj
-                taskcall.content = MutableContent.from_task_spec(taskcall.spec)
                 if len(child_objects.items) > 0:
                     c_obj = child_objects.items[0]
                     if taskcall.spec.executable_type == ExecutableType.MODULE_TYPE:

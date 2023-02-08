@@ -1211,26 +1211,20 @@ class Task(Object, Resolvable):
 
 @dataclass
 class MutableContent(object):
-    original: str = ""
-    mutated: str = ""
-
+    _yaml: str = ""
     _task_spec: Task = None
-
-    def __post_init__(self):
-        if not self.mutated:
-            self.mutated = self.original
 
     @staticmethod
     def from_task_spec(task_spec):
         mc = MutableContent(
-            original=task_spec.yaml_lines,
+            _yaml=task_spec.yaml_lines,
             _task_spec=deepcopy(task_spec),
         )
         return mc
 
     def set_module_name(self, module_name):
         self._task_spec.module = module_name
-        self.mutated = self._task_spec.yaml()
+        self._yaml = self._task_spec.yaml()
         return self
 
     def replace_key(self, old_key: str, new_key: str):
@@ -1244,7 +1238,7 @@ class MutableContent(object):
             value = self._task_spec.module_options[old_key]
             self._task_spec.module_options.pop(old_key)
             self._task_spec.module_options[new_key] = value
-        self.mutated = self._task_spec.yaml()
+        self._yaml = self._task_spec.yaml()
         return self
 
     def replace_module_arg_value(self, old_value: any, new_value: any):
@@ -1254,11 +1248,11 @@ class MutableContent(object):
             if v != old_value:
                 continue
             self._task_spec.module_options[k] = new_value
-        self.mutated = self._task_spec.yaml()
+        self._yaml = self._task_spec.yaml()
         return self
 
     def yaml(self):
-        return self.original, self.mutated
+        return self._yaml
 
 
 @dataclass
@@ -1284,7 +1278,16 @@ class TaskCall(CallObject, RunTarget):
         return matched
 
     def set_annotation(self, key: str, value: any):
-        self.annotations.append(Annotation(key=key, value=value))
+        end_to_set = False
+        for an in self.annotations:
+            if not hasattr(an, "key"):
+                continue
+            if getattr(an, "key") == key:
+                setattr(an, "value", value)
+                end_to_set = True
+                break
+        if not end_to_set:
+            self.annotations.append(Annotation(key=key, value=value))
         return
 
     def get_annotation(self, key: str, __default: any = None):
@@ -1745,7 +1748,9 @@ def call_obj_from_spec(spec: Object, caller: CallObject):
     elif isinstance(spec, TaskFile):
         return TaskFileCall.from_spec(spec, caller)
     elif isinstance(spec, Task):
-        return TaskCall.from_spec(spec, caller)
+        taskcall = TaskCall.from_spec(spec, caller)
+        taskcall.content = MutableContent.from_task_spec(task_spec=spec)
+        return taskcall
     elif isinstance(spec, Module):
         return ModuleCall.from_spec(spec, caller)
     return None

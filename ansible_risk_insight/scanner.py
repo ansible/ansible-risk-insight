@@ -36,7 +36,7 @@ from .loader import (
     get_loader_version,
 )
 from .parser import Parser
-from .model_loader import load_object, find_playbook_role_module
+from .model_loader import load_object
 from .tree import TreeLoader
 from .annotators.variable_resolver import resolve_variables
 from .analyzer import analyze
@@ -140,6 +140,7 @@ class SingleScan(object):
     # the following are set by ARIScanner
     root_dir: str = ""
     rules_dir: str = ""
+    use_ansible_doc: bool = True
     do_save: bool = False
     silent: bool = False
     _parser: Parser = None
@@ -398,9 +399,7 @@ class SingleScan(object):
         output_dir = self.__path_mappings["root_definitions"]
         root_load = self._set_load_root(target_path=target_path)
 
-        p = Parser(do_save=self.do_save)
-
-        definitions, mappings = p.run(load_data=root_load, collection_name_of_project=self.collection_name)
+        definitions, mappings = self._parser.run(load_data=root_load, collection_name_of_project=self.collection_name)
         if self.do_save:
             if output_dir == "":
                 raise ValueError("Invalid output_dir")
@@ -508,6 +507,11 @@ class SingleScan(object):
         self.result = data_report.get("ari_result", None)
         return
 
+    def add_time_records(self, time_records: dict):
+        if self.findings:
+            self.findings.metadata["time_records"] = time_records
+        return
+
     def count_definitions(self):
         dep_num = len(self.loaded_dependency_dirs)
         ext_counts = {}
@@ -565,6 +569,8 @@ class ARIScanner(object):
     read_ram: bool = True
     write_ram: bool = True
 
+    use_ansible_doc: bool = True
+
     do_save: bool = False
     _parser: Parser = None
 
@@ -577,7 +583,7 @@ class ARIScanner(object):
 
     def __post_init__(self):
         self.ram_client = RAMClient(root_dir=self.root_dir)
-        self._parser = Parser()
+        self._parser = Parser(do_save=self.do_save, use_ansible_doc=self.use_ansible_doc)
 
     def evaluate(
         self,
@@ -596,6 +602,8 @@ class ARIScanner(object):
         source_repository: str = "",
         out_dir: str = "",
     ):
+        time_records = {}
+        self.record_begin(time_records, "scandata_init")
 
         if not name and path:
             name = path
@@ -615,12 +623,15 @@ class ARIScanner(object):
             out_dir=out_dir,
             root_dir=self.root_dir,
             rules_dir=self.rules_dir,
+            use_ansible_doc=self.use_ansible_doc,
             do_save=self.do_save,
             silent=self.silent,
             _parser=self._parser,
         )
         self._current = scandata
+        self.record_end(time_records, "scandata_init")
 
+        self.record_begin(time_records, "metadata_load")
         metdata_loaded = False
         if self.read_ram:
             loaded, metadata, dependencies = self.load_metadata_from_ram(scandata.type, scandata.name, scandata.version)
@@ -640,6 +651,7 @@ class ARIScanner(object):
             scandata.set_metadata_findings()
             self.register_findings_to_ram(scandata.findings)
             return None
+        self.record_end(time_records, "metadata_load")
 
         ext_list = []
         ext_list.extend(
@@ -657,12 +669,15 @@ class ARIScanner(object):
         ext_count = len(ext_list)
 
         # PRM Finder
-        playbooks, roles, modules = find_playbook_role_module(scandata.target_path)
-        scandata.prm["playbooks"] = playbooks
-        scandata.prm["roles"] = roles
-        scandata.prm["modules"] = modules
+        self.record_begin(time_records, "prm_load")
+        # playbooks, roles, modules = find_playbook_role_module(scandata.target_path, self.use_ansible_doc)
+        # scandata.prm["playbooks"] = playbooks
+        # scandata.prm["roles"] = roles
+        # scandata.prm["modules"] = modules
+        self.record_end(time_records, "prm_load")
 
         # Start ARI Scanner main flow
+        self.record_begin(time_records, "dependency_load")
         for i, (ext_type, ext_name, ext_ver, ext_hash, ext_path) in enumerate(ext_list):
             if not self.silent:
                 if i == 0:
@@ -678,6 +693,9 @@ class ARIScanner(object):
                 # scan dependencies and save findings to ARI RAM
                 dep_scanner = ARIScanner(
                     root_dir=self.root_dir,
+                    rules_dir=self.rules_dir,
+                    ram_client=self.ram_client,
+                    use_ansible_doc=self.use_ansible_doc,
                     do_save=self.do_save,
                     silent=True,
                 )
@@ -704,11 +722,13 @@ class ARIScanner(object):
 
                 # load the src directory
                 scandata.load_definition_ext(ext_type, ext_name, ext_path)
+        self.record_end(time_records, "dependency_load")
 
         if not self.silent:
             logging.debug("load_definition_ext() done")
 
         loaded = False
+        self.record_begin(time_records, "target_load")
         if self.read_ram and scandata.type != LoadType.PLAYBOOK:
             loaded, root_defs = self.load_definitions_from_ram(scandata.type, scandata.name, scandata.version, scandata.hash, allow_unresolved=True)
             logging.debug(f"spec data loaded: {loaded}")
@@ -716,6 +736,7 @@ class ARIScanner(object):
                 scandata.root_definitions = root_defs
                 if not self.silent:
                     logging.info("Use spec data in RAM DB")
+        self.record_end(time_records, "target_load")
 
         if not loaded:
             scandata.load_definitions_root(target_path=scandata.target_path)
@@ -732,18 +753,33 @@ class ARIScanner(object):
         _ram_client = None
         if self.read_ram:
             _ram_client = self.ram_client
+
+        self.record_begin(time_records, "tree_construction")
         scandata.construct_trees(_ram_client)
+        self.record_end(time_records, "tree_construction")
         if not self.silent:
             logging.debug("construct_trees() done")
+
+        self.record_begin(time_records, "variable_resolution")
         scandata.resolve_variables()
+        self.record_end(time_records, "variable_resolution")
         if not self.silent:
             logging.debug("resolve_variables() done")
+
+        self.record_begin(time_records, "module_annotators")
         scandata.annotate()
         if not self.silent:
             logging.debug("annotate() done")
+        self.record_end(time_records, "module_annotators")
+
+        self.record_begin(time_records, "apply_rules")
         scandata.apply_rules()
+        self.record_end(time_records, "apply_rules")
         if not self.silent:
             logging.debug("apply_rules() done")
+
+        scandata.add_time_records(time_records=time_records)
+
         dep_num, ext_counts, root_counts = scandata.count_definitions()
         if not self.silent:
             print("# of dependencies:", dep_num)
@@ -805,6 +841,17 @@ class ARIScanner(object):
             hash = self._current.hash
             out_dir = self.ram_client.make_findings_dir_path(type, name, version, hash)
         self.ram_client.save_error(error, out_dir)
+
+    def record_begin(self, time_records: dict, record_name: str):
+        time_records[record_name] = {}
+        time_records[record_name]["begin"] = datetime.datetime.utcnow().isoformat()
+
+    def record_end(self, time_records: dict, record_name: str):
+        end = datetime.datetime.utcnow()
+        time_records[record_name]["end"] = end.isoformat()
+        begin = datetime.datetime.fromisoformat(time_records[record_name]["begin"])
+        elapsed = (end - begin).total_seconds()
+        time_records[record_name]["elapsed"] = elapsed
 
 
 def tree(root_definitions, ext_definitions, ram_client=None, target_playbook_path=None):
