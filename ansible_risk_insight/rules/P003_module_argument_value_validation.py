@@ -44,7 +44,7 @@ class ModuleArgumentValueValidationRule(Rule):
     def process(self, ctx: AnsibleRunContext):
         task = ctx.current
 
-        if task.spec.executable_type == ExecutableType.MODULE_TYPE and task.spec.possible_candidates:
+        if task.spec.executable_type == ExecutableType.MODULE_TYPE and task.module and task.module.arguments:
 
             wrong_values = []
             unknown_type_values = []
@@ -63,21 +63,22 @@ class ModuleArgumentValueValidationRule(Rule):
                     d = {"key": key}
                     wrong_val = False
                     unknown_type_val = False
-                    if not isinstance(raw_value, str) or "{{" not in raw_value:
-                        if type(raw_value) != spec.type:
-                            d["expected_type"] = spec.type.__name__
-                            d["actual_type"] = type(raw_value).__name__
-                            wrong_val = True
-                    else:
-                        if "{{" not in resolved_value:
-                            if type(resolved_value) != spec.type:
+                    if spec.type:
+                        if not isinstance(raw_value, str) or "{{" not in raw_value:
+                            if type(raw_value) != spec.type:
                                 d["expected_type"] = spec.type.__name__
                                 d["actual_type"] = type(raw_value).__name__
                                 wrong_val = True
                         else:
-                            d["expected_type"] = spec.type.__name__
-                            d["unknown_type_value"] = resolved_value
-                            unknown_type_val = True
+                            if isinstance(resolved_value, str) and "{{" in resolved_value:
+                                d["expected_type"] = spec.type.__name__
+                                d["unknown_type_value"] = resolved_value
+                                unknown_type_val = True
+                            else:
+                                if type(resolved_value) != spec.type:
+                                    d["expected_type"] = spec.type.__name__
+                                    d["actual_type"] = type(raw_value).__name__
+                                    wrong_val = True
 
                     if wrong_val:
                         wrong_values.append(d)
