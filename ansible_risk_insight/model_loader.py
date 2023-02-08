@@ -874,9 +874,7 @@ def load_module(module_file_path, collection_name="", role_name="", basedir=""):
         arg_specs = doc_dict.get("options", {})
         for arg_name in arg_specs:
             arg_spec = arg_specs[arg_name]
-            arg_value_type = get_class_by_arg_type(arg_spec.get("type", ""))
-            if not arg_value_type:
-                arg_value_type = str
+            arg_value_type = get_class_by_arg_type(arg_spec.get("type", None))
             arg = ModuleArgument(
                 name=arg_name,
                 type=arg_value_type,

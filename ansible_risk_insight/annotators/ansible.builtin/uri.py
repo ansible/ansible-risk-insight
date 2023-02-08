@@ -24,6 +24,8 @@ class URIAnnotator(ModuleAnnotator):
 
     def run(self, task: TaskCall) -> ModuleAnnotatorResult:
         method = task.args.get("method")
+
+        annotations = []
         if method in ["PUT", "POST", "PATCH"]:
             url = task.args.get("url")
             body = task.args.get("body")
@@ -31,4 +33,5 @@ class URIAnnotator(ModuleAnnotator):
                 risk_type=DefaultRiskType.OUTBOUND,
                 detail=OutboundTransferDetail(_dest_arg=url, _src_arg=body),
             )
-        return ModuleAnnotatorResult(annotations=[annotation])
+            annotations.append(annotation)
+        return ModuleAnnotatorResult(annotations=annotations)

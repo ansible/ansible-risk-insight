@@ -43,7 +43,7 @@ class ModuleArgumentKeyValidationRule(Rule):
     def process(self, ctx: AnsibleRunContext):
         task = ctx.current
 
-        if task.spec.executable_type == ExecutableType.MODULE_TYPE and task.spec.possible_candidates:
+        if task.spec.executable_type == ExecutableType.MODULE_TYPE and task.module and task.module.arguments:
 
             mo = task.spec.module_options
             used_keys = []

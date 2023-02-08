@@ -43,30 +43,36 @@ class ModuleNameValidationRule(Rule):
     def process(self, ctx: AnsibleRunContext):
         task = ctx.current
 
-        if task.spec.executable_type == ExecutableType.MODULE_TYPE and task.spec.possible_candidates:
+        if task.spec.executable_type == ExecutableType.MODULE_TYPE:
 
             suggested_fqcns = [cand[0] for cand in task.spec.possible_candidates]
             suggested_dependency = [cand[1] for cand in task.spec.possible_candidates]
 
             wrong_module_name = ""
+            not_exist = False
             if not task.spec.resolved_name:
                 for suggestion in suggested_fqcns:
                     if not suggestion.endswith(f".{task.spec.module}"):
                         wrong_module_name = task.spec.module
                         break
+                if not task.spec.possible_candidates:
+                    not_exist = True
+                    wrong_module_name = task.spec.module
             correct_fqcn = ""
             if task.spec.resolved_name:
                 correct_fqcn = task.spec.resolved_name
             elif suggested_fqcns:
                 correct_fqcn = suggested_fqcns[0]
+
             need_correction = False
-            if correct_fqcn != task.spec.module:
+            if correct_fqcn != task.spec.module or not_exist:
                 need_correction = True
 
             task.set_annotation("module.suggested_fqcn", suggested_fqcns)
             task.set_annotation("module.suggested_dependency", suggested_dependency)
             task.set_annotation("module.resolved_fqcn", task.spec.resolved_name)
             task.set_annotation("module.wrong_module_name", wrong_module_name)
+            task.set_annotation("module.not_exist", not_exist)
             task.set_annotation("module.correct_fqcn", correct_fqcn)
             task.set_annotation("module.need_correction", need_correction)
 
