@@ -65,18 +65,18 @@ class ModuleArgumentValueValidationRule(Rule):
                     unknown_type_val = False
                     if spec.type:
                         if not isinstance(raw_value, str) or "{{" not in raw_value:
-                            if type(raw_value) != spec.type:
-                                d["expected_type"] = spec.type.__name__
+                            if type(raw_value).__name__ != spec.type:
+                                d["expected_type"] = spec.type
                                 d["actual_type"] = type(raw_value).__name__
                                 wrong_val = True
                         else:
                             if isinstance(resolved_value, str) and "{{" in resolved_value:
-                                d["expected_type"] = spec.type.__name__
+                                d["expected_type"] = spec.type
                                 d["unknown_type_value"] = resolved_value
                                 unknown_type_val = True
                             else:
-                                if type(resolved_value) != spec.type:
-                                    d["expected_type"] = spec.type.__name__
+                                if type(resolved_value).__name__ != spec.type:
+                                    d["expected_type"] = spec.type
                                     d["actual_type"] = type(raw_value).__name__
                                     wrong_val = True
 
