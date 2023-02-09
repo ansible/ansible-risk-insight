@@ -68,12 +68,12 @@ class ModuleNameValidationRule(Rule):
             if correct_fqcn != task.spec.module or not_exist:
                 need_correction = True
 
-            task.set_annotation("module.suggested_fqcn", suggested_fqcns)
-            task.set_annotation("module.suggested_dependency", suggested_dependency)
-            task.set_annotation("module.resolved_fqcn", task.spec.resolved_name)
-            task.set_annotation("module.wrong_module_name", wrong_module_name)
-            task.set_annotation("module.not_exist", not_exist)
-            task.set_annotation("module.correct_fqcn", correct_fqcn)
-            task.set_annotation("module.need_correction", need_correction)
+            task.set_annotation("module.suggested_fqcn", suggested_fqcns, rule_id=self.rule_id)
+            task.set_annotation("module.suggested_dependency", suggested_dependency, rule_id=self.rule_id)
+            task.set_annotation("module.resolved_fqcn", task.spec.resolved_name, rule_id=self.rule_id)
+            task.set_annotation("module.wrong_module_name", wrong_module_name, rule_id=self.rule_id)
+            task.set_annotation("module.not_exist", not_exist, rule_id=self.rule_id)
+            task.set_annotation("module.correct_fqcn", correct_fqcn, rule_id=self.rule_id)
+            task.set_annotation("module.need_correction", need_correction, rule_id=self.rule_id)
 
         return None

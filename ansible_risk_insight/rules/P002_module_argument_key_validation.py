@@ -94,12 +94,12 @@ class ModuleArgumentKeyValidationRule(Rule):
                     }
                 )
 
-            task.set_annotation("module.wrong_arg_keys", wrong_keys)
-            task.set_annotation("module.available_arg_keys", available_keys)
-            task.set_annotation("module.required_arg_keys", required_keys)
-            task.set_annotation("module.missing_required_arg_keys", missing_required_keys)
-            task.set_annotation("module.available_args", available_args)
-            task.set_annotation("module.used_alias_and_real_keys", used_alias_and_real_keys)
+            task.set_annotation("module.wrong_arg_keys", wrong_keys, rule_id=self.rule_id)
+            task.set_annotation("module.available_arg_keys", available_keys, rule_id=self.rule_id)
+            task.set_annotation("module.required_arg_keys", required_keys, rule_id=self.rule_id)
+            task.set_annotation("module.missing_required_arg_keys", missing_required_keys, rule_id=self.rule_id)
+            task.set_annotation("module.available_args", available_args, rule_id=self.rule_id)
+            task.set_annotation("module.used_alias_and_real_keys", used_alias_and_real_keys, rule_id=self.rule_id)
 
         # TODO: find duplicate keys
 

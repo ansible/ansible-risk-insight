@@ -791,9 +791,9 @@ class ARIScanner(object):
             self.register_findings_to_ram(scandata.findings)
 
         if scandata.out_dir is not None and scandata.out_dir != "":
-            self.save_findings(scandata.findings, scandata.out_dir)
+            self.save_rule_result(scandata.findings, scandata.out_dir)
             if not self.silent:
-                print("The findings are saved at {}".format(scandata.out_dir))
+                print("The rule result is saved at {}".format(scandata.out_dir))
 
         if not self.silent:
             summary = summarize_findings(scandata.findings, self.show_all)
@@ -829,6 +829,15 @@ class ARIScanner(object):
 
     def save_findings(self, findings: Findings, out_dir: str):
         self.ram_client.save_findings(findings, out_dir)
+
+    def save_rule_result(self, findings: Findings, out_dir: str):
+        if out_dir == "":
+            raise ValueError("output dir must be a non-empty value")
+
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir, exist_ok=True)
+
+        findings.save_rule_result(fpath=os.path.join(out_dir, "rule_result.json"))
 
     def get_last_scandata(self):
         return self._current

@@ -54,7 +54,7 @@ class VariableValidationRule(Rule):
                     if v_name.startswith("item."):
                         unnecessary_loop.append({"name": v_name, "suggested": v_name.replace("item.", "")})
 
-        task.set_annotation("variable.undefined_vars", undefined_variables)
-        task.set_annotation("variable.unnecessary_loop_vars", unnecessary_loop)
+        task.set_annotation("variable.undefined_vars", undefined_variables, rule_id=self.rule_id)
+        task.set_annotation("variable.unnecessary_loop_vars", unnecessary_loop, rule_id=self.rule_id)
 
         return None
