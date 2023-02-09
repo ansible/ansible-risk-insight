@@ -805,6 +805,8 @@ class Annotation(JSONSerializable):
     key: str = ""
     value: any = None
 
+    rule_id: str = ""
+
     # TODO: avoid Annotation variants and remove `type`
     type: str = ""
 
@@ -1277,7 +1279,7 @@ class TaskCall(CallObject, RunTarget):
         matched = [an for an in self.annotations if hasattr(an, "type") and an.type == type_str and getattr(an, key, None) == val]
         return matched
 
-    def set_annotation(self, key: str, value: any):
+    def set_annotation(self, key: str, value: any, rule_id: str):
         end_to_set = False
         for an in self.annotations:
             if not hasattr(an, "key"):
@@ -1287,14 +1289,18 @@ class TaskCall(CallObject, RunTarget):
                 end_to_set = True
                 break
         if not end_to_set:
-            self.annotations.append(Annotation(key=key, value=value))
+            self.annotations.append(Annotation(key=key, value=value, rule_id=rule_id))
         return
 
-    def get_annotation(self, key: str, __default: any = None):
+    def get_annotation(self, key: str, __default: any = None, rule_id: str = ""):
         value = __default
         for an in self.annotations:
             if not hasattr(an, "key"):
                 continue
+            if rule_id:
+                if hasattr(an, "rule_id"):
+                    if an.rule_id != rule_id:
+                        continue
             if getattr(an, "key") == key:
                 value = getattr(an, "value", __default)
                 break
@@ -1947,9 +1953,9 @@ class NodeResult(JSONSerializable):
 
 
 @dataclass
-class TreeResult(JSONSerializable):
-    tree_type: str = ""  # playbook or role
-    tree_name: str = ""
+class TargetResult(JSONSerializable):
+    target_type: str = ""  # playbook or role
+    target_name: str = ""
     nodes: List[NodeResult] = field(default_factory=list)
 
     def applied_rules(self):
@@ -2006,12 +2012,12 @@ class TreeResult(JSONSerializable):
 
     def _filter(self, type):
         filtered_nodes = [nr for nr in self.nodes if isinstance(nr.node, type)]
-        return TreeResult(tree_type=self.tree_type, tree_name=self.tree_name, nodes=filtered_nodes)
+        return TargetResult(target_type=self.target_type, target_name=self.target_name, nodes=filtered_nodes)
 
 
 @dataclass
 class ARIResult(JSONSerializable):
-    trees: List[TreeResult] = field(default_factory=list)
+    targets: List[TargetResult] = field(default_factory=list)
 
     def playbooks(self):
         return self._filter("playbook")
@@ -2034,11 +2040,11 @@ class ARIResult(JSONSerializable):
         return self._find_by_name(name)
 
     def _find_by_name(self, name):
-        filtered_trees = [tr for tr in self.trees if tr.tree_name == name]
-        if not filtered_trees:
+        filtered_targets = [tr for tr in self.targets if tr.target_name == name]
+        if not filtered_targets:
             return None
-        return filtered_trees[0]
+        return filtered_targets[0]
 
     def _filter(self, type_str):
-        filtered_trees = [tr for tr in self.trees if tr.tree_type == type_str]
-        return ARIResult(trees=filtered_trees)
+        filtered_targets = [tr for tr in self.targets if tr.target_type == type_str]
+        return ARIResult(targets=filtered_targets)

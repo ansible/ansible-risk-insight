@@ -86,8 +86,8 @@ class ModuleArgumentValueValidationRule(Rule):
                     if unknown_type_val:
                         unknown_type_values.append(d)
 
-            task.set_annotation("module.wrong_arg_values", wrong_values)
-            task.set_annotation("module.unknown_type_values", wrong_values)
+            task.set_annotation("module.wrong_arg_values", wrong_values, rule_id=self.rule_id)
+            task.set_annotation("module.unknown_type_values", wrong_values, rule_id=self.rule_id)
 
         # TODO: find duplicate keys
 

@@ -47,8 +47,9 @@ class ARICLI:
         parser.add_argument("--without-ram", action="store_true", help="if true, RAM data is not used and not even updated")
         parser.add_argument("--update-ram", action="store_true", help="if true, RAM data is not used for scan but updated with the scan result")
         parser.add_argument("--show-all", action="store_true", help="if true, show findings even if missing dependencies are found")
-        parser.add_argument("-o", "--output", help="if specified, show findings in json/yaml format", choices={"json", "yaml"})
-        parser.add_argument("--out-dir", help="output directory for findings")
+        parser.add_argument("--json", help="if specified, show findings in json format")
+        parser.add_argument("--yaml", help="if specified, show findings in yaml format")
+        parser.add_argument("-o", "--out-dir", help="output directory for the rule evaluation result")
         parser.add_argument(
             "-r", "--rules-dir", help=f"specify custom rule directories. use `-R` instead to ignore default rules in {config.rules_dir}"
         )
@@ -96,9 +97,14 @@ class ARICLI:
 
         silent = False
         pretty = False
-        if args.output:
+        output_format = ""
+        if args.json or args.yaml:
             silent = True
             pretty = True
+            if args.json:
+                output_format = "json"
+            elif args.yaml:
+                output_format = "yaml"
 
         read_ram = True
         write_ram = True
@@ -118,7 +124,7 @@ class ARICLI:
             show_all=args.show_all,
             silent=silent,
             pretty=pretty,
-            output_format=args.output,
+            output_format=output_format,
         )
         if not silent and not pretty:
             print("Start preparing dependencies")
