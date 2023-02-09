@@ -48,7 +48,7 @@ class Findings:
         return json_str
 
     def save_rule_result(self, fpath=""):
-        json_str = jsonpickle.encode(self.report.get("ari_result", {}), make_refs=False)
+        json_str = jsonpickle.encode(self.report.get("ari_result", {}), make_refs=False, unpicklable=False)
         if fpath:
             with open(fpath, "w") as file:
                 file.write(json_str)

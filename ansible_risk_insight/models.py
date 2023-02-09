@@ -805,6 +805,8 @@ class Annotation(JSONSerializable):
     key: str = ""
     value: any = None
 
+    rule_id: str = ""
+
     # TODO: avoid Annotation variants and remove `type`
     type: str = ""
 
@@ -1277,7 +1279,7 @@ class TaskCall(CallObject, RunTarget):
         matched = [an for an in self.annotations if hasattr(an, "type") and an.type == type_str and getattr(an, key, None) == val]
         return matched
 
-    def set_annotation(self, key: str, value: any):
+    def set_annotation(self, key: str, value: any, rule_id: str):
         end_to_set = False
         for an in self.annotations:
             if not hasattr(an, "key"):
@@ -1287,14 +1289,18 @@ class TaskCall(CallObject, RunTarget):
                 end_to_set = True
                 break
         if not end_to_set:
-            self.annotations.append(Annotation(key=key, value=value))
+            self.annotations.append(Annotation(key=key, value=value, rule_id=rule_id))
         return
 
-    def get_annotation(self, key: str, __default: any = None):
+    def get_annotation(self, key: str, __default: any = None, rule_id: str = ""):
         value = __default
         for an in self.annotations:
             if not hasattr(an, "key"):
                 continue
+            if rule_id:
+                if hasattr(an, "rule_id"):
+                    if an.rule_id != rule_id:
+                        continue
             if getattr(an, "key") == key:
                 value = getattr(an, "value", __default)
                 break
