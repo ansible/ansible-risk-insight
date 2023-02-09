@@ -885,9 +885,12 @@ def load_module(module_file_path, collection_name="", role_name="", basedir="", 
         for arg_name in arg_specs:
             arg_spec = arg_specs[arg_name]
             arg_value_type = get_class_by_arg_type(arg_spec.get("type", None))
+            arg_value_type_str = ""
+            if arg_value_type:
+                arg_value_type_str = arg_value_type.__name__
             arg = ModuleArgument(
                 name=arg_name,
-                type=arg_value_type,
+                type=arg_value_type_str,
                 required=boolean(arg_spec.get("required", "false")),
                 description=arg_spec.get("description", ""),
                 default=arg_spec.get("default", None),

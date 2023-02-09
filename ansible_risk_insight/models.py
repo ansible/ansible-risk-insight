@@ -268,7 +268,7 @@ class RunTargetList(object):
 @dataclass
 class ModuleArgument(object):
     name: str = ""
-    type: type = None
+    type: str = None
     default: any = None
     required: bool = False
     description: str = ""
