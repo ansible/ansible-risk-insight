@@ -19,7 +19,7 @@ import os
 import logging
 from typing import List
 
-from .models import AnsibleRunContext, ARIResult, TreeResult, NodeResult, RuleResult, Rule
+from .models import AnsibleRunContext, ARIResult, TargetResult, NodeResult, RuleResult, Rule
 from .keyutil import detect_type, key_delimiter
 from .analyzer import load_taskcalls_in_trees
 from .utils import load_classes_in_dir
@@ -83,9 +83,9 @@ def detect(contexts: List[AnsibleRunContext], rules_dir: str = ""):
         tree_root_type = detect_type(tree_root_key)
         tree_root_name = key2name(tree_root_key)
 
-        t_result = TreeResult(
-            tree_type=tree_root_type,
-            tree_name=tree_root_name,
+        t_result = TargetResult(
+            target_type=tree_root_type,
+            target_name=tree_root_name,
         )
 
         is_playbook = tree_root_type == "playbook"
@@ -118,7 +118,7 @@ def detect(contexts: List[AnsibleRunContext], rules_dir: str = ""):
                     r_result.matched = matched
                 n_result.rules.append(r_result)
             t_result.nodes.append(n_result)
-        ari_result.trees.append(t_result)
+        ari_result.targets.append(t_result)
 
         do_report = False
         output_dict = {}

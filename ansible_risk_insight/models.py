@@ -1947,9 +1947,9 @@ class NodeResult(JSONSerializable):
 
 
 @dataclass
-class TreeResult(JSONSerializable):
-    tree_type: str = ""  # playbook or role
-    tree_name: str = ""
+class TargetResult(JSONSerializable):
+    target_type: str = ""  # playbook or role
+    target_name: str = ""
     nodes: List[NodeResult] = field(default_factory=list)
 
     def applied_rules(self):
@@ -2006,12 +2006,12 @@ class TreeResult(JSONSerializable):
 
     def _filter(self, type):
         filtered_nodes = [nr for nr in self.nodes if isinstance(nr.node, type)]
-        return TreeResult(tree_type=self.tree_type, tree_name=self.tree_name, nodes=filtered_nodes)
+        return TargetResult(target_type=self.target_type, target_name=self.target_name, nodes=filtered_nodes)
 
 
 @dataclass
 class ARIResult(JSONSerializable):
-    trees: List[TreeResult] = field(default_factory=list)
+    targets: List[TargetResult] = field(default_factory=list)
 
     def playbooks(self):
         return self._filter("playbook")
@@ -2034,11 +2034,11 @@ class ARIResult(JSONSerializable):
         return self._find_by_name(name)
 
     def _find_by_name(self, name):
-        filtered_trees = [tr for tr in self.trees if tr.tree_name == name]
-        if not filtered_trees:
+        filtered_targets = [tr for tr in self.targets if tr.target_name == name]
+        if not filtered_targets:
             return None
-        return filtered_trees[0]
+        return filtered_targets[0]
 
     def _filter(self, type_str):
-        filtered_trees = [tr for tr in self.trees if tr.tree_type == type_str]
-        return ARIResult(trees=filtered_trees)
+        filtered_targets = [tr for tr in self.targets if tr.target_type == type_str]
+        return ARIResult(targets=filtered_targets)
