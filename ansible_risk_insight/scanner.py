@@ -608,6 +608,9 @@ class ARIScanner(object):
         if not name and path:
             name = path
 
+        if is_local_path(name):
+            name = os.path.abspath(name)
+
         scandata = SingleScan(
             type=type,
             name=name,
