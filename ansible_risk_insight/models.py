@@ -1229,6 +1229,11 @@ class MutableContent(object):
         self._yaml = self._task_spec.yaml()
         return self
 
+    def set_new_key(self, key, value):
+        self._task_spec.module_options[key] = value
+        self._yaml = self._task_spec.yaml()
+        return self
+
     def replace_key(self, old_key: str, new_key: str):
         raise NotImplementedError
 
