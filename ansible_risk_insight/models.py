@@ -112,6 +112,7 @@ class Load(JSONSerializable):
     target_type: str = ""
     path: str = ""
     loader_version: str = ""
+    playbook_only: bool = False
     timestamp: str = ""
 
     # the following variables are list of paths; not object
