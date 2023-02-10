@@ -1295,7 +1295,10 @@ def load_object(loadObj):
         obj = load_role(path=path, basedir=path, load_children=False)
     elif target_type == LoadType.PLAYBOOK:
         basedir, target_playbook_path = split_target_playbook_fullpath(path)
-        obj = load_repository(path=basedir, basedir=basedir, target_playbook_path=target_playbook_path, load_children=False)
+        if loadObj.playbook_only:
+            obj = load_playbook(path=target_playbook_path, basedir=basedir)
+        else:
+            obj = load_repository(path=basedir, basedir=basedir, target_playbook_path=target_playbook_path, load_children=False)
     elif target_type == LoadType.PROJECT:
         obj = load_repository(path=path, basedir=path, load_children=False)
 
@@ -1307,6 +1310,12 @@ def load_object(loadObj):
         loadObj.taskfiles = obj.taskfiles
     if hasattr(obj, "modules"):
         loadObj.modules = obj.modules
+
+    if target_type == LoadType.ROLE:
+        loadObj.roles = [obj.defined_in]
+    elif target_type == LoadType.PLAYBOOK and loadObj.playbook_only:
+        loadObj.playbooks = [obj.defined_in]
+
     loadObj.timestamp = datetime.datetime.utcnow().isoformat()
 
 
