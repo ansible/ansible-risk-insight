@@ -95,6 +95,7 @@ class SingleScan(object):
     collection_name: str = ""
     role_name: str = ""
     target_playbook_name: str = None
+    playbook_only: bool = False
 
     install_log: str = ""
     tmp_install_dir: tempfile.TemporaryDirectory = None
@@ -310,6 +311,7 @@ class SingleScan(object):
             target_type=target_type,
             path=target_path,
             loader_version=loader_version,
+            playbook_only=self.playbook_only,
         )
         load_object(ld)
         return ld
@@ -600,6 +602,7 @@ class ARIScanner(object):
         download_only: bool = False,
         use_src_cache: bool = False,
         source_repository: str = "",
+        playbook_only: bool = False,
         out_dir: str = "",
     ):
         time_records = {}
@@ -623,6 +626,7 @@ class ARIScanner(object):
             dependency_dir=dependency_dir,
             use_src_cache=use_src_cache,
             source_repository=source_repository,
+            playbook_only=playbook_only,
             out_dir=out_dir,
             root_dir=self.root_dir,
             rules_dir=self.rules_dir,

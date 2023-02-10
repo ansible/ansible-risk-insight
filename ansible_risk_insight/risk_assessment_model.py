@@ -182,44 +182,56 @@ class RAMClient(object):
         short_name = name
         if "." in name:
             short_name = name.split(".")[-1]
-        if short_name in self.module_indices and self.module_indices[short_name]:
-            meta = self.module_indices[short_name][0]
-            m_wrapper = self.load_from_indice(short_name, meta, used_in)
-            return [m_wrapper]
 
-        findings_json_list = []
-        if self.findings_json_list_cache:
-            findings_json_list = self.findings_json_list_cache
-        else:
-            search_patterns = os.path.join(self.root_dir, "collections", "findings", "*", "*", "*", "findings.json")
-            findings_json_list_coll = safe_glob(search_patterns)
-            findings_json_list_coll = sort_by_version(findings_json_list_coll)
-            search_patterns = os.path.join(self.root_dir, "roles", "findings", "*", "*", "*", "findings.json")
-            findings_json_list_role = safe_glob(search_patterns)
-            findings_json_list_role = sort_by_version(findings_json_list_role)
-            findings_json_list = findings_json_list_coll + findings_json_list_role
-            self.findings_json_list_cache = findings_json_list
+        from_indices = False
+        found_index = None
+        if short_name in self.module_indices and self.module_indices[short_name]:
+            from_indices = True
+            found_index = self.module_indices[short_name][0]
 
         modules_json_list = []
-        if self.modules_json_list_cache:
-            modules_json_list = self.modules_json_list_cache
+        if from_indices:
+            _type = found_index.get("type", "")
+            _name = found_index.get("name", "")
+            _version = found_index.get("version", "")
+            _hash = found_index.get("hash", "")
+            findings_path = os.path.join(self.root_dir, _type + "s", "findings", _name, _version, _hash, "findings.json")
+            if os.path.exists(findings_path):
+                modules_json_list.append(findings_path)
         else:
-            for findings_json in findings_json_list:
-                f = Findings.load(fpath=findings_json)
-                if not isinstance(f, Findings):
-                    continue
-                # avoid using unresolved RAM data
-                if f.extra_requirements:
-                    continue
-                modules = f.root_definitions.get("definitions", {}).get("modules", [])
-                self.modules_cache[findings_json] = modules
-                modules_json_list.append(findings_json)
-            self.modules_json_list_cache = modules_json_list
+            findings_json_list = []
+            if self.findings_json_list_cache:
+                findings_json_list = self.findings_json_list_cache
+            else:
+                search_patterns = os.path.join(self.root_dir, "collections", "findings", "*", "*", "*", "findings.json")
+                findings_json_list_coll = safe_glob(search_patterns)
+                findings_json_list_coll = sort_by_version(findings_json_list_coll)
+                search_patterns = os.path.join(self.root_dir, "roles", "findings", "*", "*", "*", "findings.json")
+                findings_json_list_role = safe_glob(search_patterns)
+                findings_json_list_role = sort_by_version(findings_json_list_role)
+                findings_json_list = findings_json_list_coll + findings_json_list_role
+                self.findings_json_list_cache = findings_json_list
 
-        if collection_name != "":
-            modules_json_list = [fpath for fpath in modules_json_list if f"/{collection_name}/" in fpath]
-        if collection_version != "":
-            modules_json_list = [fpath for fpath in modules_json_list if f"/{collection_version}/" in fpath]
+            modules_json_list = []
+            if self.modules_json_list_cache:
+                modules_json_list = self.modules_json_list_cache
+            else:
+                for findings_json in findings_json_list:
+                    f = Findings.load(fpath=findings_json)
+                    if not isinstance(f, Findings):
+                        continue
+                    # avoid using unresolved RAM data
+                    if f.extra_requirements:
+                        continue
+                    modules = f.root_definitions.get("definitions", {}).get("modules", [])
+                    self.modules_cache[findings_json] = modules
+                    modules_json_list.append(findings_json)
+                self.modules_json_list_cache = modules_json_list
+
+            if collection_name != "":
+                modules_json_list = [fpath for fpath in modules_json_list if f"/{collection_name}/" in fpath]
+            if collection_version != "":
+                modules_json_list = [fpath for fpath in modules_json_list if f"/{collection_version}/" in fpath]
         matched_modules = []
         search_end = False
         for findings_json in modules_json_list:

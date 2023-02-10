@@ -39,6 +39,7 @@ class ARICLI:
         )
         parser.add_argument("target_type", help="Content type", choices={"project", "role", "collection", "playbook"})
         parser.add_argument("target_name", help="Name")
+        parser.add_argument("--playbook-only", action="store_true", help="if true, don't load playbooks/roles arround the specified playbook")
         parser.add_argument("--skip-install", action="store_true", help="if true, skip install for the specified target")
         parser.add_argument("--dependency-dir", nargs="?", help="path to a directory that have dependencies for the target")
         parser.add_argument("--collection-name", nargs="?", help="if provided, use it as a collection name")
@@ -131,14 +132,16 @@ class ARICLI:
         root_install = not args.skip_install
         if not silent and not pretty:
             print("Start scanning")
-        c.evaluate(
-            type=args.target_type,
-            name=target_name,
-            version=target_version,
-            install_dependencies=root_install,
-            dependency_dir=args.dependency_dir,
-            collection_name=collection_name,
-            role_name=role_name,
-            source_repository=args.source,
-            out_dir=args.out_dir,
-        )
+        for i in range(100):
+            c.evaluate(
+                type=args.target_type,
+                name=target_name,
+                version=target_version,
+                install_dependencies=root_install,
+                dependency_dir=args.dependency_dir,
+                collection_name=collection_name,
+                role_name=role_name,
+                source_repository=args.source,
+                playbook_only=args.playbook_only,
+                out_dir=args.out_dir,
+            )

@@ -93,7 +93,12 @@ class Parser:
             basedir, target_playbook_path = split_target_playbook_fullpath(ld.path)
             playbook_name = ld.target_name
             try:
-                obj = load_repository(path=basedir, basedir=basedir, target_playbook_path=target_playbook_path, use_ansible_doc=self.use_ansible_doc)
+                if ld.playbook_only:
+                    obj = load_playbook(path=target_playbook_path, basedir=basedir)
+                else:
+                    obj = load_repository(
+                        path=basedir, basedir=basedir, target_playbook_path=target_playbook_path, use_ansible_doc=self.use_ansible_doc
+                    )
             except Exception:
                 logging.exception("failed to load the playbook {}".format(playbook_name))
                 return
@@ -196,10 +201,7 @@ class Parser:
         if ld.target_type == LoadType.COLLECTION:
             collections = [obj]
         elif ld.target_type == LoadType.ROLE:
-            role_path = "."
-            r = load_role(path=role_path, name=ld.target_name, basedir=ld.path, use_ansible_doc=self.use_ansible_doc)
-            roles.append(r)
-            mappings["roles"].append([role_path, r.key])
+            pass
         elif ld.target_type == LoadType.PLAYBOOK:
             pass
         elif ld.target_type == LoadType.PROJECT:
