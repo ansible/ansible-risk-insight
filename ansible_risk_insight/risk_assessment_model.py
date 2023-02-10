@@ -22,12 +22,16 @@ from .models import (
     LoadType,
     ObjectList,
     ExecutableType,
+    Module,
 )
 from .findings import Findings
 from .utils import escape_url, version_to_num, diff_files_data
 from .safe_glob import safe_glob
 from .keyutil import get_obj_info_by_key
 from .model_loader import load_builtin_modules
+
+
+module_indices_path = os.path.join(os.path.dirname(__file__), "module_indices.json")
 
 
 @dataclass
@@ -49,6 +53,12 @@ class RAMClient(object):
     task_search_cache: dict = field(default_factory=dict)
 
     builtin_modules_cache: dict = field(default_factory=dict)
+
+    module_indices: dict = field(default_factory=dict)
+
+    def __post_init__(self):
+        with open(module_indices_path, "r") as file:
+            self.module_indices = json.load(file)
 
     def register(self, findings: Findings):
         metadata = findings.metadata
@@ -125,6 +135,37 @@ class RAMClient(object):
             )
         return matched_modules
 
+    def load_from_indice(self, short_name, meta, used_in=""):
+        _type = meta.get("type", "")
+        _name = meta.get("name", "")
+        collection = ""
+        role = ""
+        if _type == "collection":
+            collection = _name
+        elif _type == "role":
+            role = _name
+        _version = meta.get("version", "")
+        _hash = meta.get("hash", "")
+        m = Module(
+            name=short_name,
+            fqcn=meta.get("fqcn", ""),
+            collection=collection,
+            role=role,
+        )
+        m_wrapper = {
+            "type": "module",
+            "name": m.fqcn,
+            "object": m,
+            "defined_in": {
+                "type": m.type,
+                "name": _name,
+                "version": _version,
+                "hash": _hash,
+            },
+            "used_in": used_in,
+        }
+        return m_wrapper
+
     def search_module(self, name, exact_match=False, max_match=-1, collection_name="", collection_version="", used_in=""):
         if max_match == 0:
             return []
@@ -137,6 +178,14 @@ class RAMClient(object):
         if len(matched_builtin_modules) > 0:
             self.module_search_cache[args_str] = matched_builtin_modules
             return matched_builtin_modules
+
+        short_name = name
+        if "." in name:
+            short_name = name.split(".")[-1]
+        if short_name in self.module_indices and self.module_indices[short_name]:
+            meta = self.module_indices[short_name][0]
+            m_wrapper = self.load_from_indice(short_name, meta, used_in)
+            return [m_wrapper]
 
         findings_json_list = []
         if self.findings_json_list_cache:
