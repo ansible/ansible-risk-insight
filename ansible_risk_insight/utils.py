@@ -19,12 +19,12 @@ import subprocess
 import requests
 import hashlib
 import yaml
-import logging
 import json
 from tabulate import tabulate
 from inspect import isclass
 from importlib.util import spec_from_file_location, module_from_spec
 
+import ansible_risk_insight.logger as logger
 from .findings import Findings
 
 
@@ -35,7 +35,7 @@ def install_galaxy_target(target, target_type, output_dir, source_repository="",
     target_name = target
     if target_version:
         target_name = f"{target}:{target_version}"
-    logging.debug("exec ansible-galaxy cmd: ansible-galaxy {} install {} {} -p {}".format(target_type, target_name, server_option, output_dir))
+    logger.debug("exec ansible-galaxy cmd: ansible-galaxy {} install {} {} -p {}".format(target_type, target_name, server_option, output_dir))
     proc = subprocess.run(
         "ansible-galaxy {} install {} {} -p {}".format(target_type, target_name, server_option, output_dir),
         shell=True,
@@ -500,7 +500,7 @@ def get_documentation_by_ansible_doc_command(fqcn: str, module_dir_path: str = "
     cmd_args = [f"ansible-doc {fqcn} --json {module_path_option}"]
     proc = subprocess.run(cmd_args, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     if proc.stderr:
-        logging.debug(f"error while getting the documentation for module `{fqcn}`: {proc.stderr}")
+        logger.debug(f"error while getting the documentation for module `{fqcn}`: {proc.stderr}")
         return ""
     wrapper_dict = json.loads(proc.stdout)
     doc_dict = wrapper_dict.get(fqcn, {}).get("doc", {})
