@@ -95,6 +95,7 @@ class SingleScan(object):
     collection_name: str = ""
     role_name: str = ""
     target_playbook_name: str = None
+    playbook_yaml: str = ""
     playbook_only: bool = False
 
     install_log: str = ""
@@ -182,7 +183,10 @@ class SingleScan(object):
             type_root = self.type + "s"
             proj_name = escape_url(self.name)
             if self.type == LoadType.PLAYBOOK:
-                _, self.target_playbook_name = split_target_playbook_fullpath(self.name)
+                if self.playbook_yaml:
+                    self.target_playbook_name = self.name
+                else:
+                    _, self.target_playbook_name = split_target_playbook_fullpath(self.name)
             self.__path_mappings = {
                 "src": os.path.join(self.root_dir, type_root, proj_name, "src"),
                 "root_definitions": os.path.join(
@@ -212,6 +216,11 @@ class SingleScan(object):
 
         else:
             raise ValueError("Unsupported type: {}".format(self.type))
+
+        if self.playbook_yaml:
+            self.playbook_only = True
+            if not self.name:
+                self.name = "__in_memory__"
 
     def make_target_path(self, typ, target_name, dep_dir=""):
         target_path = ""
@@ -299,7 +308,7 @@ class SingleScan(object):
 
         loader_version = get_loader_version()
 
-        if not os.path.exists(target_path):
+        if not os.path.exists(target_path) and not self.playbook_yaml:
             raise ValueError("No such file or directory: {}".format(target_path))
         if not self.silent:
             logging.debug(f"target_name: {target_name}")
@@ -311,6 +320,7 @@ class SingleScan(object):
             target_type=target_type,
             path=target_path,
             loader_version=loader_version,
+            playbook_yaml=self.playbook_yaml,
             playbook_only=self.playbook_only,
         )
         load_object(ld)
@@ -602,6 +612,7 @@ class ARIScanner(object):
         download_only: bool = False,
         use_src_cache: bool = False,
         source_repository: str = "",
+        playbook_yaml: str = "",
         playbook_only: bool = False,
         out_dir: str = "",
     ):
@@ -626,6 +637,7 @@ class ARIScanner(object):
             dependency_dir=dependency_dir,
             use_src_cache=use_src_cache,
             source_repository=source_repository,
+            playbook_yaml=playbook_yaml,
             playbook_only=playbook_only,
             out_dir=out_dir,
             root_dir=self.root_dir,

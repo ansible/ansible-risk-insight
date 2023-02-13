@@ -132,16 +132,15 @@ class ARICLI:
         root_install = not args.skip_install
         if not silent and not pretty:
             print("Start scanning")
-        for i in range(100):
-            c.evaluate(
-                type=args.target_type,
-                name=target_name,
-                version=target_version,
-                install_dependencies=root_install,
-                dependency_dir=args.dependency_dir,
-                collection_name=collection_name,
-                role_name=role_name,
-                source_repository=args.source,
-                playbook_only=args.playbook_only,
-                out_dir=args.out_dir,
-            )
+        c.evaluate(
+            type=args.target_type,
+            name=target_name,
+            version=target_version,
+            install_dependencies=root_install,
+            dependency_dir=args.dependency_dir,
+            collection_name=collection_name,
+            role_name=role_name,
+            source_repository=args.source,
+            playbook_only=args.playbook_only,
+            out_dir=args.out_dir,
+        )

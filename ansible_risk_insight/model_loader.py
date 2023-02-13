@@ -265,6 +265,7 @@ def load_play(
     collection_name="",
     parent_key="",
     parent_local_key="",
+    playbook_yaml="",
     basedir="",
 ):
     pbObj = Play()
@@ -316,6 +317,7 @@ def load_play(
                         play_index=index,
                         parent_key=pbObj.key,
                         parent_local_key=pbObj.local_key,
+                        playbook_yaml=playbook_yaml,
                         basedir=basedir,
                     )
                     pre_tasks.append(t)
@@ -343,6 +345,7 @@ def load_play(
                         play_index=index,
                         parent_key=pbObj.key,
                         parent_local_key=pbObj.local_key,
+                        playbook_yaml=playbook_yaml,
                         basedir=basedir,
                     )
                     tasks.append(t)
@@ -370,6 +373,7 @@ def load_play(
                         play_index=index,
                         parent_key=pbObj.key,
                         parent_local_key=pbObj.local_key,
+                        playbook_yaml=playbook_yaml,
                         basedir=basedir,
                     )
                     post_tasks.append(t)
@@ -401,6 +405,7 @@ def load_play(
                         role_name=role_name,
                         collection_name=collection_name,
                         collections_in_play=collections_in_play,
+                        playbook_yaml=playbook_yaml,
                         basedir=basedir,
                     )
                     roles.append(rip)
@@ -443,6 +448,7 @@ def load_roleinplay(
     role_name="",
     collection_name="",
     collections_in_play=[],
+    playbook_yaml="",
     basedir="",
 ):
     ripObj = RoleInPlay()
@@ -467,15 +473,18 @@ def load_roleinplay(
     return ripObj
 
 
-def load_playbook(path, role_name="", collection_name="", basedir=""):
+def load_playbook(path="", yaml_str="", role_name="", collection_name="", basedir=""):
     pbObj = Playbook()
     fullpath = ""
-    if os.path.exists(path) and path != "" and path != ".":
+    if yaml_str:
         fullpath = path
-    if os.path.exists(os.path.join(basedir, path)):
-        fullpath = os.path.normpath(os.path.join(basedir, path))
-    if fullpath == "":
-        raise ValueError("file not found")
+    else:
+        if os.path.exists(path) and path != "" and path != ".":
+            fullpath = path
+        if os.path.exists(os.path.join(basedir, path)):
+            fullpath = os.path.normpath(os.path.join(basedir, path))
+        if fullpath == "":
+            raise ValueError("file not found")
     defined_in = fullpath
     if basedir != "":
         if defined_in.startswith(basedir):
@@ -487,17 +496,28 @@ def load_playbook(path, role_name="", collection_name="", basedir=""):
     pbObj.role = role_name
     pbObj.collection = collection_name
     pbObj.set_key()
+    yaml_lines = ""
     data = None
-    if fullpath != "":
+    if yaml_str:
+        try:
+            yaml_lines = yaml_str
+            data = yaml.safe_load(yaml_lines)
+        except Exception as e:
+            logging.debug(f"failed to load this yaml string to load playbook; {e}")
+    elif fullpath != "":
         with open(fullpath, "r") as file:
             try:
-                data = yaml.safe_load(file)
+                yaml_lines = file.read()
+                data = yaml.safe_load(yaml_lines)
             except Exception as e:
                 logging.debug(f"failed to load this yaml file to load playbook; {e}")
     if data is None:
         return pbObj
     if not isinstance(data, list):
         raise PlaybookFormatError("playbook must be loaded as a list, but got {}".format(type(data).__name__))
+
+    if yaml_lines:
+        pbObj.yaml_lines = yaml_lines
 
     plays = []
     for i, play_dict in enumerate(data):
@@ -510,6 +530,7 @@ def load_playbook(path, role_name="", collection_name="", basedir=""):
                 collection_name=collection_name,
                 parent_key=pbObj.key,
                 parent_local_key=pbObj.local_key,
+                playbook_yaml=yaml_str,
                 basedir=basedir,
             )
             plays.append(play)
@@ -961,19 +982,23 @@ def load_task(
     play_index=-1,
     parent_key="",
     parent_local_key="",
+    playbook_yaml="",
     basedir="",
 ):
 
     taskObj = Task()
     fullpath = ""
-    if os.path.exists(path) and path != "" and path != ".":
+    if playbook_yaml:
         fullpath = path
-    if os.path.exists(os.path.join(basedir, path)):
-        fullpath = os.path.normpath(os.path.join(basedir, path))
-    if fullpath == "":
-        raise ValueError("file not found")
-    if not fullpath.endswith(".yml") and not fullpath.endswith(".yaml"):
-        raise ValueError('task yaml file must be ".yml" or ".yaml"')
+    else:
+        if os.path.exists(path) and path != "" and path != ".":
+            fullpath = path
+        if os.path.exists(os.path.join(basedir, path)):
+            fullpath = os.path.normpath(os.path.join(basedir, path))
+        if fullpath == "":
+            raise ValueError("file not found")
+        if not fullpath.endswith(".yml") and not fullpath.endswith(".yaml"):
+            raise ValueError('task yaml file must be ".yml" or ".yaml"')
     if task_block_dict is None:
         raise ValueError("task block dict is required to load Task")
     if not isinstance(task_block_dict, dict):
@@ -992,7 +1017,9 @@ def load_task(
         else:
             task_options.update({k: v})
 
-    taskObj.set_yaml_lines(fullpath, task_name, module_name, module_options)
+    taskObj.set_yaml_lines(
+        fullpath=fullpath, playbook_yaml=playbook_yaml, task_name=task_name, module_name=module_name, module_options=module_options
+    )
 
     # module_options can be passed as a string like below
     #
@@ -1294,9 +1321,14 @@ def load_object(loadObj):
     elif target_type == LoadType.ROLE:
         obj = load_role(path=path, basedir=path, load_children=False)
     elif target_type == LoadType.PLAYBOOK:
-        basedir, target_playbook_path = split_target_playbook_fullpath(path)
+        basedir = ""
+        target_playbook_path = ""
+        if loadObj.playbook_yaml:
+            target_playbook_path = path
+        else:
+            basedir, target_playbook_path = split_target_playbook_fullpath(path)
         if loadObj.playbook_only:
-            obj = load_playbook(path=target_playbook_path, basedir=basedir)
+            obj = load_playbook(path=target_playbook_path, yaml_str=loadObj.playbook_yaml, basedir=basedir)
         else:
             obj = load_repository(path=basedir, basedir=basedir, target_playbook_path=target_playbook_path, load_children=False)
     elif target_type == LoadType.PROJECT:
