@@ -90,11 +90,16 @@ class Parser:
             if collection_name == "" and collection_name_of_project != "":
                 collection_name = collection_name_of_project
         elif ld.target_type == LoadType.PLAYBOOK:
-            basedir, target_playbook_path = split_target_playbook_fullpath(ld.path)
+            basedir = ""
+            target_playbook_path = ""
+            if ld.playbook_yaml:
+                target_playbook_path = ld.path
+            else:
+                basedir, target_playbook_path = split_target_playbook_fullpath(ld.path)
             playbook_name = ld.target_name
             try:
                 if ld.playbook_only:
-                    obj = load_playbook(path=target_playbook_path, basedir=basedir)
+                    obj = load_playbook(path=target_playbook_path, yaml_str=ld.playbook_yaml, basedir=basedir)
                 else:
                     obj = load_repository(
                         path=basedir, basedir=basedir, target_playbook_path=target_playbook_path, use_ansible_doc=self.use_ansible_doc
@@ -152,6 +157,7 @@ class Parser:
             try:
                 p = load_playbook(
                     path=playbook_path,
+                    yaml_str=ld.playbook_yaml,
                     role_name=role_name,
                     collection_name=collection_name,
                     basedir=basedir,
