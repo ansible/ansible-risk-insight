@@ -33,7 +33,7 @@ def key2name(key: str):
         return key.split(key_delimiter)[-1]
 
 
-def load_rules(rules_dir: str = ""):
+def load_rules(rules_dir: str = "", rule_id_list: list = []):
     rules_dir_list = rules_dir.split(":")
     _rules = []
     for _rules_dir in rules_dir_list:
@@ -41,6 +41,10 @@ def load_rules(rules_dir: str = ""):
         for r in _rule_classes:
             try:
                 _rule = r()
+                # if `rule_id_list` is provided, filter out rules that are not in the list
+                if rule_id_list:
+                    if _rule.rule_id not in rule_id_list:
+                        continue
                 _rules.append(_rule)
             except Exception:
                 raise ValueError(f"failed to load a rule: {r}")
@@ -61,8 +65,8 @@ def make_subject_str(playbook_num: int, role_num: int):
     return subject
 
 
-def detect(contexts: List[AnsibleRunContext], rules_dir: str = ""):
-    rules = load_rules(rules_dir)
+def detect(contexts: List[AnsibleRunContext], rules_dir: str = "", rules: list = []):
+    rules = load_rules(rules_dir, rules)
 
     report_num = 1
 

@@ -57,10 +57,60 @@ from .utils import (
 )
 
 
+default_config_path = os.path.expanduser("~/.ari/config")
+default_data_dir = os.path.join("/tmp", "ari-data")
+default_rules_dir = os.path.join(os.path.dirname(__file__), "rules")
+default_log_level = "info"
+default_rules = []
+default_disable_default_rules = False
+
+
+@dataclass
 class Config:
-    data_dir: str = os.environ.get("ARI_DATA_DIR", os.path.join("/tmp", "ari-data"))
-    log_level: str = os.environ.get("ARI_LOG_LEVEL", "info").lower()
-    rules_dir: str = os.environ.get("ARI_RULES_DIR", os.path.join(os.path.dirname(__file__), "rules"))
+    path: str = ""
+
+    data_dir: str = ""
+    rules_dir: str = ""
+    log_level: str = ""
+    rules: list = field(default_factory=list)
+    disable_default_rules: bool = False
+
+    _data: dict = field(default_factory=dict)
+
+    def __post_init__(self):
+        if not self.path:
+            self.path = default_config_path
+        config_data = {}
+        if os.path.exists(self.path):
+            with open(self.path, "r") as file:
+                try:
+                    config_data = yaml.safe_load(file)
+                except Exception as e:
+                    raise ValueError(f"failed to load the config file: {e}")
+        self._data = config_data
+
+        if not self.data_dir:
+            self.data_dir = self._get_single_config("ARI_DATA_DIR", "data_dir", default_data_dir)
+        if not self.disable_default_rules:
+            self.disable_default_rules = self._get_single_config("ARI_DISABLE_DEFAULT_RULES", "disable_default_rules", default_disable_default_rules)
+        if not self.rules_dir:
+            self.rules_dir = self._get_single_config("ARI_RULES_DIR", "rules_dir", default_rules_dir)
+        # automatically add the default rules dir unless it is disabled
+        if not self.rules_dir.endswith(default_rules_dir) and not self.disable_default_rules:
+            self.rules_dir += ":" + default_rules_dir
+        if not self.log_level:
+            self.log_level = self._get_single_config("ARI_LOG_LEVEL", "log_level", default_log_level)
+        if not self.rules:
+            self.rules = self._get_single_config("ARI_RULES", "rules", default_rules, "list", ",")
+
+    def _get_single_config(self, env_key: str = "", yaml_key: str = "", __default: any = None, __type=None, separator=""):
+        _from_env = os.environ.get(env_key, None)
+        if _from_env and __type:
+            if __type == "list":
+                _from_env = _from_env.split(separator)
+        _from_file = self._data.get(yaml_key, None)
+        value = _from_env or _from_file or __default
+        return value
 
 
 collection_manifest_json = "MANIFEST.json"
@@ -142,6 +192,7 @@ class SingleScan(object):
     # the following are set by ARIScanner
     root_dir: str = ""
     rules_dir: str = ""
+    rules: list = field(default_factory=list)
     use_ansible_doc: bool = True
     do_save: bool = False
     silent: bool = False
@@ -486,7 +537,7 @@ class SingleScan(object):
             target_name = self.collection_name
         if self.role_name:
             target_name = self.role_name
-        data_report = detect(self.contexts, rules_dir=self.rules_dir)
+        data_report = detect(self.contexts, rules_dir=self.rules_dir, rules=self.rules)
         metadata = {
             "type": self.type,
             "name": target_name,
@@ -574,8 +625,11 @@ class SingleScan(object):
 
 @dataclass
 class ARIScanner(object):
+    config: Config = None
+
     root_dir: str = ""
-    rules_dir: str = config.rules_dir
+    rules_dir: str = ""
+    rules: list = field(default_factory=list)
 
     ram_client: RAMClient = None
     read_ram: bool = True
@@ -594,8 +648,20 @@ class ARIScanner(object):
     _current: SingleScan = None
 
     def __post_init__(self):
+        if not self.config:
+            self.config = config
+
+        if not self.root_dir:
+            self.root_dir = self.config.data_dir
+        if not self.rules_dir:
+            self.rules_dir = self.config.rules_dir
+        if not self.rules:
+            self.rules = self.config.rules
         self.ram_client = RAMClient(root_dir=self.root_dir)
         self._parser = Parser(do_save=self.do_save, use_ansible_doc=self.use_ansible_doc)
+
+        if not self.silent:
+            logging.debug(f"config: {self.config}")
 
     def evaluate(
         self,
@@ -642,6 +708,7 @@ class ARIScanner(object):
             out_dir=out_dir,
             root_dir=self.root_dir,
             rules_dir=self.rules_dir,
+            rules=self.rules,
             use_ansible_doc=self.use_ansible_doc,
             do_save=self.do_save,
             silent=self.silent,
@@ -713,6 +780,7 @@ class ARIScanner(object):
                 dep_scanner = ARIScanner(
                     root_dir=self.root_dir,
                     rules_dir=self.rules_dir,
+                    rules=self.rules,
                     ram_client=self.ram_client,
                     use_ansible_doc=self.use_ansible_doc,
                     do_save=self.do_save,
