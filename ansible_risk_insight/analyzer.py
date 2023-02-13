@@ -16,9 +16,9 @@
 
 import argparse
 import json
-import logging
 from typing import List
 from ansible_risk_insight.annotators.risk_annotator_base import RiskAnnotator
+import ansible_risk_insight.logger as logger
 from .models import TaskCallsInTree, AnsibleRunContext
 from .utils import load_classes_in_dir
 
@@ -68,7 +68,7 @@ def analyze(contexts: List[AnsibleRunContext]):
                 continue
             if result.annotations:
                 t.annotations.extend(result.annotations)
-        logging.debug("analyze() {}/{} done".format(i + 1, num))
+        logger.debug("analyze() {}/{} done".format(i + 1, num))
     return contexts
 
 

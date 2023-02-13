@@ -15,8 +15,8 @@
 # limitations under the License.
 
 import os
-import logging
 import copy
+import ansible_risk_insight.logger as logger
 from .models import (
     Collection,
     Load,
@@ -69,21 +69,21 @@ class Parser:
                     load_children=False,
                 )
             except Exception:
-                logging.exception("failed to load the collection {}".format(collection_name))
+                logger.exception("failed to load the collection {}".format(collection_name))
                 return
         elif ld.target_type == LoadType.ROLE:
             role_name = ld.target_name
             try:
                 obj = load_role(path=ld.path, basedir=ld.path, use_ansible_doc=self.use_ansible_doc, load_children=False)
             except Exception:
-                logging.exception("failed to load the role {}".format(role_name))
+                logger.exception("failed to load the role {}".format(role_name))
                 return
         elif ld.target_type == LoadType.PROJECT:
             repo_name = ld.target_name
             try:
                 obj = load_repository(path=ld.path, basedir=ld.path, use_ansible_doc=self.use_ansible_doc)
             except Exception:
-                logging.exception("failed to load the project {}".format(repo_name))
+                logger.exception("failed to load the project {}".format(repo_name))
                 return
             if obj.my_collection_name:
                 collection_name = obj.my_collection_name
@@ -105,7 +105,7 @@ class Parser:
                         path=basedir, basedir=basedir, target_playbook_path=target_playbook_path, use_ansible_doc=self.use_ansible_doc
                     )
             except Exception:
-                logging.exception("failed to load the playbook {}".format(playbook_name))
+                logger.exception("failed to load the playbook {}".format(playbook_name))
                 return
         else:
             raise ValueError("unsupported type: {}".format(ld.target_type))
@@ -132,7 +132,7 @@ class Parser:
                 )
                 roles.append(r)
             except Exception as e:
-                logging.debug(f"failed to load a role: {e}")
+                logger.debug(f"failed to load a role: {e}")
                 continue
             mappings["roles"].append([role_path, r.key])
 
@@ -146,7 +146,7 @@ class Parser:
                     basedir=ld.path,
                 )
             except Exception as e:
-                logging.debug(f"failed to load a taskfile: {e}")
+                logger.debug(f"failed to load a taskfile: {e}")
                 continue
             taskfiles.append(tf)
             mappings["taskfiles"].append([taskfile_path, tf.key])
@@ -163,7 +163,7 @@ class Parser:
                     basedir=basedir,
                 )
             except Exception as e:
-                logging.debug(f"failed to load a playbook: {e}")
+                logger.debug(f"failed to load a playbook: {e}")
                 continue
             playbooks.append(p)
             mappings["playbooks"].append([playbook_path, p.key])
@@ -190,17 +190,17 @@ class Parser:
                     use_ansible_doc=self.use_ansible_doc,
                 )
             except Exception as e:
-                logging.debug(f"failed to load a module: {e}")
+                logger.debug(f"failed to load a module: {e}")
                 continue
             modules.append(m)
             mappings["modules"].append([module_path, m.key])
 
-        logging.debug("roles: {}".format(len(roles)))
-        logging.debug("taskfiles: {}".format(len(taskfiles)))
-        logging.debug("modules: {}".format(len(modules)))
-        logging.debug("playbooks: {}".format(len(playbooks)))
-        logging.debug("plays: {}".format(len(plays)))
-        logging.debug("tasks: {}".format(len(tasks)))
+        logger.debug("roles: {}".format(len(roles)))
+        logger.debug("taskfiles: {}".format(len(taskfiles)))
+        logger.debug("modules: {}".format(len(modules)))
+        logger.debug("playbooks: {}".format(len(playbooks)))
+        logger.debug("plays: {}".format(len(plays)))
+        logger.debug("tasks: {}".format(len(tasks)))
 
         collections = []
         projects = []
@@ -394,30 +394,30 @@ def load_name2target_name(path):
 #     args = parser.parse_args()
 
 #     if not args.root and not args.ext:
-#         logging.error('either "--root" or "--ext" must be specified')
+#         logger.error('either "--root" or "--ext" must be specified')
 #         sys.exit(1)
 #     is_ext = args.ext
 
 #     if args.load_path == "" and args.index_path == "":
-#         logging.error("either `--load-path` or `--index-path` is required")
+#         logger.error("either `--load-path` or `--index-path` is required")
 #         sys.exit(1)
 
 #     if args.root and args.load_path == "":
-#         logging.error('"--load-path" must be specified for "--root" mode')
+#         logger.error('"--load-path" must be specified for "--root" mode')
 #         sys.exit(1)
 
 #     if args.root and not os.path.isfile(args.load_path):
-#         logging.error(
+#         logger.error(
 #             '"--load-path" must be a single .json file for "--root" mode'
 #         )
 #         sys.exit(1)
 
 #     if args.load_path != "" and not os.path.exists(args.load_path):
-#         logging.error("No such file or directory: {}".format(args.load_path))
+#         logger.error("No such file or directory: {}".format(args.load_path))
 #         sys.exit(1)
 
 #     if args.index_path != "" and not os.path.exists(args.index_path):
-#         logging.error("No such file or directory: {}".format(args.index_path))
+#         logger.error("No such file or directory: {}".format(args.index_path))
 #         sys.exit(1)
 
 #     load_json_path_list = []
@@ -472,7 +472,7 @@ def load_name2target_name(path):
 #             ]
 
 #     if len(load_json_path_list) == 0:
-#         logging.info("no load json files found. exitting.")
+#         logger.info("no load json files found. exitting.")
 #         sys.exit()
 
 #     profiles = [
@@ -489,10 +489,10 @@ def load_name2target_name(path):
 
 #     num = len(profiles)
 #     if num == 0:
-#         logging.info("no load json files found. exitting.")
+#         logger.info("no load json files found. exitting.")
 #         sys.exit()
 #     else:
-#         logging.info("start parsing {} target(s)".format(num))
+#         logger.info("start parsing {} target(s)".format(num))
 #     p = Parser()
 
 #     def parse_single(single_input):

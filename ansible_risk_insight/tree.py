@@ -14,12 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 import os
 import re
 import json
 from copy import deepcopy
 from dataclasses import dataclass, field
+import ansible_risk_insight.logger as logger
 from .keyutil import detect_type, key_delimiter, object_delimiter
 from .models import (
     ObjectList,
@@ -458,12 +458,12 @@ class TreeLoader(object):
             if len(p_defs) > 0:
                 additional_objects.add(p_defs[0])
         for i, mapping in enumerate(self.playbook_mappings):
-            logging.debug("[{}/{}] {}".format(i + 1, len(self.playbook_mappings), mapping[1]))
+            logger.debug("[{}/{}] {}".format(i + 1, len(self.playbook_mappings), mapping[1]))
             playbook_key = mapping[1]
             tree_objects = self._recursive_get_calls(playbook_key)
             self.trees.append(tree_objects)
         for i, mapping in enumerate(self.role_mappings):
-            logging.debug("[{}/{}] {}".format(i + 1, len(self.role_mappings), mapping[1]))
+            logger.debug("[{}/{}] {}".format(i + 1, len(self.role_mappings), mapping[1]))
             role_key = mapping[1]
             tree_objects = self._recursive_get_calls(role_key)
             self.trees.append(tree_objects)
@@ -795,7 +795,7 @@ class TreeLoader(object):
                 continue
             obj = self.get_object(k)
             if obj is None:
-                logging.warning("object not found for the key {}".format(k))
+                logger.warning("object not found for the key {}".format(k))
                 continue
             obj_list.add(obj)
             loaded[k] = obj

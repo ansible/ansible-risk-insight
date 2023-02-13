@@ -24,7 +24,6 @@ from copy import deepcopy
 import json
 import jsonpickle
 import yaml
-import logging
 from ansible.module_utils.parsing.convert_bool import boolean
 from .keyutil import (
     set_collection_key,
@@ -38,12 +37,6 @@ from .keyutil import (
     set_call_object_key,
     get_obj_info_by_key,
 )
-
-logging.basicConfig()
-logging.getLogger().setLevel(logging.INFO)
-
-# module options might be a str like below
-#     community.general.ufw: port={{ item }} proto=tcp rule=allow
 
 
 class PlaybookFormatError(Exception):

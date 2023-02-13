@@ -19,7 +19,6 @@ import sys
 import json
 import yaml
 import tempfile
-import logging
 import jsonpickle
 import datetime
 from dataclasses import dataclass, field
@@ -46,6 +45,7 @@ from .dependency_dir_preparator import (
 )
 from .findings import Findings
 from .risk_assessment_model import RAMClient
+import ansible_risk_insight.logger as logger
 from .utils import (
     is_url,
     is_local_path,
@@ -63,6 +63,7 @@ default_rules_dir = os.path.join(os.path.dirname(__file__), "rules")
 default_log_level = "info"
 default_rules = []
 default_disable_default_rules = False
+default_logger_key = "ari"
 
 
 @dataclass
@@ -71,6 +72,7 @@ class Config:
 
     data_dir: str = ""
     rules_dir: str = ""
+    logger_key: str = ""
     log_level: str = ""
     rules: list = field(default_factory=list)
     disable_default_rules: bool = False
@@ -98,6 +100,8 @@ class Config:
         # automatically add the default rules dir unless it is disabled
         if not self.rules_dir.endswith(default_rules_dir) and not self.disable_default_rules:
             self.rules_dir += ":" + default_rules_dir
+        if not self.logger_key:
+            self.logger_key = self._get_single_config("ARI_LOGGER_KEY", "logger_key", default_logger_key)
         if not self.log_level:
             self.log_level = self._get_single_config("ARI_LOG_LEVEL", "log_level", default_log_level)
         if not self.rules:
@@ -117,12 +121,6 @@ collection_manifest_json = "MANIFEST.json"
 role_meta_main_yml = "meta/main.yml"
 role_meta_main_yaml = "meta/main.yaml"
 
-log_level_map = {
-    "error": logging.ERROR,
-    "warning": logging.WARNING,
-    "info": logging.INFO,
-    "debug": logging.DEBUG,
-}
 
 supported_target_types = [
     LoadType.PROJECT,
@@ -133,9 +131,8 @@ supported_target_types = [
 
 config = Config()
 
-
-logging.basicConfig()
-logging.getLogger().setLevel(log_level_map[config.log_level])
+logger.set_logger_channel(config.logger_key)
+logger.set_log_level(config.log_level)
 
 
 @dataclass
@@ -362,10 +359,10 @@ class SingleScan(object):
         if not os.path.exists(target_path) and not self.playbook_yaml:
             raise ValueError("No such file or directory: {}".format(target_path))
         if not self.silent:
-            logging.debug(f"target_name: {target_name}")
-            logging.debug(f"target_type: {target_type}")
-            logging.debug(f"path: {target_path}")
-            logging.debug(f"loader_version: {loader_version}")
+            logger.debug(f"target_name: {target_name}")
+            logger.debug(f"target_type: {target_type}")
+            logger.debug(f"path: {target_path}")
+            logger.debug(f"loader_version: {loader_version}")
         ld = Load(
             target_name=target_name,
             target_type=target_type,
@@ -399,7 +396,7 @@ class SingleScan(object):
         output_dir = self.get_definition_path(ld.target_type, ld.target_name)
         if use_cache and os.path.exists(os.path.join(output_dir, "mappings.json")):
             if not self.silent:
-                logging.debug("use cache from {}".format(output_dir))
+                logger.debug("use cache from {}".format(output_dir))
             definitions, mappings = Parser.restore_definition_objects(output_dir)
         else:
             definitions, mappings = self._parser.run(load_data=ld)
@@ -493,7 +490,7 @@ class SingleScan(object):
                     lines.append(t_obj_list.to_one_line_json())
                 open(tree_rel_file, "w").write("\n".join(lines))
                 if not self.silent:
-                    logging.info("  tree file saved")
+                    logger.info("  tree file saved")
         return
 
     def resolve_variables(self):
@@ -661,7 +658,7 @@ class ARIScanner(object):
         self._parser = Parser(do_save=self.do_save, use_ansible_doc=self.use_ansible_doc)
 
         if not self.silent:
-            logging.debug(f"config: {self.config}")
+            logger.debug(f"config: {self.config}")
 
     def evaluate(
         self,
@@ -721,12 +718,12 @@ class ARIScanner(object):
         metdata_loaded = False
         if self.read_ram:
             loaded, metadata, dependencies = self.load_metadata_from_ram(scandata.type, scandata.name, scandata.version)
-            logging.debug(f"metadata loaded: {loaded}")
+            logger.debug(f"metadata loaded: {loaded}")
             if loaded:
                 scandata.set_metadata(metadata, dependencies)
                 metdata_loaded = True
                 if not self.silent:
-                    logging.debug(f'Use metadata for "{scandata.name}" in RAM DB')
+                    logger.debug(f'Use metadata for "{scandata.name}" in RAM DB')
 
         if scandata.install_dependencies and not metdata_loaded:
             print(f"start preparing {scandata.type} {scandata.name}")
@@ -767,8 +764,8 @@ class ARIScanner(object):
         for i, (ext_type, ext_name, ext_ver, ext_hash, ext_path) in enumerate(ext_list):
             if not self.silent:
                 if i == 0:
-                    logging.info("start loading {} {}(s)".format(ext_count, ext_type))
-                logging.info("[{}/{}] {} {}".format(i + 1, ext_count, ext_type, ext_name))
+                    logger.info("start loading {} {}(s)".format(ext_count, ext_type))
+                logger.info("[{}/{}] {} {}".format(i + 1, ext_count, ext_type, ext_name))
 
             # avoid infinite loop
             is_root = False
@@ -804,7 +801,7 @@ class ARIScanner(object):
                         key = "{}-{}".format(ext_type, ext_name)
                         scandata.ext_definitions[key] = ext_defs
                         if not self.silent:
-                            logging.debug(f'Use spec data for "{ext_name}" in RAM DB')
+                            logger.debug(f'Use spec data for "{ext_name}" in RAM DB')
                         continue
 
                 # load the src directory
@@ -812,30 +809,30 @@ class ARIScanner(object):
         self.record_end(time_records, "dependency_load")
 
         if not self.silent:
-            logging.debug("load_definition_ext() done")
+            logger.debug("load_definition_ext() done")
 
         loaded = False
         self.record_begin(time_records, "target_load")
         if self.read_ram and scandata.type != LoadType.PLAYBOOK:
             loaded, root_defs = self.load_definitions_from_ram(scandata.type, scandata.name, scandata.version, scandata.hash, allow_unresolved=True)
-            logging.debug(f"spec data loaded: {loaded}")
+            logger.debug(f"spec data loaded: {loaded}")
             if loaded:
                 scandata.root_definitions = root_defs
                 if not self.silent:
-                    logging.info("Use spec data in RAM DB")
+                    logger.info("Use spec data in RAM DB")
         self.record_end(time_records, "target_load")
 
         if not loaded:
             scandata.load_definitions_root(target_path=scandata.target_path)
 
         if not self.silent:
-            logging.debug("load_definitions_root() done")
+            logger.debug("load_definitions_root() done")
             playbooks_num = len(scandata.root_definitions["definitions"]["playbooks"])
             roles_num = len(scandata.root_definitions["definitions"]["roles"])
             taskfiles_num = len(scandata.root_definitions["definitions"]["taskfiles"])
             tasks_num = len(scandata.root_definitions["definitions"]["tasks"])
             modules_num = len(scandata.root_definitions["definitions"]["modules"])
-            logging.debug(f"playbooks: {playbooks_num}, roles: {roles_num}, taskfiles: {taskfiles_num}, tasks: {tasks_num}, modules: {modules_num}")
+            logger.debug(f"playbooks: {playbooks_num}, roles: {roles_num}, taskfiles: {taskfiles_num}, tasks: {tasks_num}, modules: {modules_num}")
 
         _ram_client = None
         if self.read_ram:
@@ -845,25 +842,25 @@ class ARIScanner(object):
         scandata.construct_trees(_ram_client)
         self.record_end(time_records, "tree_construction")
         if not self.silent:
-            logging.debug("construct_trees() done")
+            logger.debug("construct_trees() done")
 
         self.record_begin(time_records, "variable_resolution")
         scandata.resolve_variables()
         self.record_end(time_records, "variable_resolution")
         if not self.silent:
-            logging.debug("resolve_variables() done")
+            logger.debug("resolve_variables() done")
 
         self.record_begin(time_records, "module_annotators")
         scandata.annotate()
         if not self.silent:
-            logging.debug("annotate() done")
+            logger.debug("annotate() done")
         self.record_end(time_records, "module_annotators")
 
         self.record_begin(time_records, "apply_rules")
         scandata.apply_rules()
         self.record_end(time_records, "apply_rules")
         if not self.silent:
-            logging.debug("apply_rules() done")
+            logger.debug("apply_rules() done")
 
         scandata.add_time_records(time_records=time_records)
 
