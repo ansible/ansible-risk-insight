@@ -44,6 +44,10 @@ def set_log_level(level_str: str = "info"):
     _logger.setLevel(level)
 
 
+def exception(*args, **kwargs):
+    _logger.exception(*args, **kwargs)
+
+
 def error(*args, **kwargs):
     _logger.error(*args, **kwargs)
 
