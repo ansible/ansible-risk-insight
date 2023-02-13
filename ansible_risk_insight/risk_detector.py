@@ -50,6 +50,15 @@ def load_rules(rules_dir: str = "", rule_id_list: list = []):
                 raise ValueError(f"failed to load a rule: {r}")
     _rules = sorted(_rules, key=lambda r: int(r.rule_id[-3:]))
     _rules = sorted(_rules, key=lambda r: r.precedence)
+    if rule_id_list:
+
+        def index(_list, x):
+            if x.rule_id in _list:
+                return _list.index(x.rule_id)
+            else:
+                return len(_list)
+
+        _rules = sorted(_rules, key=lambda r: index(rule_id_list, r))
 
     return _rules
 
