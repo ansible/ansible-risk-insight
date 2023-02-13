@@ -1233,6 +1233,12 @@ class MutableContent(object):
         self._yaml = self._task_spec.yaml()
         return self
 
+    def remove_key(self, key):
+        if key in self._task_spec.module_options:
+            self._task_spec.module_options.pop(key)
+        self._yaml = self._task_spec.yaml()
+        return self
+
     def replace_key(self, old_key: str, new_key: str):
         raise NotImplementedError
 
