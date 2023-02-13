@@ -16,9 +16,9 @@
 
 import argparse
 import os
-import logging
 from typing import List
 
+import ansible_risk_insight.logger as logger
 from .models import AnsibleRunContext, ARIResult, TargetResult, NodeResult, RuleResult, Rule
 from .keyutil import detect_type, key_delimiter
 from .analyzer import load_taskcalls_in_trees
@@ -199,7 +199,7 @@ def detect(contexts: List[AnsibleRunContext], rules_dir: str = "", rules: list =
                 playbook_count["risk_found"] += 1
             else:
                 role_count["risk_found"] += 1
-        logging.debug("detect() {}/{} done".format(i + 1, num))
+        logger.debug("detect() {}/{} done".format(i + 1, num))
 
     if playbook_count["total"] > 0:
         data_report["summary"]["playbooks"] = {

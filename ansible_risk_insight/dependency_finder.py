@@ -18,7 +18,7 @@ import os
 import yaml
 import json
 import subprocess
-import logging
+import ansible_risk_insight.logger as logger
 from .safe_glob import safe_glob
 
 from .models import (
@@ -36,7 +36,7 @@ GALAXY_yml = "GALAXY.yml"
 
 def find_dependency(type, target, dependency_dir):
     dependencies = {"dependencies": {}, "type": "", "file": ""}
-    logging.debug("search dependency")
+    logger.debug("search dependency")
     if dependency_dir:
         requirements, paths, metadata = load_existing_dependency_dir(dependency_dir)
         dependencies["dependencies"] = requirements
@@ -46,19 +46,19 @@ def find_dependency(type, target, dependency_dir):
         dependencies["file"] = None
     else:
         if type == LoadType.PROJECT:
-            logging.debug("search project dependency")
+            logger.debug("search project dependency")
             requirements, reqyml = find_project_dependency(target)
             dependencies["dependencies"] = requirements
             dependencies["type"] = LoadType.PROJECT
             dependencies["file"] = reqyml
         elif type == LoadType.ROLE:
-            logging.debug("search role dependency")
+            logger.debug("search role dependency")
             requirements, mainyml = find_role_dependency(target)
             dependencies["dependencies"] = requirements
             dependencies["type"] = LoadType.ROLE
             dependencies["file"] = mainyml
         elif type == LoadType.COLLECTION:
-            logging.debug("search collection dependency")
+            logger.debug("search collection dependency")
             requirements, manifestjson = find_collection_dependency(target)
             dependencies["dependencies"] = requirements
             dependencies["type"] = LoadType.COLLECTION
@@ -87,7 +87,7 @@ def find_role_dependency(target):
                     try:
                         metadata = yaml.safe_load(file)
                     except Exception as e:
-                        logging.debug("failed to load this yaml file to read metadata; {}".format(e.args[0]))
+                        logger.debug("failed to load this yaml file to read metadata; {}".format(e.args[0]))
 
                     if metadata is not None and isinstance(metadata, dict):
                         requirements["roles"] = metadata.get("dependencies", [])
@@ -99,7 +99,7 @@ def find_collection_dependency(target):
     requirements = {}
     # collection dir installed by ansible-galaxy command
     manifest_json_files = safe_glob(os.path.join(target, "**", collection_manifest_json), recursive=True)
-    logging.debug("found meta files {}".format(manifest_json_files))
+    logger.debug("found meta files {}".format(manifest_json_files))
     manifest_json = ""
     if len(manifest_json_files) > 0:
         for cmf in manifest_json_files:
@@ -118,7 +118,7 @@ def find_collection_dependency(target):
 def find_project_dependency(target):
     if os.path.exists(target):
         # local dir
-        logging.debug("load requirements from dir {}".format(target))
+        logger.debug("load requirements from dir {}".format(target))
         return load_requirements(target)
     else:
         raise ValueError("Invalid target dir: {}".format(target))
@@ -135,7 +135,7 @@ def load_requirements(path):
             try:
                 requirements = yaml.safe_load(file)
             except Exception as e:
-                logging.debug("failed to load requirements.yml; {}".format(e.args[0]))
+                logger.debug("failed to load requirements.yml; {}".format(e.args[0]))
     else:
         requirements, yaml_path = load_dependency_from_galaxy(path)
     return requirements, yaml_path
@@ -146,7 +146,7 @@ def load_dependency_from_galaxy(path):
     yaml_path = ""
     galaxy_yml_files = safe_glob(os.path.join(path, "**", galaxy_yml), recursive=True)
     galaxy_yml_files.extend(safe_glob(os.path.join(path, "**", GALAXY_yml), recursive=True))
-    logging.debug("found meta files {}".format(galaxy_yml_files))
+    logger.debug("found meta files {}".format(galaxy_yml_files))
     if len(galaxy_yml_files) > 0:
         for g in galaxy_yml_files:
             if os.path.exists(g):
@@ -218,7 +218,7 @@ def install_github_target(target, output_dir):
         text=True,
     )
     install_msg = proc.stdout
-    logging.debug("STDOUT: {}".format(install_msg))
+    logger.debug("STDOUT: {}".format(install_msg))
     return proc.stdout
 
 
