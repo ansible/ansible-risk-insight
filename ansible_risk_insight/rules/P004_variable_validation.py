@@ -23,6 +23,7 @@ from ansible_risk_insight.models import (
     Severity,
     RuleTag as Tag,
     VariableType,
+    ArgumentsType,
 )
 
 
@@ -44,17 +45,24 @@ class VariableValidationRule(Rule):
         task = ctx.current
 
         undefined_variables = []
+        unknown_name_vars = []
         unnecessary_loop = []
+        task_arg_keys = []
+        if task.args.type == ArgumentsType.DICT:
+            task_arg_keys = list(task.args.raw.keys())
         for v_name in task.variable_use:
             v = task.variable_use[v_name]
             if v and v[-1].type == VariableType.Unknown:
                 if v_name not in undefined_variables:
                     undefined_variables.append(v_name)
+                if v_name not in unknown_name_vars and v_name not in task_arg_keys:
+                    unknown_name_vars.append(v_name)
                 if v_name not in unnecessary_loop:
                     if v_name.startswith("item."):
                         unnecessary_loop.append({"name": v_name, "suggested": v_name.replace("item.", "")})
 
         task.set_annotation("variable.undefined_vars", undefined_variables, rule_id=self.rule_id)
+        task.set_annotation("variable.unknown_name_vars", unknown_name_vars, rule_id=self.rule_id)
         task.set_annotation("variable.unnecessary_loop_vars", unnecessary_loop, rule_id=self.rule_id)
 
         return None
