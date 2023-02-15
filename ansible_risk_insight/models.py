@@ -1159,6 +1159,8 @@ class Task(Object, Resolvable):
         if self.module:
             task_data[self.module] = self.module_options
         for k, v in self.options.items():
+            if k == "name":
+                continue
             task_data[k] = v
         return yaml.dump([task_data], sort_keys=False)
 
@@ -1222,6 +1224,12 @@ class MutableContent(object):
             _task_spec=deepcopy(task_spec),
         )
         return mc
+
+    def omit_task_name(self):
+        # if `name` is None or empty string, Task.yaml() won't output the field
+        self._task_spec.name = None
+        self._yaml = self._task_spec.yaml()
+        return self
 
     def set_module_name(self, module_name):
         self._task_spec.module = module_name
