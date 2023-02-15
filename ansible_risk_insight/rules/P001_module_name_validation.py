@@ -43,13 +43,21 @@ class ModuleNameValidationRule(Rule):
     def process(self, ctx: AnsibleRunContext):
         task = ctx.current
 
+        suggested_fqcns = []
+        suggested_dependency = []
+        resolved_fqcn = ""
+        wrong_module_name = ""
+        not_exist = False
+        correct_fqcn = ""
+        need_correction = False
+
+        # normal task
         if task.spec.executable_type == ExecutableType.MODULE_TYPE:
 
+            resolved_fqcn = task.spec.resolved_name
             suggested_fqcns = [cand[0] for cand in task.spec.possible_candidates]
             suggested_dependency = [cand[1] for cand in task.spec.possible_candidates]
 
-            wrong_module_name = ""
-            not_exist = False
             if not task.spec.resolved_name:
                 for suggestion in suggested_fqcns:
                     if not suggestion.endswith(f".{task.spec.module}"):
@@ -58,22 +66,35 @@ class ModuleNameValidationRule(Rule):
                 if not task.spec.possible_candidates:
                     not_exist = True
                     wrong_module_name = task.spec.module
-            correct_fqcn = ""
+
             if task.spec.resolved_name:
                 correct_fqcn = task.spec.resolved_name
             elif suggested_fqcns:
                 correct_fqcn = suggested_fqcns[0]
 
-            need_correction = False
             if correct_fqcn != task.spec.module or not_exist:
                 need_correction = True
 
-            task.set_annotation("module.suggested_fqcn", suggested_fqcns, rule_id=self.rule_id)
-            task.set_annotation("module.suggested_dependency", suggested_dependency, rule_id=self.rule_id)
-            task.set_annotation("module.resolved_fqcn", task.spec.resolved_name, rule_id=self.rule_id)
-            task.set_annotation("module.wrong_module_name", wrong_module_name, rule_id=self.rule_id)
-            task.set_annotation("module.not_exist", not_exist, rule_id=self.rule_id)
-            task.set_annotation("module.correct_fqcn", correct_fqcn, rule_id=self.rule_id)
-            task.set_annotation("module.need_correction", need_correction, rule_id=self.rule_id)
+        # include_role, import_role
+        elif task.spec.executable_type == ExecutableType.ROLE_TYPE:
+            if "ansible.builtin." not in task.spec.module:
+                resolved_fqcn = "ansible.builtin." + task.spec.module
+                correct_fqcn = resolved_fqcn
+                need_correction = True
+
+        # include_tasks, import_tasks
+        elif task.spec.executable_type == ExecutableType.TASKFILE_TYPE:
+            if "ansible.builtin." not in task.spec.module:
+                resolved_fqcn = "ansible.builtin." + task.spec.module
+                correct_fqcn = resolved_fqcn
+                need_correction = True
+
+        task.set_annotation("module.suggested_fqcn", suggested_fqcns, rule_id=self.rule_id)
+        task.set_annotation("module.suggested_dependency", suggested_dependency, rule_id=self.rule_id)
+        task.set_annotation("module.resolved_fqcn", resolved_fqcn, rule_id=self.rule_id)
+        task.set_annotation("module.wrong_module_name", wrong_module_name, rule_id=self.rule_id)
+        task.set_annotation("module.not_exist", not_exist, rule_id=self.rule_id)
+        task.set_annotation("module.correct_fqcn", correct_fqcn, rule_id=self.rule_id)
+        task.set_annotation("module.need_correction", need_correction, rule_id=self.rule_id)
 
         return None
