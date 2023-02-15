@@ -39,6 +39,18 @@ from .keyutil import (
 )
 
 
+yaml.SafeDumper.org_represent_str = yaml.SafeDumper.represent_str
+
+
+def repr_str(dumper, data):
+    if "\n" in data:
+        return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="|")
+    return dumper.org_represent_str(data)
+
+
+yaml.add_representer(str, repr_str, Dumper=yaml.SafeDumper)
+
+
 class PlaybookFormatError(Exception):
     pass
 
@@ -1162,7 +1174,7 @@ class Task(Object, Resolvable):
             if k == "name":
                 continue
             task_data[k] = v
-        return yaml.dump([task_data], sort_keys=False)
+        return yaml.safe_dump([task_data], sort_keys=False)
 
     def set_key(self, parent_key="", parent_local_key=""):
         set_task_key(self, parent_key, parent_local_key)
