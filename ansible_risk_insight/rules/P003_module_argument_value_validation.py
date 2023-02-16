@@ -68,6 +68,7 @@ class ModuleArgumentValueValidationRule(Rule):
                             if type(raw_value).__name__ != spec.type:
                                 d["expected_type"] = spec.type
                                 d["actual_type"] = type(raw_value).__name__
+                                d["actual_value"] = raw_value
                                 wrong_val = True
                         else:
                             if isinstance(resolved_value, str) and "{{" in resolved_value:
@@ -78,6 +79,7 @@ class ModuleArgumentValueValidationRule(Rule):
                                 if type(resolved_value).__name__ != spec.type:
                                     d["expected_type"] = spec.type
                                     d["actual_type"] = type(raw_value).__name__
+                                    d["actual_value"] = raw_value
                                     wrong_val = True
 
                     if wrong_val:
