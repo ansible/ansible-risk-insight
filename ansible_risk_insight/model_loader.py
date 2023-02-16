@@ -932,8 +932,7 @@ builtin_modules_file_name = "ansible_builtin_modules.json"
 def load_builtin_modules():
     base_path = os.path.dirname(__file__)
     data_path = os.path.join(base_path, builtin_modules_file_name)
-    module_list = ObjectList()
-    module_list.from_json(fpath=data_path)
+    module_list = ObjectList.from_json(fpath=data_path)
     module_dict = {m.name: m for m in module_list.items}
     return module_dict
 

@@ -30,13 +30,12 @@ from .models import (
     Task,
     TaskFile,
     ExecutableType,
-    Module,
     LoadType,
     CallObject,
     TaskCall,
     call_obj_from_spec,
 )
-from .finder import get_builtin_module_names
+from .model_loader import load_builtin_modules
 from .risk_assessment_model import RAMClient
 from .variable_manager import VariableManager
 
@@ -377,28 +376,8 @@ def resolve_playbook(playbook_ref, playbook_dict={}, play_key=""):
 
 
 def init_builtin_modules():
-    builtin_module_names = get_builtin_module_names()
-    modules = []
-    for module_name in builtin_module_names:
-        collection_name = "ansible.builtin"
-        fqcn = "{}.{}".format(collection_name, module_name)
-        global_key = "module collection{}{}{}module{}{}".format(
-            key_delimiter,
-            collection_name,
-            object_delimiter,
-            key_delimiter,
-            fqcn,
-        )
-        local_key = "module module{}{}".format(key_delimiter, "__builtin__")
-        m = Module(
-            name=module_name,
-            fqcn=fqcn,
-            key=global_key,
-            local_key=local_key,
-            collection=collection_name,
-            builtin=True,
-        )
-        modules.append(m)
+    builtin_module_dict = load_builtin_modules()
+    modules = list(builtin_module_dict.values())
     return modules
 
 
