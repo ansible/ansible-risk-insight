@@ -1273,13 +1273,11 @@ class MutableContent(object):
         self._yaml = self._task_spec.yaml()
         return self
 
-    def replace_module_arg_value(self, old_value: any, new_value: any):
-        for k, v in self._task_spec.module_options.items():
-            if type(v) != type(old_value):
-                continue
-            if v != old_value:
-                continue
-            self._task_spec.module_options[k] = new_value
+    def replace_module_arg_value(self, key: str, old_value: any, new_value: any):
+        if key in self._task_spec.module_options:
+            value = self._task_spec.module_options[key]
+            if type(value) == type(old_value) and value == old_value:
+                self._task_spec.module_options[key] = new_value
         self._yaml = self._task_spec.yaml()
         return self
 
