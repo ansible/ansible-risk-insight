@@ -48,8 +48,11 @@ def load_rules(rules_dir: str = "", rule_id_list: list = []):
                 _rules.append(_rule)
             except Exception:
                 raise ValueError(f"failed to load a rule: {r}")
+
+    # sort by rule_id
     _rules = sorted(_rules, key=lambda r: int(r.rule_id[-3:]))
-    _rules = sorted(_rules, key=lambda r: r.precedence)
+
+    # sort by `rules` configuration for ARIScanner
     if rule_id_list:
 
         def index(_list, x):
@@ -59,6 +62,9 @@ def load_rules(rules_dir: str = "", rule_id_list: list = []):
                 return len(_list)
 
         _rules = sorted(_rules, key=lambda r: index(rule_id_list, r))
+
+    # sort by precedence
+    _rules = sorted(_rules, key=lambda r: r.precedence)
 
     return _rules
 
