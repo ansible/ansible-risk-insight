@@ -1253,23 +1253,41 @@ class MutableContent(object):
         self._yaml = self._task_spec.yaml()
         return self
 
-    def set_new_key(self, key, value):
-        self._task_spec.module_options[key] = value
+    def replace_key(self, old_key: str, new_key: str):
+        if old_key in self._task_spec.options:
+            value = self._task_spec.options[old_key]
+            self._task_spec.options.pop(old_key)
+            self._task_spec.options[new_key] = value
+        self._yaml = self._task_spec.yaml()
+        return self
+
+    def replace_value(self, old_value: str, new_value: str):
+        for k, v in self._task_spec.options.items():
+            if type(v) != type(old_value):
+                continue
+            if v != old_value:
+                continue
+            self._task_spec.options[k] = new_value
         self._yaml = self._task_spec.yaml()
         return self
 
     def remove_key(self, key):
+        if key in self._task_spec.options:
+            self._task_spec.options.pop(key)
+        self._yaml = self._task_spec.yaml()
+        return self
+
+    def set_new_module_arg_key(self, key, value):
+        self._task_spec.module_options[key] = value
+        self._yaml = self._task_spec.yaml()
+        return self
+
+    def remove_module_arg_key(self, key):
         if key in self._task_spec.module_options:
             self._task_spec.module_options.pop(key)
         self._yaml = self._task_spec.yaml()
         return self
-
-    def replace_key(self, old_key: str, new_key: str):
-        raise NotImplementedError
-
-    def replace_value(self, old_value: str, new_value: str):
-        raise NotImplementedError
-
+    
     def replace_module_arg_key(self, old_key: str, new_key: str):
         if old_key in self._task_spec.module_options:
             value = self._task_spec.module_options[old_key]
