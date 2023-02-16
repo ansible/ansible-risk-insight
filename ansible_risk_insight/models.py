@@ -1287,7 +1287,7 @@ class MutableContent(object):
             self._task_spec.module_options.pop(key)
         self._yaml = self._task_spec.yaml()
         return self
-    
+
     def replace_module_arg_key(self, old_key: str, new_key: str):
         if old_key in self._task_spec.module_options:
             value = self._task_spec.module_options[old_key]
