@@ -526,10 +526,15 @@ class Arguments(object):
             return None
 
         _vars = []
+        sub_type = ArgumentsType.SIMPLE
         if isinstance(sub_raw, str):
             for v in self.vars:
                 if v.name in sub_raw:
                     _vars.append(v)
+        elif isinstance(sub_raw, list):
+            sub_type = ArgumentsType.LIST
+        elif isinstance(sub_raw, dict):
+            sub_type = ArgumentsType.DICT
         is_mutable = False
         for v in _vars:
             if v.is_mutable:
@@ -537,7 +542,7 @@ class Arguments(object):
                 break
 
         return Arguments(
-            type=ArgumentsType.SIMPLE,
+            type=sub_type,
             raw=sub_raw,
             vars=_vars,
             resolved=self.resolved,
@@ -1273,11 +1278,14 @@ class MutableContent(object):
         self._yaml = self._task_spec.yaml()
         return self
 
-    def replace_module_arg_value(self, key: str, old_value: any, new_value: any):
-        if key in self._task_spec.module_options:
-            value = self._task_spec.module_options[key]
+    def replace_module_arg_value(self, key: str = "", old_value: any = None, new_value: any = None):
+        for k in self._task_spec.module_options:
+            # if `key` is specified, skip other keys
+            if key and k != key:
+                continue
+            value = self._task_spec.module_options[k]
             if type(value) == type(old_value) and value == old_value:
-                self._task_spec.module_options[key] = new_value
+                self._task_spec.module_options[k] = new_value
         self._yaml = self._task_spec.yaml()
         return self
 

@@ -24,6 +24,7 @@ from ansible_risk_insight.models import (
     RuleTag as Tag,
     ArgumentsType,
     ExecutableType,
+    VariableType,
 )
 
 
@@ -47,6 +48,7 @@ class ModuleArgumentValueValidationRule(Rule):
         if task.spec.executable_type == ExecutableType.MODULE_TYPE and task.module and task.module.arguments:
 
             wrong_values = []
+            undefined_values = []
             unknown_type_values = []
             if task.args.type == ArgumentsType.DICT:
                 for key in task.args.raw:
@@ -88,8 +90,14 @@ class ModuleArgumentValueValidationRule(Rule):
                     if unknown_type_val:
                         unknown_type_values.append(d)
 
+                    sub_args = task.args.get(key)
+                    undefined_vars = [v.name for v in sub_args.vars if v.type == VariableType.Unknown]
+                    if undefined_vars:
+                        undefined_values.append({"key": key, "value": raw_value, "undefined_variables": undefined_vars})
+
             task.set_annotation("module.wrong_arg_values", wrong_values, rule_id=self.rule_id)
-            task.set_annotation("module.unknown_type_values", wrong_values, rule_id=self.rule_id)
+            task.set_annotation("module.undefined_values", undefined_values, rule_id=self.rule_id)
+            task.set_annotation("module.unknown_type_values", unknown_type_values, rule_id=self.rule_id)
 
         # TODO: find duplicate keys
 
