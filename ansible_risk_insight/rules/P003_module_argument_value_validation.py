@@ -91,9 +91,10 @@ class ModuleArgumentValueValidationRule(Rule):
                         unknown_type_values.append(d)
 
                     sub_args = task.args.get(key)
-                    undefined_vars = [v.name for v in sub_args.vars if v.type == VariableType.Unknown]
-                    if undefined_vars:
-                        undefined_values.append({"key": key, "value": raw_value, "undefined_variables": undefined_vars})
+                    if sub_args:
+                        undefined_vars = [v.name for v in sub_args.vars if v and v.type == VariableType.Unknown]
+                        if undefined_vars:
+                            undefined_values.append({"key": key, "value": raw_value, "undefined_variables": undefined_vars})
 
             task.set_annotation("module.wrong_arg_values", wrong_values, rule_id=self.rule_id)
             task.set_annotation("module.undefined_values", undefined_values, rule_id=self.rule_id)
