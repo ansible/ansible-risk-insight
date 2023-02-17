@@ -779,6 +779,8 @@ class ARIScanner(object):
                     rules_dir=self.rules_dir,
                     rules=self.rules,
                     ram_client=self.ram_client,
+                    read_ram=self.read_ram,
+                    write_ram=self.write_ram,
                     use_ansible_doc=self.use_ansible_doc,
                     do_save=self.do_save,
                     silent=True,

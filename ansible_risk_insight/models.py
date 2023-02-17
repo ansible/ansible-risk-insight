@@ -298,6 +298,7 @@ class Module(Object, Resolvable):
     local_key: str = ""
     collection: str = ""
     role: str = ""
+    documentation: str = ""
     arguments: list = field(default_factory=list)
     defined_in: str = ""
     builtin: bool = False

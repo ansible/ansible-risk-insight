@@ -20,9 +20,10 @@ from .search import RAMSearchCLI
 from .list import RAMListCLI
 from .diff import RAMDiffCLI
 from .generate import RAMGenerateCLI
+from .update import RAMUpdateCLI
 
 
-ram_actions = ["search", "list", "diff", "generate"]
+ram_actions = ["search", "list", "diff", "generate", "update"]
 
 
 class RAMCLI:
@@ -48,6 +49,8 @@ class RAMCLI:
                 self._cli = RAMDiffCLI()
             elif action == "generate":
                 self._cli = RAMGenerateCLI()
+            elif action == "update":
+                self._cli = RAMUpdateCLI()
             else:
                 raise ValueError(f"The action {action} is not supported")
         else:
