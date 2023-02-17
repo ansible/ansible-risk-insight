@@ -31,7 +31,7 @@ from .keyutil import get_obj_info_by_key
 from .model_loader import load_builtin_modules
 
 
-module_indices_path = os.path.join(os.path.dirname(__file__), "module_indices.json")
+module_index_name = "module_index.json"
 
 
 @dataclass
@@ -54,11 +54,13 @@ class RAMClient(object):
 
     builtin_modules_cache: dict = field(default_factory=dict)
 
-    module_indices: dict = field(default_factory=dict)
+    module_index: dict = field(default_factory=dict)
 
     def __post_init__(self):
-        with open(module_indices_path, "r") as file:
-            self.module_indices = json.load(file)
+        module_index_path = os.path.join(self.root_dir, "indices", module_index_name)
+        if os.path.exists(module_index_path):
+            with open(module_index_path, "r") as file:
+                self.module_index = json.load(file)
 
     def register(self, findings: Findings):
         metadata = findings.metadata
@@ -185,9 +187,9 @@ class RAMClient(object):
 
         from_indices = False
         found_index = None
-        if short_name in self.module_indices and self.module_indices[short_name]:
+        if short_name in self.module_index and self.module_index[short_name]:
             from_indices = True
-            found_index = self.module_indices[short_name][0]
+            found_index = self.module_index[short_name][0]
 
         modules_json_list = []
         if from_indices:

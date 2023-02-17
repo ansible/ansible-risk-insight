@@ -56,7 +56,7 @@ from .finder import (
 )
 from .utils import (
     split_target_playbook_fullpath,
-    get_documentation_by_ansible_doc_command,
+    get_module_documentations_by_ansible_doc,
     get_documentation_in_module_file,
     get_class_by_arg_type,
 )
@@ -713,6 +713,18 @@ def load_role(
 
     modules = []
     module_files = search_module_files(fullpath, module_dir_paths)
+
+    if not load_children:
+        use_ansible_doc = False
+
+    module_docs = {}
+    if use_ansible_doc:
+        module_docs = get_module_documentations_by_ansible_doc(
+            module_files=module_files,
+            fqcn_prefix=collection_name,
+            search_path=fullpath,
+        )
+
     for module_file_path in module_files:
         m = None
         try:
@@ -722,6 +734,7 @@ def load_role(
                 role_name=fqcn,
                 basedir=basedir,
                 use_ansible_doc=use_ansible_doc,
+                module_docs=module_docs,
             )
         except Exception:
             logger.exception("error while loading the module at {}".format(module_file_path))
@@ -848,7 +861,7 @@ def load_installed_roles(installed_roles_path):
     return roles
 
 
-def load_module(module_file_path, collection_name="", role_name="", basedir="", use_ansible_doc=True):
+def load_module(module_file_path, collection_name="", role_name="", basedir="", use_ansible_doc=True, module_docs={}):
     moduleObj = Module()
     if module_file_path == "":
         raise ValueError("require module file path to load a Module")
@@ -887,12 +900,13 @@ def load_module(module_file_path, collection_name="", role_name="", basedir="", 
                 defined_in = defined_in[1:]
     moduleObj.defined_in = defined_in
 
-    module_dir = os.path.dirname(fullpath)
     arguments = []
     doc_yaml = ""
     if use_ansible_doc:
-        # use `ansible-doc` command for the accurate documentation
-        doc_yaml = get_documentation_by_ansible_doc_command(moduleObj.fqcn, module_dir)
+        # running `ansible-doc` for each module causes speed problem due to overhead,
+        # so use it for all modules and pick up the doc for the module here
+        if module_docs:
+            doc_yaml = module_docs.get(moduleObj.fqcn, "")
     else:
         # parse the script file for a quick scan (this does not contain doc from `doc_fragments`)
         doc_yaml = get_documentation_in_module_file(fullpath)
@@ -919,6 +933,7 @@ def load_module(module_file_path, collection_name="", role_name="", basedir="", 
                 aliases=arg_spec.get("aliases", None),
             )
             arguments.append(arg)
+    moduleObj.documentation = doc_yaml
     moduleObj.arguments = arguments
 
     moduleObj.set_key()
@@ -950,6 +965,18 @@ def load_modules(path, basedir="", collection_name="", module_dir_paths=[], use_
 
     if len(module_files) == 0:
         return []
+
+    if not load_children:
+        use_ansible_doc = False
+
+    module_docs = {}
+    if use_ansible_doc:
+        module_docs = get_module_documentations_by_ansible_doc(
+            module_files=module_files,
+            fqcn_prefix=collection_name,
+            search_path=path,
+        )
+
     modules = []
     for module_file_path in module_files:
         m = None
@@ -959,6 +986,7 @@ def load_modules(path, basedir="", collection_name="", module_dir_paths=[], use_
                 collection_name=collection_name,
                 basedir=basedir,
                 use_ansible_doc=use_ansible_doc,
+                module_docs=module_docs,
             )
         except Exception:
             logger.exception("error while loading the module at {}".format(module_file_path))
@@ -1282,13 +1310,23 @@ def load_collection(collection_dir, basedir="", use_ansible_doc=True, load_child
     roles = load_roles(fullpath, basedir=basedir, use_ansible_doc=use_ansible_doc, load_children=load_children)
 
     module_files = search_module_files(fullpath)
+
     modules = []
     if not load_children:
         use_ansible_doc = False
+
+    module_docs = {}
+    if use_ansible_doc:
+        module_docs = get_module_documentations_by_ansible_doc(
+            module_files=module_files,
+            fqcn_prefix=collection_name,
+            search_path=fullpath,
+        )
+
     for f in module_files:
         m = None
         try:
-            m = load_module(f, collection_name=collection_name, basedir=basedir, use_ansible_doc=use_ansible_doc)
+            m = load_module(f, collection_name=collection_name, basedir=basedir, use_ansible_doc=use_ansible_doc, module_docs=module_docs)
         except Exception:
             logger.exception("error while loading the module at {}".format(f))
             continue
