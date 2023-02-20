@@ -383,6 +383,7 @@ def init_builtin_modules():
 
 class TreeLoader(object):
     def __init__(self, root_definitions, ext_definitions, ram_client=None, target_playbook_path=None):
+        self.ram_client: RAMClient = ram_client
 
         # use mappings just to get tree tops (playbook/role)
         # we don't load any files by this mappings here
@@ -405,7 +406,6 @@ class TreeLoader(object):
 
         self.dicts = make_dicts(self.root_definitions, self.ext_definitions)
 
-        self.ram_client: RAMClient = ram_client
         self.var_manager: VariableManager = VariableManager()
 
         self.target_playbook_path = target_playbook_path
@@ -540,10 +540,15 @@ class TreeLoader(object):
         return None
 
     def add_builtin_modules(self):
-        obj_list = ObjectList()
-        builtin_modules = init_builtin_modules()
-        for m in builtin_modules:
-            obj_list.add(m)
+        builtin_module_dict = {}
+        if self.ram_client and self.ram_client.builtin_modules_cache:
+            builtin_module_dict = self.ram_client.builtin_modules_cache
+        else:
+            builtin_module_dict = load_builtin_modules()
+            if self.ram_client:
+                self.ram_client.builtin_modules_cache = builtin_module_dict
+        builtin_modules = list(builtin_module_dict.values())
+        obj_list = ObjectList(items=builtin_modules)
         self.ext_definitions["modules"].merge(obj_list)
 
     def _get_children_keys(self, obj):
