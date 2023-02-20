@@ -145,6 +145,9 @@ class SingleScan(object):
     playbook_yaml: str = ""
     playbook_only: bool = False
 
+    skip_playbook_format_error: bool = (True,)
+    skip_task_format_error: bool = (True,)
+
     install_log: str = ""
     tmp_install_dir: tempfile.TemporaryDirectory = None
 
@@ -632,6 +635,9 @@ class ARIScanner(object):
     read_ram: bool = True
     write_ram: bool = True
 
+    skip_playbook_format_error: bool = (True,)
+    skip_task_format_error: bool = (True,)
+
     use_ansible_doc: bool = True
 
     do_save: bool = False
@@ -655,7 +661,12 @@ class ARIScanner(object):
         if not self.rules:
             self.rules = self.config.rules
         self.ram_client = RAMClient(root_dir=self.root_dir)
-        self._parser = Parser(do_save=self.do_save, use_ansible_doc=self.use_ansible_doc)
+        self._parser = Parser(
+            do_save=self.do_save,
+            use_ansible_doc=self.use_ansible_doc,
+            skip_playbook_format_error=self.skip_playbook_format_error,
+            skip_task_format_error=self.skip_task_format_error,
+        )
 
         if not self.silent:
             logger.debug(f"config: {self.config}")
@@ -697,6 +708,8 @@ class ARIScanner(object):
             version=version,
             hash=hash,
             target_path=target_path,
+            skip_playbook_format_error=self.skip_playbook_format_error,
+            skip_task_format_error=self.skip_task_format_error,
             dependency_dir=dependency_dir,
             use_src_cache=use_src_cache,
             source_repository=source_repository,

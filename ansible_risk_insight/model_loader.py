@@ -93,6 +93,8 @@ def load_repository(
     basedir="",
     target_playbook_path="",
     use_ansible_doc=True,
+    skip_playbook_format_error=True,
+    skip_task_format_error=True,
     load_children=True,
 ):
     repoObj = Repository()
@@ -267,6 +269,7 @@ def load_play(
     parent_local_key="",
     playbook_yaml="",
     basedir="",
+    skip_task_format_error=True,
 ):
     pbObj = Play()
     if play_block_dict is None:
@@ -322,8 +325,11 @@ def load_play(
                     )
                     pre_tasks.append(t)
                 except TaskFormatError:
-                    logger.debug("this task is wrong format; skip the task in {}," " index: {}".format(path, i))
-                    continue
+                    if skip_task_format_error:
+                        logger.debug("this task is wrong format; skip the task in {}," " index: {}; skip this".format(path, i))
+                        continue
+                    else:
+                        raise TaskFormatError(f"this task is wrong format; skip the task in {path}," " index: {i}")
                 except Exception:
                     logger.exception("error while loading the task at {} (index={})".format(path, i))
         elif k == "tasks":
@@ -350,8 +356,11 @@ def load_play(
                     )
                     tasks.append(t)
                 except TaskFormatError:
-                    logger.debug("this task is wrong format; skip the task in {}," " index: {}".format(path, i))
-                    continue
+                    if skip_task_format_error:
+                        logger.debug("this task is wrong format; skip the task in {}," " index: {}; skip this".format(path, i))
+                        continue
+                    else:
+                        raise TaskFormatError(f"this task is wrong format; skip the task in {path}," " index: {i}")
                 except Exception:
                     logger.exception("error while loading the task at {} (index={})".format(path, i))
         elif k == "post_tasks":
@@ -378,8 +387,11 @@ def load_play(
                     )
                     post_tasks.append(t)
                 except TaskFormatError:
-                    logger.debug("this task is wrong format; skip the task in {}," " index: {}".format(path, i))
-                    continue
+                    if skip_task_format_error:
+                        logger.debug("this task is wrong format; skip the task in {}," " index: {}; skip this".format(path, i))
+                        continue
+                    else:
+                        raise TaskFormatError(f"this task is wrong format; skip the task in {path}," " index: {i}")
                 except Exception:
                     logger.exception("error while loading the task at {} (index={})".format(path, i))
         elif k == "roles":
@@ -473,7 +485,7 @@ def load_roleinplay(
     return ripObj
 
 
-def load_playbook(path="", yaml_str="", role_name="", collection_name="", basedir=""):
+def load_playbook(path="", yaml_str="", role_name="", collection_name="", basedir="", skip_playbook_format_error=True, skip_task_format_error=True):
     pbObj = Playbook()
     fullpath = ""
     if yaml_str:
@@ -503,14 +515,20 @@ def load_playbook(path="", yaml_str="", role_name="", collection_name="", basedi
             yaml_lines = yaml_str
             data = yaml.safe_load(yaml_lines)
         except Exception as e:
-            logger.debug(f"failed to load this yaml string to load playbook; {e}")
+            if skip_playbook_format_error:
+                logger.debug(f"failed to load this yaml string to load playbook, skip this yaml; {e}")
+            else:
+                raise PlaybookFormatError(f"failed to load this yaml string to load playbook; {e}")
     elif fullpath != "":
         with open(fullpath, "r") as file:
             try:
                 yaml_lines = file.read()
                 data = yaml.safe_load(yaml_lines)
             except Exception as e:
-                logger.debug(f"failed to load this yaml file to load playbook; {e}")
+                if skip_playbook_format_error:
+                    logger.debug(f"failed to load this yaml file to load playbook, skip this yaml; {e}")
+                else:
+                    raise PlaybookFormatError(f"failed to load this yaml file to load playbook; {e}")
     if data is None:
         return pbObj
     if not isinstance(data, list):
@@ -532,11 +550,14 @@ def load_playbook(path="", yaml_str="", role_name="", collection_name="", basedi
                 parent_local_key=pbObj.local_key,
                 playbook_yaml=yaml_str,
                 basedir=basedir,
+                skip_task_format_error=skip_task_format_error,
             )
             plays.append(play)
         except PlaybookFormatError:
-            logger.debug("this play is wrong format; skip the play in {}, index: {}".format(fullpath, i))
-            continue
+            if skip_playbook_format_error:
+                logger.debug("this play is wrong format; skip the play in {}, index: {}, skip this play".format(fullpath, i))
+            else:
+                raise PlaybookFormatError(f"this play is wrong format; skip the play in {fullpath}, index: {i}")
         except Exception:
             logger.exception("error while loading the play at {} (index={})".format(fullpath, i))
     pbObj.plays = plays
@@ -544,7 +565,7 @@ def load_playbook(path="", yaml_str="", role_name="", collection_name="", basedi
     return pbObj
 
 
-def load_playbooks(path, basedir="", load_children=True):
+def load_playbooks(path, basedir="", skip_playbook_format_error=True, skip_task_format_error=True, load_children=True):
     if path == "":
         return []
     patterns = [
@@ -562,10 +583,18 @@ def load_playbooks(path, basedir="", load_children=True):
                 continue
             p = None
             try:
-                p = load_playbook(fpath, basedir=basedir)
+                p = load_playbook(
+                    path=fpath,
+                    basedir=basedir,
+                    skip_playbook_format_error=skip_playbook_format_error,
+                    skip_task_format_error=skip_task_format_error,
+                )
             except PlaybookFormatError as e:
-                logger.debug("this file is not in a playbook format, maybe not a" " playbook file: {}".format(e.args[0]))
-                continue
+                if skip_playbook_format_error:
+                    logger.debug("this file is not in a playbook format, maybe not a playbook file, skip this: {}".format(e.args[0]))
+                    continue
+                else:
+                    raise PlaybookFormatError(f"this file is not in a playbook format, maybe not a playbook file: {e.args[0]}")
             except Exception:
                 logger.exception("error while loading the playbook at {}".format(fpath))
             if load_children:
@@ -586,6 +615,8 @@ def load_role(
     module_dir_paths=[],
     basedir="",
     use_ansible_doc=True,
+    skip_playbook_format_error=True,
+    skip_task_format_error=True,
     load_children=True,
 ):
     roleObj = Role()
@@ -660,10 +691,15 @@ def load_role(
                     role_name=role_name,
                     collection_name=collection_name,
                     basedir=basedir,
+                    skip_playbook_format_error=skip_playbook_format_error,
+                    skip_task_format_error=skip_task_format_error,
                 )
             except PlaybookFormatError as e:
-                logger.debug("this file is not in a playbook format, maybe not a" " playbook file: {}".format(e.args[0]))
-                continue
+                if skip_playbook_format_error:
+                    logger.debug("this file is not in a playbook format, maybe not a playbook file, skip this: {}".format(e.args[0]))
+                    continue
+                else:
+                    raise PlaybookFormatError(f"this file is not in a playbook format, maybe not a playbook file: {e.args[0]}")
             except Exception:
                 logger.exception("error while loading the playbook at {}".format(f))
             if load_children:
@@ -772,7 +808,13 @@ def load_role(
                 role_name=fqcn,
                 collection_name=collection_name,
                 basedir=basedir,
+                skip_task_format_error=skip_task_format_error,
             )
+        except TaskFormatError as e:
+            if skip_task_format_error:
+                logger.debug(f"Task format error found; skip this taskfile {task_yaml_path}")
+            else:
+                raise TaskFormatError(f"Task format error found: {e.args[0]}")
         except Exception:
             logger.exception("error while loading the task file at {}".format(task_yaml_path))
         if load_children:
@@ -786,7 +828,8 @@ def load_role(
     return roleObj
 
 
-def load_roles(path, basedir="", use_ansible_doc=True, load_children=True):
+def load_roles(path, basedir="", use_ansible_doc=True, skip_playbook_format_error=True, skip_task_format_error=True, load_children=True):
+
     if path == "":
         return []
     roles_patterns = ["roles", "playbooks/roles", "playbook/roles"]
@@ -803,7 +846,13 @@ def load_roles(path, basedir="", use_ansible_doc=True, load_children=True):
     for dir_name in dirs:
         role_dir = os.path.join(roles_dir_path, dir_name)
         try:
-            r = load_role(role_dir, basedir=basedir, use_ansible_doc=use_ansible_doc)
+            r = load_role(
+                role_dir,
+                basedir=basedir,
+                use_ansible_doc=use_ansible_doc,
+                skip_playbook_format_error=skip_playbook_format_error,
+                skip_task_format_error=skip_task_format_error,
+            )
         except Exception:
             logger.exception("error while loading the role at {}".format(role_dir))
         if load_children:
@@ -1154,7 +1203,7 @@ def load_task(
     return taskObj
 
 
-def load_taskfile(path, role_name="", collection_name="", basedir=""):
+def load_taskfile(path, role_name="", collection_name="", basedir="", skip_task_format_error=True):
     tfObj = TaskFile()
 
     fullpath = ""
@@ -1198,8 +1247,11 @@ def load_taskfile(path, role_name="", collection_name="", basedir=""):
             )
             tasks.append(t)
         except TaskFormatError:
-            logger.debug("this task is wrong format; skip the task in {}, index: {}".format(fullpath, i))
-            continue
+            if skip_task_format_error:
+                logger.debug("this task is wrong format; skip the task in {}, index: {}; skip this".format(fullpath, i))
+                continue
+            else:
+                raise TaskFormatError(f"Task format error found; {fullpath}, index: {i}")
         except Exception:
             logger.exception("error while loading the task at {}, index: {}".format(fullpath, i))
     tfObj.tasks = tasks
@@ -1232,7 +1284,10 @@ def load_taskfiles(path, basedir="", load_children=True):
     return taskfiles
 
 
-def load_collection(collection_dir, basedir="", use_ansible_doc=True, load_children=True):
+def load_collection(
+    collection_dir, basedir="", use_ansible_doc=True, skip_playbook_format_error=True, skip_task_format_error=True, load_children=True
+):
+
     colObj = Collection()
     fullpath = ""
     if os.path.exists(collection_dir):
@@ -1276,10 +1331,19 @@ def load_collection(collection_dir, basedir="", use_ansible_doc=True, load_child
     for f in playbook_files:
         p = None
         try:
-            p = load_playbook(f, collection_name=collection_name, basedir=basedir)
+            p = load_playbook(
+                path=f,
+                collection_name=collection_name,
+                basedir=basedir,
+                skip_playbook_format_error=skip_playbook_format_error,
+                skip_task_format_error=skip_task_format_error,
+            )
         except PlaybookFormatError as e:
-            logger.debug("this file is not in a playbook format, maybe not a playbook" " file: {}".format(e.args[0]))
-            continue
+            if skip_playbook_format_error:
+                logger.debug("this file is not in a playbook format, maybe not a playbook file, skip this: {}".format(e.args[0]))
+                continue
+            else:
+                raise PlaybookFormatError(f"this file is not in a playbook format, maybe not a playbook file: {e.args[0]}")
         except Exception:
             logger.exception("error while loading the playbook at {}".format(f))
             continue
