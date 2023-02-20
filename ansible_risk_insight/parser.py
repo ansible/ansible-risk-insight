@@ -28,6 +28,8 @@ from .models import (
     Role,
     Task,
     TaskFile,
+    PlaybookFormatError,
+    TaskFormatError,
 )
 from .model_loader import (
     load_collection,
@@ -44,9 +46,11 @@ from .utils import (
 
 
 class Parser:
-    def __init__(self, do_save=False, use_ansible_doc=True):
+    def __init__(self, do_save=False, use_ansible_doc=True, skip_playbook_format_error=True, skip_task_format_error=True):
         self.do_save = do_save
         self.use_ansible_doc = use_ansible_doc
+        self.skip_playbook_format_error = skip_playbook_format_error
+        self.skip_task_format_error = skip_task_format_error
 
     def run(self, load_data=None, load_json_path="", collection_name_of_project=""):
         ld = Load()
@@ -67,22 +71,55 @@ class Parser:
                     collection_dir=ld.path,
                     basedir=ld.path,
                     use_ansible_doc=self.use_ansible_doc,
+                    skip_playbook_format_error=self.skip_playbook_format_error,
+                    skip_task_format_error=self.skip_task_format_error,
                     load_children=False,
                 )
+            except PlaybookFormatError:
+                if not self.skip_playbook_format_error:
+                    raise
+            except TaskFormatError:
+                if not self.skip_task_format_error:
+                    raise
             except Exception:
                 logger.exception("failed to load the collection {}".format(collection_name))
                 return
         elif ld.target_type == LoadType.ROLE:
             role_name = ld.target_name
             try:
-                obj = load_role(path=ld.path, basedir=ld.path, use_ansible_doc=self.use_ansible_doc, load_children=False)
+                obj = load_role(
+                    path=ld.path,
+                    basedir=ld.path,
+                    use_ansible_doc=self.use_ansible_doc,
+                    skip_playbook_format_error=self.skip_playbook_format_error,
+                    skip_task_format_error=self.skip_task_format_error,
+                    load_children=False,
+                )
+            except PlaybookFormatError:
+                if not self.skip_playbook_format_error:
+                    raise
+            except TaskFormatError:
+                if not self.skip_task_format_error:
+                    raise
             except Exception:
                 logger.exception("failed to load the role {}".format(role_name))
                 return
         elif ld.target_type == LoadType.PROJECT:
             repo_name = ld.target_name
             try:
-                obj = load_repository(path=ld.path, basedir=ld.path, use_ansible_doc=self.use_ansible_doc)
+                obj = load_repository(
+                    path=ld.path,
+                    basedir=ld.path,
+                    use_ansible_doc=self.use_ansible_doc,
+                    skip_playbook_format_error=self.skip_playbook_format_error,
+                    skip_task_format_error=self.skip_task_format_error,
+                )
+            except PlaybookFormatError:
+                if not self.skip_playbook_format_error:
+                    raise
+            except TaskFormatError:
+                if not self.skip_task_format_error:
+                    raise
             except Exception:
                 logger.exception("failed to load the project {}".format(repo_name))
                 return
@@ -100,11 +137,28 @@ class Parser:
             playbook_name = ld.target_name
             try:
                 if ld.playbook_only:
-                    obj = load_playbook(path=target_playbook_path, yaml_str=ld.playbook_yaml, basedir=basedir)
+                    obj = load_playbook(
+                        path=target_playbook_path,
+                        yaml_str=ld.playbook_yaml,
+                        basedir=basedir,
+                        skip_playbook_format_error=self.skip_playbook_format_error,
+                        skip_task_format_error=self.skip_task_format_error,
+                    )
                 else:
                     obj = load_repository(
-                        path=basedir, basedir=basedir, target_playbook_path=target_playbook_path, use_ansible_doc=self.use_ansible_doc
+                        path=basedir,
+                        basedir=basedir,
+                        target_playbook_path=target_playbook_path,
+                        use_ansible_doc=self.use_ansible_doc,
+                        skip_playbook_format_error=self.skip_playbook_format_error,
+                        skip_task_format_error=self.skip_task_format_error,
                     )
+            except PlaybookFormatError:
+                if not self.skip_playbook_format_error:
+                    raise
+            except TaskFormatError:
+                if not self.skip_task_format_error:
+                    raise
             except Exception:
                 logger.exception("failed to load the playbook {}".format(playbook_name))
                 return
@@ -130,8 +184,16 @@ class Parser:
                     collection_name=collection_name,
                     basedir=basedir,
                     use_ansible_doc=self.use_ansible_doc,
+                    skip_playbook_format_error=self.skip_playbook_format_error,
+                    skip_task_format_error=self.skip_task_format_error,
                 )
                 roles.append(r)
+            except PlaybookFormatError:
+                if not self.skip_playbook_format_error:
+                    raise
+            except TaskFormatError:
+                if not self.skip_task_format_error:
+                    raise
             except Exception as e:
                 logger.debug(f"failed to load a role: {e}")
                 continue
@@ -145,7 +207,11 @@ class Parser:
                     role_name=role_name,
                     collection_name=collection_name,
                     basedir=ld.path,
+                    skip_task_format_error=self.skip_task_format_error,
                 )
+            except TaskFormatError:
+                if not self.skip_task_format_error:
+                    raise
             except Exception as e:
                 logger.debug(f"failed to load a taskfile: {e}")
                 continue
@@ -162,7 +228,15 @@ class Parser:
                     role_name=role_name,
                     collection_name=collection_name,
                     basedir=basedir,
+                    skip_playbook_format_error=self.skip_playbook_format_error,
+                    skip_task_format_error=self.skip_task_format_error,
                 )
+            except PlaybookFormatError:
+                if not self.skip_playbook_format_error:
+                    raise
+            except TaskFormatError:
+                if not self.skip_task_format_error:
+                    raise
             except Exception as e:
                 logger.debug(f"failed to load a playbook: {e}")
                 continue
