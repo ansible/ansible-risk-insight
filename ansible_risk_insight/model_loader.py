@@ -93,6 +93,8 @@ def load_repository(
     basedir="",
     target_playbook_path="",
     use_ansible_doc=True,
+    skip_playbook_format_error=True,
+    skip_task_format_error=True,
     load_children=True,
 ):
     repoObj = Repository()
