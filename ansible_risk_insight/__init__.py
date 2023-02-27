@@ -18,7 +18,7 @@ import sys
 from .cli import ARICLI
 from .cli.ram import RAMCLI
 
-ari_actions = ["project", "playbook", "collection", "role"]
+ari_actions = ["project", "playbook", "collection", "role", "taskfile"]
 ram_actions = ["ram"]
 
 all_actions = ari_actions + ram_actions
@@ -33,6 +33,7 @@ def main():
         print("   collection   scan a collection (e.g. `ari collection collection.name` )")
         print("   role         scan a role (e.g. `ari role role.name` )")
         print("   project      scan a project (e.g. `ari project path/to/project`)")
+        print("   taskfile     scan a taskfile (e.g. `ari taskfile path/to/taskfile.yml`)")
         print("   ram          operate the backend data (e.g. `ari ram generate -f input.txt`)")
         sys.exit()
 

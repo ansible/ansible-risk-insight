@@ -382,7 +382,7 @@ def init_builtin_modules():
 
 
 class TreeLoader(object):
-    def __init__(self, root_definitions, ext_definitions, ram_client=None, target_playbook_path=None):
+    def __init__(self, root_definitions, ext_definitions, ram_client=None, target_playbook_path=None, target_taskfile_path=None):
         self.ram_client: RAMClient = ram_client
 
         # use mappings just to get tree tops (playbook/role)
@@ -390,8 +390,16 @@ class TreeLoader(object):
         self.load_and_mapping = root_definitions.get("mappings", None)
         self.playbook_mappings = self.load_and_mapping.playbooks
         self.role_mappings = self.load_and_mapping.roles
+        self.taskfile_mappings = []
+
         if target_playbook_path:
             self.playbook_mappings = [p for p in self.playbook_mappings if p[0] == target_playbook_path]
+            self.role_mappings = []
+
+        if target_taskfile_path:
+            self.taskfile_mappings = self.load_and_mapping.taskfiles
+            self.taskfile_mappings = [tf for tf in self.taskfile_mappings if tf[0] == target_taskfile_path]
+            self.playbook_mappings = []
             self.role_mappings = []
 
         # TODO: dependency check, especially for
@@ -445,6 +453,11 @@ class TreeLoader(object):
             logger.debug("[{}/{}] {}".format(i + 1, len(self.role_mappings), mapping[1]))
             role_key = mapping[1]
             tree_objects = self._recursive_get_calls(role_key)
+            self.trees.append(tree_objects)
+        for i, mapping in enumerate(self.taskfile_mappings):
+            logger.debug("[{}/{}] {}".format(i + 1, len(self.taskfile_mappings), mapping[1]))
+            taskfile_key = mapping[1]
+            tree_objects = self._recursive_get_calls(taskfile_key)
             self.trees.append(tree_objects)
         return self.trees, additional_objects
 
@@ -629,7 +642,7 @@ class TreeLoader(object):
             executable_type = obj.executable_type
             resolved_key = ""
             if obj.executable == "":
-                return []
+                return [], {}
             target_name = obj.executable
             if executable_type == ExecutableType.MODULE_TYPE:
                 if target_name in self.module_resolve_cache:
