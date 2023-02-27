@@ -16,16 +16,22 @@
 
 import argparse
 import json
-import logging
 from typing import List
 from ansible_risk_insight.annotators.risk_annotator_base import RiskAnnotator
+import ansible_risk_insight.logger as logger
 from .models import TaskCallsInTree, AnsibleRunContext
 from .utils import load_classes_in_dir
 
 
 def load_annotators(ctx: AnsibleRunContext = None):
     _annotator_classes = load_classes_in_dir("annotators", RiskAnnotator, __file__)
-    _annotators = [a(context=ctx) for a in _annotator_classes]
+    _annotators = []
+    for a in _annotator_classes:
+        try:
+            _annotator = a(context=ctx)
+            _annotators.append(_annotator)
+        except Exception:
+            raise ValueError(f"failed to load an annotator: {a}")
     return _annotators
 
 
@@ -34,8 +40,7 @@ def load_taskcalls_in_trees(path: str) -> List[TaskCallsInTree]:
     try:
         with open(path, "r") as file:
             for line in file:
-                taskcalls_in_tree = TaskCallsInTree()
-                taskcalls_in_tree.from_json(line)
+                taskcalls_in_tree = TaskCallsInTree.from_json(line)
                 taskcalls_in_trees.append(taskcalls_in_tree)
     except Exception as e:
         raise ValueError("failed to load the json file {} {}".format(path, e))
@@ -63,7 +68,7 @@ def analyze(contexts: List[AnsibleRunContext]):
                 continue
             if result.annotations:
                 t.annotations.extend(result.annotations)
-        logging.debug("analyze() {}/{} done".format(i + 1, num))
+        logger.debug("analyze() {}/{} done".format(i + 1, num))
     return contexts
 
 

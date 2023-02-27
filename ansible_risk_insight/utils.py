@@ -19,12 +19,12 @@ import subprocess
 import requests
 import hashlib
 import yaml
-import logging
 import json
 from tabulate import tabulate
 from inspect import isclass
 from importlib.util import spec_from_file_location, module_from_spec
 
+import ansible_risk_insight.logger as logger
 from .findings import Findings
 
 
@@ -35,7 +35,7 @@ def install_galaxy_target(target, target_type, output_dir, source_repository="",
     target_name = target
     if target_version:
         target_name = f"{target}:{target_version}"
-    logging.debug("exec ansible-galaxy cmd: ansible-galaxy {} install {} {} -p {}".format(target_type, target_name, server_option, output_dir))
+    logger.debug("exec ansible-galaxy cmd: ansible-galaxy {} install {} {} -p {}".format(target_type, target_name, server_option, output_dir))
     proc = subprocess.run(
         "ansible-galaxy {} install {} {} -p {}".format(target_type, target_name, server_option, output_dir),
         shell=True,
@@ -490,6 +490,109 @@ def show_diffs(diffs):
     print(tabulate(table))
 
 
+def get_module_documentations_by_ansible_doc(module_files: str, fqcn_prefix: str, search_path: str):
+    if not module_files:
+        return {}
+
+    if search_path and fqcn_prefix:
+        parent_path_pattern = "/" + fqcn_prefix.replace(".", "/")
+        if parent_path_pattern in search_path:
+            search_path = search_path.split(parent_path_pattern)[0]
+
+    fqcn_list = []
+    for module_file_path in module_files:
+        module_name = os.path.basename(module_file_path)
+        if module_name[-3:] == ".py":
+            module_name = module_name[:-3]
+        if module_name == "__init__":
+            continue
+        fqcn = module_name
+        if fqcn_prefix:
+            fqcn = fqcn_prefix + "." + module_name
+        fqcn_list.append(fqcn)
+    if not fqcn_list:
+        return {}
+    fqcn_list_str = " ".join(fqcn_list)
+    cmd_args = [f"ansible-doc {fqcn_list_str} --json"]
+    _env = os.environ.copy()
+    _env["ANSIBLE_COLLECTIONS_PATH"] = search_path
+    proc = subprocess.run(cmd_args, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=_env)
+    if proc.stderr and not proc.stdout:
+        logger.debug(f"error while getting the documentation for modules `{fqcn_list_str}`: {proc.stderr}")
+        return ""
+    wrapper_dict = json.loads(proc.stdout)
+    docs = {}
+    for fqcn in wrapper_dict:
+        doc_dict = wrapper_dict[fqcn].get("doc", {})
+        doc = yaml.safe_dump(doc_dict)
+        docs[fqcn] = doc
+    return docs
+
+
+def get_documentation_in_module_file(fpath: str):
+    if not fpath:
+        return ""
+    if not os.path.exists(fpath):
+        return ""
+    lines = []
+    with open(fpath, "r") as file:
+        for line in file:
+            lines.append(line)
+    doc_lines = []
+    is_inside_doc = False
+    quotation = ""
+    for line in lines:
+        stripped_line = line.strip()
+
+        if is_inside_doc and quotation and stripped_line.startswith(quotation):
+            is_inside_doc = False
+            break
+
+        if is_inside_doc:
+            if quotation:
+                doc_lines.append(line)
+            else:
+                if "'''" in line:
+                    quotation = "'''"
+                if '"""' in line:
+                    quotation = '"""'
+
+        if stripped_line.startswith("DOCUMENTATION"):
+            is_inside_doc = True
+            if "'''" in line:
+                quotation = "'''"
+            if '"""' in line:
+                quotation = '"""'
+    return "\n".join(doc_lines)
+
+
+def get_class_by_arg_type(arg_type: str):
+    if not isinstance(arg_type, str):
+        return None
+
+    mapping = {
+        "str": str,
+        "list": list,
+        "dict": dict,
+        "bool": bool,
+        "int": int,
+        "float": float,
+        # ARI handles `path` as a string
+        "path": str,
+        "raw": any,
+        # TODO: check actual types of the following
+        "jsonarg": str,
+        "json": str,
+        "bytes": str,
+        "bits": str,
+    }
+
+    if arg_type not in mapping:
+        return None
+
+    return mapping[arg_type]
+
+
 def load_classes_in_dir(dir_path: str, target_class: type, base_dir: str = "", only_subclass: bool = True):
     search_path = dir_path
     found = False
@@ -525,5 +628,5 @@ def load_classes_in_dir(dir_path: str, target_class: type, base_dir: str = "", o
                     continue
                 classes.append(cls)
         except Exception as e:
-            raise ValueError(f"failed to load module {s}: {e}")
+            raise ValueError(f"failed to load a rule module {s}: {e}")
     return classes

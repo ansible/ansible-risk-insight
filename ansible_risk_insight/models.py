@@ -14,15 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from dataclasses import dataclass, field
 from typing import List, Union
 from collections.abc import Callable
 from tabulate import tabulate
 
-# from copy import deepcopy
+from copy import deepcopy
 import json
 import jsonpickle
-import logging
+import yaml
 from ansible.module_utils.parsing.convert_bool import boolean
 from .keyutil import (
     set_collection_key,
@@ -37,11 +38,17 @@ from .keyutil import (
     get_obj_info_by_key,
 )
 
-logging.basicConfig()
-logging.getLogger().setLevel(logging.INFO)
 
-# module options might be a str like below
-#     community.general.ufw: port={{ item }} proto=tcp rule=allow
+yaml.SafeDumper.org_represent_str = yaml.SafeDumper.represent_str
+
+
+def repr_str(dumper, data):
+    if "\n" in data:
+        return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="|")
+    return dumper.org_represent_str(data)
+
+
+yaml.add_representer(str, repr_str, Dumper=yaml.SafeDumper)
 
 
 class PlaybookFormatError(Exception):
@@ -59,9 +66,12 @@ class JSONSerializable(object):
     def to_json(self):
         return jsonpickle.encode(self, make_refs=False)
 
-    def from_json(self, json_str):
+    @classmethod
+    def from_json(cls, json_str):
+        instance = cls()
         loaded = jsonpickle.decode(json_str)
-        self.__dict__.update(loaded.__dict__)
+        instance.__dict__.update(loaded.__dict__)
+        return instance
 
 
 class Resolvable(object):
@@ -107,6 +117,8 @@ class Load(JSONSerializable):
     target_type: str = ""
     path: str = ""
     loader_version: str = ""
+    playbook_yaml: str = ""
+    playbook_only: bool = False
     timestamp: str = ""
 
     # the following variables are list of paths; not object
@@ -140,24 +152,16 @@ class ObjectList(JSONSerializable):
     def to_one_line_json(self):
         return jsonpickle.encode(self.items, make_refs=False)
 
-    def from_json(self, json_str="", fpath=""):
+    @classmethod
+    def from_json(cls, json_str="", fpath=""):
+        instance = cls()
         if fpath != "":
             json_str = open(fpath, "r").read()
         lines = json_str.splitlines()
         items = [jsonpickle.decode(obj_str) for obj_str in lines]
-        self.items = items
-        self._update_dict()
-        # return copy.deepcopy(self)
-
-    # def from_json(cls, json_str="", fpath=""):
-    #     if fpath != "":
-    #         json_str = open(fpath, "r").read()
-    #     lines = json_str.splitlines()
-    #     items = [jsonpickle.decode(obj_str) for obj_str in lines]
-    #     objlist = ObjectList()
-    #     objlist.items = items
-    #     objlist._update_dict()
-    #     return objlist
+        instance.items = items
+        instance._update_dict()
+        return instance
 
     def add(self, obj, update_dict=True):
         self.items.append(obj)
@@ -238,6 +242,11 @@ class RunTargetType:
 class RunTarget(object):
     type: str = ""
 
+    def file_info(self):
+        file = self.spec.defined_in
+        lines = None
+        return file, lines
+
 
 @dataclass
 class RunTargetList(object):
@@ -264,6 +273,23 @@ class RunTargetList(object):
 
 
 @dataclass
+class ModuleArgument(object):
+    name: str = ""
+    type: str = None
+    default: any = None
+    required: bool = False
+    description: str = ""
+    choices: list = field(default_factory=list)
+    aliases: list = field(default_factory=list)
+
+    def available_keys(self):
+        keys = [self.name]
+        if self.aliases:
+            keys.extend(self.aliases)
+        return keys
+
+
+@dataclass
 class Module(Object, Resolvable):
     type: str = "module"
     name: str = ""
@@ -272,6 +298,8 @@ class Module(Object, Resolvable):
     local_key: str = ""
     collection: str = ""
     role: str = ""
+    documentation: str = ""
+    arguments: list = field(default_factory=list)
     defined_in: str = ""
     builtin: bool = False
     used_in: list = field(default_factory=list)  # resolved later
@@ -395,7 +423,7 @@ class VariableType(object):
     InventoryFileOrScriptHostVars = VariablePrecedence("inventory_file_or_script_host_vars", 8)
     InventoryHostVarsAny = VariablePrecedence("inventory_host_vars_any", 9)
     PlaybookHostVarsAny = VariablePrecedence("playbook_host_vars_any", 10)
-    HostFactsOrCachedSetFacts = VariablePrecedence("host_facts_or_cached_set_facts", 11)
+    HostFacts = VariablePrecedence("host_facts", 11)
     PlayVars = VariablePrecedence("play_vars", 12)
     PlayVarsPrompt = VariablePrecedence("play_vars_prompt", 13)
     PlayVarsFiles = VariablePrecedence("play_vars_files", 14)
@@ -416,18 +444,6 @@ class VariableType(object):
 
 
 immutable_var_types = [VariableType.LoopVars]
-
-var_type_table_label = [
-    VariableType.IncludeParams,
-    VariableType.RoleVars,
-    VariableType.RegisteredVars,
-    VariableType.SetFacts,
-    VariableType.IncludeVars,
-    VariableType.TaskVars,
-    VariableType.RoleVars,
-    VariableType.PlayVars,
-    VariableType.RoleDefaults,
-]
 
 
 @dataclass
@@ -452,18 +468,28 @@ class VariableDict(object):
     def print_table(data: dict):
         d = VariableDict(_dict=data)
         table = []
+        type_labels = []
+        found_type_label_names = []
+        for v_list in d._dict.values():
+            for v in v_list:
+                if v.type.name in found_type_label_names:
+                    continue
+                type_labels.append(v.type)
+                found_type_label_names.append(v.type.name)
+        type_labels = sorted(type_labels, key=lambda x: x.order, reverse=True)
+
         for v_name in d._dict:
             v_list = d._dict[v_name]
             row = {"NAME": v_name}
-            for p in var_type_table_label:
+            for t in type_labels:
                 value = "-"
                 for v in v_list:
-                    if v.type != p:
+                    if v.type != t:
                         continue
                     value = v.value
                     if isinstance(value, str) and value == "":
                         value = '""'
-                type_label = p.name.upper()
+                type_label = t.name.upper()
                 row[type_label] = value
             table.append(row)
         return tabulate(table, headers="keys")
@@ -501,10 +527,15 @@ class Arguments(object):
             return None
 
         _vars = []
+        sub_type = ArgumentsType.SIMPLE
         if isinstance(sub_raw, str):
             for v in self.vars:
                 if v.name in sub_raw:
                     _vars.append(v)
+        elif isinstance(sub_raw, list):
+            sub_type = ArgumentsType.LIST
+        elif isinstance(sub_raw, dict):
+            sub_type = ArgumentsType.DICT
         is_mutable = False
         for v in _vars:
             if v.is_mutable:
@@ -512,7 +543,7 @@ class Arguments(object):
                 break
 
         return Arguments(
-            type=ArgumentsType.SIMPLE,
+            type=sub_type,
             raw=sub_raw,
             vars=_vars,
             resolved=self.resolved,
@@ -784,6 +815,12 @@ def _convert_to_bool(a: any):
 
 @dataclass
 class Annotation(JSONSerializable):
+    key: str = ""
+    value: any = None
+
+    rule_id: str = ""
+
+    # TODO: avoid Annotation variants and remove `type`
     type: str = ""
 
 
@@ -1044,13 +1081,17 @@ class Task(Object, Resolvable):
     # candidates of resovled_name
     possible_candidates: list = field(default_factory=list)
 
-    def set_yaml_lines(self, fullpath="", task_name="", module_name="", module_options=None):
+    def set_yaml_lines(self, fullpath="", playbook_yaml="", task_name="", module_name="", module_options=None):
         if not module_name:
             return
         if not task_name and not module_options:
             return
         found_line_num = -1
-        lines = open(fullpath, "r").read().splitlines()
+        lines = []
+        if playbook_yaml:
+            lines = playbook_yaml.splitlines()
+        else:
+            lines = open(fullpath, "r").read().splitlines()
         for i, line in enumerate(lines):
             if task_name and task_name in line:
                 found_line_num = i
@@ -1129,6 +1170,18 @@ class Task(Object, Resolvable):
         self.line_num_in_file = [begin_line_num + 1, end_line_num + 1]
         return
 
+    def yaml(self):
+        task_data = {}
+        if self.name:
+            task_data["name"] = self.name
+        if self.module:
+            task_data[self.module] = self.module_options
+        for k, v in self.options.items():
+            if k == "name":
+                continue
+            task_data[k] = v
+        return yaml.safe_dump([task_data], sort_keys=False)
+
     def set_key(self, parent_key="", parent_local_key=""):
         set_task_key(self, parent_key, parent_local_key)
 
@@ -1178,6 +1231,88 @@ class Task(Object, Resolvable):
 
 
 @dataclass
+class MutableContent(object):
+    _yaml: str = ""
+    _task_spec: Task = None
+
+    @staticmethod
+    def from_task_spec(task_spec):
+        mc = MutableContent(
+            _yaml=task_spec.yaml_lines,
+            _task_spec=deepcopy(task_spec),
+        )
+        return mc
+
+    def omit_task_name(self):
+        # if `name` is None or empty string, Task.yaml() won't output the field
+        self._task_spec.name = None
+        self._yaml = self._task_spec.yaml()
+        return self
+
+    def set_module_name(self, module_name):
+        self._task_spec.module = module_name
+        self._yaml = self._task_spec.yaml()
+        return self
+
+    def replace_key(self, old_key: str, new_key: str):
+        if old_key in self._task_spec.options:
+            value = self._task_spec.options[old_key]
+            self._task_spec.options.pop(old_key)
+            self._task_spec.options[new_key] = value
+        self._yaml = self._task_spec.yaml()
+        return self
+
+    def replace_value(self, old_value: str, new_value: str):
+        for k, v in self._task_spec.options.items():
+            if type(v) != type(old_value):
+                continue
+            if v != old_value:
+                continue
+            self._task_spec.options[k] = new_value
+        self._yaml = self._task_spec.yaml()
+        return self
+
+    def remove_key(self, key):
+        if key in self._task_spec.options:
+            self._task_spec.options.pop(key)
+        self._yaml = self._task_spec.yaml()
+        return self
+
+    def set_new_module_arg_key(self, key, value):
+        self._task_spec.module_options[key] = value
+        self._yaml = self._task_spec.yaml()
+        return self
+
+    def remove_module_arg_key(self, key):
+        if key in self._task_spec.module_options:
+            self._task_spec.module_options.pop(key)
+        self._yaml = self._task_spec.yaml()
+        return self
+
+    def replace_module_arg_key(self, old_key: str, new_key: str):
+        if old_key in self._task_spec.module_options:
+            value = self._task_spec.module_options[old_key]
+            self._task_spec.module_options.pop(old_key)
+            self._task_spec.module_options[new_key] = value
+        self._yaml = self._task_spec.yaml()
+        return self
+
+    def replace_module_arg_value(self, key: str = "", old_value: any = None, new_value: any = None):
+        for k in self._task_spec.module_options:
+            # if `key` is specified, skip other keys
+            if key and k != key:
+                continue
+            value = self._task_spec.module_options[k]
+            if type(value) == type(old_value) and value == old_value:
+                self._task_spec.module_options[k] = new_value
+        self._yaml = self._task_spec.yaml()
+        return self
+
+    def yaml(self):
+        return self._yaml
+
+
+@dataclass
 class TaskCall(CallObject, RunTarget):
     type: str = "taskcall"
     # annotations are used for storing generic analysis data
@@ -1188,6 +1323,9 @@ class TaskCall(CallObject, RunTarget):
     variable_use: dict = field(default_factory=dict)
     become: BecomeInfo = None
 
+    module: Module = None
+    content: MutableContent = None
+
     def get_annotation_by_type(self, type_str=""):
         matched = [an for an in self.annotations if an.type == type_str]
         return matched
@@ -1196,13 +1334,40 @@ class TaskCall(CallObject, RunTarget):
         matched = [an for an in self.annotations if hasattr(an, "type") and an.type == type_str and getattr(an, key, None) == val]
         return matched
 
-    def has_annotation(self, cond: AnnotationCondition):
-        anno = self.get_annotation(cond)
+    def set_annotation(self, key: str, value: any, rule_id: str):
+        end_to_set = False
+        for an in self.annotations:
+            if not hasattr(an, "key"):
+                continue
+            if getattr(an, "key") == key:
+                setattr(an, "value", value)
+                end_to_set = True
+                break
+        if not end_to_set:
+            self.annotations.append(Annotation(key=key, value=value, rule_id=rule_id))
+        return
+
+    def get_annotation(self, key: str, __default: any = None, rule_id: str = ""):
+        value = __default
+        for an in self.annotations:
+            if not hasattr(an, "key"):
+                continue
+            if rule_id:
+                if hasattr(an, "rule_id"):
+                    if an.rule_id != rule_id:
+                        continue
+            if getattr(an, "key") == key:
+                value = getattr(an, "value", __default)
+                break
+        return value
+
+    def has_annotation_by_condition(self, cond: AnnotationCondition):
+        anno = self.get_annotation_by_condition(cond)
         if anno:
             return True
         return False
 
-    def get_annotation(self, cond: AnnotationCondition):
+    def get_annotation_by_condition(self, cond: AnnotationCondition):
         _annotations = self.annotations
         if cond.type:
             _annotations = [an for an in _annotations if an.type == RiskAnnotation.type and an.risk_type == cond.type]
@@ -1212,6 +1377,14 @@ class TaskCall(CallObject, RunTarget):
         if _annotations:
             return _annotations[0]
         return None
+
+    def file_info(self):
+        file = self.spec.defined_in
+        lines = "?"
+        if len(self.spec.line_number) == 2:
+            l_num = self.spec.line_number
+            lines = f"L{l_num[0]}-{l_num[1]}"
+        return file, lines
 
     @property
     def resolved_name(self):
@@ -1299,7 +1472,7 @@ class AnsibleRunContext(object):
         return AnsibleRunContext.from_targets(targets, root_key=self.root_key)
 
     def search(self, cond: AnnotationCondition):
-        targets = [t for t in self.sequence if t.type == RunTargetType.Task and t.has_annotation(cond)]
+        targets = [t for t in self.sequence if t.type == RunTargetType.Task and t.has_annotation_by_condition(cond)]
         return AnsibleRunContext.from_targets(targets, root_key=self.root_key)
 
     def is_end(self, target: RunTarget):
@@ -1512,6 +1685,8 @@ class Playbook(Object, Resolvable):
     key: str = ""
     local_key: str = ""
 
+    yaml_lines: str = ""
+
     role: str = ""
     collection: str = ""
 
@@ -1636,7 +1811,9 @@ def call_obj_from_spec(spec: Object, caller: CallObject):
     elif isinstance(spec, TaskFile):
         return TaskFileCall.from_spec(spec, caller)
     elif isinstance(spec, Task):
-        return TaskCall.from_spec(spec, caller)
+        taskcall = TaskCall.from_spec(spec, caller)
+        taskcall.content = MutableContent.from_task_spec(task_spec=spec)
+        return taskcall
     elif isinstance(spec, Module):
         return ModuleCall.from_spec(spec, caller)
     return None
@@ -1660,3 +1837,283 @@ class GalaxyArtifact(Repository):
     playbook_dict: dict = field(default_factory=dict)
     # make it easier to search a collection
     collection_dict: dict = field(default_factory=dict)
+
+
+# following ansible-lint severity levels
+class Severity:
+    VERY_HIGH = "very_high"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+    VERY_LOW = "very_low"
+    NONE = "none"
+
+
+_severity_level_mapping = {
+    Severity.VERY_HIGH: 5,
+    Severity.HIGH: 4,
+    Severity.MEDIUM: 3,
+    Severity.LOW: 2,
+    Severity.VERY_LOW: 1,
+    Severity.NONE: 0,
+}
+
+
+class RuleTag:
+    NETWORK = "network"
+    COMMAND = "command"
+    DEPENDENCY = "dependency"
+    SYSTEM = "system"
+    PACKAGE = "package"
+    CODING = "coding"
+    VARIABLE = "variable"
+    QUALITY = "quality"
+    DEBUG = "debug"
+
+
+@dataclass
+class RuleMetadata(object):
+    rule_id: str = ""
+    description: str = ""
+    name: str = ""
+
+    version: str = ""
+    severity: str = ""
+    tags: tuple = ()
+
+
+@dataclass
+class RuleResult(object):
+    rule: RuleMetadata = None
+
+    verdict: bool = False
+    detail: dict = None
+    file: tuple = None
+    error: str = None
+
+    matched: bool = False
+
+    def __post_init__(self):
+        if self.verdict:
+            self.verdict = True
+        else:
+            self.verdict = False
+
+    def set_value(self, key: str, value: any):
+        self.detail[key] = value
+
+    def get_detail(self):
+        return self.detail
+
+
+@dataclass
+class Rule(RuleMetadata):
+    enabled: bool = False
+    # `precedence` represents the order of the rule evaluation.
+    # A rule with a lower number will be evaluated earlier than others.
+    precedence: int = 10
+
+    def __post_init__(self, rule_id: str = "", description: str = ""):
+        if rule_id:
+            self.rule_id = rule_id
+        if description:
+            self.description = description
+
+        if not self.rule_id:
+            raise ValueError("A rule must have a unique rule_id")
+
+        if not self.description:
+            raise ValueError("A rule must have a description")
+
+    def match(self, ctx: AnsibleRunContext) -> bool:
+        raise ValueError("this is a base class method")
+
+    def process(self, ctx: AnsibleRunContext):
+        raise ValueError("this is a base class method")
+
+    def print(self, result: RuleResult):
+        output = f"ruleID={self.rule_id}, severity={self.severity}, description={self.description}, result={result.verdict}"
+
+        if result.file:
+            output += f", file={result.file}"
+        if result.detail:
+            output += f", detail={result.detail}"
+        return output
+
+    def to_json(self, result: RuleResult):
+        return json.dumps(result.detail)
+
+    def error(self, result: RuleResult):
+        if result.error:
+            return result.error
+        return None
+
+    def get_metadata(self):
+        return RuleMetadata(
+            rule_id=self.rule_id,
+            description=self.description,
+            name=self.name,
+            version=self.version,
+            severity=self.severity,
+            tags=self.tags,
+        )
+
+
+@dataclass
+class NodeResult(JSONSerializable):
+    node: RunTarget = None
+    rules: List[RuleResult] = field(default_factory=list)
+
+    def results(self):
+        return self.rules
+
+    def find_result(self, rule_id: str):
+        filtered = [r for r in self.rules if r.rule.rule_id == rule_id]
+        if not filtered:
+            return None
+        return filtered[0]
+
+    def search_results(
+        self,
+        rule_id: Union[str, list] = None,
+        tag: Union[str, list] = None,
+        matched: bool = None,
+        verdict: bool = None,
+    ):
+        if not rule_id and not tag:
+            return self.rules
+
+        filtered = self.rules
+        if rule_id:
+            target_rule_ids = []
+            if isinstance(rule_id, str):
+                target_rule_ids = [rule_id]
+            elif isinstance(rule_id, list):
+                target_rule_ids = rule_id
+            filtered = [r for r in filtered if r.rule.rule_id in target_rule_ids]
+
+        if tag:
+            target_tags = []
+            if isinstance(tag, str):
+                target_tags = [tag]
+            elif isinstance(tag, list):
+                target_tags = tag
+            filtered = [r for r in filtered for t in r.rule.tags if t in target_tags]
+
+        if matched is not None:
+            filtered = [r for r in filtered if r.matched == matched]
+
+        if verdict is not None:
+            filtered = [r for r in filtered if r.verdict == verdict]
+
+        return filtered
+
+
+@dataclass
+class TargetResult(JSONSerializable):
+    target_type: str = ""  # playbook or role
+    target_name: str = ""
+    nodes: List[NodeResult] = field(default_factory=list)
+
+    def applied_rules(self):
+        results = []
+        for n in self.nodes:
+            matched_rules = n.search_results(matched=True)
+            if matched_rules:
+                results.extend()
+        return results
+
+    def matched_rules(self):
+        results = []
+        for n in self.nodes:
+            matched_rules = n.search_results(verdict=True)
+            if matched_rules:
+                results.extend()
+        return results
+
+    def tasks(self):
+        return self._filter(TaskCall)
+
+    def task(self, name):
+        return self._find_by_name(name)
+
+    def roles(self):
+        return self._filter(RoleCall)
+
+    def role(self, name):
+        return self._find_by_name(name)
+
+    def playbooks(self):
+        return self._filter(PlaybookCall)
+
+    def playbook(self, name):
+        return self._find_by_name(name)
+
+    def plays(self):
+        return self._filter(PlayCall)
+
+    def play(self, name):
+        return self._find_by_name(name)
+
+    def taskfiles(self):
+        return self._filter(TaskFileCall)
+
+    def taskfile(self, name):
+        return self._find_by_name(name)
+
+    def _find_by_name(self, name):
+        filtered_nodes = [nr for nr in self.nodes if nr.node.spec.name == name]
+        if not filtered_nodes:
+            return None
+        return filtered_nodes[0]
+
+    def _filter(self, type):
+        filtered_nodes = [nr for nr in self.nodes if isinstance(nr.node, type)]
+        return TargetResult(target_type=self.target_type, target_name=self.target_name, nodes=filtered_nodes)
+
+
+@dataclass
+class ARIResult(JSONSerializable):
+    targets: List[TargetResult] = field(default_factory=list)
+
+    def playbooks(self):
+        return self._filter("playbook")
+
+    def playbook(self, name="", path="", yaml_str=""):
+        if name:
+            return self._find_by_name(name)
+
+        # TODO: use path correctly
+        if path:
+            name = os.path.basename(path)
+            return self._find_by_name(name)
+
+        if yaml_str:
+            return self._find_by_yaml_str(yaml_str)
+
+        return None
+
+    def roles(self):
+        return self._filter("role")
+
+    def role(self, name):
+        return self._find_by_name(name)
+
+    def _find_by_name(self, name):
+        filtered_targets = [tr for tr in self.targets if tr.target_name == name]
+        if not filtered_targets:
+            return None
+        return filtered_targets[0]
+
+    def _find_by_yaml_str(self, yaml_str):
+        playbook_only_result = self._filter("playbook")
+        if not playbook_only_result:
+            return None
+        filtered_targets = [tr for tr in playbook_only_result.targets if tr.nodes and tr.nodes[0].node.spec.yaml_lines == yaml_str]
+        if not filtered_targets:
+            return None
+        return filtered_targets[0]
+
+    def _filter(self, type_str):
+        filtered_targets = [tr for tr in self.targets if tr.target_type == type_str]
+        return ARIResult(targets=filtered_targets)

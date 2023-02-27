@@ -25,11 +25,24 @@ class RiskAssessmentModelGenerator(object):
     _resume: int = -1
     _update: bool = False
 
-    def __init__(self, target_list=[], resume=-1, update=False, parallel=True):
+    def __init__(self, target_list=[], resume=-1, update=False, parallel=True, download_only=False, no_module_spec=False):
         self._queue = target_list
         self._resume = resume
         self._update = update
         self._parallel = parallel
+        self._download_only = download_only
+        self._no_module_spec = no_module_spec
+
+        use_ansible_doc = True
+        if self._no_module_spec:
+            use_ansible_doc = False
+
+        self._scanner = ARIScanner(
+            root_dir=config.data_dir,
+            silent=True,
+            use_ansible_doc=use_ansible_doc,
+            read_ram=False,
+        )
 
     def run(self):
         num = len(self._queue)
@@ -61,15 +74,14 @@ class RiskAssessmentModelGenerator(object):
             # disable dependency cache when update mode to avoid using the old src
             use_src_cache = False
         try:
-            s = ARIScanner(
+
+            self._scanner.evaluate(
                 type=type,
                 name=name,
-                root_dir=config.data_dir,
-                silent=True,
+                install_dependencies=True,
+                download_only=self._download_only,
                 use_src_cache=use_src_cache,
             )
-            s.prepare_dependencies()
-            s.load()
         except Exception:
             error = traceback.format_exc()
-            s.save_error(error)
+            self._scanner.save_error(error)

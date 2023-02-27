@@ -15,14 +15,16 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from ansible_risk_insight.models import DefaultRiskType as RiskType
-from ansible_risk_insight.models import AnsibleRunContext, RunTargetType, AnnotationCondition
-from ansible_risk_insight.rules.base import Rule, Severity, Tag, RuleResult
-
-
-@dataclass
-class FileChangeResult(RuleResult):
-    pass
+from ansible_risk_insight.models import (
+    AnsibleRunContext,
+    RunTargetType,
+    DefaultRiskType as RiskType,
+    AnnotationCondition,
+    Rule,
+    Severity,
+    RuleTag as Tag,
+    RuleResult,
+)
 
 
 @dataclass
@@ -33,30 +35,28 @@ class FileChangeRule(Rule):
     name: str = "ConfigChange"
     version: str = "v0.0.1"
     severity: Severity = Severity.LOW
-    tags: tuple = (Tag.SYSTEM)
-    result_type: type = FileChangeResult
+    tags: tuple = Tag.SYSTEM
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
 
-    def check(self, ctx: AnsibleRunContext):
+    def process(self, ctx: AnsibleRunContext):
         task = ctx.current
 
         ac = AnnotationCondition().risk_type(RiskType.FILE_CHANGE).attr("is_mutable_path", True)
         ac2 = AnnotationCondition().risk_type(RiskType.FILE_CHANGE).attr("is_mutable_src", True)
-        result = False
+        verdict = False
         detail = {}
-        if task.has_annotation(ac):
-            result = True
-            anno = task.get_annotation(ac)
+        if task.has_annotation_by_condition(ac):
+            verdict = True
+            anno = task.get_annotation_by_condition(ac)
             if anno:
                 detail["path"] = anno.path.value
 
-        if task.has_annotation(ac2):
-            result = True
-            anno = task.get_annotation(ac2)
+        if task.has_annotation_by_condition(ac2):
+            verdict = True
+            anno = task.get_annotation_by_condition(ac2)
             if anno:
                 detail["src"] = anno.src.value
 
-        rule_result = self.create_result(result=result, detail=detail, task=task)
-        return rule_result
+        return RuleResult(verdict=verdict, detail=detail, file=task.file_info(), rule=self.get_metadata())

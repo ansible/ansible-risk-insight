@@ -16,8 +16,15 @@
 
 from dataclasses import dataclass
 
-from ansible_risk_insight.models import AnsibleRunContext, RunTargetType, ExecutableType as ActionType
-from ansible_risk_insight.rules.base import Rule, Severity, Tag
+from ansible_risk_insight.models import (
+    AnsibleRunContext,
+    RunTargetType,
+    ExecutableType as ActionType,
+    Rule,
+    Severity,
+    RuleTag as Tag,
+    RuleResult,
+)
 
 
 @dataclass
@@ -27,13 +34,13 @@ class UnnecessarySetFactRule(Rule):
     enabled: bool = True
     name: str = "UnnecessarySetFact"
     version: str = "v0.0.1"
-    severity: Severity = Severity.LOW
-    tags: tuple = (Tag.VARIABLE)
+    severity: Severity = Severity.VERY_LOW
+    tags: tuple = Tag.VARIABLE
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
 
-    def check(self, ctx: AnsibleRunContext):
+    def process(self, ctx: AnsibleRunContext):
         task = ctx.current
 
         args = task.args.raw
@@ -49,9 +56,8 @@ class UnnecessarySetFactRule(Rule):
                     current = detail.get("impure_args", [])
                     detail["impure_args"] = current.append(v)
 
-        result = (
+        verdict = (
             task.action_type == ActionType.MODULE_TYPE and task.resolved_action and task.resolved_action == "ansible.builtin.set_fact" and is_impure
         )
 
-        rule_result = self.create_result(result=result, detail=detail, task=task)
-        return rule_result
+        return RuleResult(verdict=verdict, detail=detail, file=task.file_info(), rule=self.get_metadata())

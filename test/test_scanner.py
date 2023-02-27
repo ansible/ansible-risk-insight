@@ -57,10 +57,11 @@ def test_scanner_with_role(type, name):
 
 def _scan(type, name):
     s = ARIScanner(
+        root_dir=config.data_dir,
+        use_ansible_doc=False,
+    )
+    s.evaluate(
         type=type,
         name=name,
-        root_dir=config.data_dir,
     )
-    s.prepare_dependencies()
-    s.load()
-    return s
+    return s.get_last_scandata()

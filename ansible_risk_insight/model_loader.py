@@ -16,10 +16,12 @@
 
 import datetime
 import json
-import logging
 import os
 import re
 import yaml
+from ansible.module_utils.parsing.convert_bool import boolean
+
+import ansible_risk_insight.logger as logger
 from .safe_glob import safe_glob
 from .models import (
     ExecutableType,
@@ -32,12 +34,14 @@ from .models import (
     Repository,
     Role,
     Module,
+    ModuleArgument,
     RoleInPlay,
     Task,
     TaskFile,
     TaskFormatError,
     Collection,
     BecomeInfo,
+    ObjectList,
 )
 from .finder import (
     find_best_repo_root_path,
@@ -52,6 +56,9 @@ from .finder import (
 )
 from .utils import (
     split_target_playbook_fullpath,
+    get_module_documentations_by_ansible_doc,
+    get_documentation_in_module_file,
+    get_class_by_arg_type,
 )
 from .awx_utils import could_be_playbook
 
@@ -85,6 +92,9 @@ def load_repository(
     my_collection_name="",
     basedir="",
     target_playbook_path="",
+    use_ansible_doc=True,
+    skip_playbook_format_error=True,
+    skip_task_format_error=True,
     load_children=True,
 ):
     repoObj = Repository()
@@ -98,7 +108,7 @@ def load_repository(
         try:
             repo_path = find_best_repo_root_path(path)
         except Exception:
-            logging.debug('failed to find a root directory for ansible files; use "{}"' " but this may be wrong".format(path))
+            logger.debug('failed to find a root directory for ansible files; use "{}"' " but this may be wrong".format(path))
         if repo_path == "":
             repo_path = path
 
@@ -111,34 +121,35 @@ def load_repository(
     if basedir == "":
         basedir = path
 
-    logging.debug("start loading the repo {}".format(repo_path))
-    logging.debug("start loading playbooks")
+    logger.debug("start loading the repo {}".format(repo_path))
+    logger.debug("start loading playbooks")
     repoObj.playbooks = load_playbooks(repo_path, basedir=basedir, load_children=load_children)
-    logging.debug("done ... {} playbooks loaded".format(len(repoObj.playbooks)))
-    logging.debug("start loading roles")
-    repoObj.roles = load_roles(repo_path, basedir=basedir, load_children=load_children)
-    logging.debug("done ... {} roles loaded".format(len(repoObj.roles)))
-    logging.debug("start loading modules (that are defined in this repository)")
+    logger.debug("done ... {} playbooks loaded".format(len(repoObj.playbooks)))
+    logger.debug("start loading roles")
+    repoObj.roles = load_roles(repo_path, basedir=basedir, use_ansible_doc=use_ansible_doc, load_children=load_children)
+    logger.debug("done ... {} roles loaded".format(len(repoObj.roles)))
+    logger.debug("start loading modules (that are defined in this repository)")
     repoObj.modules = load_modules(
         repo_path,
         basedir=basedir,
         collection_name=repoObj.my_collection_name,
+        use_ansible_doc=use_ansible_doc,
         load_children=load_children,
     )
-    logging.debug("done ... {} modules loaded".format(len(repoObj.modules)))
-    logging.debug("start loading taskfiles (that are defined for playbooks in this" " repository)")
+    logger.debug("done ... {} modules loaded".format(len(repoObj.modules)))
+    logger.debug("start loading taskfiles (that are defined for playbooks in this" " repository)")
     repoObj.taskfiles = load_taskfiles(repo_path, basedir=basedir, load_children=load_children)
-    logging.debug("done ... {} task files loaded".format(len(repoObj.taskfiles)))
-    logging.debug("start loading inventory files")
+    logger.debug("done ... {} task files loaded".format(len(repoObj.taskfiles)))
+    logger.debug("start loading inventory files")
     repoObj.inventories = load_inventories(repo_path, basedir=basedir)
-    logging.debug("done ... {} inventory files loaded".format(len(repoObj.inventories)))
-    logging.debug("start loading installed collections")
+    logger.debug("done ... {} inventory files loaded".format(len(repoObj.inventories)))
+    logger.debug("start loading installed collections")
     repoObj.installed_collections = load_installed_collections(installed_collections_path)
 
-    logging.debug("done ... {} collections loaded".format(len(repoObj.installed_collections)))
-    logging.debug("start loading installed roles")
+    logger.debug("done ... {} collections loaded".format(len(repoObj.installed_collections)))
+    logger.debug("start loading installed roles")
     repoObj.installed_roles = load_installed_roles(installed_roles_path)
-    logging.debug("done ... {} roles loaded".format(len(repoObj.installed_roles)))
+    logger.debug("done ... {} roles loaded".format(len(repoObj.installed_roles)))
     repoObj.requirements = load_requirements(path=repo_path)
     name = os.path.basename(path)
     repoObj.name = name
@@ -150,7 +161,7 @@ def load_repository(
     repoObj.installed_collections_path = installed_collections_path
     repoObj.installed_roles_path = installed_roles_path
     repoObj.target_playbook_path = target_playbook_path
-    logging.debug("done")
+    logger.debug("done")
 
     return repoObj
 
@@ -176,7 +187,7 @@ def load_installed_collections(installed_collections_path):
                 c = load_collection(collection_dir=collection_path, basedir=basedir)
                 collections.append(c)
             except Exception:
-                logging.exception("error while loading the collection at {}".format(collection_path))
+                logger.exception("error while loading the collection at {}".format(collection_path))
     return collections
 
 
@@ -221,13 +232,13 @@ def load_inventory(path, basedir=""):
             try:
                 data = yaml.safe_load(file)
             except Exception as e:
-                logging.debug("failed to load this yaml file (inventory); {}".format(e.args[0]))
+                logger.debug("failed to load this yaml file (inventory); {}".format(e.args[0]))
     elif file_ext == ".json":
         with open(fullpath, "r") as file:
             try:
                 data = json.load(file)
             except Exception as e:
-                logging.debug("failed to load this json file (inventory); {}".format(e.args[0]))
+                logger.debug("failed to load this json file (inventory); {}".format(e.args[0]))
     invObj.variables = data
     return invObj
 
@@ -244,7 +255,7 @@ def load_inventories(path, basedir=""):
                 iv = load_inventory(inventory_path, basedir=basedir)
                 inventories.append(iv)
             except Exception:
-                logging.exception("error while loading the inventory file at {}".format(inventory_path))
+                logger.exception("error while loading the inventory file at {}".format(inventory_path))
     return inventories
 
 
@@ -256,7 +267,9 @@ def load_play(
     collection_name="",
     parent_key="",
     parent_local_key="",
+    playbook_yaml="",
     basedir="",
+    skip_task_format_error=True,
 ):
     pbObj = Play()
     if play_block_dict is None:
@@ -307,14 +320,18 @@ def load_play(
                         play_index=index,
                         parent_key=pbObj.key,
                         parent_local_key=pbObj.local_key,
+                        playbook_yaml=playbook_yaml,
                         basedir=basedir,
                     )
                     pre_tasks.append(t)
                 except TaskFormatError:
-                    logging.debug("this task is wrong format; skip the task in {}," " index: {}".format(path, i))
-                    continue
+                    if skip_task_format_error:
+                        logger.debug("this task is wrong format; skip the task in {}," " index: {}; skip this".format(path, i))
+                        continue
+                    else:
+                        raise TaskFormatError(f"this task is wrong format; skip the task in {path}," " index: {i}")
                 except Exception:
-                    logging.exception("error while loading the task at {} (index={})".format(path, i))
+                    logger.exception("error while loading the task at {} (index={})".format(path, i))
         elif k == "tasks":
             if not isinstance(v, list):
                 continue
@@ -334,14 +351,18 @@ def load_play(
                         play_index=index,
                         parent_key=pbObj.key,
                         parent_local_key=pbObj.local_key,
+                        playbook_yaml=playbook_yaml,
                         basedir=basedir,
                     )
                     tasks.append(t)
                 except TaskFormatError:
-                    logging.debug("this task is wrong format; skip the task in {}," " index: {}".format(path, i))
-                    continue
+                    if skip_task_format_error:
+                        logger.debug("this task is wrong format; skip the task in {}," " index: {}; skip this".format(path, i))
+                        continue
+                    else:
+                        raise TaskFormatError(f"this task is wrong format; skip the task in {path}," " index: {i}")
                 except Exception:
-                    logging.exception("error while loading the task at {} (index={})".format(path, i))
+                    logger.exception("error while loading the task at {} (index={})".format(path, i))
         elif k == "post_tasks":
             if not isinstance(v, list):
                 continue
@@ -361,14 +382,18 @@ def load_play(
                         play_index=index,
                         parent_key=pbObj.key,
                         parent_local_key=pbObj.local_key,
+                        playbook_yaml=playbook_yaml,
                         basedir=basedir,
                     )
                     post_tasks.append(t)
                 except TaskFormatError:
-                    logging.debug("this task is wrong format; skip the task in {}," " index: {}".format(path, i))
-                    continue
+                    if skip_task_format_error:
+                        logger.debug("this task is wrong format; skip the task in {}," " index: {}; skip this".format(path, i))
+                        continue
+                    else:
+                        raise TaskFormatError(f"this task is wrong format; skip the task in {path}," " index: {i}")
                 except Exception:
-                    logging.exception("error while loading the task at {} (index={})".format(path, i))
+                    logger.exception("error while loading the task at {} (index={})".format(path, i))
         elif k == "roles":
             if not isinstance(v, list):
                 continue
@@ -392,11 +417,12 @@ def load_play(
                         role_name=role_name,
                         collection_name=collection_name,
                         collections_in_play=collections_in_play,
+                        playbook_yaml=playbook_yaml,
                         basedir=basedir,
                     )
                     roles.append(rip)
                 except Exception:
-                    logging.exception("error while loading the role in playbook at {}" " (play_index={}, role_index={})".format(path, pbObj.index, i))
+                    logger.exception("error while loading the role in playbook at {}" " (play_index={}, role_index={})".format(path, pbObj.index, i))
         elif k == "import_playbook":
             if not isinstance(v, str):
                 continue
@@ -434,6 +460,7 @@ def load_roleinplay(
     role_name="",
     collection_name="",
     collections_in_play=[],
+    playbook_yaml="",
     basedir="",
 ):
     ripObj = RoleInPlay()
@@ -458,15 +485,18 @@ def load_roleinplay(
     return ripObj
 
 
-def load_playbook(path, role_name="", collection_name="", basedir=""):
+def load_playbook(path="", yaml_str="", role_name="", collection_name="", basedir="", skip_playbook_format_error=True, skip_task_format_error=True):
     pbObj = Playbook()
     fullpath = ""
-    if os.path.exists(path) and path != "" and path != ".":
+    if yaml_str:
         fullpath = path
-    if os.path.exists(os.path.join(basedir, path)):
-        fullpath = os.path.normpath(os.path.join(basedir, path))
-    if fullpath == "":
-        raise ValueError("file not found")
+    else:
+        if os.path.exists(path) and path != "" and path != ".":
+            fullpath = path
+        if os.path.exists(os.path.join(basedir, path)):
+            fullpath = os.path.normpath(os.path.join(basedir, path))
+        if fullpath == "":
+            raise ValueError("file not found")
     defined_in = fullpath
     if basedir != "":
         if defined_in.startswith(basedir):
@@ -478,17 +508,34 @@ def load_playbook(path, role_name="", collection_name="", basedir=""):
     pbObj.role = role_name
     pbObj.collection = collection_name
     pbObj.set_key()
+    yaml_lines = ""
     data = None
-    if fullpath != "":
+    if yaml_str:
+        try:
+            yaml_lines = yaml_str
+            data = yaml.safe_load(yaml_lines)
+        except Exception as e:
+            if skip_playbook_format_error:
+                logger.debug(f"failed to load this yaml string to load playbook, skip this yaml; {e}")
+            else:
+                raise PlaybookFormatError(f"failed to load this yaml string to load playbook; {e}")
+    elif fullpath != "":
         with open(fullpath, "r") as file:
             try:
-                data = yaml.safe_load(file)
+                yaml_lines = file.read()
+                data = yaml.safe_load(yaml_lines)
             except Exception as e:
-                logging.debug(f"failed to load this yaml file to load playbook; {e}")
+                if skip_playbook_format_error:
+                    logger.debug(f"failed to load this yaml file to load playbook, skip this yaml; {e}")
+                else:
+                    raise PlaybookFormatError(f"failed to load this yaml file to load playbook; {e}")
     if data is None:
         return pbObj
     if not isinstance(data, list):
         raise PlaybookFormatError("playbook must be loaded as a list, but got {}".format(type(data).__name__))
+
+    if yaml_lines:
+        pbObj.yaml_lines = yaml_lines
 
     plays = []
     for i, play_dict in enumerate(data):
@@ -501,20 +548,24 @@ def load_playbook(path, role_name="", collection_name="", basedir=""):
                 collection_name=collection_name,
                 parent_key=pbObj.key,
                 parent_local_key=pbObj.local_key,
+                playbook_yaml=yaml_str,
                 basedir=basedir,
+                skip_task_format_error=skip_task_format_error,
             )
             plays.append(play)
         except PlaybookFormatError:
-            logging.debug("this play is wrong format; skip the play in {}, index: {}".format(fullpath, i))
-            continue
+            if skip_playbook_format_error:
+                logger.debug("this play is wrong format; skip the play in {}, index: {}, skip this play".format(fullpath, i))
+            else:
+                raise PlaybookFormatError(f"this play is wrong format; skip the play in {fullpath}, index: {i}")
         except Exception:
-            logging.exception("error while loading the play at {} (index={})".format(fullpath, i))
+            logger.exception("error while loading the play at {} (index={})".format(fullpath, i))
     pbObj.plays = plays
 
     return pbObj
 
 
-def load_playbooks(path, basedir="", load_children=True):
+def load_playbooks(path, basedir="", skip_playbook_format_error=True, skip_task_format_error=True, load_children=True):
     if path == "":
         return []
     patterns = [
@@ -532,12 +583,20 @@ def load_playbooks(path, basedir="", load_children=True):
                 continue
             p = None
             try:
-                p = load_playbook(fpath, basedir=basedir)
+                p = load_playbook(
+                    path=fpath,
+                    basedir=basedir,
+                    skip_playbook_format_error=skip_playbook_format_error,
+                    skip_task_format_error=skip_task_format_error,
+                )
             except PlaybookFormatError as e:
-                logging.debug("this file is not in a playbook format, maybe not a" " playbook file: {}".format(e.args[0]))
-                continue
+                if skip_playbook_format_error:
+                    logger.debug("this file is not in a playbook format, maybe not a playbook file, skip this: {}".format(e.args[0]))
+                    continue
+                else:
+                    raise PlaybookFormatError(f"this file is not in a playbook format, maybe not a playbook file: {e.args[0]}")
             except Exception:
-                logging.exception("error while loading the playbook at {}".format(fpath))
+                logger.exception("error while loading the playbook at {}".format(fpath))
             if load_children:
                 playbooks.append(p)
                 playbook_names.append(p.defined_in)
@@ -555,6 +614,9 @@ def load_role(
     collection_name="",
     module_dir_paths=[],
     basedir="",
+    use_ansible_doc=True,
+    skip_playbook_format_error=True,
+    skip_task_format_error=True,
     load_children=True,
 ):
     roleObj = Role()
@@ -583,7 +645,7 @@ def load_role(
             try:
                 roleObj.metadata = yaml.safe_load(file)
             except Exception as e:
-                logging.debug("failed to load this yaml file to raed metadata; {}".format(e.args[0]))
+                logger.debug("failed to load this yaml file to raed metadata; {}".format(e.args[0]))
 
             if roleObj.metadata is not None and isinstance(roleObj.metadata, dict):
                 roleObj.dependency["roles"] = roleObj.metadata.get("dependencies", [])
@@ -595,7 +657,7 @@ def load_role(
             try:
                 roleObj.requirements = yaml.safe_load(file)
             except Exception as e:
-                logging.debug("failed to load requirements.yml; {}".format(e.args[0]))
+                logger.debug("failed to load requirements.yml; {}".format(e.args[0]))
 
     parts = tasks_dir_path.split("/")
     if len(parts) < 2:
@@ -629,12 +691,17 @@ def load_role(
                     role_name=role_name,
                     collection_name=collection_name,
                     basedir=basedir,
+                    skip_playbook_format_error=skip_playbook_format_error,
+                    skip_task_format_error=skip_task_format_error,
                 )
             except PlaybookFormatError as e:
-                logging.debug("this file is not in a playbook format, maybe not a" " playbook file: {}".format(e.args[0]))
-                continue
+                if skip_playbook_format_error:
+                    logger.debug("this file is not in a playbook format, maybe not a playbook file, skip this: {}".format(e.args[0]))
+                    continue
+                else:
+                    raise PlaybookFormatError(f"this file is not in a playbook format, maybe not a playbook file: {e.args[0]}")
             except Exception:
-                logging.exception("error while loading the playbook at {}".format(f))
+                logger.exception("error while loading the playbook at {}".format(f))
             if load_children:
                 playbooks.append(p)
             else:
@@ -660,7 +727,7 @@ def load_role(
                         continue
                     default_variables.update(vars_in_yaml)
                 except Exception as e:
-                    logging.debug("failed to load this yaml file to raed default" " variables; {}".format(e.args[0]))
+                    logger.debug("failed to load this yaml file to raed default" " variables; {}".format(e.args[0]))
         roleObj.default_variables = default_variables
 
     if os.path.exists(vars_dir_path):
@@ -677,11 +744,23 @@ def load_role(
                         continue
                     variables.update(vars_in_yaml)
                 except Exception as e:
-                    logging.debug("failed to load this yaml file to raed variables; {}".format(e.args[0]))
+                    logger.debug("failed to load this yaml file to raed variables; {}".format(e.args[0]))
         roleObj.variables = variables
 
     modules = []
     module_files = search_module_files(fullpath, module_dir_paths)
+
+    if not load_children:
+        use_ansible_doc = False
+
+    module_docs = {}
+    if use_ansible_doc:
+        module_docs = get_module_documentations_by_ansible_doc(
+            module_files=module_files,
+            fqcn_prefix=collection_name,
+            search_path=fullpath,
+        )
+
     for module_file_path in module_files:
         m = None
         try:
@@ -690,9 +769,11 @@ def load_role(
                 collection_name=collection_name,
                 role_name=fqcn,
                 basedir=basedir,
+                use_ansible_doc=use_ansible_doc,
+                module_docs=module_docs,
             )
         except Exception:
-            logging.exception("error while loading the module at {}".format(module_file_path))
+            logger.exception("error while loading the module at {}".format(module_file_path))
         if load_children:
             modules.append(m)
         else:
@@ -727,9 +808,15 @@ def load_role(
                 role_name=fqcn,
                 collection_name=collection_name,
                 basedir=basedir,
+                skip_task_format_error=skip_task_format_error,
             )
+        except TaskFormatError as e:
+            if skip_task_format_error:
+                logger.debug(f"Task format error found; skip this taskfile {task_yaml_path}")
+            else:
+                raise TaskFormatError(f"Task format error found: {e.args[0]}")
         except Exception:
-            logging.exception("error while loading the task file at {}".format(task_yaml_path))
+            logger.exception("error while loading the task file at {}".format(task_yaml_path))
         if load_children:
             taskfiles.append(tf)
         else:
@@ -741,7 +828,8 @@ def load_role(
     return roleObj
 
 
-def load_roles(path, basedir="", load_children=True):
+def load_roles(path, basedir="", use_ansible_doc=True, skip_playbook_format_error=True, skip_task_format_error=True, load_children=True):
+
     if path == "":
         return []
     roles_patterns = ["roles", "playbooks/roles", "playbook/roles"]
@@ -758,9 +846,15 @@ def load_roles(path, basedir="", load_children=True):
     for dir_name in dirs:
         role_dir = os.path.join(roles_dir_path, dir_name)
         try:
-            r = load_role(role_dir, basedir=basedir)
+            r = load_role(
+                role_dir,
+                basedir=basedir,
+                use_ansible_doc=use_ansible_doc,
+                skip_playbook_format_error=skip_playbook_format_error,
+                skip_task_format_error=skip_task_format_error,
+            )
         except Exception:
-            logging.exception("error while loading the role at {}".format(role_dir))
+            logger.exception("error while loading the role at {}".format(role_dir))
         if load_children:
             roles.append(r)
         else:
@@ -778,7 +872,7 @@ def load_requirements(path):
             try:
                 requirements = yaml.safe_load(file)
             except Exception as e:
-                logging.debug("failed to load requirements.yml; {}".format(e.args[0]))
+                logger.debug("failed to load requirements.yml; {}".format(e.args[0]))
     return requirements
 
 
@@ -812,14 +906,22 @@ def load_installed_roles(installed_roles_path):
                 )
                 roles.append(r)
             except Exception:
-                logging.exception("error while loading the role at {}".format(role_dir_path))
+                logger.exception("error while loading the role at {}".format(role_dir_path))
     return roles
 
 
-def load_module(module_file_path, collection_name="", role_name="", basedir=""):
+def load_module(module_file_path, collection_name="", role_name="", basedir="", use_ansible_doc=True, module_docs={}):
     moduleObj = Module()
     if module_file_path == "":
         raise ValueError("require module file path to load a Module")
+    fullpath = ""
+    if os.path.exists(module_file_path) and module_file_path != "" and module_file_path != ".":
+        fullpath = module_file_path
+    if os.path.exists(os.path.join(basedir, module_file_path)):
+        fullpath = os.path.normpath(os.path.join(basedir, module_file_path))
+    if fullpath == "":
+        raise ValueError(f"module file not found: {module_file_path}, {basedir}")
+
     file_name = os.path.basename(module_file_path)
     module_name = file_name.replace(".py", "")
 
@@ -846,24 +948,84 @@ def load_module(module_file_path, collection_name="", role_name="", basedir=""):
             if defined_in.startswith("/"):
                 defined_in = defined_in[1:]
     moduleObj.defined_in = defined_in
+
+    arguments = []
+    doc_yaml = ""
+    if use_ansible_doc:
+        # running `ansible-doc` for each module causes speed problem due to overhead,
+        # so use it for all modules and pick up the doc for the module here
+        if module_docs:
+            doc_yaml = module_docs.get(moduleObj.fqcn, "")
+    else:
+        # parse the script file for a quick scan (this does not contain doc from `doc_fragments`)
+        doc_yaml = get_documentation_in_module_file(fullpath)
+    if doc_yaml:
+        doc_dict = {}
+        try:
+            doc_dict = yaml.safe_load(doc_yaml)
+        except Exception:
+            logger.debug(f"failed to load the arguments documentation of the module: {module_name}")
+        arg_specs = doc_dict.get("options", {})
+        for arg_name in arg_specs:
+            arg_spec = arg_specs[arg_name]
+            arg_value_type = get_class_by_arg_type(arg_spec.get("type", None))
+            arg_value_type_str = ""
+            if arg_value_type:
+                arg_value_type_str = arg_value_type.__name__
+            arg = ModuleArgument(
+                name=arg_name,
+                type=arg_value_type_str,
+                required=boolean(arg_spec.get("required", "false")),
+                description=arg_spec.get("description", ""),
+                default=arg_spec.get("default", None),
+                choices=arg_spec.get("choices", None),
+                aliases=arg_spec.get("aliases", None),
+            )
+            arguments.append(arg)
+    moduleObj.documentation = doc_yaml
+    moduleObj.arguments = arguments
+
     moduleObj.set_key()
 
     return moduleObj
+
+
+builtin_modules_file_name = "ansible_builtin_modules.json"
+
+
+def load_builtin_modules():
+    base_path = os.path.dirname(__file__)
+    data_path = os.path.join(base_path, builtin_modules_file_name)
+    module_list = ObjectList.from_json(fpath=data_path)
+    module_dict = {m.name: m for m in module_list.items}
+    return module_dict
 
 
 # modules in a SCM repo should be in `library` dir in the best practice case
 # https://docs.ansible.com/ansible/2.8/user_guide/playbooks_best_practices.html
 # however, it is often defined in `plugins/modules` directory,
 # so we search both the directories
-def load_modules(path, basedir="", collection_name="", load_children=True):
+def load_modules(path, basedir="", collection_name="", module_dir_paths=[], use_ansible_doc=True, load_children=True):
     if path == "":
         return []
     if not os.path.exists(path):
         return []
-    module_files = search_module_files(path)
+    module_files = search_module_files(path, module_dir_paths)
 
     if len(module_files) == 0:
         return []
+
+    if not load_children:
+        use_ansible_doc = False
+
+    module_docs = {}
+    if use_ansible_doc:
+        module_docs = get_module_documentations_by_ansible_doc(
+            module_files=module_files,
+            fqcn_prefix=collection_name,
+            search_path=path,
+        )
+
     modules = []
     for module_file_path in module_files:
         m = None
@@ -872,9 +1034,11 @@ def load_modules(path, basedir="", collection_name="", load_children=True):
                 module_file_path,
                 collection_name=collection_name,
                 basedir=basedir,
+                use_ansible_doc=use_ansible_doc,
+                module_docs=module_docs,
             )
         except Exception:
-            logging.exception("error while loading the module at {}".format(module_file_path))
+            logger.exception("error while loading the module at {}".format(module_file_path))
         if load_children:
             modules.append(m)
         else:
@@ -894,19 +1058,23 @@ def load_task(
     play_index=-1,
     parent_key="",
     parent_local_key="",
+    playbook_yaml="",
     basedir="",
 ):
 
     taskObj = Task()
     fullpath = ""
-    if os.path.exists(path) and path != "" and path != ".":
+    if playbook_yaml:
         fullpath = path
-    if os.path.exists(os.path.join(basedir, path)):
-        fullpath = os.path.normpath(os.path.join(basedir, path))
-    if fullpath == "":
-        raise ValueError("file not found")
-    if not fullpath.endswith(".yml") and not fullpath.endswith(".yaml"):
-        raise ValueError('task yaml file must be ".yml" or ".yaml"')
+    else:
+        if os.path.exists(path) and path != "" and path != ".":
+            fullpath = path
+        if os.path.exists(os.path.join(basedir, path)):
+            fullpath = os.path.normpath(os.path.join(basedir, path))
+        if fullpath == "":
+            raise ValueError("file not found")
+        if not fullpath.endswith(".yml") and not fullpath.endswith(".yaml"):
+            raise ValueError('task yaml file must be ".yml" or ".yaml"')
     if task_block_dict is None:
         raise ValueError("task block dict is required to load Task")
     if not isinstance(task_block_dict, dict):
@@ -925,7 +1093,9 @@ def load_task(
         else:
             task_options.update({k: v})
 
-    taskObj.set_yaml_lines(fullpath, task_name, module_name, module_options)
+    taskObj.set_yaml_lines(
+        fullpath=fullpath, playbook_yaml=playbook_yaml, task_name=task_name, module_name=module_name, module_options=module_options
+    )
 
     # module_options can be passed as a string like below
     #
@@ -1033,7 +1203,7 @@ def load_task(
     return taskObj
 
 
-def load_taskfile(path, role_name="", collection_name="", basedir=""):
+def load_taskfile(path, role_name="", collection_name="", basedir="", skip_task_format_error=True):
     tfObj = TaskFile()
 
     fullpath = ""
@@ -1077,10 +1247,13 @@ def load_taskfile(path, role_name="", collection_name="", basedir=""):
             )
             tasks.append(t)
         except TaskFormatError:
-            logging.debug("this task is wrong format; skip the task in {}, index: {}".format(fullpath, i))
-            continue
+            if skip_task_format_error:
+                logger.debug("this task is wrong format; skip the task in {}, index: {}; skip this".format(fullpath, i))
+                continue
+            else:
+                raise TaskFormatError(f"Task format error found; {fullpath}, index: {i}")
         except Exception:
-            logging.exception("error while loading the task at {}, index: {}".format(fullpath, i))
+            logger.exception("error while loading the task at {}, index: {}".format(fullpath, i))
     tfObj.tasks = tasks
 
     return tfObj
@@ -1101,7 +1274,7 @@ def load_taskfiles(path, basedir="", load_children=True):
         try:
             tf = load_taskfile(taskfile_path, basedir=basedir)
         except Exception:
-            logging.exception("error while loading the task file at {}".format(taskfile_path))
+            logger.exception("error while loading the task file at {}".format(taskfile_path))
         if load_children:
             taskfiles.append(tf)
         else:
@@ -1111,7 +1284,10 @@ def load_taskfiles(path, basedir="", load_children=True):
     return taskfiles
 
 
-def load_collection(collection_dir, basedir="", load_children=True):
+def load_collection(
+    collection_dir, basedir="", use_ansible_doc=True, skip_playbook_format_error=True, skip_task_format_error=True, load_children=True
+):
+
     colObj = Collection()
     fullpath = ""
     if os.path.exists(collection_dir):
@@ -1144,7 +1320,7 @@ def load_collection(collection_dir, basedir="", load_children=True):
             try:
                 colObj.requirements = yaml.safe_load(file)
             except Exception as e:
-                logging.debug("failed to load requirements.yml; {}".format(e.args[0]))
+                logger.debug("failed to load requirements.yml; {}".format(e.args[0]))
 
     playbook_path_patterns = [
         fullpath + "/playbooks/**/*.yml",
@@ -1155,12 +1331,21 @@ def load_collection(collection_dir, basedir="", load_children=True):
     for f in playbook_files:
         p = None
         try:
-            p = load_playbook(f, collection_name=collection_name, basedir=basedir)
+            p = load_playbook(
+                path=f,
+                collection_name=collection_name,
+                basedir=basedir,
+                skip_playbook_format_error=skip_playbook_format_error,
+                skip_task_format_error=skip_task_format_error,
+            )
         except PlaybookFormatError as e:
-            logging.debug("this file is not in a playbook format, maybe not a playbook" " file: {}".format(e.args[0]))
-            continue
+            if skip_playbook_format_error:
+                logger.debug("this file is not in a playbook format, maybe not a playbook file, skip this: {}".format(e.args[0]))
+                continue
+            else:
+                raise PlaybookFormatError(f"this file is not in a playbook format, maybe not a playbook file: {e.args[0]}")
         except Exception:
-            logging.exception("error while loading the playbook at {}".format(f))
+            logger.exception("error while loading the playbook at {}".format(f))
             continue
         if load_children:
             playbooks.append(p)
@@ -1176,7 +1361,7 @@ def load_collection(collection_dir, basedir="", load_children=True):
             try:
                 tf = load_taskfile(taskfile_path, basedir=basedir)
             except Exception:
-                logging.exception("error while loading the task file at {}".format(taskfile_path))
+                logger.exception("error while loading the task file at {}".format(taskfile_path))
                 continue
             if load_children:
                 taskfiles.append(tf)
@@ -1186,16 +1371,28 @@ def load_collection(collection_dir, basedir="", load_children=True):
             taskfiles = sorted(taskfiles)
         colObj.taskfiles = taskfiles
 
-    roles = load_roles(fullpath, basedir=basedir, load_children=load_children)
+    roles = load_roles(fullpath, basedir=basedir, use_ansible_doc=use_ansible_doc, load_children=load_children)
 
     module_files = search_module_files(fullpath)
+
     modules = []
+    if not load_children:
+        use_ansible_doc = False
+
+    module_docs = {}
+    if use_ansible_doc:
+        module_docs = get_module_documentations_by_ansible_doc(
+            module_files=module_files,
+            fqcn_prefix=collection_name,
+            search_path=fullpath,
+        )
+
     for f in module_files:
         m = None
         try:
-            m = load_module(f, collection_name=collection_name, basedir=basedir)
+            m = load_module(f, collection_name=collection_name, basedir=basedir, use_ansible_doc=use_ansible_doc, module_docs=module_docs)
         except Exception:
-            logging.exception("error while loading the module at {}".format(f))
+            logger.exception("error while loading the module at {}".format(f))
             continue
         if load_children:
             modules.append(m)
@@ -1225,8 +1422,16 @@ def load_object(loadObj):
     elif target_type == LoadType.ROLE:
         obj = load_role(path=path, basedir=path, load_children=False)
     elif target_type == LoadType.PLAYBOOK:
-        basedir, target_playbook_path = split_target_playbook_fullpath(path)
-        obj = load_repository(path=basedir, basedir=basedir, target_playbook_path=target_playbook_path, load_children=False)
+        basedir = ""
+        target_playbook_path = ""
+        if loadObj.playbook_yaml:
+            target_playbook_path = path
+        else:
+            basedir, target_playbook_path = split_target_playbook_fullpath(path)
+        if loadObj.playbook_only:
+            obj = load_playbook(path=target_playbook_path, yaml_str=loadObj.playbook_yaml, basedir=basedir)
+        else:
+            obj = load_repository(path=basedir, basedir=basedir, target_playbook_path=target_playbook_path, load_children=False)
     elif target_type == LoadType.PROJECT:
         obj = load_repository(path=path, basedir=path, load_children=False)
 
@@ -1238,17 +1443,27 @@ def load_object(loadObj):
         loadObj.taskfiles = obj.taskfiles
     if hasattr(obj, "modules"):
         loadObj.modules = obj.modules
+
+    if target_type == LoadType.ROLE:
+        loadObj.roles = [obj.defined_in]
+    elif target_type == LoadType.PLAYBOOK and loadObj.playbook_only:
+        loadObj.playbooks = [obj.defined_in]
+
     loadObj.timestamp = datetime.datetime.utcnow().isoformat()
 
 
-def find_playbook_role_module(path):
+def find_playbook_role_module(path, use_ansible_doc=True):
     playbooks = load_playbooks(path, basedir=path, load_children=False)
-    root_role = load_role(path, basedir=path, load_children=False)
-    sub_roles = load_roles(path, basedir=path, load_children=False)
+    root_role = None
+    try:
+        root_role = load_role(path, basedir=path, use_ansible_doc=use_ansible_doc, load_children=False)
+    except Exception:
+        pass
+    sub_roles = load_roles(path, basedir=path, use_ansible_doc=use_ansible_doc, load_children=False)
     roles = []
-    if root_role.metadata is not None and len(root_role.metadata) > 0:
+    if root_role and root_role.metadata:
         roles.append(".")
     if len(sub_roles) > 0:
         roles.extend(sub_roles)
-    modules = load_modules(path, basedir=path, load_children=False)
+    modules = load_modules(path, basedir=path, use_ansible_doc=use_ansible_doc, load_children=False)
     return playbooks, roles, modules

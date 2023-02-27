@@ -14,12 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 import os
 import re
 import json
 from copy import deepcopy
 from dataclasses import dataclass, field
+import ansible_risk_insight.logger as logger
 from .keyutil import detect_type, key_delimiter, object_delimiter
 from .models import (
     ObjectList,
@@ -30,13 +30,12 @@ from .models import (
     Task,
     TaskFile,
     ExecutableType,
-    Module,
     LoadType,
     CallObject,
     TaskCall,
     call_obj_from_spec,
 )
-from .finder import get_builtin_module_names
+from .model_loader import load_builtin_modules
 from .risk_assessment_model import RAMClient
 from .variable_manager import VariableManager
 
@@ -377,33 +376,14 @@ def resolve_playbook(playbook_ref, playbook_dict={}, play_key=""):
 
 
 def init_builtin_modules():
-    builtin_module_names = get_builtin_module_names()
-    modules = []
-    for module_name in builtin_module_names:
-        collection_name = "ansible.builtin"
-        fqcn = "{}.{}".format(collection_name, module_name)
-        global_key = "module collection{}{}{}module{}{}".format(
-            key_delimiter,
-            collection_name,
-            object_delimiter,
-            key_delimiter,
-            fqcn,
-        )
-        local_key = "module module{}{}".format(key_delimiter, "__builtin__")
-        m = Module(
-            name=module_name,
-            fqcn=fqcn,
-            key=global_key,
-            local_key=local_key,
-            collection=collection_name,
-            builtin=True,
-        )
-        modules.append(m)
+    builtin_module_dict = load_builtin_modules()
+    modules = list(builtin_module_dict.values())
     return modules
 
 
 class TreeLoader(object):
     def __init__(self, root_definitions, ext_definitions, ram_client=None, target_playbook_path=None):
+        self.ram_client: RAMClient = ram_client
 
         # use mappings just to get tree tops (playbook/role)
         # we don't load any files by this mappings here
@@ -426,7 +406,6 @@ class TreeLoader(object):
 
         self.dicts = make_dicts(self.root_definitions, self.ext_definitions)
 
-        self.ram_client: RAMClient = ram_client
         self.var_manager: VariableManager = VariableManager()
 
         self.target_playbook_path = target_playbook_path
@@ -458,12 +437,12 @@ class TreeLoader(object):
             if len(p_defs) > 0:
                 additional_objects.add(p_defs[0])
         for i, mapping in enumerate(self.playbook_mappings):
-            logging.debug("[{}/{}] {}".format(i + 1, len(self.playbook_mappings), mapping[1]))
+            logger.debug("[{}/{}] {}".format(i + 1, len(self.playbook_mappings), mapping[1]))
             playbook_key = mapping[1]
             tree_objects = self._recursive_get_calls(playbook_key)
             self.trees.append(tree_objects)
         for i, mapping in enumerate(self.role_mappings):
-            logging.debug("[{}/{}] {}".format(i + 1, len(self.role_mappings), mapping[1]))
+            logger.debug("[{}/{}] {}".format(i + 1, len(self.role_mappings), mapping[1]))
             role_key = mapping[1]
             tree_objects = self._recursive_get_calls(role_key)
             self.trees.append(tree_objects)
@@ -488,6 +467,7 @@ class TreeLoader(object):
                 if len(child_objects.items) > 0:
                     c_obj = child_objects.items[0]
                     if taskcall.spec.executable_type == ExecutableType.MODULE_TYPE:
+                        taskcall.module = c_obj.spec
                         if c_key in from_ram:
                             req_info = from_ram[c_key]
                             taskcall.spec.possible_candidates = [(c_obj.spec.fqcn, req_info)]
@@ -560,10 +540,15 @@ class TreeLoader(object):
         return None
 
     def add_builtin_modules(self):
-        obj_list = ObjectList()
-        builtin_modules = init_builtin_modules()
-        for m in builtin_modules:
-            obj_list.add(m)
+        builtin_module_dict = {}
+        if self.ram_client and self.ram_client.builtin_modules_cache:
+            builtin_module_dict = self.ram_client.builtin_modules_cache
+        else:
+            builtin_module_dict = load_builtin_modules()
+            if self.ram_client:
+                self.ram_client.builtin_modules_cache = builtin_module_dict
+        builtin_modules = list(builtin_module_dict.values())
+        obj_list = ObjectList(items=builtin_modules)
         self.ext_definitions["modules"].merge(obj_list)
 
     def _get_children_keys(self, obj):
@@ -794,7 +779,7 @@ class TreeLoader(object):
                 continue
             obj = self.get_object(k)
             if obj is None:
-                logging.warning("object not found for the key {}".format(k))
+                logger.warning("object not found for the key {}".format(k))
                 continue
             obj_list.add(obj)
             loaded[k] = obj

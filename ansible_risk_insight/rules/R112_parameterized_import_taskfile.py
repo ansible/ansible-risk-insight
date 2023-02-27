@@ -15,13 +15,15 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from ansible_risk_insight.models import AnsibleRunContext, ExecutableType as ActionType, RunTargetType
-from ansible_risk_insight.rules.base import Rule, Severity, Tag, RuleResult
-
-
-@dataclass
-class ParameterizedImportTaskfileRuleResult(RuleResult):
-    pass
+from ansible_risk_insight.models import (
+    AnsibleRunContext,
+    RunTargetType,
+    ExecutableType as ActionType,
+    Rule,
+    Severity,
+    RuleTag as Tag,
+    RuleResult,
+)
 
 
 @dataclass
@@ -32,13 +34,12 @@ class ParameterizedImportTaskfileRule(Rule):
     name: str = "ParameterizedImportTaskfile"
     version: str = "v0.0.1"
     severity: Severity = Severity.MEDIUM
-    tags: tuple = (Tag.DEPENDENCY)
-    result_type: type = ParameterizedImportTaskfileRuleResult
+    tags: tuple = Tag.DEPENDENCY
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task
 
-    def check(self, ctx: AnsibleRunContext):
+    def process(self, ctx: AnsibleRunContext):
         task = ctx.current
 
         # import_tasks: xxx.yml
@@ -50,11 +51,10 @@ class ParameterizedImportTaskfileRule(Rule):
         if not taskfile_ref_arg:
             taskfile_ref_arg = task.args
 
-        result = task.action_type == ActionType.TASKFILE_TYPE and taskfile_ref_arg and taskfile_ref_arg.is_mutable
+        verdict = task.action_type == ActionType.TASKFILE_TYPE and taskfile_ref_arg and taskfile_ref_arg.is_mutable
         taskfile_ref = taskfile_ref_arg.raw if taskfile_ref_arg else None
         detail = {
             "taskfile": taskfile_ref,
         }
 
-        rule_result = self.create_result(result=result, detail=detail, task=task)
-        return rule_result
+        return RuleResult(verdict=verdict, detail=detail, file=task.file_info(), rule=self.get_metadata())

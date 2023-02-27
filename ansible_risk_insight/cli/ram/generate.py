@@ -28,6 +28,8 @@ class RAMGenerateCLI:
         parser.add_argument("action", help="action for RAM command or target_name of search action")
         parser.add_argument("-f", "--file", help='target list like "collection community.general"')
         parser.add_argument("-r", "--resume", help="line number to resume scanning")
+        parser.add_argument("--no-module-spec", action="store_true", help="if True, ansible-doc is not used")
+        parser.add_argument("--download-only", action="store_true", help="if True, just download the content")
         args = parser.parse_args()
         self.args = args
 
@@ -48,5 +50,10 @@ class RAMGenerateCLI:
         resume = -1
         if args.resume:
             resume = int(args.resume)
-        ram_generator = RAMGenerator(target_list, resume)
+        ram_generator = RAMGenerator(
+            target_list=target_list,
+            resume=resume,
+            download_only=args.download_only,
+            no_module_spec=args.no_module_spec,
+        )
         ram_generator.run()

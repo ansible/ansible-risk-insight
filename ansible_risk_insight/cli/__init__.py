@@ -39,6 +39,7 @@ class ARICLI:
         )
         parser.add_argument("target_type", help="Content type", choices={"project", "role", "collection", "playbook"})
         parser.add_argument("target_name", help="Name")
+        parser.add_argument("--playbook-only", action="store_true", help="if true, don't load playbooks/roles arround the specified playbook")
         parser.add_argument("--skip-install", action="store_true", help="if true, skip install for the specified target")
         parser.add_argument("--dependency-dir", nargs="?", help="path to a directory that have dependencies for the target")
         parser.add_argument("--collection-name", nargs="?", help="if provided, use it as a collection name")
@@ -47,8 +48,13 @@ class ARICLI:
         parser.add_argument("--without-ram", action="store_true", help="if true, RAM data is not used and not even updated")
         parser.add_argument("--update-ram", action="store_true", help="if true, RAM data is not used for scan but updated with the scan result")
         parser.add_argument("--show-all", action="store_true", help="if true, show findings even if missing dependencies are found")
-        parser.add_argument("-o", "--output", help="if specified, show findings in json/yaml format", choices={"json", "yaml"})
-        parser.add_argument("--out-dir", help="output directory for findings")
+        parser.add_argument("--json", help="if specified, show findings in json format")
+        parser.add_argument("--yaml", help="if specified, show findings in yaml format")
+        parser.add_argument("-o", "--out-dir", help="output directory for the rule evaluation result")
+        parser.add_argument(
+            "-r", "--rules-dir", help=f"specify custom rule directories. use `-R` instead to ignore default rules in {config.rules_dir}"
+        )
+        parser.add_argument("-R", "--rules-dir-without-default", help="specify custom rule directories and ignore default rules")
         args = parser.parse_args()
         self.args = args
 
@@ -84,11 +90,22 @@ class ARICLI:
             if role_meta:
                 role_name = role_meta.get("galaxy_info", {}).get("role_name", "")
 
+        rules_dir = config.rules_dir
+        if args.rules_dir_without_default:
+            rules_dir = args.rules_dir_without_default
+        elif args.rules_dir:
+            rules_dir = args.rules_dir + ":" + config.rules_dir
+
         silent = False
         pretty = False
-        if args.output:
+        output_format = ""
+        if args.json or args.yaml:
             silent = True
             pretty = True
+            if args.json:
+                output_format = "json"
+            elif args.yaml:
+                output_format = "yaml"
 
         read_ram = True
         write_ram = True
@@ -100,27 +117,30 @@ class ARICLI:
             write_ram = True
 
         c = ARIScanner(
-            type=args.target_type,
-            name=target_name,
-            version=target_version,
             root_dir=config.data_dir,
-            dependency_dir=args.dependency_dir,
-            collection_name=collection_name,
-            role_name=role_name,
+            rules_dir=rules_dir,
             do_save=args.save,
             read_ram=read_ram,
             write_ram=write_ram,
-            source_repository=args.source,
-            out_dir=args.out_dir,
             show_all=args.show_all,
             silent=silent,
             pretty=pretty,
-            output_format=args.output,
+            output_format=output_format,
         )
         if not silent and not pretty:
             print("Start preparing dependencies")
         root_install = not args.skip_install
-        c.prepare_dependencies(root_install=root_install)
         if not silent and not pretty:
             print("Start scanning")
-        c.load()
+        c.evaluate(
+            type=args.target_type,
+            name=target_name,
+            version=target_version,
+            install_dependencies=root_install,
+            dependency_dir=args.dependency_dir,
+            collection_name=collection_name,
+            role_name=role_name,
+            source_repository=args.source,
+            playbook_only=args.playbook_only,
+            out_dir=args.out_dir,
+        )

@@ -124,11 +124,11 @@ def filepath_to_target_name(filepath):
 #     args = parser.parse_args()
 
 #     if not args.root and not args.ext:
-#         logging.error('either "--root" or "--ext" must be specified')
+#         logger.error('either "--root" or "--ext" must be specified')
 #         sys.exit(1)
 
 #     if args.root and not args.output_path.endswith(".json"):
-#         logging.error(
+#         logger.error(
 #             '"--output-path" must be a single .json file for "--root" mode'
 #         )
 #         sys.exit(1)
@@ -138,23 +138,23 @@ def filepath_to_target_name(filepath):
 #     target_type, target_path_list = detect_target_type(
 #         args.target_path, is_ext
 #     )
-#     logging.info(
+#     logger.info(
 #         'the detected target type: "{}", found targets: {}'.format(
 #             target_type, len(target_path_list)
 #         )
 #     )
 #     if target_type not in supported_target_types:
-#         logging.error("this target type is not supported")
+#         logger.error("this target type is not supported")
 #         sys.exit(1)
 
 #     profiles = [(target_path) for target_path in target_path_list]
 
 #     num = len(profiles)
 #     if num == 0:
-#         logging.info("no target dirs found. exitting.")
+#         logger.info("no target dirs found. exitting.")
 #         sys.exit()
 #     else:
-#         logging.info("start loading {} {}(s)".format(num, target_type))
+#         logger.info("start loading {} {}(s)".format(num, target_type))
 #     output_path = args.output_path
 #     loader_version = get_loader_version()
 

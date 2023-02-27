@@ -15,8 +15,8 @@
 # limitations under the License.
 
 import os
-import logging
 import copy
+import ansible_risk_insight.logger as logger
 from .models import (
     Collection,
     Load,
@@ -28,6 +28,8 @@ from .models import (
     Role,
     Task,
     TaskFile,
+    PlaybookFormatError,
+    TaskFormatError,
 )
 from .model_loader import (
     load_collection,
@@ -39,22 +41,25 @@ from .model_loader import (
 )
 from .utils import (
     split_target_playbook_fullpath,
+    get_module_documentations_by_ansible_doc,
 )
 
 
 class Parser:
-    def __init__(self, do_save=False):
+    def __init__(self, do_save=False, use_ansible_doc=True, skip_playbook_format_error=True, skip_task_format_error=True):
         self.do_save = do_save
+        self.use_ansible_doc = use_ansible_doc
+        self.skip_playbook_format_error = skip_playbook_format_error
+        self.skip_task_format_error = skip_task_format_error
 
     def run(self, load_data=None, load_json_path="", collection_name_of_project=""):
-
         ld = Load()
         if load_data is not None:
             ld = load_data
         elif load_json_path != "":
             if not os.path.exists(load_json_path):
                 raise ValueError("file not found: {}".format(load_json_path))
-            ld.from_json(open(load_json_path, "r").read())
+            ld = Load.from_json(open(load_json_path, "r").read())
 
         collection_name = ""
         role_name = ""
@@ -65,36 +70,97 @@ class Parser:
                 obj = load_collection(
                     collection_dir=ld.path,
                     basedir=ld.path,
+                    use_ansible_doc=self.use_ansible_doc,
+                    skip_playbook_format_error=self.skip_playbook_format_error,
+                    skip_task_format_error=self.skip_task_format_error,
                     load_children=False,
                 )
+            except PlaybookFormatError:
+                if not self.skip_playbook_format_error:
+                    raise
+            except TaskFormatError:
+                if not self.skip_task_format_error:
+                    raise
             except Exception:
-                logging.exception("failed to load the collection {}".format(collection_name))
+                logger.exception("failed to load the collection {}".format(collection_name))
                 return
         elif ld.target_type == LoadType.ROLE:
             role_name = ld.target_name
             try:
-                obj = load_role(path=ld.path, basedir=ld.path, load_children=False)
+                obj = load_role(
+                    path=ld.path,
+                    basedir=ld.path,
+                    use_ansible_doc=self.use_ansible_doc,
+                    skip_playbook_format_error=self.skip_playbook_format_error,
+                    skip_task_format_error=self.skip_task_format_error,
+                    load_children=False,
+                )
+            except PlaybookFormatError:
+                if not self.skip_playbook_format_error:
+                    raise
+            except TaskFormatError:
+                if not self.skip_task_format_error:
+                    raise
             except Exception:
-                logging.exception("failed to load the role {}".format(role_name))
+                logger.exception("failed to load the role {}".format(role_name))
                 return
         elif ld.target_type == LoadType.PROJECT:
             repo_name = ld.target_name
             try:
-                obj = load_repository(path=ld.path, basedir=ld.path)
+                obj = load_repository(
+                    path=ld.path,
+                    basedir=ld.path,
+                    use_ansible_doc=self.use_ansible_doc,
+                    skip_playbook_format_error=self.skip_playbook_format_error,
+                    skip_task_format_error=self.skip_task_format_error,
+                )
+            except PlaybookFormatError:
+                if not self.skip_playbook_format_error:
+                    raise
+            except TaskFormatError:
+                if not self.skip_task_format_error:
+                    raise
             except Exception:
-                logging.exception("failed to load the project {}".format(repo_name))
+                logger.exception("failed to load the project {}".format(repo_name))
                 return
             if obj.my_collection_name:
                 collection_name = obj.my_collection_name
             if collection_name == "" and collection_name_of_project != "":
                 collection_name = collection_name_of_project
         elif ld.target_type == LoadType.PLAYBOOK:
-            basedir, target_playbook_path = split_target_playbook_fullpath(ld.path)
+            basedir = ""
+            target_playbook_path = ""
+            if ld.playbook_yaml:
+                target_playbook_path = ld.path
+            else:
+                basedir, target_playbook_path = split_target_playbook_fullpath(ld.path)
             playbook_name = ld.target_name
             try:
-                obj = load_repository(path=basedir, basedir=basedir, target_playbook_path=target_playbook_path)
+                if ld.playbook_only:
+                    obj = load_playbook(
+                        path=target_playbook_path,
+                        yaml_str=ld.playbook_yaml,
+                        basedir=basedir,
+                        skip_playbook_format_error=self.skip_playbook_format_error,
+                        skip_task_format_error=self.skip_task_format_error,
+                    )
+                else:
+                    obj = load_repository(
+                        path=basedir,
+                        basedir=basedir,
+                        target_playbook_path=target_playbook_path,
+                        use_ansible_doc=self.use_ansible_doc,
+                        skip_playbook_format_error=self.skip_playbook_format_error,
+                        skip_task_format_error=self.skip_task_format_error,
+                    )
+            except PlaybookFormatError:
+                if not self.skip_playbook_format_error:
+                    raise
+            except TaskFormatError:
+                if not self.skip_task_format_error:
+                    raise
             except Exception:
-                logging.exception("failed to load the playbook {}".format(playbook_name))
+                logger.exception("failed to load the playbook {}".format(playbook_name))
                 return
         else:
             raise ValueError("unsupported type: {}".format(ld.target_type))
@@ -117,10 +183,19 @@ class Parser:
                     path=role_path,
                     collection_name=collection_name,
                     basedir=basedir,
+                    use_ansible_doc=self.use_ansible_doc,
+                    skip_playbook_format_error=self.skip_playbook_format_error,
+                    skip_task_format_error=self.skip_task_format_error,
                 )
                 roles.append(r)
+            except PlaybookFormatError:
+                if not self.skip_playbook_format_error:
+                    raise
+            except TaskFormatError:
+                if not self.skip_task_format_error:
+                    raise
             except Exception as e:
-                logging.debug(f"failed to load a role: {e}")
+                logger.debug(f"failed to load a role: {e}")
                 continue
             mappings["roles"].append([role_path, r.key])
 
@@ -132,9 +207,13 @@ class Parser:
                     role_name=role_name,
                     collection_name=collection_name,
                     basedir=ld.path,
+                    skip_task_format_error=self.skip_task_format_error,
                 )
+            except TaskFormatError:
+                if not self.skip_task_format_error:
+                    raise
             except Exception as e:
-                logging.debug(f"failed to load a taskfile: {e}")
+                logger.debug(f"failed to load a taskfile: {e}")
                 continue
             taskfiles.append(tf)
             mappings["taskfiles"].append([taskfile_path, tf.key])
@@ -145,12 +224,21 @@ class Parser:
             try:
                 p = load_playbook(
                     path=playbook_path,
+                    yaml_str=ld.playbook_yaml,
                     role_name=role_name,
                     collection_name=collection_name,
                     basedir=basedir,
+                    skip_playbook_format_error=self.skip_playbook_format_error,
+                    skip_task_format_error=self.skip_task_format_error,
                 )
+            except PlaybookFormatError:
+                if not self.skip_playbook_format_error:
+                    raise
+            except TaskFormatError:
+                if not self.skip_task_format_error:
+                    raise
             except Exception as e:
-                logging.debug(f"failed to load a playbook: {e}")
+                logger.debug(f"failed to load a playbook: {e}")
                 continue
             playbooks.append(p)
             mappings["playbooks"].append([playbook_path, p.key])
@@ -166,6 +254,14 @@ class Parser:
         tasks.extend(post_tasks_in_plays)
 
         modules = [m for r in roles for m in r.modules]
+        module_docs = {}
+        if self.use_ansible_doc:
+            module_docs = get_module_documentations_by_ansible_doc(
+                module_files=[fpath for fpath in ld.modules],
+                fqcn_prefix=collection_name,
+                search_path=ld.path,
+            )
+
         for module_path in ld.modules:
             m = None
             try:
@@ -174,29 +270,28 @@ class Parser:
                     role_name=role_name,
                     collection_name=collection_name,
                     basedir=basedir,
+                    use_ansible_doc=self.use_ansible_doc,
+                    module_docs=module_docs,
                 )
             except Exception as e:
-                logging.debug(f"failed to load a module: {e}")
+                logger.debug(f"failed to load a module: {e}")
                 continue
             modules.append(m)
             mappings["modules"].append([module_path, m.key])
 
-        logging.debug("roles: {}".format(len(roles)))
-        logging.debug("taskfiles: {}".format(len(taskfiles)))
-        logging.debug("modules: {}".format(len(modules)))
-        logging.debug("playbooks: {}".format(len(playbooks)))
-        logging.debug("plays: {}".format(len(plays)))
-        logging.debug("tasks: {}".format(len(tasks)))
+        logger.debug("roles: {}".format(len(roles)))
+        logger.debug("taskfiles: {}".format(len(taskfiles)))
+        logger.debug("modules: {}".format(len(modules)))
+        logger.debug("playbooks: {}".format(len(playbooks)))
+        logger.debug("plays: {}".format(len(plays)))
+        logger.debug("tasks: {}".format(len(tasks)))
 
         collections = []
         projects = []
         if ld.target_type == LoadType.COLLECTION:
             collections = [obj]
         elif ld.target_type == LoadType.ROLE:
-            role_path = "."
-            r = load_role(path=role_path, name=ld.target_name, basedir=ld.path)
-            roles.append(r)
-            mappings["roles"].append([role_path, r.key])
+            pass
         elif ld.target_type == LoadType.PLAYBOOK:
             pass
         elif ld.target_type == LoadType.PROJECT:
@@ -273,7 +368,7 @@ class Parser:
         mapping_path = os.path.join(input_dir, "mappings.json")
         if not os.path.exists(mapping_path):
             raise ValueError("file not found: {}".format(mapping_path))
-        ld.from_json(open(mapping_path, "r").read())
+        ld = Load.from_json(open(mapping_path, "r").read())
         return definitions, ld
 
     @classmethod
@@ -328,8 +423,7 @@ def _load_object_list(cls, input_path):
     if os.path.exists(input_path):
         with open(input_path, "r") as f:
             for line in f:
-                obj = cls()
-                obj.from_json(line)
+                obj = cls.from_json(line)
                 obj_list.append(obj)
     return obj_list
 
@@ -384,30 +478,30 @@ def load_name2target_name(path):
 #     args = parser.parse_args()
 
 #     if not args.root and not args.ext:
-#         logging.error('either "--root" or "--ext" must be specified')
+#         logger.error('either "--root" or "--ext" must be specified')
 #         sys.exit(1)
 #     is_ext = args.ext
 
 #     if args.load_path == "" and args.index_path == "":
-#         logging.error("either `--load-path` or `--index-path` is required")
+#         logger.error("either `--load-path` or `--index-path` is required")
 #         sys.exit(1)
 
 #     if args.root and args.load_path == "":
-#         logging.error('"--load-path" must be specified for "--root" mode')
+#         logger.error('"--load-path" must be specified for "--root" mode')
 #         sys.exit(1)
 
 #     if args.root and not os.path.isfile(args.load_path):
-#         logging.error(
+#         logger.error(
 #             '"--load-path" must be a single .json file for "--root" mode'
 #         )
 #         sys.exit(1)
 
 #     if args.load_path != "" and not os.path.exists(args.load_path):
-#         logging.error("No such file or directory: {}".format(args.load_path))
+#         logger.error("No such file or directory: {}".format(args.load_path))
 #         sys.exit(1)
 
 #     if args.index_path != "" and not os.path.exists(args.index_path):
-#         logging.error("No such file or directory: {}".format(args.index_path))
+#         logger.error("No such file or directory: {}".format(args.index_path))
 #         sys.exit(1)
 
 #     load_json_path_list = []
@@ -462,7 +556,7 @@ def load_name2target_name(path):
 #             ]
 
 #     if len(load_json_path_list) == 0:
-#         logging.info("no load json files found. exitting.")
+#         logger.info("no load json files found. exitting.")
 #         sys.exit()
 
 #     profiles = [
@@ -479,10 +573,10 @@ def load_name2target_name(path):
 
 #     num = len(profiles)
 #     if num == 0:
-#         logging.info("no load json files found. exitting.")
+#         logger.info("no load json files found. exitting.")
 #         sys.exit()
 #     else:
-#         logging.info("start parsing {} target(s)".format(num))
+#         logger.info("start parsing {} target(s)".format(num))
 #     p = Parser()
 
 #     def parse_single(single_input):
