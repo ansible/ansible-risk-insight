@@ -1,10 +1,13 @@
 ## Annotation
 
-ARI provides some default annotations.
-From your rule, you can retrieve an annotation by defining annotation `key` to `get_annotation` method.
+ARI provides some default annotations.  
+Annotations are attached to each node so that it can be retrieved from each context.
+From your rule, you can get an annotation by defining annotation `key` to `get_annotation` method.
 ```python
-# getting resolved fqcn data from annotation
-resolved_fqcn = task.get_annotation(key="module.resolved_fqcn")
+def process(self, ctx: AnsibleRunContext):
+    task = ctx.current
+    # getting resolved fqcn data from annotation
+    resolved_fqcn = task.get_annotation(key="module.resolved_fqcn")
 ```
 
 The default annotations are shown in the tables.

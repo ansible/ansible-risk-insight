@@ -79,35 +79,6 @@ Then, the rule puts the data into detail.
 
 ```
 
-## Using annotation
-ARI provides various useful annotations.  
-You can write your own rules easily by using those annotations. 
-The available annotations are shown in [here](./annotation.md).
-
-You can retrieve an annotation by defining annotation `key` to `get_annotation` method.
-
-This example rule gets data from the task annotation and task spec.  
-
-```python
-    def process(self, ctx: AnsibleRunContext):
-        task = ctx.current
-
-        detail = {}
-        verdict = False
-        suggested_fqcn = task.get_annotation(key="module.suggested_fqcn")
-        resolved_fqcn = task.get_annotation(key="module.resolved_fqcn")
-
-        detail["original_module_name"] = task.spec.module
-        detail["resolved_module_fqcn"] = resolved_fqcn
-        detail["correct_module_fqcn"] = suggested_fqcn
-        
-        if suggested_fqcn:
-            verdict = True
-        
-        return RuleResult(detail=detail, verdict=verdict, file=task.file_info(), rule=self.get_metadata())
-
-```
-
 ## Mutating rule
 `process` also can mutate the task content.
 
@@ -121,28 +92,53 @@ You can use the following methods to change task content.
 - replace_module_arg_key(old_key, new_key)
 - replace_module_arg_value(key, old_value, new_value)
 
-This is an example of applying a mutation when the module name is incorrect.
+This is an example of setting new key and value by the mutating rule.
 
 ```python
     def process(self, ctx: AnsibleRunContext):
         task = ctx.current
         detail = {}
-        correct_fqcn = task.get_annotation(key="module.correct_fqcn")
-        need_correction = task.get_annotation(key="module.need_correction")
 
-        verdict = False
-        if need_correction:
-            verdict = True
-        
-        changes = {}
-        if need_correction and correct_fqcn:
-            content = task.content
-            content.set_module_name(correct_fqcn)
-            mutated_yaml = content.yaml()
-            detail["mutated_yaml"] = mutated_yaml
+        verdict = True
+
+        new_key = "foo"
+        new_value = "bar"
+        content = task.content # get a task content from 
+        content.replace_value(new_key, new_value) # set a new key to the task module
+        mutated_yaml = content.yaml() # convert to yaml format
+        detail["mutated_yaml"] = mutated_yaml # put mutated yaml into rule result
+
+        return RuleResult(detail=detail, verdict=verdict, file=task.file_info(), rule=self.get_metadata())
+
 ```
 
-## Using the results of other rules
+## Using annotation
+ARI provides various useful annotations.  
+You can write your own rules easily by using those annotations. 
+The available annotations are shown in [here](./annotation.md).
+
+You can retrieve an annotation by defining annotation `key` to `get_annotation` method.
+
+This example rule gets data from the task annotation.  
+
+```python
+    def process(self, ctx: AnsibleRunContext):
+        task = ctx.current
+
+        detail = {}
+        verdict = False
+        undefined_vars = task.get_annotation(key="variable.undefined_vars") # getting undefined variables
+
+        detail["undefined_vars"] = undefined_vars
+        
+        if undefined_vars:
+            verdict = True
+        
+        return RuleResult(detail=detail, verdict=verdict, file=task.file_info(), rule=self.get_metadata())
+
+```
+
+### Using the results of other rules
 
 Rule can use the results of other rules.
 
@@ -156,25 +152,22 @@ You can specify the order by setting `precedence` in the rule definition.
 
 - This rule sets `applied_changes` annotation and passes the mutation details.
 ```python
-   def process(self, ctx: AnsibleRunContext):
+    def process(self, ctx: AnsibleRunContext):
         task = ctx.current
-
         detail = {}
-        correct_fqcn = task.get_annotation(key="module.correct_fqcn")
-        need_correction = task.get_annotation(key="module.need_correction")
 
-        verdict = False
-        if need_correction:
-            verdict = True
-        
+        verdict = True
         changes = {}
-        if need_correction and correct_fqcn:
-            content = task.content
-            content.set_module_name(correct_fqcn).yaml()
-            changes = {"before": task.spec.module, "after": correct_fqcn}
-            mutated_yaml = content.yaml()
-            detail["mutated_yaml"] = mutated_yaml
 
+        new_key = "foo"
+        new_value = "bar"
+
+        content = task.content 
+        content.replace_value(new_key, new_value)
+        changes = {"before": {},  "after": {"key": new_key, "value": new_value}}
+        mutated_yaml = content.yaml() 
+
+        detail["mutated_yaml"] = mutated_yaml 
         detail["applied_changes"] = changes
         applied_changes = {"description": self.description, "applied_changes": changes}
         task.set_annotation("applied_changes", applied_changes, rule_id=self.rule_id) # setting annotation here
@@ -214,3 +207,4 @@ class PostProcessingRule(Rule):
         detail["detail"] = _detail
         return RuleResult(verdict=verdict, detail=detail, file=task.file_info(), rule=self.get_metadata())
 ```
+
