@@ -296,8 +296,8 @@ def load_play(
     play_options = {}
     import_module = ""
     import_playbook = ""
-    __pre_task_blocks = get_task_blocks(task_dict_list=data_block.get("pre_tasks", []))
-    __task_blocks = get_task_blocks(task_dict_list=data_block.get("tasks", []))
+    __pre_task_blocks, _ = get_task_blocks(task_dict_list=data_block.get("pre_tasks", []))
+    __task_blocks, _ = get_task_blocks(task_dict_list=data_block.get("tasks", []))
     pre_task_num = len(__pre_task_blocks) if __pre_task_blocks else 0
     task_num = len(__task_blocks) if __task_blocks else 0
     for k, v in data_block.items():
@@ -308,7 +308,7 @@ def load_play(
         elif k == "pre_tasks":
             if not isinstance(v, list):
                 continue
-            task_blocks = get_task_blocks(task_dict_list=v)
+            task_blocks, _ = get_task_blocks(task_dict_list=v)
             if task_blocks is None:
                 continue
             for i, task_dict in enumerate(task_blocks):
@@ -338,7 +338,7 @@ def load_play(
         elif k == "tasks":
             if not isinstance(v, list):
                 continue
-            task_blocks = get_task_blocks(task_dict_list=v)
+            task_blocks, _ = get_task_blocks(task_dict_list=v)
             if task_blocks is None:
                 continue
             for i, task_dict in enumerate(task_blocks):
@@ -369,7 +369,7 @@ def load_play(
         elif k == "post_tasks":
             if not isinstance(v, list):
                 continue
-            task_blocks = get_task_blocks(task_dict_list=v)
+            task_blocks, _ = get_task_blocks(task_dict_list=v)
             if task_blocks is None:
                 continue
             for i, task_dict in enumerate(task_blocks):
@@ -1081,7 +1081,7 @@ def load_task(
     if task_block_dict is None:
         raise ValueError("task block dict is required to load Task")
     if not isinstance(task_block_dict, dict):
-        raise TaskFormatError("this task block is not loaded as dict; maybe this is not a task")
+        raise TaskFormatError(f"this task block is not a dict, but {type(task_block_dict).__name__}; maybe this is not a task")
     data_block = task_block_dict
     task_name = ""
     module_name = find_module_name(task_block_dict)
