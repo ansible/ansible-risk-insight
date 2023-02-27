@@ -137,8 +137,7 @@ This is an example of applying a mutation when the module name is incorrect.
         changes = {}
         if need_correction and correct_fqcn:
             content = task.content
-            content.set_module_name(correct_fqcn).yaml()
-            changes = {"before": task.spec.module, "after": correct_fqcn}
+            content.set_module_name(correct_fqcn)
             mutated_yaml = content.yaml()
             detail["mutated_yaml"] = mutated_yaml
 ```
