@@ -27,7 +27,7 @@ from ansible_risk_insight.models import (
 
 @dataclass
 class SampleRule(Rule):
-    rule_id: str = "SampleRule"
+    rule_id: str = "Sample101"
     description: str = "echo task block"
     enabled: bool = False
     name: str = "EchoTaskContent"
