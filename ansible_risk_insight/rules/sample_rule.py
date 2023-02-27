@@ -21,7 +21,6 @@ from ansible_risk_insight.models import (
     RunTargetType,
     Rule,
     Severity,
-    RuleTag as Tag,
     RuleResult,
 )
 
@@ -34,6 +33,7 @@ class SampleRule(Rule):
     name: str = "EchoTaskContent"
     version: str = "v0.0.1"
     severity: Severity = Severity.NONE
+    tags: tuple = ("sample")
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         # specify targets to be checked
@@ -46,5 +46,5 @@ class SampleRule(Rule):
         detail = {}
         task_block = task.content.yaml()
         detail["task_block"] = task_block
-        
+
         return RuleResult(verdict=verdict, detail=detail, file=task.file_info(), rule=self.get_metadata())
