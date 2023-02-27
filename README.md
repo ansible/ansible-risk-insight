@@ -29,16 +29,6 @@ To create the useful annotations, the ARI can crawl the external sources such as
 
 ![ari arch](doc/images/ari-arch.png)
 
-
-## Installation (for development)
-
-
-```
-git clone git@github.com:ansible/ansible-risk-insight.git
-cd ansible-risk-insight
-pip install -e .
-```
-
 ## Prerequisites
 Currently this documentation assumes the following prerequisites.
 
@@ -102,4 +92,10 @@ $ ari ram generate -f ram_input_list.txt
 
 ```
 
+## Installation (for development)
 
+```
+git clone git@github.com:ansible/ansible-risk-insight.git
+cd ansible-risk-insight
+pip install -e .
+```
