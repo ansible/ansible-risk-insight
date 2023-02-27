@@ -727,7 +727,7 @@ def load_role(
                         continue
                     default_variables.update(vars_in_yaml)
                 except Exception as e:
-                    logger.debug("failed to load this yaml file to raed default" " variables; {}".format(e.args[0]))
+                    logger.debug("failed to load this yaml file to read default" " variables; {}".format(e.args[0]))
         roleObj.default_variables = default_variables
 
     if os.path.exists(vars_dir_path):
@@ -744,7 +744,7 @@ def load_role(
                         continue
                     variables.update(vars_in_yaml)
                 except Exception as e:
-                    logger.debug("failed to load this yaml file to raed variables; {}".format(e.args[0]))
+                    logger.debug("failed to load this yaml file to read variables; {}".format(e.args[0]))
         roleObj.variables = variables
 
     modules = []
