@@ -37,9 +37,10 @@ class ARICLI:
             action="store_true",
             help="enable file save under ARI_DATA_DIR (default=/tmp/ari-data)",
         )
-        parser.add_argument("target_type", help="Content type", choices={"project", "role", "collection", "playbook"})
+        parser.add_argument("target_type", help="Content type", choices={"project", "role", "collection", "playbook", "taskfile"})
         parser.add_argument("target_name", help="Name")
         parser.add_argument("--playbook-only", action="store_true", help="if true, don't load playbooks/roles arround the specified playbook")
+        parser.add_argument("--taskfile-only", action="store_true", help="if true, don't load playbooks/roles arround the specified taskfile")
         parser.add_argument("--skip-install", action="store_true", help="if true, skip install for the specified target")
         parser.add_argument("--dependency-dir", nargs="?", help="path to a directory that have dependencies for the target")
         parser.add_argument("--collection-name", nargs="?", help="if provided, use it as a collection name")
@@ -76,7 +77,7 @@ class ARICLI:
         is_local = False
         if args.target_type in ["collection", "role"] and is_local_path(target_name):
             is_local = True
-        if args.target_type in ["project", "playbook"] and not is_url(target_name):
+        if args.target_type in ["project", "playbook", "taskfile"] and not is_url(target_name):
             is_local = True
 
         if is_local and not collection_name and not role_name:
@@ -142,5 +143,6 @@ class ARICLI:
             role_name=role_name,
             source_repository=args.source,
             playbook_only=args.playbook_only,
+            taskfile_only=args.taskfile_only,
             out_dir=args.out_dir,
         )

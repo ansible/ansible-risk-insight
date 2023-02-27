@@ -173,6 +173,16 @@ def split_target_playbook_fullpath(fullpath: str):
     return basedir, target_playbook_path
 
 
+def split_target_taskfile_fullpath(fullpath: str):
+    basedir = os.path.dirname(fullpath)
+    if "/roles/" in fullpath:
+        basedir = fullpath.split("/roles/")[0]
+    target_taskfile_path = fullpath.replace(basedir, "")
+    if target_taskfile_path[0] == "/":
+        target_taskfile_path = target_taskfile_path[1:]
+    return basedir, target_taskfile_path
+
+
 def version_to_num(ver: str):
     if ver == "unknown":
         return 0
