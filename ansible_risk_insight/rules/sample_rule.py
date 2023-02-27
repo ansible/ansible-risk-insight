@@ -29,7 +29,7 @@ from ansible_risk_insight.models import (
 class SampleRule(Rule):
     rule_id: str = "Sample101"
     description: str = "echo task block"
-    enabled: bool = True
+    enabled: bool = False
     name: str = "EchoTaskContent"
     version: str = "v0.0.1"
     severity: Severity = Severity.NONE
