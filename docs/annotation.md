@@ -19,7 +19,7 @@ The default annotations are shown in the tables.
 | module.wrong_module_name  	|   non-existing module name	|
 | module.suggested_fqcn   	|   inferred FQCN 	|
 | module.resolved_fqcn  	|   resolved FQCN from dependency list	|
-| module.not_exist  	|   	|
+| module.not_exist  	| true if non-existing module name is used 	|
 | module.correct_fqcn  	|   best guess for FQCN	|
 | module.need_correction 	|  true if module name should be replaced with correct_fqcn 	|
 | module.suggested_dependency 	|   inferred dependencies	|
