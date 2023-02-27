@@ -84,7 +84,7 @@ class Resolvable(object):
         # apply resolver for this instance
         resolver.apply(self)
 
-        # call resolve() for children rescursively
+        # call resolve() for children recursively
         targets = self.resolver_targets
         if targets is None:
             return
