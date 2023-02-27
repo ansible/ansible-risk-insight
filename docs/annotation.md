@@ -44,7 +44,7 @@ The default annotations are shown in the tables.
 |---	|---	|
 |  module.wrong_arg_values 	|   arg values using wrong format, expected format is also included|
 |  module.undefined_values 	|   undefined arg values	|
-|  module.unknown_type_values 	|  undefined arg value format, expected type is also included	|
+|  module.unknown_type_values 	|  parameterized arg values (= cannot determine the value type) 	|
 
  
 
@@ -54,4 +54,4 @@ The default annotations are shown in the tables.
 |---	|---	|
 |  variable.undefined_vars 	|   undefined variables used in the task	|
 |  variable.unnecessary_loop_vars 	|   unnecessary loop vars (e.g. “item”) used outside of the loop	|
-|  variable.unknown_name_vars 	|   unknown vars used as task args	|
+|  variable.unknown_name_vars 	|   undefined var & the var name is different from the key name	|
