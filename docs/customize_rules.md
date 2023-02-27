@@ -101,10 +101,10 @@ This is an example of setting new key and value by the mutating rule.
 
         verdict = True
 
-        new_key = "foo"
-        new_value = "bar"
-        content = task.content # get a task content from 
-        content.replace_value(new_key, new_value) # set a new key to the task module
+        new_key = "tag"
+        new_value = "dev"
+        content = task.content # get a task content from context
+        content.replace_value(new_key, new_value) # set a new key to the task option
         mutated_yaml = content.yaml() # convert to yaml format
         detail["mutated_yaml"] = mutated_yaml # put mutated yaml into rule result
 
@@ -159,8 +159,8 @@ You can specify the order by setting `precedence` in the rule definition.
         verdict = True
         changes = {}
 
-        new_key = "foo"
-        new_value = "bar"
+        new_key = "tag"
+        new_value = "dev"
 
         content = task.content 
         content.replace_value(new_key, new_value)
