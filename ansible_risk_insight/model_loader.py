@@ -56,6 +56,7 @@ from .finder import (
 )
 from .utils import (
     split_target_playbook_fullpath,
+    split_target_taskfile_fullpath,
     get_module_documentations_by_ansible_doc,
     get_documentation_in_module_file,
     get_class_by_arg_type,
@@ -92,6 +93,7 @@ def load_repository(
     my_collection_name="",
     basedir="",
     target_playbook_path="",
+    target_taskfile_path="",
     use_ansible_doc=True,
     skip_playbook_format_error=True,
     skip_task_format_error=True,
@@ -161,6 +163,7 @@ def load_repository(
     repoObj.installed_collections_path = installed_collections_path
     repoObj.installed_roles_path = installed_roles_path
     repoObj.target_playbook_path = target_playbook_path
+    repoObj.target_taskfile_path = target_taskfile_path
     logger.debug("done")
 
     return repoObj
@@ -267,7 +270,7 @@ def load_play(
     collection_name="",
     parent_key="",
     parent_local_key="",
-    playbook_yaml="",
+    yaml_lines="",
     basedir="",
     skip_task_format_error=True,
 ):
@@ -320,7 +323,7 @@ def load_play(
                         play_index=index,
                         parent_key=pbObj.key,
                         parent_local_key=pbObj.local_key,
-                        playbook_yaml=playbook_yaml,
+                        yaml_lines=yaml_lines,
                         basedir=basedir,
                     )
                     pre_tasks.append(t)
@@ -351,7 +354,7 @@ def load_play(
                         play_index=index,
                         parent_key=pbObj.key,
                         parent_local_key=pbObj.local_key,
-                        playbook_yaml=playbook_yaml,
+                        yaml_lines=yaml_lines,
                         basedir=basedir,
                     )
                     tasks.append(t)
@@ -382,7 +385,7 @@ def load_play(
                         play_index=index,
                         parent_key=pbObj.key,
                         parent_local_key=pbObj.local_key,
-                        playbook_yaml=playbook_yaml,
+                        yaml_lines=yaml_lines,
                         basedir=basedir,
                     )
                     post_tasks.append(t)
@@ -417,7 +420,7 @@ def load_play(
                         role_name=role_name,
                         collection_name=collection_name,
                         collections_in_play=collections_in_play,
-                        playbook_yaml=playbook_yaml,
+                        yaml_lines=yaml_lines,
                         basedir=basedir,
                     )
                     roles.append(rip)
@@ -548,7 +551,7 @@ def load_playbook(path="", yaml_str="", role_name="", collection_name="", basedi
                 collection_name=collection_name,
                 parent_key=pbObj.key,
                 parent_local_key=pbObj.local_key,
-                playbook_yaml=yaml_str,
+                yaml_lines=yaml_str,
                 basedir=basedir,
                 skip_task_format_error=skip_task_format_error,
             )
@@ -1058,13 +1061,13 @@ def load_task(
     play_index=-1,
     parent_key="",
     parent_local_key="",
-    playbook_yaml="",
+    yaml_lines="",
     basedir="",
 ):
 
     taskObj = Task()
     fullpath = ""
-    if playbook_yaml:
+    if yaml_lines:
         fullpath = path
     else:
         if os.path.exists(path) and path != "" and path != ".":
@@ -1093,9 +1096,7 @@ def load_task(
         else:
             task_options.update({k: v})
 
-    taskObj.set_yaml_lines(
-        fullpath=fullpath, playbook_yaml=playbook_yaml, task_name=task_name, module_name=module_name, module_options=module_options
-    )
+    taskObj.set_yaml_lines(fullpath=fullpath, yaml_lines=yaml_lines, task_name=task_name, module_name=module_name, module_options=module_options)
 
     # module_options can be passed as a string like below
     #
@@ -1203,18 +1204,20 @@ def load_task(
     return taskObj
 
 
-def load_taskfile(path, role_name="", collection_name="", basedir="", skip_task_format_error=True):
+def load_taskfile(path, yaml_str="", role_name="", collection_name="", basedir="", skip_task_format_error=True):
     tfObj = TaskFile()
-
     fullpath = ""
-    if os.path.exists(path) and path != "" and path != ".":
+    if yaml_str:
         fullpath = path
-    if os.path.exists(os.path.join(basedir, path)):
-        fullpath = os.path.normpath(os.path.join(basedir, path))
-    if fullpath == "":
-        raise ValueError("file not found")
-    if not fullpath.endswith(".yml") and not fullpath.endswith(".yaml"):
-        raise ValueError('task yaml file must be ".yml" or ".yaml"')
+    else:
+        if os.path.exists(path) and path != "" and path != ".":
+            fullpath = path
+        if os.path.exists(os.path.join(basedir, path)):
+            fullpath = os.path.normpath(os.path.join(basedir, path))
+        if fullpath == "":
+            raise ValueError("file not found")
+        if not fullpath.endswith(".yml") and not fullpath.endswith(".yaml"):
+            raise ValueError('task yaml file must be ".yml" or ".yaml"')
     tfObj.name = os.path.basename(fullpath)
     defined_in = fullpath
     if basedir != "":
@@ -1229,7 +1232,7 @@ def load_taskfile(path, role_name="", collection_name="", basedir="", skip_task_
         tfObj.collection = collection_name
     tfObj.set_key()
 
-    task_dicts = get_task_blocks(fpath=fullpath)
+    task_dicts, yaml_lines = get_task_blocks(fpath=fullpath, yaml_str=yaml_str)
     if task_dicts is None:
         return tfObj
     tasks = []
@@ -1241,6 +1244,7 @@ def load_taskfile(path, role_name="", collection_name="", basedir="", skip_task_
                 t_dict,
                 role_name,
                 collection_name,
+                yaml_lines=yaml_lines,
                 parent_key=tfObj.key,
                 parent_local_key=tfObj.local_key,
                 basedir=basedir,
@@ -1255,6 +1259,9 @@ def load_taskfile(path, role_name="", collection_name="", basedir="", skip_task_
         except Exception:
             logger.exception("error while loading the task at {}, index: {}".format(fullpath, i))
     tfObj.tasks = tasks
+
+    if yaml_lines:
+        tfObj.yaml_lines = yaml_lines
 
     return tfObj
 
@@ -1432,6 +1439,17 @@ def load_object(loadObj):
             obj = load_playbook(path=target_playbook_path, yaml_str=loadObj.playbook_yaml, basedir=basedir)
         else:
             obj = load_repository(path=basedir, basedir=basedir, target_playbook_path=target_playbook_path, load_children=False)
+    elif target_type == LoadType.TASKFILE:
+        basedir = ""
+        target_taskfile_path = ""
+        if loadObj.taskfile_yaml:
+            target_taskfile_path = path
+        else:
+            basedir, target_taskfile_path = split_target_taskfile_fullpath(path)
+        if loadObj.taskfile_only:
+            obj = load_taskfile(path=target_taskfile_path, yaml_str=loadObj.taskfile_yaml, basedir=basedir)
+        else:
+            obj = load_repository(path=basedir, basedir=basedir, target_taskfile_path=target_taskfile_path, load_children=False)
     elif target_type == LoadType.PROJECT:
         obj = load_repository(path=path, basedir=path, load_children=False)
 
@@ -1448,6 +1466,8 @@ def load_object(loadObj):
         loadObj.roles = [obj.defined_in]
     elif target_type == LoadType.PLAYBOOK and loadObj.playbook_only:
         loadObj.playbooks = [obj.defined_in]
+    elif target_type == LoadType.TASKFILE and loadObj.taskfile_only:
+        loadObj.taskfiles = [obj.defined_in]
 
     loadObj.timestamp = datetime.datetime.utcnow().isoformat()
 

@@ -41,6 +41,7 @@ from .model_loader import (
 )
 from .utils import (
     split_target_playbook_fullpath,
+    split_target_taskfile_fullpath,
     get_module_documentations_by_ansible_doc,
 )
 
@@ -162,6 +163,37 @@ class Parser:
             except Exception:
                 logger.exception("failed to load the playbook {}".format(playbook_name))
                 return
+        elif ld.target_type == LoadType.TASKFILE:
+            basedir = ""
+            target_taskfile_path = ""
+            if ld.taskfile_yaml:
+                target_playbook_path = ld.path
+            else:
+                basedir, target_taskfile_path = split_target_taskfile_fullpath(ld.path)
+            taskfile_name = ld.target_name
+            try:
+                if ld.taskfile_only:
+                    obj = load_taskfile(
+                        path=target_taskfile_path,
+                        yaml_str=ld.taskfile_yaml,
+                        basedir=basedir,
+                        skip_task_format_error=self.skip_task_format_error,
+                    )
+                else:
+                    obj = load_repository(
+                        path=basedir,
+                        basedir=basedir,
+                        target_taskfile_path=target_taskfile_path,
+                        use_ansible_doc=self.use_ansible_doc,
+                        skip_playbook_format_error=self.skip_playbook_format_error,
+                        skip_task_format_error=self.skip_task_format_error,
+                    )
+            except TaskFormatError:
+                if not self.skip_task_format_error:
+                    raise
+            except Exception:
+                logger.exception("failed to load the taskfile {}".format(taskfile_name))
+                return
         else:
             raise ValueError("unsupported type: {}".format(ld.target_type))
 
@@ -175,6 +207,8 @@ class Parser:
         basedir = ld.path
         if ld.target_type == LoadType.PLAYBOOK:
             basedir, _ = split_target_playbook_fullpath(ld.path)
+        elif ld.target_type == LoadType.TASKFILE:
+            basedir, _ = split_target_taskfile_fullpath(ld.path)
 
         roles = []
         for role_path in ld.roles:
@@ -204,9 +238,10 @@ class Parser:
             try:
                 tf = load_taskfile(
                     path=taskfile_path,
+                    yaml_str=ld.taskfile_yaml,
                     role_name=role_name,
                     collection_name=collection_name,
-                    basedir=ld.path,
+                    basedir=basedir,
                     skip_task_format_error=self.skip_task_format_error,
                 )
             except TaskFormatError:
@@ -293,6 +328,8 @@ class Parser:
         elif ld.target_type == LoadType.ROLE:
             pass
         elif ld.target_type == LoadType.PLAYBOOK:
+            pass
+        elif ld.target_type == LoadType.TASKFILE:
             pass
         elif ld.target_type == LoadType.PROJECT:
             projects = [obj]

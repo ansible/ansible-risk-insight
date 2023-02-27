@@ -76,7 +76,7 @@ class RAMClient(object):
     def make_findings_dir_path(self, type, name, version, hash):
         type_root = type + "s"
         dir_name = name
-        if type in [LoadType.PROJECT, LoadType.PLAYBOOK]:
+        if type in [LoadType.PROJECT, LoadType.PLAYBOOK, LoadType.TASKFILE]:
             dir_name = escape_url(name)
         ver_str = version if version != "" else "unknown"
         hash_str = hash if hash != "" else "unknown"
@@ -680,6 +680,9 @@ class RAMClient(object):
         if not target_type or target_type == "playbook":
             e_target_name = escape_url(target_name)
             search_patterns.append(os.path.join(self.root_dir, "playbooks", "findings", e_target_name, target_version, "*", "findings.json"))
+        if not target_type or target_type == "taskfile":
+            e_target_name = escape_url(target_name)
+            search_patterns.append(os.path.join(self.root_dir, "taskfiles", "findings", e_target_name, target_version, "*", "findings.json"))
         found_path_list = safe_glob(search_patterns)
         latest_findings_path = ""
         if len(found_path_list) == 1:

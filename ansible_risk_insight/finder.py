@@ -83,30 +83,39 @@ def find_module_name(data_block):
     return ""
 
 
-def get_task_blocks(fpath="", task_dict_list=None):
+def get_task_blocks(fpath="", yaml_str="", task_dict_list=None):
     d = None
-    if fpath != "":
+    yaml_lines = ""
+    if yaml_str:
+        try:
+            d = yaml.safe_load(yaml_str)
+            yaml_lines = yaml_str
+        except Exception as e:
+            logger.debug("failed to load this yaml string to get task blocks; {}".format(e.args[0]))
+            return None, None
+    elif fpath:
         if not os.path.exists(fpath):
-            return None
+            return None, None
         with open(fpath, "r") as file:
             try:
-                d = yaml.safe_load(file)
+                yaml_lines = file.read()
+                d = yaml.safe_load(yaml_lines)
             except Exception as e:
                 logger.debug("failed to load this yaml file to get task blocks; {}".format(e.args[0]))
-                return None
+                return None, None
     elif task_dict_list is not None:
         d = task_dict_list
     else:
-        return None
+        return None, None
     if d is None:
-        return None
+        return None, None
     if not isinstance(d, list):
-        return None
+        return None, None
     tasks = []
     for task_dict in d:
         task_dict_loop = flatten_block_tasks(task_dict)
         tasks.extend(task_dict_loop)
-    return tasks
+    return tasks, yaml_lines
 
 
 # extract all tasks by flattening block tasks recursively
