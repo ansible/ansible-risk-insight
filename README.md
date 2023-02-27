@@ -4,7 +4,7 @@ Ansible Risk Insight (ARI) is the tool to evaluate the quality and risk of the a
 
 ![ari overview](doc/images/ari-overview.png)
 
-ARI can apply rules to evaluate quality and risk for the tasks and roles on the call tree. 
+ARI can apply rules to evaluate quality and risk for the tasks, roles, playbooks and taskfiles on the call tree. 
 
 ![ari apply rules](doc/images/ari-apply-rules.png)
 
