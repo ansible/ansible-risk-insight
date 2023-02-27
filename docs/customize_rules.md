@@ -92,7 +92,7 @@ You can use the following methods to change task content.
 - replace_module_arg_key(old_key, new_key)
 - replace_module_arg_value(key, old_value, new_value)
 
-This is an example of setting new key and value by the mutating rule.
+This is an example of changing a task option by the mutating rule.
 
 ```python
     def process(self, ctx: AnsibleRunContext):
@@ -101,10 +101,10 @@ This is an example of setting new key and value by the mutating rule.
 
         verdict = True
 
-        new_key = "tag"
-        new_value = "dev"
+        old_value = "foo"
+        new_value = "bar"
         content = task.content # get a task content from context
-        content.replace_value(new_key, new_value) # set a new key to the task option
+        content.replace_value(old_value, new_value) # replace value in the task option
         mutated_yaml = content.yaml() # convert to yaml format
         detail["mutated_yaml"] = mutated_yaml # put mutated yaml into rule result
 
@@ -159,12 +159,12 @@ You can specify the order by setting `precedence` in the rule definition.
         verdict = True
         changes = {}
 
-        new_key = "tag"
-        new_value = "dev"
+        old_value = "foo"
+        new_value = "bar"
 
         content = task.content 
-        content.replace_value(new_key, new_value)
-        changes = {"before": {},  "after": {"key": new_key, "value": new_value}}
+        content.replace_value(old_value, new_value)
+        changes = {"before": old_value,  "after": new_value}
         mutated_yaml = content.yaml() 
 
         detail["mutated_yaml"] = mutated_yaml 
