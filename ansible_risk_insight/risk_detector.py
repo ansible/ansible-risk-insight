@@ -17,6 +17,7 @@
 import argparse
 import os
 from typing import List
+import time
 
 import ansible_risk_insight.logger as logger
 from .models import AnsibleRunContext, ARIResult, TargetResult, NodeResult, RuleResult, Rule
@@ -128,6 +129,7 @@ def detect(contexts: List[AnsibleRunContext], rules_dir: str = "", rules: list =
             for rule in rules:
                 if not rule.enabled:
                     continue
+                start_time = time.time()
                 matched = rule.match(ctx)
                 r_result = RuleResult(file=t.file_info(), rule=rule.get_metadata())
                 if matched:
@@ -135,6 +137,7 @@ def detect(contexts: List[AnsibleRunContext], rules_dir: str = "", rules: list =
                     if tmp_result:
                         r_result = tmp_result
                     r_result.matched = matched
+                r_result.duration = round((time.time() - start_time) * 1000, 6)
                 n_result.rules.append(r_result)
             t_result.nodes.append(n_result)
         ari_result.targets.append(t_result)

@@ -1898,6 +1898,7 @@ class RuleResult(object):
     error: str = None
 
     matched: bool = False
+    duration: float = None
 
     def __post_init__(self):
         if self.verdict:
