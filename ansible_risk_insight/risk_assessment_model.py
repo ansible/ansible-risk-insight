@@ -201,39 +201,10 @@ class RAMClient(object):
             if os.path.exists(findings_path):
                 modules_json_list.append(findings_path)
         else:
-            findings_json_list = []
-            if self.findings_json_list_cache:
-                findings_json_list = self.findings_json_list_cache
-            else:
-                search_patterns = os.path.join(self.root_dir, "collections", "findings", "*", "*", "*", "findings.json")
-                findings_json_list_coll = safe_glob(search_patterns)
-                findings_json_list_coll = sort_by_version(findings_json_list_coll)
-                search_patterns = os.path.join(self.root_dir, "roles", "findings", "*", "*", "*", "findings.json")
-                findings_json_list_role = safe_glob(search_patterns)
-                findings_json_list_role = sort_by_version(findings_json_list_role)
-                findings_json_list = findings_json_list_coll + findings_json_list_role
-                self.findings_json_list_cache = findings_json_list
-
-            modules_json_list = []
-            if self.modules_json_list_cache:
-                modules_json_list = self.modules_json_list_cache
-            else:
-                for findings_json in findings_json_list:
-                    f = Findings.load(fpath=findings_json)
-                    if not isinstance(f, Findings):
-                        continue
-                    # avoid using unresolved RAM data
-                    if f.extra_requirements:
-                        continue
-                    modules = f.root_definitions.get("definitions", {}).get("modules", [])
-                    self.modules_cache[findings_json] = modules
-                    modules_json_list.append(findings_json)
-                self.modules_json_list_cache = modules_json_list
-
-            if collection_name != "":
-                modules_json_list = [fpath for fpath in modules_json_list if f"/{collection_name}/" in fpath]
-            if collection_version != "":
-                modules_json_list = [fpath for fpath in modules_json_list if f"/{collection_version}/" in fpath]
+            # Do not search a module from all findings
+            # when it is not found in the module index.
+            # Instead, just return nothing in the case.
+            pass
         matched_modules = []
         search_end = False
         for findings_json in modules_json_list:
