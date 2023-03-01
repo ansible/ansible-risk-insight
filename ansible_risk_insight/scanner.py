@@ -713,6 +713,7 @@ class ARIScanner(object):
         playbook_only: bool = False,
         taskfile_yaml: str = "",
         taskfile_only: bool = False,
+        raw_yaml: str = "",
         out_dir: str = "",
     ):
         time_records = {}
@@ -720,6 +721,12 @@ class ARIScanner(object):
 
         if not name and path:
             name = path
+
+        if raw_yaml:
+            if type == LoadType.PLAYBOOK:
+                playbook_yaml = raw_yaml
+            elif type == LoadType.TASKFILE:
+                taskfile_yaml = raw_yaml
 
         if is_local_path(name):
             name = os.path.abspath(name)
