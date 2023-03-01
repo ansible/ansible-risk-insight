@@ -2122,6 +2122,20 @@ class ARIResult(JSONSerializable):
 
         return None
 
+    def find_target(self, name="", path="", yaml_str="", target_type=""):
+        if name:
+            return self._find_by_name(name)
+
+        # TODO: use path correctly
+        if path:
+            name = os.path.basename(path)
+            return self._find_by_name(name)
+
+        if yaml_str:
+            return self._find_by_yaml_str(yaml_str, target_type)
+
+        return None
+
     def _find_by_name(self, name):
         filtered_targets = [tr for tr in self.targets if tr.target_name == name]
         if not filtered_targets:
