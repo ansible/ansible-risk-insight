@@ -54,6 +54,7 @@ from .utils import (
     summarize_findings,
     summarize_findings_data,
     split_target_playbook_fullpath,
+    split_target_taskfile_fullpath,
 )
 
 
@@ -144,6 +145,9 @@ class SingleScan(object):
     target_playbook_name: str = None
     playbook_yaml: str = ""
     playbook_only: bool = False
+    target_taskfile_name: str = None
+    taskfile_yaml: str = ""
+    taskfile_only: bool = False
 
     skip_playbook_format_error: bool = (True,)
     skip_task_format_error: bool = (True,)
@@ -230,7 +234,7 @@ class SingleScan(object):
                 ),
             }
 
-        elif self.type == LoadType.PROJECT or self.type == LoadType.PLAYBOOK:
+        elif self.type == LoadType.PROJECT or self.type == LoadType.PLAYBOOK or self.type == LoadType.TASKFILE:
             type_root = self.type + "s"
             proj_name = escape_url(self.name)
             if self.type == LoadType.PLAYBOOK:
@@ -238,6 +242,11 @@ class SingleScan(object):
                     self.target_playbook_name = self.name
                 else:
                     _, self.target_playbook_name = split_target_playbook_fullpath(self.name)
+            elif self.type == LoadType.TASKFILE:
+                if self.taskfile_yaml:
+                    self.target_taskfile_name = self.name
+                else:
+                    _, self.target_taskfile_name = split_target_taskfile_fullpath(self.name)
             self.__path_mappings = {
                 "src": os.path.join(self.root_dir, type_root, proj_name, "src"),
                 "root_definitions": os.path.join(
@@ -272,6 +281,13 @@ class SingleScan(object):
             self.playbook_only = True
             if not self.name:
                 self.name = "__in_memory__"
+                self.target_playbook_name = self.name
+
+        if self.taskfile_yaml:
+            self.taskfile_only = True
+            if not self.name:
+                self.name = "__in_memory__"
+                self.target_taskfile_name = self.name
 
     def make_target_path(self, typ, target_name, dep_dir=""):
         target_path = ""
@@ -309,6 +325,11 @@ class SingleScan(object):
             else:
                 target_path = target_name
         elif typ == LoadType.PLAYBOOK:
+            if is_url(target_name):
+                target_path = os.path.join(self.get_src_root(), escape_url(target_name))
+            else:
+                target_path = target_name
+        elif typ == LoadType.TASKFILE:
             if is_url(target_name):
                 target_path = os.path.join(self.get_src_root(), escape_url(target_name))
             else:
@@ -359,7 +380,7 @@ class SingleScan(object):
 
         loader_version = get_loader_version()
 
-        if not os.path.exists(target_path) and not self.playbook_yaml:
+        if not os.path.exists(target_path) and not self.playbook_yaml and not self.taskfile_yaml:
             raise ValueError("No such file or directory: {}".format(target_path))
         if not self.silent:
             logger.debug(f"target_name: {target_name}")
@@ -373,6 +394,8 @@ class SingleScan(object):
             loader_version=loader_version,
             playbook_yaml=self.playbook_yaml,
             playbook_only=self.playbook_only,
+            taskfile_yaml=self.taskfile_yaml,
+            taskfile_only=self.taskfile_only,
         )
         load_object(ld)
         return ld
@@ -425,7 +448,7 @@ class SingleScan(object):
             if target_path == "":
                 target_path = self.get_source_path(ext_type, ext_name)
             root_load_data = self.create_load_file(ext_type, ext_name, target_path)
-        elif self.type in [LoadType.PROJECT, LoadType.PLAYBOOK]:
+        elif self.type in [LoadType.PROJECT, LoadType.PLAYBOOK, LoadType.TASKFILE]:
             src_root = self.get_src_root()
             if target_path == "":
                 target_path = os.path.join(src_root, escape_url(self.name))
@@ -477,7 +500,7 @@ class SingleScan(object):
 
     def construct_trees(self, ram_client=None):
         trees, additional, extra_requirements, resolve_failures = tree(
-            self.root_definitions, self.ext_definitions, ram_client, self.target_playbook_name
+            self.root_definitions, self.ext_definitions, ram_client, self.target_playbook_name, self.target_taskfile_name
         )
         self.trees = trees
         self.additional = additional
@@ -688,6 +711,9 @@ class ARIScanner(object):
         source_repository: str = "",
         playbook_yaml: str = "",
         playbook_only: bool = False,
+        taskfile_yaml: str = "",
+        taskfile_only: bool = False,
+        raw_yaml: str = "",
         out_dir: str = "",
     ):
         time_records = {}
@@ -695,6 +721,12 @@ class ARIScanner(object):
 
         if not name and path:
             name = path
+
+        if raw_yaml:
+            if type == LoadType.PLAYBOOK:
+                playbook_yaml = raw_yaml
+            elif type == LoadType.TASKFILE:
+                taskfile_yaml = raw_yaml
 
         if is_local_path(name):
             name = os.path.abspath(name)
@@ -715,6 +747,8 @@ class ARIScanner(object):
             source_repository=source_repository,
             playbook_yaml=playbook_yaml,
             playbook_only=playbook_only,
+            taskfile_yaml=taskfile_yaml,
+            taskfile_only=taskfile_only,
             out_dir=out_dir,
             root_dir=self.root_dir,
             rules_dir=self.rules_dir,
@@ -828,7 +862,7 @@ class ARIScanner(object):
 
         loaded = False
         self.record_begin(time_records, "target_load")
-        if self.read_ram and scandata.type != LoadType.PLAYBOOK:
+        if self.read_ram and scandata.type not in [LoadType.PLAYBOOK, LoadType.TASKFILE]:
             loaded, root_defs = self.load_definitions_from_ram(scandata.type, scandata.name, scandata.version, scandata.hash, allow_unresolved=True)
             logger.debug(f"spec data loaded: {loaded}")
             if loaded:
@@ -962,8 +996,8 @@ class ARIScanner(object):
         time_records[record_name]["elapsed"] = elapsed
 
 
-def tree(root_definitions, ext_definitions, ram_client=None, target_playbook_path=None):
-    tl = TreeLoader(root_definitions, ext_definitions, ram_client, target_playbook_path)
+def tree(root_definitions, ext_definitions, ram_client=None, target_playbook_path=None, target_taskfile_path=None):
+    tl = TreeLoader(root_definitions, ext_definitions, ram_client, target_playbook_path, target_taskfile_path)
     trees, additional = tl.run()
     if trees is None:
         raise ValueError("failed to get trees")

@@ -139,7 +139,7 @@ class DependencyDirPreparator(object):
             pass
         else:
             # if a project target is a local path, then skip install
-            if self.target_type in [LoadType.PROJECT, LoadType.PLAYBOOK] and not is_url(self.target_name):
+            if self.target_type in [LoadType.PROJECT, LoadType.PLAYBOOK, LoadType.TASKFILE] and not is_url(self.target_name):
                 root_install = False
 
             # if a collection/role is a local path, then skip install (require MANIFEST.json or meta/main.yml to get the actual name)

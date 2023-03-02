@@ -84,7 +84,7 @@ class Resolvable(object):
         # apply resolver for this instance
         resolver.apply(self)
 
-        # call resolve() for children rescursively
+        # call resolve() for children recursively
         targets = self.resolver_targets
         if targets is None:
             return
@@ -108,6 +108,7 @@ class LoadType:
     COLLECTION = "collection"
     ROLE = "role"
     PLAYBOOK = "playbook"
+    TASKFILE = "taskfile"
     UNKNOWN = "unknown"
 
 
@@ -119,6 +120,8 @@ class Load(JSONSerializable):
     loader_version: str = ""
     playbook_yaml: str = ""
     playbook_only: bool = False
+    taskfile_yaml: str = ""
+    taskfile_only: bool = False
     timestamp: str = ""
 
     # the following variables are list of paths; not object
@@ -1081,15 +1084,15 @@ class Task(Object, Resolvable):
     # candidates of resovled_name
     possible_candidates: list = field(default_factory=list)
 
-    def set_yaml_lines(self, fullpath="", playbook_yaml="", task_name="", module_name="", module_options=None):
+    def set_yaml_lines(self, fullpath="", yaml_lines="", task_name="", module_name="", module_options=None):
         if not module_name:
             return
         if not task_name and not module_options:
             return
         found_line_num = -1
         lines = []
-        if playbook_yaml:
-            lines = playbook_yaml.splitlines()
+        if yaml_lines:
+            lines = yaml_lines.splitlines()
         else:
             lines = open(fullpath, "r").read().splitlines()
         for i, line in enumerate(lines):
@@ -1754,6 +1757,9 @@ class Repository(Object, Resolvable):
     # for playbook scan
     target_playbook_path: str = ""
 
+    # for taskfile scan
+    target_taskfile_path: str = ""
+
     requirements: dict = field(default_factory=dict)
 
     installed_collections_path: str = ""
@@ -1892,6 +1898,7 @@ class RuleResult(object):
     error: str = None
 
     matched: bool = False
+    duration: float = None
 
     def __post_init__(self):
         if self.verdict:
@@ -2011,7 +2018,7 @@ class NodeResult(JSONSerializable):
 
 @dataclass
 class TargetResult(JSONSerializable):
-    target_type: str = ""  # playbook or role
+    target_type: str = ""  # playbook, role or taskfile
     target_name: str = ""
     nodes: List[NodeResult] = field(default_factory=list)
 
@@ -2089,7 +2096,7 @@ class ARIResult(JSONSerializable):
             return self._find_by_name(name)
 
         if yaml_str:
-            return self._find_by_yaml_str(yaml_str)
+            return self._find_by_yaml_str(yaml_str, "playbook")
 
         return None
 
@@ -2099,17 +2106,48 @@ class ARIResult(JSONSerializable):
     def role(self, name):
         return self._find_by_name(name)
 
+    def taskfiles(self):
+        return self._filter("taskfile")
+
+    def taskfile(self, name="", path="", yaml_str=""):
+        if name:
+            return self._find_by_name(name)
+
+        # TODO: use path correctly
+        if path:
+            name = os.path.basename(path)
+            return self._find_by_name(name)
+
+        if yaml_str:
+            return self._find_by_yaml_str(yaml_str, "taskfile")
+
+        return None
+
+    def find_target(self, name="", path="", yaml_str="", target_type=""):
+        if name:
+            return self._find_by_name(name)
+
+        # TODO: use path correctly
+        if path:
+            name = os.path.basename(path)
+            return self._find_by_name(name)
+
+        if yaml_str:
+            return self._find_by_yaml_str(yaml_str, target_type)
+
+        return None
+
     def _find_by_name(self, name):
         filtered_targets = [tr for tr in self.targets if tr.target_name == name]
         if not filtered_targets:
             return None
         return filtered_targets[0]
 
-    def _find_by_yaml_str(self, yaml_str):
-        playbook_only_result = self._filter("playbook")
-        if not playbook_only_result:
+    def _find_by_yaml_str(self, yaml_str, type_str):
+        type_only_result = self._filter(type_str)
+        if not type_only_result:
             return None
-        filtered_targets = [tr for tr in playbook_only_result.targets if tr.nodes and tr.nodes[0].node.spec.yaml_lines == yaml_str]
+        filtered_targets = [tr for tr in type_only_result.targets if tr.nodes and tr.nodes[0].node.spec.yaml_lines == yaml_str]
         if not filtered_targets:
             return None
         return filtered_targets[0]
