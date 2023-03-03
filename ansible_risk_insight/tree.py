@@ -461,19 +461,20 @@ class TreeLoader(object):
             self.trees.append(tree_objects)
         return self.trees, additional_objects
 
-    def _recursive_get_calls(self, key, caller=None):
+    def _recursive_get_calls(self, key, caller=None, index=0):
         obj_list = ObjectList()
         obj = self.get_object(key)
         if obj is None:
             return obj_list
-        call_obj = call_obj_from_spec(spec=obj, caller=caller)
+        call_obj = call_obj_from_spec(spec=obj, caller=caller, index=index)
         if call_obj is not None:
             obj_list.add(call_obj, update_dict=False)
         children_keys, from_ram = self._get_children_keys(obj)
-        for c_key in children_keys:
+        for i, c_key in enumerate(children_keys):
             child_objects = self._recursive_get_calls(
                 c_key,
                 call_obj,
+                i,
             )
             if isinstance(call_obj, TaskCall):
                 taskcall = call_obj
