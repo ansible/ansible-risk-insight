@@ -217,18 +217,25 @@ class CallObject(JSONSerializable):
     called_from: str = ""
     spec: Object = field(default_factory=Object)
     depth: int = -1
+    node_id: str = ""
 
     @classmethod
-    def from_spec(cls, spec, caller):
+    def from_spec(cls, spec, caller, index):
         instance = cls()
         instance.spec = spec
         caller_key = "None"
         depth = 0
-        if caller is not None:
+        node_id = "0"
+        if caller:
             instance.called_from = caller.key
             caller_key = caller.key
             depth = caller.depth + 1
+            index_str = "0"
+            if index >= 0:
+                index_str = str(index)
+            node_id = caller.node_id + "." + index_str
         instance.depth = depth
+        instance.node_id = node_id
         instance.key = set_call_object_key(cls.__name__, spec.key, caller_key)
         return instance
 
@@ -1311,6 +1318,25 @@ class MutableContent(object):
         self._yaml = self._task_spec.yaml()
         return self
 
+    def replace_with_dict(self, new_dict: dict):
+        # import this here to avoid circular import
+        from .model_loader import load_task
+
+        yaml_lines = yaml.safe_dump([new_dict], sort_keys=False)
+        new_task = load_task(
+            path=self._task_spec.defined_in,
+            index=self._task_spec.index,
+            task_block_dict=new_dict,
+            role_name=self._task_spec.role,
+            collection_name=self._task_spec.collection,
+            collections_in_play=self._task_spec.collections_in_play,
+            play_index=self._task_spec.play_index,
+            yaml_lines=yaml_lines,
+        )
+        self._yaml = yaml_lines
+        self._task_spec = new_task
+        return self
+
     def yaml(self):
         return self._yaml
 
@@ -1442,23 +1468,21 @@ class AnsibleRunContext(object):
             return AnsibleRunContext()
 
         root_key = tree.items[0].spec.key
-        sequence = []
+        sequence_items = []
         for item in tree.items:
             if not isinstance(item, RunTarget):
                 continue
-            sequence.append(item)
-        return AnsibleRunContext(
-            sequence=sequence,
-            root_key=root_key,
-        )
+            sequence_items.append(item)
+        tl = RunTargetList(items=sequence_items)
+        return AnsibleRunContext(sequence=tl, root_key=root_key)
 
     @staticmethod
     def from_targets(targets: List[RunTarget], root_key: str = ""):
         if not root_key:
             if len(targets) > 0:
                 root_key = targets[0].spec.key
-        l = RunTargetList(items=targets)
-        return AnsibleRunContext(sequence=l, root_key=root_key)
+        tl = RunTargetList(items=targets)
+        return AnsibleRunContext(sequence=tl, root_key=root_key)
 
     def find(self, target: RunTarget):
         for t in self.sequence:
@@ -1487,6 +1511,9 @@ class AnsibleRunContext(object):
         if len(self) == 0:
             return False
         return target.key == self.sequence[0].key
+
+    def copy(self):
+        return AnsibleRunContext.from_targets(targets=self.sequence.items, root_key=self.root_key)
 
     @property
     def info(self):
@@ -1803,25 +1830,25 @@ class RepositoryCall(CallObject):
     type: str = "repositorycall"
 
 
-def call_obj_from_spec(spec: Object, caller: CallObject):
+def call_obj_from_spec(spec: Object, caller: CallObject, index: int = 0):
     if isinstance(spec, Repository):
-        return RepositoryCall.from_spec(spec, caller)
+        return RepositoryCall.from_spec(spec, caller, index)
     elif isinstance(spec, Playbook):
-        return PlaybookCall.from_spec(spec, caller)
+        return PlaybookCall.from_spec(spec, caller, index)
     elif isinstance(spec, Play):
-        return PlayCall.from_spec(spec, caller)
+        return PlayCall.from_spec(spec, caller, index)
     elif isinstance(spec, RoleInPlay):
-        return RoleInPlayCall.from_spec(spec, caller)
+        return RoleInPlayCall.from_spec(spec, caller, index)
     elif isinstance(spec, Role):
-        return RoleCall.from_spec(spec, caller)
+        return RoleCall.from_spec(spec, caller, index)
     elif isinstance(spec, TaskFile):
-        return TaskFileCall.from_spec(spec, caller)
+        return TaskFileCall.from_spec(spec, caller, index)
     elif isinstance(spec, Task):
-        taskcall = TaskCall.from_spec(spec, caller)
+        taskcall = TaskCall.from_spec(spec, caller, index)
         taskcall.content = MutableContent.from_task_spec(task_spec=spec)
         return taskcall
     elif isinstance(spec, Module):
-        return ModuleCall.from_spec(spec, caller)
+        return ModuleCall.from_spec(spec, caller, index)
     return None
 
 
