@@ -43,3 +43,4 @@ You can run the sample by
 python example/sample.py
 ```
 
+See the document [here](../docs/customize_rules.md) to add your own custom rules. 
