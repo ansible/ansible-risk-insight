@@ -13,10 +13,10 @@ if __name__ == "__main__":
             rules_dir=rule_dir,
             data_dir="/tmp/ari-data",
             rules=[
-                "P001",
-                "P002",
-                "P003",
-                "P004",
+                "P001",  # need for module annotation
+                "P002",  # need for module annotation
+                "P003",  # need for module annotation
+                "P004",  # need for module annotation
                 rule_id,
             ],
         ),
