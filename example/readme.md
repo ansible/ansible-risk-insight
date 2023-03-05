@@ -13,7 +13,7 @@ example
 For the preparation, see the document in ARI repositogy. Here is the short path for minimal preparation.
 
 ```
-git clone git@github.com:yuji-watanabe-jp/ansible-risk-insight.git
+git clone git@github.com:ansible/ansible-risk-insight.git
 cd ansible-risk-insight
 
 # install ARI
