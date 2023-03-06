@@ -17,6 +17,7 @@
 import sys
 from .cli import ARICLI
 from .cli.ram import RAMCLI
+from ansible_risk_insight.scanner import ARIScanner, Config
 
 ari_actions = ["project", "playbook", "collection", "role", "taskfile"]
 ram_actions = ["ram"]
@@ -48,3 +49,6 @@ def main():
     else:
         print(f"The action {action} is not supported!", file=sys.stderr)
         sys.exit(1)
+
+
+__all__ = ["ARIScanner", "Config", "models"]

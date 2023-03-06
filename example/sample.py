@@ -1,5 +1,5 @@
 import json
-from ansible_risk_insight.scanner import ARIScanner, Config
+from ansible_risk_insight import ARIScanner, Config
 import os
 
 if __name__ == "__main__":
