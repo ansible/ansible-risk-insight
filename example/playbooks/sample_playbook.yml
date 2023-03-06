@@ -1,0 +1,22 @@
+---
+- name: AWS Cloud operations
+  hosts: localhost
+  connection: local
+
+  tasks:
+    - name: Create a cloud instance
+      ec2_instance:
+        state: running
+        name: k8s_master
+        region: us-east-1
+        security_group: default
+        instance_type: t2.micro
+        image_id: ami-xxxxxx
+        key_name: mykey
+        tags:
+          Name: K8s Master
+        vpc_subnet_id: subnet-xxxxx identifier
+        wait: true
+        aws_access_key: "1"
+        aws_secret_key: "1"
+      register: x
