@@ -500,7 +500,7 @@ def show_diffs(diffs):
     print(tabulate(table))
 
 
-def get_module_documentations_by_ansible_doc(module_files: str, fqcn_prefix: str, search_path: str):
+def get_module_specs_by_ansible_doc(module_files: str, fqcn_prefix: str, search_path: str):
     if not module_files:
         return {}
 
@@ -531,12 +531,16 @@ def get_module_documentations_by_ansible_doc(module_files: str, fqcn_prefix: str
         logger.debug(f"error while getting the documentation for modules `{fqcn_list_str}`: {proc.stderr}")
         return ""
     wrapper_dict = json.loads(proc.stdout)
-    docs = {}
+    specs = {}
     for fqcn in wrapper_dict:
         doc_dict = wrapper_dict[fqcn].get("doc", {})
         doc = yaml.safe_dump(doc_dict)
-        docs[fqcn] = doc
-    return docs
+        examples = wrapper_dict[fqcn].get("examples", "")
+        specs[fqcn] = {
+            "doc": doc,
+            "examples": examples,
+        }
+    return specs
 
 
 def get_documentation_in_module_file(fpath: str):
