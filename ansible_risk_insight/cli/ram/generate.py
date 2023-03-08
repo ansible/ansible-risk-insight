@@ -30,6 +30,7 @@ class RAMGenerateCLI:
         parser.add_argument("-r", "--resume", help="line number to resume scanning")
         parser.add_argument("--no-module-spec", action="store_true", help="if True, ansible-doc is not used")
         parser.add_argument("--download-only", action="store_true", help="if True, just download the content")
+        parser.add_argument("--no-retry", action="store_true", help="if True, not retry failed items.")
         args = parser.parse_args()
         self.args = args
 
@@ -55,5 +56,6 @@ class RAMGenerateCLI:
             resume=resume,
             download_only=args.download_only,
             no_module_spec=args.no_module_spec,
+            no_retry=args.no_retry,
         )
         ram_generator.run()

@@ -333,6 +333,30 @@ class ModuleCall(CallObject, Resolvable):
 
 
 @dataclass
+class ModuleMetadata(object):
+    fqcn: str = ""
+    # arguments: list = field(default_factory=list)
+    type: str = ""
+    name: str = ""
+    version: str = ""
+    hash: str = ""
+
+    @staticmethod
+    def from_module(m: Module, metadata: dict):
+        mm = ModuleMetadata()
+        for key in mm.__dict__:
+            if hasattr(m, key):
+                val = getattr(m, key, None)
+                setattr(mm, key, val)
+
+        mm.type = metadata.get("type", "")
+        mm.name = metadata.get("name", "")
+        mm.version = metadata.get("version", "")
+        mm.hash = metadata.get("hash", "")
+        return mm
+
+
+@dataclass
 class Collection(Object, Resolvable):
     type: str = "collection"
     name: str = ""

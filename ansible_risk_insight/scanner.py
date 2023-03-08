@@ -922,6 +922,7 @@ class ARIScanner(object):
         # save RAM data
         if self.write_ram:
             self.register_findings_to_ram(scandata.findings)
+            self.register_module_index_to_ram(scandata.findings)
 
         if scandata.out_dir is not None and scandata.out_dir != "":
             self.save_rule_result(scandata.findings, scandata.out_dir)
@@ -959,6 +960,9 @@ class ARIScanner(object):
 
     def register_findings_to_ram(self, findings: Findings):
         self.ram_client.register(findings)
+    
+    def register_module_index_to_ram(self, findings: Findings):
+        self.ram_client.module_index_register(findings)
 
     def save_findings(self, findings: Findings, out_dir: str):
         self.ram_client.save_findings(findings, out_dir)
