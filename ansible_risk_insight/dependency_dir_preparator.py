@@ -273,6 +273,8 @@ class DependencyDirPreparator(object):
             if isinstance(rdep, dict):
                 rdep_name = rdep.get("name", None)
                 target_version = rdep.get("version", None)
+                if not rdep_name:
+                    rdep_name = rdep.get("role", None)
                 rdep = rdep_name
             name = rdep
             if type(rdep) is dict:
@@ -368,25 +370,40 @@ class DependencyDirPreparator(object):
             dst_src_dir = os.path.join(self.target_path_mappings["src"], escape_url(self.target_name))
             self.metadata.download_url = self.target_name
         elif self.target_type == LoadType.COLLECTION:
+            install_msg = ""
             sub_download_location = os.path.join(self.download_location, "collection", self.target_name)
-            install_msg = self.download_galaxy_collection(self.target_name, sub_download_location, version=self.target_version)
-            metadata = self.extract_collections_metadata(install_msg, sub_download_location)
-            metadata_file = self.export_data(metadata, sub_download_location, download_metadata_file)
-            md = self.find_target_metadata(LoadType.COLLECTION, metadata_file, self.target_name)
+            is_exist, targz_file = self.is_download_file_exist(LoadType.COLLECTION, self.target_name, self.download_location)
+            if is_exist:
+                metadata_file = os.path.join(targz_file.rsplit("/", 1)[0], download_metadata_file)
+                md = self.find_target_metadata(LoadType.COLLECTION, metadata_file, self.target_name)
+            else:
+                install_msg = self.download_galaxy_collection(self.target_name, sub_download_location, version=self.target_version)
+                metadata = self.extract_collections_metadata(install_msg, sub_download_location)
+                metadata_file = self.export_data(metadata, sub_download_location, download_metadata_file)
+                md = self.find_target_metadata(LoadType.COLLECTION, metadata_file, self.target_name)
             if md:
                 self.install_galaxy_collection_from_reqfile(md.requirements_file, tmp_src_dir)
             dst_src_dir = self.target_path_mappings["src"]
             dependency_dir = tmp_src_dir
             self.metadata = md
         elif self.target_type == LoadType.ROLE:
+            install_msg = ""
             sub_download_location = os.path.join(self.download_location, "role", self.target_name)
-            install_msg = install_galaxy_target(
-                self.target_name, self.target_type, tmp_src_dir, self.source_repository, target_version=self.target_version
-            )
-            logger.debug("role install msg: {}".format(install_msg))
-            metadata = self.extract_roles_metadata(install_msg)
-            metadata_file = self.export_data(metadata, sub_download_location, download_metadata_file)
-            md = self.find_target_metadata(LoadType.ROLE, metadata_file, self.target_name)
+            if os.path.exists(sub_download_location) and len(os.listdir(sub_download_location)) != 0:
+                logger.debug("found cache data {}".format(sub_download_location))
+                metadata_file = os.path.join(sub_download_location, download_metadata_file)
+                md = self.find_target_metadata(LoadType.ROLE, metadata_file, self.target_name)
+                self.move_src(sub_download_location, tmp_src_dir)
+            else:
+                install_msg = install_galaxy_target(
+                    self.target_name, self.target_type, tmp_src_dir, self.source_repository, target_version=self.target_version
+                )
+                logger.debug("role install msg: {}".format(install_msg))
+                metadata = self.extract_roles_metadata(install_msg)
+                metadata_file = self.export_data(metadata, sub_download_location, download_metadata_file)
+                md = self.find_target_metadata(LoadType.ROLE, metadata_file, self.target_name)
+            if not md:
+                raise ValueError("failed to install {} {}".format(self.target_type, self.target_name))
             dependency_dir = tmp_src_dir
             dst_src_dir = self.target_path_mappings["src"]
             self.metadata.download_src_path = "{}.{}".format(dst_src_dir, self.target_name)
@@ -472,6 +489,7 @@ class DependencyDirPreparator(object):
         target_version = target
         if version:
             target_version = "{}:{}".format(target, version)
+        logger.debug("downloading: {}".format("ansible-galaxy collection download '{}' {} -p {}".format(target_version, server_option, output_dir)))
         proc = subprocess.run(
             "ansible-galaxy collection download '{}' {} -p {}".format(target_version, server_option, output_dir),
             shell=True,
@@ -528,7 +546,7 @@ class DependencyDirPreparator(object):
     def is_download_file_exist(self, type, target, dir):
         is_exist = False
         filename = ""
-        download_metadata_files = glob.glob(os.path.join(dir, type, "**", download_metadata_file), recursive=True)
+        download_metadata_files = glob.glob(os.path.join(dir, type, target, "**", download_metadata_file), recursive=True)
         # check if tar.gz file already exists
         if len(download_metadata_files) != 0:
             for metafile in download_metadata_files:
@@ -639,13 +657,15 @@ class DependencyDirPreparator(object):
         elif type == LoadType.ROLE:
             metadata_list = metadata.get("roles", [])
         else:
-            logger.warning("metadata not found: {}".format(target))
+            logger.warning("metadata not found: unsupported type {} {}".format(type, target))
             return None
         for data in metadata_list:
             dm = DownloadMetadata(**data)
             if dm.name == target:
                 logger.debug("found metadata: {}".format(target))
                 return dm
+        logger.warning("metadata not found: {}".format(target))
+        return None
 
     def existing_dependency_dir_loader(self, dependency_type, dependency_dir_path):
         search_dirs = []
@@ -749,7 +769,7 @@ class DependencyDirPreparator(object):
         elif type == LoadType.ROLE:
             metadata_list = metadata.get("roles", [])
         else:
-            logger.warning("metadata not found: {}".format(target))
+            logger.warning("metadata not found: unsupported type {}".format(target))
             return None
         for i, data in enumerate(metadata_list):
             dm = DownloadMetadata(**data)

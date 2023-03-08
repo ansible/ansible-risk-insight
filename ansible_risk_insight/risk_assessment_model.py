@@ -16,13 +16,16 @@
 
 import os
 import json
+import jsonpickle
 from dataclasses import dataclass, field
+import tarfile
 
 from .models import (
     LoadType,
     ObjectList,
     ExecutableType,
     Module,
+    ModuleMetadata,
 )
 from .findings import Findings
 from .utils import escape_url, version_to_num, diff_files_data
@@ -72,6 +75,18 @@ class RAMClient(object):
 
         out_dir = self.make_findings_dir_path(type, name, version, hash)
         self.save_findings(findings, out_dir)
+
+    def module_index_register(self, findings: Findings):
+        modules = self.load_module_index()
+        for module in findings.root_definitions.get("definitions", {}).get("modules", []):
+            if not isinstance(module, Module):
+                continue
+            m_meta = ModuleMetadata.from_module(module, findings.metadata)
+            current = modules.get(module.name, [])
+            if m_meta not in current:
+                current.append(m_meta)
+            modules.update({module.name: current})
+        self.save_module_index(modules)
 
     def make_findings_dir_path(self, type, name, version, hash):
         type_root = type + "s"
@@ -690,6 +705,22 @@ class RAMClient(object):
 
         findings.dump(fpath=os.path.join(out_dir, "findings.json"))
 
+    def save_module_index(self, modules):
+        out_dir = os.path.join(self.root_dir, "indices")
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir, exist_ok=True)
+        modules_str = jsonpickle.encode(modules, make_refs=False, unpicklable=False)
+        with open(os.path.join(out_dir, "module_index.json"), "w") as file:
+            file.write(modules_str)
+
+    def load_module_index(self):
+        path = os.path.join(self.root_dir, "indices", "module_index.json")
+        modules = {}
+        if os.path.exists(path):
+            with open(path, "r") as file:
+                modules = json.load(file)
+        return modules
+
     def save_error(self, error: str, out_dir: str):
         if out_dir == "":
             raise ValueError("output dir must be a non-empty value")
@@ -726,6 +757,18 @@ class RAMClient(object):
             raise ValueError(f"Files data of {target_name}:{version2} is not recorded")
 
         return diff_files_data(files1, files2)
+
+    def release(self, outfile):
+        indices = os.path.join(self.root_dir, "indices")
+        collection_findings = os.path.join(self.root_dir, "collections", "findings")
+        role_findings = os.path.join(self.root_dir, "roles", "findings")
+        with tarfile.open(outfile, 'w:gz') as tar:
+            if os.path.exists(indices):
+                tar.add(indices)
+            if os.path.exists(collection_findings):
+                tar.add(collection_findings)
+            if os.path.exists(role_findings):
+                tar.add(role_findings)
 
 
 # newer version comes earlier, so version num should be sorted in a reversed order
