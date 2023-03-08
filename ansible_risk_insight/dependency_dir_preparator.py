@@ -410,7 +410,7 @@ class DependencyDirPreparator(object):
             self.metadata = md
         else:
             raise ValueError("unsupported container type")
-            
+
         self.install_log = install_msg
         if self.do_save:
             self.__save_install_log()

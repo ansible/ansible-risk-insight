@@ -100,7 +100,7 @@ class RiskAssessmentModelGenerator(object):
     def save_ram_log(self, type, name, fail):
         out_dir = os.path.join(self._scanner.root_dir, "log")
         path = os.path.join(out_dir, "ram_log.json")
-        
+
         scan_time = datetime.datetime.utcnow().isoformat()
         new_record = {"type": type, "name": name, "succeed": not fail, "time": scan_time}
 
@@ -115,7 +115,7 @@ class RiskAssessmentModelGenerator(object):
             os.makedirs(out_dir, exist_ok=True)
 
         with open(path, "w") as file:
-            json.dump(ram_logs, file)      
+            json.dump(ram_logs, file)
         return
 
     def skip_scan(self, type, name) -> bool:
@@ -135,4 +135,3 @@ class RiskAssessmentModelGenerator(object):
                 skip = True
                 return skip
         return skip
-

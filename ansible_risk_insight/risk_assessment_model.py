@@ -719,7 +719,7 @@ class RAMClient(object):
         if os.path.exists(path):
             with open(path, "r") as file:
                 modules = json.load(file)
-        return modules        
+        return modules
 
     def save_error(self, error: str, out_dir: str):
         if out_dir == "":

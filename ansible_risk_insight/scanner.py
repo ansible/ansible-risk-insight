@@ -960,7 +960,7 @@ class ARIScanner(object):
 
     def register_findings_to_ram(self, findings: Findings):
         self.ram_client.register(findings)
-    
+
     def register_module_index_to_ram(self, findings: Findings):
         self.ram_client.module_index_register(findings)
 
