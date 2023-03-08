@@ -42,7 +42,7 @@ from .model_loader import (
 from .utils import (
     split_target_playbook_fullpath,
     split_target_taskfile_fullpath,
-    get_module_documentations_by_ansible_doc,
+    get_module_specs_by_ansible_doc,
 )
 
 
@@ -289,9 +289,9 @@ class Parser:
         tasks.extend(post_tasks_in_plays)
 
         modules = [m for r in roles for m in r.modules]
-        module_docs = {}
+        module_specs = {}
         if self.use_ansible_doc:
-            module_docs = get_module_documentations_by_ansible_doc(
+            module_specs = get_module_specs_by_ansible_doc(
                 module_files=[fpath for fpath in ld.modules],
                 fqcn_prefix=collection_name,
                 search_path=ld.path,
@@ -306,7 +306,7 @@ class Parser:
                     collection_name=collection_name,
                     basedir=basedir,
                     use_ansible_doc=self.use_ansible_doc,
-                    module_docs=module_docs,
+                    module_specs=module_specs,
                 )
             except Exception as e:
                 logger.debug(f"failed to load a module: {e}")

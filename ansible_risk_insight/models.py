@@ -309,6 +309,7 @@ class Module(Object, Resolvable):
     collection: str = ""
     role: str = ""
     documentation: str = ""
+    examples: str = ""
     arguments: list = field(default_factory=list)
     defined_in: str = ""
     builtin: bool = False
@@ -553,7 +554,8 @@ class Arguments(object):
         else:
             if isinstance(self.raw, dict):
                 sub_raw = self.raw.get(key, None)
-                sub_templated = self.templated[0].get(key, None)
+                if self.templated:
+                    sub_templated = self.templated[0].get(key, None)
             else:
                 sub_raw = self.raw
                 sub_templated = self.templated
@@ -787,6 +789,8 @@ class CommandExecDetail(AnnotationDetail):
         cmd_str = self.command.raw
         if isinstance(cmd_str, list):
             cmd_str = " ".join(cmd_str)
+        if isinstance(cmd_str, dict):
+            cmd_str = cmd_str.get("cmd", "")
         lines = cmd_str.splitlines()
         exec_files = []
         for line in lines:
