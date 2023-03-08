@@ -158,7 +158,19 @@ def search_module_files(path, module_dir_paths=[]):
                 if basename == "__init__":
                     continue
                 if ext == ".py" or ext == "":
-                    file_list.append(os.path.join(dirpath, file))
+                    fpath = os.path.join(dirpath, file)
+
+                    # check if "DOCUMENTATION" is found in the file
+                    skip = False
+                    with open(fpath, "r") as f:
+                        body = f.read()
+                        if "DOCUMENTATION" not in body:
+                            # if not, it is not a module file, so skip it
+                            skip = True
+                    if skip:
+                        continue
+
+                    file_list.append(fpath)
     file_list = sorted(file_list)
     return file_list
 

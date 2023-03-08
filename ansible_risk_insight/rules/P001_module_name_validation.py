@@ -89,6 +89,10 @@ class ModuleNameValidationRule(Rule):
                 correct_fqcn = resolved_fqcn
                 need_correction = True
 
+        module_examples = ""
+        if task.module:
+            module_examples = task.module.examples
+
         task.set_annotation("module.suggested_fqcn", suggested_fqcns, rule_id=self.rule_id)
         task.set_annotation("module.suggested_dependency", suggested_dependency, rule_id=self.rule_id)
         task.set_annotation("module.resolved_fqcn", resolved_fqcn, rule_id=self.rule_id)
@@ -96,5 +100,7 @@ class ModuleNameValidationRule(Rule):
         task.set_annotation("module.not_exist", not_exist, rule_id=self.rule_id)
         task.set_annotation("module.correct_fqcn", correct_fqcn, rule_id=self.rule_id)
         task.set_annotation("module.need_correction", need_correction, rule_id=self.rule_id)
+
+        task.set_annotation("module.examples", module_examples, rule_id=self.rule_id)
 
         return None

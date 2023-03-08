@@ -1017,12 +1017,13 @@ def tree(root_definitions, ext_definitions, ram_client=None, target_playbook_pat
 
 def resolve(trees, additional):
     taskcalls_in_trees = []
-    for tree in trees:
+    for i, tree in enumerate(trees):
         if not isinstance(tree, ObjectList):
             continue
         if len(tree.items) == 0:
             continue
         root_key = tree.items[0].spec.key
+        logger.debug("[{}/{}] {}".format(i + 1, len(trees), root_key))
         taskcalls = resolve_variables(tree, additional)
         d = TaskCallsInTree(
             root_key=root_key,
