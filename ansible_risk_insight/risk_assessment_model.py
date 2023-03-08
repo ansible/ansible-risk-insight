@@ -764,11 +764,11 @@ class RAMClient(object):
         role_findings = os.path.join(self.root_dir, "roles", "findings")
         with tarfile.open(outfile, 'w:gz') as tar:
             if os.path.exists(indices):
-                tar.add(indices)
+                tar.add(indices, arcname="indices")
             if os.path.exists(collection_findings):
-                tar.add(collection_findings)
+                tar.add(collection_findings, arcname="collections/findings")
             if os.path.exists(role_findings):
-                tar.add(role_findings)
+                tar.add(role_findings, arcname="roles/findings")
 
 
 # newer version comes earlier, so version num should be sorted in a reversed order
