@@ -19,11 +19,12 @@ from dataclasses import dataclass, field
 from typing import List, Union
 from collections.abc import Callable
 from tabulate import tabulate
+from ruamel.yaml.scalarstring import DoubleQuotedScalarString
 
 from copy import deepcopy
 import json
 import jsonpickle
-import yaml
+import ansible_risk_insight.yaml as ariyaml
 from ansible.module_utils.parsing.convert_bool import boolean
 from .keyutil import (
     set_collection_key,
@@ -37,18 +38,6 @@ from .keyutil import (
     set_call_object_key,
     get_obj_info_by_key,
 )
-
-
-yaml.SafeDumper.org_represent_str = yaml.SafeDumper.represent_str
-
-
-def repr_str(dumper, data):
-    if "\n" in data:
-        return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="|")
-    return dumper.org_represent_str(data)
-
-
-yaml.add_representer(str, repr_str, Dumper=yaml.SafeDumper)
 
 
 class PlaybookFormatError(Exception):
@@ -1208,17 +1197,49 @@ class Task(Object, Resolvable):
         self.line_num_in_file = [begin_line_num + 1, end_line_num + 1]
         return
 
-    def yaml(self):
-        task_data = {}
+    def yaml(self, original_module=""):
+        task_data_wrapper = ariyaml.load(self.yaml_lines)
+        task_data = task_data_wrapper[0]
+
+        # task name
         if self.name:
             task_data["name"] = self.name
-        if self.module:
-            task_data[self.module] = self.module_options
-        for k, v in self.options.items():
-            if k == "name":
-                continue
-            task_data[k] = v
-        return yaml.safe_dump([task_data], sort_keys=False)
+        elif "name" in task_data:
+            task_data.pop("name")
+
+        # module name
+        if original_module:
+            mo = deepcopy(task_data[original_module])
+            task_data[self.module] = mo
+
+        # module options
+        if isinstance(self.module_options, dict):
+            current_mo = task_data[self.module]
+            old_keys = list(current_mo.keys())
+            new_keys = list(self.module_options.keys())
+            for old_key in old_keys:
+                if old_key not in new_keys:
+                    current_mo.pop(old_key)
+            for k, v in self.module_options.items():
+                current_mo[k] = v
+            task_data[self.module] = current_mo
+
+        # task options
+        if isinstance(self.options, dict):
+            current_to = task_data
+            old_keys = list(current_to.keys())
+            new_keys = list(self.options.keys())
+            for old_key in old_keys:
+                if old_key in ["name", self.module]:
+                    continue
+                if old_key not in new_keys:
+                    current_to.pop(old_key)
+            for k, v in self.options.items():
+                if k == "name":
+                    continue
+                current_to[k] = v
+        task_data_wrapper[0] = current_to
+        return ariyaml.dump(task_data_wrapper)
 
     def set_key(self, parent_key="", parent_local_key=""):
         set_task_key(self, parent_key, parent_local_key)
@@ -1285,11 +1306,14 @@ class MutableContent(object):
         # if `name` is None or empty string, Task.yaml() won't output the field
         self._task_spec.name = None
         self._yaml = self._task_spec.yaml()
+        self._task_spec.yaml_lines = self._yaml
         return self
 
     def set_module_name(self, module_name):
+        original_module = deepcopy(self._task_spec.module)
         self._task_spec.module = module_name
-        self._yaml = self._task_spec.yaml()
+        self._yaml = self._task_spec.yaml(original_module=original_module)
+        self._task_spec.yaml_lines = self._yaml
         return self
 
     def replace_key(self, old_key: str, new_key: str):
@@ -1298,9 +1322,12 @@ class MutableContent(object):
             self._task_spec.options.pop(old_key)
             self._task_spec.options[new_key] = value
         self._yaml = self._task_spec.yaml()
+        self._task_spec.yaml_lines = self._yaml
         return self
 
     def replace_value(self, old_value: str, new_value: str):
+        if isinstance(new_value, str):
+            new_value = DoubleQuotedScalarString(new_value)
         for k, v in self._task_spec.options.items():
             if type(v) != type(old_value):
                 continue
@@ -1308,23 +1335,29 @@ class MutableContent(object):
                 continue
             self._task_spec.options[k] = new_value
         self._yaml = self._task_spec.yaml()
+        self._task_spec.yaml_lines = self._yaml
         return self
 
     def remove_key(self, key):
         if key in self._task_spec.options:
             self._task_spec.options.pop(key)
         self._yaml = self._task_spec.yaml()
+        self._task_spec.yaml_lines = self._yaml
         return self
 
     def set_new_module_arg_key(self, key, value):
+        if isinstance(value, str):
+            value = DoubleQuotedScalarString(value)
         self._task_spec.module_options[key] = value
         self._yaml = self._task_spec.yaml()
+        self._task_spec.yaml_lines = self._yaml
         return self
 
     def remove_module_arg_key(self, key):
         if key in self._task_spec.module_options:
             self._task_spec.module_options.pop(key)
         self._yaml = self._task_spec.yaml()
+        self._task_spec.yaml_lines = self._yaml
         return self
 
     def replace_module_arg_key(self, old_key: str, new_key: str):
@@ -1333,9 +1366,12 @@ class MutableContent(object):
             self._task_spec.module_options.pop(old_key)
             self._task_spec.module_options[new_key] = value
         self._yaml = self._task_spec.yaml()
+        self._task_spec.yaml_lines = self._yaml
         return self
 
     def replace_module_arg_value(self, key: str = "", old_value: any = None, new_value: any = None):
+        if isinstance(new_value, str):
+            new_value = DoubleQuotedScalarString(new_value)
         for k in self._task_spec.module_options:
             # if `key` is specified, skip other keys
             if key and k != key:
@@ -1344,13 +1380,14 @@ class MutableContent(object):
             if type(value) == type(old_value) and value == old_value:
                 self._task_spec.module_options[k] = new_value
         self._yaml = self._task_spec.yaml()
+        self._task_spec.yaml_lines = self._yaml
         return self
 
     def replace_with_dict(self, new_dict: dict):
         # import this here to avoid circular import
         from .model_loader import load_task
 
-        yaml_lines = yaml.safe_dump([new_dict], sort_keys=False)
+        yaml_lines = ariyaml.dump([new_dict])
         new_task = load_task(
             path=self._task_spec.defined_in,
             index=self._task_spec.index,
