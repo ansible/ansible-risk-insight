@@ -1224,6 +1224,10 @@ class Task(Object, Resolvable):
         # module options
         if isinstance(self.module_options, dict):
             current_mo = task_data[self.module]
+            # if the module options was an old style inline parameter in YAML,
+            # we can ignore them here because it is parsed as self.module_options
+            if not isinstance(current_mo, dict):
+                current_mo = {}
             old_keys = list(current_mo.keys())
             new_keys = list(self.module_options.keys())
             for old_key in old_keys:
