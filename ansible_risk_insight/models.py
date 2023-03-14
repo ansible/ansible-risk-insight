@@ -1120,10 +1120,11 @@ class Task(Object, Resolvable):
         else:
             lines = open(fullpath, "r").read().splitlines()
         for i, line in enumerate(lines):
-            if task_name and task_name in line:
-                found_line_num = i
-                break
-            if "{}:".format(module_name) in line:
+            if task_name:
+                if task_name in line:
+                    found_line_num = i
+                    break
+            elif "{}:".format(module_name) in line:
                 if isinstance(module_options, str):
                     if module_options in line:
                         found_line_num = i
@@ -1198,8 +1199,15 @@ class Task(Object, Resolvable):
         return
 
     def yaml(self, original_module=""):
-        task_data_wrapper = ariyaml.load(self.yaml_lines)
-        task_data = task_data_wrapper[0]
+        task_data = None
+        try:
+            task_data_wrapper = ariyaml.load(self.yaml_lines)
+            task_data = task_data_wrapper[0]
+        except Exception:
+            pass
+
+        if not task_data:
+            return self.yaml_lines
 
         # task name
         if self.name:
@@ -1214,8 +1222,6 @@ class Task(Object, Resolvable):
 
         # module options
         if isinstance(self.module_options, dict):
-            if self.module not in task_data:
-                print("[DEBUG] task_data:", task_data)
             current_mo = task_data[self.module]
             old_keys = list(current_mo.keys())
             new_keys = list(self.module_options.keys())
