@@ -38,6 +38,7 @@ from .keyutil import (
     set_call_object_key,
     get_obj_info_by_key,
 )
+from .utils import recursive_copy_dict
 
 
 class PlaybookFormatError(Exception):
@@ -1228,8 +1229,7 @@ class Task(Object, Resolvable):
             for old_key in old_keys:
                 if old_key not in new_keys:
                     current_mo.pop(old_key)
-            for k, v in self.module_options.items():
-                current_mo[k] = v
+            recursive_copy_dict(self.module_options, current_mo)
             task_data[self.module] = current_mo
 
         # task options
@@ -1242,12 +1242,10 @@ class Task(Object, Resolvable):
                     continue
                 if old_key not in new_keys:
                     current_to.pop(old_key)
-            for k, v in self.options.items():
-                if k == "name":
-                    continue
-                current_to[k] = v
+            recursive_copy_dict(self.options, current_to)
         task_data_wrapper[0] = current_to
-        return ariyaml.dump(task_data_wrapper)
+        new_yaml = ariyaml.dump(task_data_wrapper)
+        return new_yaml
 
     def set_key(self, parent_key="", parent_local_key=""):
         set_task_key(self, parent_key, parent_local_key)
@@ -1334,16 +1332,25 @@ class MutableContent(object):
         return self
 
     def replace_value(self, old_value: str, new_value: str):
+        original_new_value = deepcopy(new_value)
+        need_restore = False
+        keys_to_be_restored = []
         if isinstance(new_value, str):
             new_value = DoubleQuotedScalarString(new_value)
+            need_restore = True
         for k, v in self._task_spec.options.items():
             if type(v) != type(old_value):
                 continue
             if v != old_value:
                 continue
             self._task_spec.options[k] = new_value
+            keys_to_be_restored.append(k)
         self._yaml = self._task_spec.yaml()
         self._task_spec.yaml_lines = self._yaml
+        if need_restore:
+            for k, v in self._task_spec.options.items():
+                if k in keys_to_be_restored:
+                    self._task_spec.options[k] = original_new_value
         return self
 
     def remove_key(self, key):
@@ -1354,11 +1361,16 @@ class MutableContent(object):
         return self
 
     def set_new_module_arg_key(self, key, value):
+        original_value = deepcopy(value)
+        need_restore = False
         if isinstance(value, str):
             value = DoubleQuotedScalarString(value)
+            need_restore = True
         self._task_spec.module_options[key] = value
         self._yaml = self._task_spec.yaml()
         self._task_spec.yaml_lines = self._yaml
+        if need_restore:
+            self._task_spec.module_options[key] = original_value
         return self
 
     def remove_module_arg_key(self, key):
@@ -1378,8 +1390,12 @@ class MutableContent(object):
         return self
 
     def replace_module_arg_value(self, key: str = "", old_value: any = None, new_value: any = None):
+        original_new_value = deepcopy(new_value)
+        need_restore = False
+        keys_to_be_restored = []
         if isinstance(new_value, str):
             new_value = DoubleQuotedScalarString(new_value)
+            need_restore = True
         for k in self._task_spec.module_options:
             # if `key` is specified, skip other keys
             if key and k != key:
@@ -1387,8 +1403,13 @@ class MutableContent(object):
             value = self._task_spec.module_options[k]
             if type(value) == type(old_value) and value == old_value:
                 self._task_spec.module_options[k] = new_value
+                keys_to_be_restored.append(k)
         self._yaml = self._task_spec.yaml()
         self._task_spec.yaml_lines = self._yaml
+        if need_restore:
+            for k in self._task_spec.module_options:
+                if k in keys_to_be_restored:
+                    self._task_spec.module_options[k] = original_new_value
         return self
 
     def replace_with_dict(self, new_dict: dict):
