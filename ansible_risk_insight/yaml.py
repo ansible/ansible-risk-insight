@@ -21,7 +21,7 @@ from ruamel.yaml import YAML
 _yaml = YAML(typ="rt", pure=True)
 _yaml.default_flow_style = False
 _yaml.preserve_quotes = True
-_yaml.explicit_start = True
+_yaml.allow_duplicate_keys = True
 
 
 def load(stream: any):
