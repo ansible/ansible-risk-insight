@@ -1214,6 +1214,8 @@ class Task(Object, Resolvable):
 
         # module options
         if isinstance(self.module_options, dict):
+            if self.module not in task_data:
+                print("[DEBUG] task_data:", task_data)
             current_mo = task_data[self.module]
             old_keys = list(current_mo.keys())
             new_keys = list(self.module_options.keys())
