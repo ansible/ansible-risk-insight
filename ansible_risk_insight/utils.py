@@ -20,6 +20,7 @@ import requests
 import hashlib
 import yaml
 import json
+from copy import deepcopy
 from tabulate import tabulate
 from inspect import isclass
 from importlib.util import spec_from_file_location, module_from_spec
@@ -644,3 +645,20 @@ def load_classes_in_dir(dir_path: str, target_class: type, base_dir: str = "", o
         except Exception as e:
             raise ValueError(f"failed to load a rule module {s}: {e}")
     return classes
+
+
+def recursive_copy_dict(src, dst):
+    if not isinstance(src, dict):
+        raise ValueError(f"only dict input is allowed, but got {type(src)}")
+
+    if not isinstance(dst, dict):
+        raise ValueError(f"only dict input is allowed, but got {type(dst)}")
+
+    for k, sv in src.items():
+        if isinstance(sv, dict):
+            if k not in dst:
+                dst[k] = {}
+            recursive_copy_dict(sv, dst[k])
+        else:
+            dst[k] = deepcopy(sv)
+    return
