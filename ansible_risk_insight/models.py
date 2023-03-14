@@ -1242,7 +1242,8 @@ class Task(Object, Resolvable):
                     continue
                 if old_key not in new_keys:
                     current_to.pop(old_key)
-            recursive_copy_dict(self.options, current_to)
+            options_without_name = {k: v for k, v in self.options.items()}
+            recursive_copy_dict(options_without_name, current_to)
         task_data_wrapper[0] = current_to
         new_yaml = ariyaml.dump(task_data_wrapper)
         return new_yaml
