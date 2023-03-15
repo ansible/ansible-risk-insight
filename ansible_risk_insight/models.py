@@ -38,7 +38,10 @@ from .keyutil import (
     set_call_object_key,
     get_obj_info_by_key,
 )
-from .utils import recursive_copy_dict
+from .utils import (
+    equal,
+    recursive_copy_dict,
+)
 
 
 class PlaybookFormatError(Exception):
@@ -873,32 +876,6 @@ class DefaultRiskType(RiskType):
     CONFIG_CHANGE = "config_change"
     PACKAGE_INSTALL = "package_install"
     PRIVILEGE_ESCALATION = "privilege_escalation"
-
-
-def equal(a: any, b: any):
-    type_a = type(a)
-    type_b = type(b)
-    if type_a != type_b:
-        return False
-    if type_a == dict:
-        all_keys = list(a.keys()) + list(b.keys())
-        for key in all_keys:
-            val_a = a.get(key, None)
-            val_b = b.get(key, None)
-            if not equal(val_a, val_b):
-                return False
-    elif type_a == list:
-        if len(a) != len(b):
-            return False
-        for i in range(len(a)):
-            val_a = a[i]
-            val_b = b[i]
-            if not equal(val_a, val_b):
-                return False
-    else:
-        if a != b:
-            return False
-    return True
 
 
 @dataclass
@@ -2020,6 +1997,14 @@ class RuleMetadata(object):
 
 
 @dataclass
+class SpecMutation(object):
+    key: str = None
+    changes: list = field(default_factory=list)
+    object: Object = field(default_factory=Object)
+    rule: RuleMetadata = field(default_factory=RuleMetadata)
+
+
+@dataclass
 class RuleResult(object):
     rule: RuleMetadata = None
 
@@ -2046,10 +2031,16 @@ class RuleResult(object):
 
 @dataclass
 class Rule(RuleMetadata):
+    # `enabled` represents if the rule is enabled or not
     enabled: bool = False
+
     # `precedence` represents the order of the rule evaluation.
     # A rule with a lower number will be evaluated earlier than others.
     precedence: int = 10
+
+    # `spec_mutation` represents if the rule mutates spec objects
+    # if there are any spec mutations, re-run the scan later with the mutated spec
+    spec_mutation: bool = False
 
     def __post_init__(self, rule_id: str = "", description: str = ""):
         if rule_id:
