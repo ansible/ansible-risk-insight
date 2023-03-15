@@ -20,7 +20,7 @@ from typing import List
 import time
 
 import ansible_risk_insight.logger as logger
-from .models import AnsibleRunContext, ARIResult, TargetResult, NodeResult, RuleResult, Rule
+from .models import AnsibleRunContext, ARIResult, TargetResult, NodeResult, RuleResult, Rule, SpecMutation
 from .keyutil import detect_type, key_delimiter
 from .analyzer import load_taskcalls_in_trees
 from .utils import load_classes_in_dir
@@ -94,6 +94,7 @@ def detect(contexts: List[AnsibleRunContext], rules_dir: str = "", rules: list =
     risk_found_playbooks = set()
 
     ari_result = ARIResult()
+    spec_mutations = {}
 
     num = len(contexts)
     for i, ctx in enumerate(contexts):
@@ -138,6 +139,14 @@ def detect(contexts: List[AnsibleRunContext], rules_dir: str = "", rules: list =
                         r_result = tmp_result
                     r_result.matched = matched
                 r_result.duration = round((time.time() - start_time) * 1000, 6)
+                if rule.spec_mutation:
+                    detail = r_result.get_detail()
+                    if isinstance(detail, dict):
+                        s_mutations = detail.get("spec_mutations", [])
+                        for s_mutation in s_mutations:
+                            if not isinstance(s_mutation, SpecMutation):
+                                continue
+                            spec_mutations[s_mutation.key] = s_mutation
                 n_result.rules.append(r_result)
             t_result.nodes.append(n_result)
         ari_result.targets.append(t_result)
@@ -221,6 +230,7 @@ def detect(contexts: List[AnsibleRunContext], rules_dir: str = "", rules: list =
             "risk_found": role_count["risk_found"],
         }
     data_report["ari_result"] = ari_result
+    data_report["spec_mutations"] = spec_mutations
 
     return data_report
 

@@ -27,6 +27,7 @@ from .models import (
     Load,
     LoadType,
     ObjectList,
+    TaskCall,
     TaskCallsInTree,
     AnsibleRunContext,
     ARIResult,
@@ -55,6 +56,7 @@ from .utils import (
     summarize_findings_data,
     split_target_playbook_fullpath,
     split_target_taskfile_fullpath,
+    equal,
 )
 
 
@@ -197,6 +199,8 @@ class SingleScan(object):
     root_dir: str = ""
     rules_dir: str = ""
     rules: list = field(default_factory=list)
+    spec_mutations_from_previous_scan: dict = field(default_factory=dict)
+    spec_mutations: dict = field(default_factory=dict)
     use_ansible_doc: bool = True
     do_save: bool = False
     silent: bool = False
@@ -498,10 +502,40 @@ class SingleScan(object):
             "mappings": mappings,
         }
 
+    def apply_spec_mutations(self):
+        if not self.spec_mutations_from_previous_scan:
+            return
+        # overwrite the loaded object with the mutated object in spec mutations
+        for type_name in self.root_definitions["definitions"]:
+            obj_list = self.root_definitions["definitions"][type_name]
+            for obj in obj_list:
+                key = obj.key
+                if key in self.spec_mutations_from_previous_scan:
+                    obj = self.spec_mutations_from_previous_scan[key].object
+        return
+
     def construct_trees(self, ram_client=None):
         trees, additional, extra_requirements, resolve_failures = tree(
             self.root_definitions, self.ext_definitions, ram_client, self.target_playbook_name, self.target_taskfile_name
         )
+
+        # set annotation for spec mutations
+        if self.spec_mutations_from_previous_scan:
+            spec_mutations = self.spec_mutations_from_previous_scan
+            for _tree in trees:
+                for callobj in _tree.items:
+                    if not isinstance(callobj, TaskCall):
+                        continue
+                    obj_key = callobj.spec.key
+                    if obj_key in spec_mutations:
+                        m = spec_mutations[obj_key]
+                        rule_id = m.rule.rule_id
+                        value = {
+                            "rule_id": rule_id,
+                            "changes": m.changes,
+                        }
+                        callobj.set_annotation(key="spec.mutations", value=value, rule_id=rule_id)
+
         self.trees = trees
         self.additional = additional
         self.extra_requirements = extra_requirements
@@ -561,6 +595,9 @@ class SingleScan(object):
         if self.role_name:
             target_name = self.role_name
         data_report = detect(self.contexts, rules_dir=self.rules_dir, rules=self.rules)
+        spec_mutations = data_report.get("spec_mutations", {})
+        if spec_mutations:
+            self.spec_mutations = spec_mutations
         metadata = {
             "type": self.type,
             "name": target_name,
@@ -715,6 +752,7 @@ class ARIScanner(object):
         taskfile_only: bool = False,
         raw_yaml: str = "",
         out_dir: str = "",
+        spec_mutations_from_previous_scan: dict = None,
     ):
         time_records = {}
         self.record_begin(time_records, "scandata_init")
@@ -753,6 +791,7 @@ class ARIScanner(object):
             root_dir=self.root_dir,
             rules_dir=self.rules_dir,
             rules=self.rules,
+            spec_mutations_from_previous_scan=spec_mutations_from_previous_scan,
             use_ansible_doc=self.use_ansible_doc,
             do_save=self.do_save,
             silent=self.silent,
@@ -883,6 +922,12 @@ class ARIScanner(object):
             modules_num = len(scandata.root_definitions["definitions"]["modules"])
             logger.debug(f"playbooks: {playbooks_num}, roles: {roles_num}, taskfiles: {taskfiles_num}, tasks: {tasks_num}, modules: {modules_num}")
 
+        self.record_begin(time_records, "apply_spec_rules")
+        scandata.apply_spec_mutations()
+        self.record_end(time_records, "apply_spec_rules")
+        if not self.silent:
+            logger.debug("apply_spec_rules() done")
+
         _ram_client = None
         if self.read_ram:
             _ram_client = self.ram_client
@@ -941,6 +986,41 @@ class ARIScanner(object):
             elif self.output_format.lower() == "yaml":
                 data_str = yaml.safe_dump(data)
             print(data_str)
+
+        if scandata.spec_mutations:
+            trigger_rescan = False
+            _previous = spec_mutations_from_previous_scan
+            if _previous and equal(scandata.spec_mutations, _previous):
+                if not self.silent:
+                    logger.warning("Spec mutation loop has been detected! " "Exitting the scan here but the result may be incomplete.")
+            else:
+                trigger_rescan = True
+
+            if trigger_rescan:
+                if not self.silent:
+                    print("Spec mutations are found. Triggering ARI scan again...")
+                return self.evaluate(
+                    type=type,
+                    name=name,
+                    path=path,
+                    collection_name=collection_name,
+                    role_name=role_name,
+                    install_dependencies=install_dependencies,
+                    version=version,
+                    hash=hash,
+                    target_path=target_path,
+                    dependency_dir=dependency_dir,
+                    download_only=download_only,
+                    use_src_cache=use_src_cache,
+                    source_repository=source_repository,
+                    playbook_yaml=playbook_yaml,
+                    playbook_only=playbook_only,
+                    taskfile_yaml=taskfile_yaml,
+                    taskfile_only=taskfile_only,
+                    raw_yaml=raw_yaml,
+                    out_dir=out_dir,
+                    spec_mutations_from_previous_scan=scandata.spec_mutations,
+                )
 
         return scandata.findings.report.get("ari_result", None)
 
