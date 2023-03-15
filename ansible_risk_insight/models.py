@@ -1110,8 +1110,6 @@ class Task(Object, Resolvable):
     possible_candidates: list = field(default_factory=list)
 
     def set_yaml_lines(self, fullpath="", yaml_lines="", task_name="", module_name="", module_options=None):
-        if not module_name:
-            return
         if not task_name and not module_options:
             return
         found_line_num = -1
@@ -1220,6 +1218,8 @@ class Task(Object, Resolvable):
         if original_module:
             mo = deepcopy(task_data[original_module])
             task_data[self.module] = mo
+        elif self.module and self.module not in task_data:
+            task_data[self.module] = self.module_options
 
         # module options
         if isinstance(self.module_options, dict):
