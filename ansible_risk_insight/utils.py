@@ -647,6 +647,35 @@ def load_classes_in_dir(dir_path: str, target_class: type, base_dir: str = "", o
     return classes
 
 
+def equal(a: any, b: any):
+    type_a = type(a)
+    type_b = type(b)
+    if type_a != type_b:
+        return False
+    if type_a == dict:
+        all_keys = list(a.keys()) + list(b.keys())
+        for key in all_keys:
+            val_a = a.get(key, None)
+            val_b = b.get(key, None)
+            if not equal(val_a, val_b):
+                return False
+    elif type_a == list:
+        if len(a) != len(b):
+            return False
+        for i in range(len(a)):
+            val_a = a[i]
+            val_b = b[i]
+            if not equal(val_a, val_b):
+                return False
+    elif hasattr(a, "__dict__"):
+        if not equal(a.__dict__, b.__dict__):
+            return False
+    else:
+        if a != b:
+            return False
+    return True
+
+
 def recursive_copy_dict(src, dst):
     if not isinstance(src, dict):
         raise ValueError(f"only dict input is allowed, but got {type(src)}")
