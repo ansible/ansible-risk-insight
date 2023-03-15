@@ -1436,6 +1436,11 @@ class MutableContent(object):
         self._task_spec = new_task
         return self
 
+    def replace_module_arg_with_dict(self, new_dict: dict):
+        self._task_spec.module_options = new_dict
+        self._yaml = self._task_spec.yaml()
+        return self
+
     def yaml(self):
         return self._yaml
 
