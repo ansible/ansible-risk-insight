@@ -1985,11 +1985,6 @@ class RuleTag:
     DEBUG = "debug"
 
 
-class RuleTargetType:
-    CALL = "call"
-    SPEC = "spec"
-
-
 @dataclass
 class RuleMetadata(object):
     rule_id: str = ""
