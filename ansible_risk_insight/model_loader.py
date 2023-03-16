@@ -1235,6 +1235,11 @@ def load_taskfile(path, yaml_str="", role_name="", collection_name="", basedir="
     tfObj.set_key()
 
     task_dicts, yaml_lines = get_task_blocks(fpath=fullpath, yaml_str=yaml_str)
+
+    if yaml_str and not yaml_lines:
+        yaml_lines = yaml_str
+    tfObj.yaml_lines = yaml_lines
+
     if task_dicts is None:
         return tfObj
     tasks = []
@@ -1261,9 +1266,6 @@ def load_taskfile(path, yaml_str="", role_name="", collection_name="", basedir="
         except Exception:
             logger.exception("error while loading the task at {}, index: {}".format(fullpath, i))
     tfObj.tasks = tasks
-
-    if yaml_lines:
-        tfObj.yaml_lines = yaml_lines
 
     return tfObj
 
