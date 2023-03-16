@@ -354,6 +354,8 @@ class DependencyDirPreparator(object):
 
     def root_install(self, tmp_src_dir):
         tmp_src_dir = os.path.join(self.tmp_install_dir.name, "src")
+        if not os.path.exists(tmp_src_dir):
+            os.makedirs(tmp_src_dir)
 
         logger.debug("root type is {}".format(self.target_type))
         if self.target_type == LoadType.PROJECT:
