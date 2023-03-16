@@ -25,11 +25,13 @@ class UnarchiveAnnotator(ModuleAnnotator):
     enabled: bool = True
 
     def run(self, task: TaskCall) -> List[Annotation]:
-        src = task.args.get("src")
-        dest = task.args.get("dest")
+        src = task.args.get("src")  # required
+        dest = task.args.get("dest")  # required
         remote_src = task.args.get("remote_src")
 
-        is_remote_src = boolean(remote_src.raw) or boolean(remote_src.templated)
+        is_remote_src = False
+        if remote_src:
+            is_remote_src = boolean(remote_src.raw) or boolean(remote_src.templated)
 
         url_sep = "://"
         is_download = False
