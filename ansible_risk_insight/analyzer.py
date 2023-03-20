@@ -24,7 +24,7 @@ from .utils import load_classes_in_dir
 
 
 def load_annotators(ctx: AnsibleRunContext = None):
-    _annotator_classes = load_classes_in_dir("annotators", RiskAnnotator, __file__)
+    _annotator_classes, _ = load_classes_in_dir("annotators", RiskAnnotator, __file__)
     _annotators = []
     for a in _annotator_classes:
         try:
