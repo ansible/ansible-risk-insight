@@ -1631,6 +1631,8 @@ class TaskFile(Object, Resolvable):
     role: str = ""
     collection: str = ""
 
+    yaml_lines: str = ""
+
     used_in: list = field(default_factory=list)  # resolved later
 
     annotations: dict = field(default_factory=dict)
@@ -2269,7 +2271,11 @@ class ARIResult(JSONSerializable):
         type_only_result = self._filter(type_str)
         if not type_only_result:
             return None
-        filtered_targets = [tr for tr in type_only_result.targets if tr.nodes and tr.nodes[0].node.spec.yaml_lines == yaml_str]
+        filtered_targets = [
+            tr
+            for tr in type_only_result.targets
+            if tr.nodes and hasattr(tr.nodes[0].node.spec, "yaml_lines") and tr.nodes[0].node.spec.yaml_lines == yaml_str
+        ]
         if not filtered_targets:
             return None
         return filtered_targets[0]
