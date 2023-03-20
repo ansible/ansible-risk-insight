@@ -38,7 +38,7 @@ class RiskAnnotator(Annotator):
         if dir_path in self.module_annotator_cache:
             return self.module_annotator_cache[dir_path]
 
-        annotator_classes = load_classes_in_dir(dir_path, ModuleAnnotator, __file__)
+        annotator_classes, _ = load_classes_in_dir(dir_path, ModuleAnnotator, __file__)
         module_annotators = []
         for a_c in annotator_classes:
             annotator = a_c(context=self.context)

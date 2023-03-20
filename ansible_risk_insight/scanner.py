@@ -508,10 +508,11 @@ class SingleScan(object):
         # overwrite the loaded object with the mutated object in spec mutations
         for type_name in self.root_definitions["definitions"]:
             obj_list = self.root_definitions["definitions"][type_name]
-            for obj in obj_list:
+            for i, obj in enumerate(obj_list):
                 key = obj.key
                 if key in self.spec_mutations_from_previous_scan:
-                    obj = self.spec_mutations_from_previous_scan[key].object
+                    mutated_spec = self.spec_mutations_from_previous_scan[key].object
+                    self.root_definitions["definitions"][type_name][i] = mutated_spec
         return
 
     def construct_trees(self, ram_client=None):
