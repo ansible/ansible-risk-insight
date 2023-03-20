@@ -16,6 +16,7 @@
 
 import argparse
 import os
+import traceback
 from typing import List
 import time
 
@@ -34,11 +35,16 @@ def key2name(key: str):
         return key.split(key_delimiter)[-1]
 
 
-def load_rules(rules_dir: str = "", rule_id_list: list = []):
+def load_rules(rules_dir: str = "", rule_id_list: list = [], fail_on_error: bool = False):
     rules_dir_list = rules_dir.split(":")
     _rules = []
     for _rules_dir in rules_dir_list:
-        _rule_classes = load_classes_in_dir(_rules_dir, Rule)
+        _rule_classes, _errors_for_this_dir = load_classes_in_dir(_rules_dir, Rule, fail_on_error=fail_on_error)
+        if _errors_for_this_dir:
+            if fail_on_error:
+                raise ValueError("error occurred while loading rule directory: " + "; ".join(_errors_for_this_dir))
+            else:
+                logger.warning("some rules are skipped by the following errors: " + "; ".join(_errors_for_this_dir))
         for r in _rule_classes:
             try:
                 _rule = r()
@@ -48,7 +54,12 @@ def load_rules(rules_dir: str = "", rule_id_list: list = []):
                         continue
                 _rules.append(_rule)
             except Exception:
-                raise ValueError(f"failed to load a rule: {r}")
+                exc = traceback.format_exc()
+                msg = f"failed to load a rule `{r}`: {exc}"
+                if fail_on_error:
+                    raise ValueError(msg)
+                else:
+                    logger.warning(f"The rule {r} was skipped: {msg}")
 
     # sort by rule_id
     _rules = sorted(_rules, key=lambda r: int(r.rule_id[-3:]))
@@ -82,7 +93,7 @@ def make_subject_str(playbook_num: int, role_num: int):
 
 
 def detect(contexts: List[AnsibleRunContext], rules_dir: str = "", rules: list = []):
-    rules = load_rules(rules_dir, rules)
+    rules = load_rules(rules_dir, rules, False)
 
     report_num = 1
 
@@ -131,22 +142,26 @@ def detect(contexts: List[AnsibleRunContext], rules_dir: str = "", rules: list =
                 if not rule.enabled:
                     continue
                 start_time = time.time()
-                matched = rule.match(ctx)
                 r_result = RuleResult(file=t.file_info(), rule=rule.get_metadata())
-                if matched:
-                    tmp_result = rule.process(ctx)
-                    if tmp_result:
-                        r_result = tmp_result
-                    r_result.matched = matched
-                r_result.duration = round((time.time() - start_time) * 1000, 6)
-                if rule.spec_mutation:
-                    detail = r_result.get_detail()
-                    if isinstance(detail, dict):
-                        s_mutations = detail.get("spec_mutations", [])
-                        for s_mutation in s_mutations:
-                            if not isinstance(s_mutation, SpecMutation):
-                                continue
-                            spec_mutations[s_mutation.key] = s_mutation
+                try:
+                    matched = rule.match(ctx)
+                    if matched:
+                        tmp_result = rule.process(ctx)
+                        if tmp_result:
+                            r_result = tmp_result
+                        r_result.matched = matched
+                    r_result.duration = round((time.time() - start_time) * 1000, 6)
+                    if rule.spec_mutation:
+                        detail = r_result.get_detail()
+                        if isinstance(detail, dict):
+                            s_mutations = detail.get("spec_mutations", [])
+                            for s_mutation in s_mutations:
+                                if not isinstance(s_mutation, SpecMutation):
+                                    continue
+                                spec_mutations[s_mutation.key] = s_mutation
+                except Exception:
+                    exc = traceback.format_exc()
+                    r_result.error = f"failed to execute the rule `{rule.rule_id}`: {exc}"
                 n_result.rules.append(r_result)
             t_result.nodes.append(n_result)
         ari_result.targets.append(t_result)

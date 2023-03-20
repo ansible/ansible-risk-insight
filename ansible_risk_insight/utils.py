@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import os
+import traceback
 import subprocess
 import requests
 import hashlib
@@ -608,7 +609,7 @@ def get_class_by_arg_type(arg_type: str):
     return mapping[arg_type]
 
 
-def load_classes_in_dir(dir_path: str, target_class: type, base_dir: str = "", only_subclass: bool = True):
+def load_classes_in_dir(dir_path: str, target_class: type, base_dir: str = "", only_subclass: bool = True, fail_on_error: bool = False):
     search_path = dir_path
     found = False
     if os.path.exists(search_path):
@@ -625,6 +626,7 @@ def load_classes_in_dir(dir_path: str, target_class: type, base_dir: str = "", o
     files = os.listdir(search_path)
     scripts = [os.path.join(search_path, f) for f in files if f[-3:] == ".py"]
     classes = []
+    errors = []
     for s in scripts:
         try:
             short_module_name = os.path.basename(s)[:-3]
@@ -642,9 +644,14 @@ def load_classes_in_dir(dir_path: str, target_class: type, base_dir: str = "", o
                 if only_subclass and cls == target_class:
                     continue
                 classes.append(cls)
-        except Exception as e:
-            raise ValueError(f"failed to load a rule module {s}: {e}")
-    return classes
+        except Exception:
+            exc = traceback.format_exc()
+            msg = f"failed to load a rule module {s}: {exc}"
+            if fail_on_error:
+                raise ValueError(msg)
+            else:
+                errors.append(msg)
+    return classes, errors
 
 
 def equal(a: any, b: any):
