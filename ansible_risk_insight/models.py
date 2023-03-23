@@ -1244,18 +1244,18 @@ class Task(Object, Resolvable):
             if key == "name":
                 continue
             task_data[key] = val
-        task_data = self.str2double_quoted_scolar(task_data)
+        task_data = self.str2double_quoted_scalar(task_data)
         data = [task_data]
         return ariyaml.dump(data)
 
-    def str2double_quoted_scolar(self, v):
+    def str2double_quoted_scalar(self, v):
         if isinstance(v, dict):
             for key, val in v.items():
-                new_val = self.str2double_quoted_scolar(val)
+                new_val = self.str2double_quoted_scalar(val)
                 v[key] = new_val
         elif isinstance(v, list):
             for i, val in enumerate(v):
-                new_val = self.str2double_quoted_scolar(val)
+                new_val = self.str2double_quoted_scalar(val)
                 v[i] = new_val
         elif isinstance(v, str):
             v = DoubleQuotedScalarString(v)
