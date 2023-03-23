@@ -1174,6 +1174,8 @@ class Task(Object, Resolvable):
         self.line_num_in_file = [begin_line_num + 1, end_line_num + 1]
         return
 
+    # this keeps original contents like comments, indentation
+    # and quotes for string as much as possible
     def yaml(self, original_module=""):
         task_data = None
         try:
@@ -1228,6 +1230,38 @@ class Task(Object, Resolvable):
         task_data_wrapper[0] = current_to
         new_yaml = ariyaml.dump(task_data_wrapper)
         return new_yaml
+
+    # this makes a yaml from task contents such as spec.module,
+    # spec.options, spec.module_options in a fixed format
+    # NOTE: this will lose comments and indentations in the original YAML
+    def formatted_yaml(self):
+        task_data = {}
+        if self.name:
+            task_data["name"] = self.name
+        if self.module:
+            task_data[self.module] = self.module_options
+        for key, val in self.options.items():
+            if key == "name":
+                continue
+            task_data[key] = val
+        task_data = self.str2double_quoted_scolar(task_data)
+        data = [task_data]
+        return ariyaml.dump(data)
+
+    def str2double_quoted_scolar(self, v):
+        if isinstance(v, dict):
+            for key, val in v.items():
+                new_val = self.str2double_quoted_scolar(val)
+                v[key] = new_val
+        elif isinstance(v, list):
+            for i, val in enumerate(v):
+                new_val = self.str2double_quoted_scolar(val)
+                v[i] = new_val
+        elif isinstance(v, str):
+            v = DoubleQuotedScalarString(v)
+        else:
+            pass
+        return v
 
     def set_key(self, parent_key="", parent_local_key=""):
         set_task_key(self, parent_key, parent_local_key)
@@ -1418,8 +1452,16 @@ class MutableContent(object):
         self._yaml = self._task_spec.yaml()
         return self
 
+    # this keeps original contents like comments, indentation
+    # and quotes for string as much as possible
     def yaml(self):
         return self._yaml
+
+    # this makes a yaml from task contents such as spec.module,
+    # spec.options, spec.module_options in a fixed format
+    # NOTE: this will lose comments and indentations in the original YAML
+    def formatted_yaml(self):
+        return self._task_spec.formatted_yaml()
 
 
 @dataclass
