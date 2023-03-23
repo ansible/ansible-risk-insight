@@ -26,6 +26,9 @@ dependencies = [
 ]
 dynamic = ["version"]
 
+[tool.setuptools.dynamic]
+version = {attr = "ansible_risk_insight._version.__version__"}
+
 [project.scripts]
 ansible-risk-insight = "ansible_risk_insight:main"
 ari = "ansible_risk_insight:main"
