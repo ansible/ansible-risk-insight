@@ -74,6 +74,7 @@ class Parser:
                     use_ansible_doc=self.use_ansible_doc,
                     skip_playbook_format_error=self.skip_playbook_format_error,
                     skip_task_format_error=self.skip_task_format_error,
+                    include_test_contents=ld.include_test_contents,
                     load_children=False,
                 )
             except PlaybookFormatError:
@@ -114,6 +115,7 @@ class Parser:
                     use_ansible_doc=self.use_ansible_doc,
                     skip_playbook_format_error=self.skip_playbook_format_error,
                     skip_task_format_error=self.skip_task_format_error,
+                    include_test_contents=ld.include_test_contents,
                 )
             except PlaybookFormatError:
                 if not self.skip_playbook_format_error:
@@ -153,6 +155,7 @@ class Parser:
                         use_ansible_doc=self.use_ansible_doc,
                         skip_playbook_format_error=self.skip_playbook_format_error,
                         skip_task_format_error=self.skip_task_format_error,
+                        include_test_contents=ld.include_test_contents,
                     )
             except PlaybookFormatError:
                 if not self.skip_playbook_format_error:
@@ -187,6 +190,7 @@ class Parser:
                         use_ansible_doc=self.use_ansible_doc,
                         skip_playbook_format_error=self.skip_playbook_format_error,
                         skip_task_format_error=self.skip_task_format_error,
+                        include_test_contents=ld.include_test_contents,
                     )
             except TaskFormatError:
                 if not self.skip_task_format_error:

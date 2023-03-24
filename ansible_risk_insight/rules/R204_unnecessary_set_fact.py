@@ -54,6 +54,8 @@ class UnnecessarySetFactRule(Rule):
                 if isinstance(v, str) and "random" in v:
                     is_impure = True
                     current = detail.get("impure_args", [])
+                    if not current:
+                        current = []
                     detail["impure_args"] = current.append(v)
 
         verdict = (

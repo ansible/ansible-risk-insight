@@ -99,7 +99,10 @@ class Config:
         if not self.disable_default_rules:
             self.disable_default_rules = self._get_single_config("ARI_DISABLE_DEFAULT_RULES", "disable_default_rules", default_disable_default_rules)
         if not self.rules_dir:
-            self.rules_dir = self._get_single_config("ARI_RULES_DIR", "rules_dir", default_rules_dir)
+            if self.disable_default_rules:
+                self.rules_dir = self._get_single_config("ARI_RULES_DIR", "rules_dir", "")
+            else:
+                self.rules_dir = self._get_single_config("ARI_RULES_DIR", "rules_dir", default_rules_dir)
         # automatically add the default rules dir unless it is disabled
         if not self.rules_dir.endswith(default_rules_dir) and not self.disable_default_rules:
             self.rules_dir += ":" + default_rules_dir
@@ -111,13 +114,17 @@ class Config:
             self.rules = self._get_single_config("ARI_RULES", "rules", default_rules, "list", ",")
 
     def _get_single_config(self, env_key: str = "", yaml_key: str = "", __default: any = None, __type=None, separator=""):
-        _from_env = os.environ.get(env_key, None)
-        if _from_env and __type:
-            if __type == "list":
-                _from_env = _from_env.split(separator)
-        _from_file = self._data.get(yaml_key, None)
-        value = _from_env or _from_file or __default
-        return value
+        if env_key in os.environ:
+            _from_env = os.environ.get(env_key, None)
+            if _from_env and __type:
+                if __type == "list":
+                    _from_env = _from_env.split(separator)
+            return _from_env
+        elif yaml_key in self._data:
+            _from_file = self._data.get(yaml_key, None)
+            return _from_file
+        else:
+            return __default
 
 
 collection_manifest_json = "MANIFEST.json"
@@ -188,6 +195,8 @@ class SingleScan(object):
 
     source_repository: str = ""
     out_dir: str = ""
+
+    include_test_contents: bool = False
 
     extra_requirements: list = field(default_factory=list)
     resolve_failures: dict = field(default_factory=dict)
@@ -400,6 +409,7 @@ class SingleScan(object):
             playbook_only=self.playbook_only,
             taskfile_yaml=self.taskfile_yaml,
             taskfile_only=self.taskfile_only,
+            include_test_contents=self.include_test_contents,
         )
         load_object(ld)
         return ld
@@ -752,6 +762,8 @@ class ARIScanner(object):
         taskfile_yaml: str = "",
         taskfile_only: bool = False,
         raw_yaml: str = "",
+        include_test_contents: bool = False,
+        objects: bool = False,
         out_dir: str = "",
         spec_mutations_from_previous_scan: dict = None,
     ):
@@ -788,6 +800,7 @@ class ARIScanner(object):
             playbook_only=playbook_only,
             taskfile_yaml=taskfile_yaml,
             taskfile_only=taskfile_only,
+            include_test_contents=include_test_contents,
             out_dir=out_dir,
             root_dir=self.root_dir,
             rules_dir=self.rules_dir,
@@ -902,7 +915,7 @@ class ARIScanner(object):
 
         loaded = False
         self.record_begin(time_records, "target_load")
-        if self.read_ram and scandata.type not in [LoadType.PLAYBOOK, LoadType.TASKFILE]:
+        if self.read_ram and scandata.type not in [LoadType.PLAYBOOK, LoadType.TASKFILE] and not include_test_contents:
             loaded, root_defs = self.load_definitions_from_ram(scandata.type, scandata.name, scandata.version, scandata.hash, allow_unresolved=True)
             logger.debug(f"spec data loaded: {loaded}")
             if loaded:
@@ -966,7 +979,9 @@ class ARIScanner(object):
             # print("root definitions:", root_counts)
 
         # save RAM data
-        if self.write_ram:
+        # if tests are included in this scan, findings can be huge and it may cause performance issue
+        # so we don't save it when `include_test_contents` is True
+        if self.write_ram and not include_test_contents:
             self.register_findings_to_ram(scandata.findings)
             self.register_module_index_to_ram(scandata.findings)
 
@@ -974,6 +989,11 @@ class ARIScanner(object):
             self.save_rule_result(scandata.findings, scandata.out_dir)
             if not self.silent:
                 print("The rule result is saved at {}".format(scandata.out_dir))
+
+            if objects:
+                self.save_definitions(scandata.root_definitions, scandata.out_dir)
+                if not self.silent:
+                    print("The objects is saved at {}".format(scandata.out_dir))
 
         if not self.silent:
             summary = summarize_findings(scandata.findings, self.show_all)
@@ -1043,7 +1063,7 @@ class ARIScanner(object):
         self.ram_client.register(findings)
 
     def register_module_index_to_ram(self, findings: Findings):
-        self.ram_client.module_index_register(findings)
+        self.ram_client.register_module_index(findings)
 
     def save_findings(self, findings: Findings, out_dir: str):
         self.ram_client.save_findings(findings, out_dir)
@@ -1056,6 +1076,18 @@ class ARIScanner(object):
             os.makedirs(out_dir, exist_ok=True)
 
         findings.save_rule_result(fpath=os.path.join(out_dir, "rule_result.json"))
+
+    def save_definitions(self, definitions: dict, out_dir: str):
+        if out_dir == "":
+            raise ValueError("output dir must be a non-empty value")
+
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir, exist_ok=True)
+
+        objects_json_str = jsonpickle.encode(definitions["definitions"], make_refs=False)
+        fpath = os.path.join(out_dir, "objects.json")
+        with open(fpath, "w") as file:
+            file.write(objects_json_str)
 
     def get_last_scandata(self):
         return self._current
