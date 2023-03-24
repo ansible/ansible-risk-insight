@@ -97,6 +97,7 @@ def load_repository(
     use_ansible_doc=True,
     skip_playbook_format_error=True,
     skip_task_format_error=True,
+    include_test_contents=False,
     load_children=True,
 ):
     repoObj = Repository()
@@ -125,10 +126,12 @@ def load_repository(
 
     logger.debug("start loading the repo {}".format(repo_path))
     logger.debug("start loading playbooks")
-    repoObj.playbooks = load_playbooks(repo_path, basedir=basedir, load_children=load_children)
+    repoObj.playbooks = load_playbooks(repo_path, basedir=basedir, include_test_contents=include_test_contents, load_children=load_children)
     logger.debug("done ... {} playbooks loaded".format(len(repoObj.playbooks)))
     logger.debug("start loading roles")
-    repoObj.roles = load_roles(repo_path, basedir=basedir, use_ansible_doc=use_ansible_doc, load_children=load_children)
+    repoObj.roles = load_roles(
+        repo_path, basedir=basedir, use_ansible_doc=use_ansible_doc, include_test_contents=include_test_contents, load_children=load_children
+    )
     logger.debug("done ... {} roles loaded".format(len(repoObj.roles)))
     logger.debug("start loading modules (that are defined in this repository)")
     repoObj.modules = load_modules(
@@ -567,15 +570,18 @@ def load_playbook(path="", yaml_str="", role_name="", collection_name="", basedi
     return pbObj
 
 
-def load_playbooks(path, basedir="", skip_playbook_format_error=True, skip_task_format_error=True, load_children=True):
+def load_playbooks(path, basedir="", skip_playbook_format_error=True, skip_task_format_error=True, include_test_contents=False, load_children=True):
     if path == "":
         return []
     patterns = [
-        path + "/*.yml",
-        path + "/*.yaml",
-        path + "/playbooks/**/*.yml",
-        path + "/playbooks/**/*.yaml",
+        os.path.join(path, "/*.yml"),
+        os.path.join(path, "/*.yaml"),
+        os.path.join(path, "/playbooks/**/*.yml"),
+        os.path.join(path, "/playbooks/**/*.yaml"),
     ]
+    if include_test_contents:
+        patterns.append(os.path.join(path, "tests/integration/**/*.yml"))
+        patterns.append(os.path.join(path, "tests/integration/**/*.yaml"))
     candidates = safe_glob(patterns, recursive=True)
     playbooks = []
     playbook_names = []
@@ -652,6 +658,7 @@ def load_role(
             if roleObj.metadata is not None and isinstance(roleObj.metadata, dict):
                 roleObj.dependency["roles"] = roleObj.metadata.get("dependencies", [])
                 roleObj.dependency["collections"] = roleObj.metadata.get("collections", [])
+    is_test = "/tests/" in fullpath
 
     requirements_yml_path = os.path.join(fullpath, "requirements.yml")
     if os.path.exists(requirements_yml_path):
@@ -675,7 +682,7 @@ def load_role(
     roleObj.defined_in = defined_in
     collection = ""
     fqcn = role_name
-    if collection_name != "":
+    if collection_name != "" and not is_test:
         collection = collection_name
         fqcn = "{}.{}".format(collection_name, role_name)
     roleObj.collection = collection
@@ -830,7 +837,15 @@ def load_role(
     return roleObj
 
 
-def load_roles(path, basedir="", use_ansible_doc=True, skip_playbook_format_error=True, skip_task_format_error=True, load_children=True):
+def load_roles(
+    path,
+    basedir="",
+    use_ansible_doc=True,
+    skip_playbook_format_error=True,
+    skip_task_format_error=True,
+    include_test_contents=False,
+    load_children=True,
+):
 
     if path == "":
         return []
@@ -841,15 +856,30 @@ def load_roles(path, basedir="", use_ansible_doc=True, skip_playbook_format_erro
         if os.path.exists(candidate):
             roles_dir_path = candidate
             break
-    if roles_dir_path == "":
+
+    role_dirs = []
+    if roles_dir_path:
+        dirs = os.listdir(roles_dir_path)
+        role_dirs = [os.path.join(roles_dir_path, dir_name) for dir_name in dirs]
+
+    if include_test_contents:
+        test_targets_dir = os.path.join(path, "tests/integration/targets")
+        if os.path.exists(test_targets_dir):
+            test_names = os.listdir(test_targets_dir)
+            for test_name in test_names:
+                test_dir = os.path.join(test_targets_dir, test_name)
+                test_tasks_dir = os.path.join(test_dir, "tasks")
+                if os.path.exists(test_tasks_dir):
+                    role_dirs.append(test_dir)
+
+    if not role_dirs:
         return []
-    dirs = os.listdir(roles_dir_path)
+
     roles = []
-    for dir_name in dirs:
-        role_dir = os.path.join(roles_dir_path, dir_name)
+    for role_dir in role_dirs:
         try:
             r = load_role(
-                role_dir,
+                path=role_dir,
                 basedir=basedir,
                 use_ansible_doc=use_ansible_doc,
                 skip_playbook_format_error=skip_playbook_format_error,
@@ -1296,7 +1326,13 @@ def load_taskfiles(path, basedir="", load_children=True):
 
 
 def load_collection(
-    collection_dir, basedir="", use_ansible_doc=True, skip_playbook_format_error=True, skip_task_format_error=True, load_children=True
+    collection_dir,
+    basedir="",
+    use_ansible_doc=True,
+    skip_playbook_format_error=True,
+    skip_task_format_error=True,
+    include_test_contents=False,
+    load_children=True,
 ):
 
     colObj = Collection()
@@ -1333,37 +1369,14 @@ def load_collection(
             except Exception as e:
                 logger.debug("failed to load requirements.yml; {}".format(e.args[0]))
 
-    playbook_path_patterns = [
-        fullpath + "/playbooks/**/*.yml",
-        fullpath + "/playbooks/**/*.yaml",
-    ]
-    playbook_files = safe_glob(playbook_path_patterns, recursive=True)
-    playbooks = []
-    for f in playbook_files:
-        p = None
-        try:
-            p = load_playbook(
-                path=f,
-                collection_name=collection_name,
-                basedir=basedir,
-                skip_playbook_format_error=skip_playbook_format_error,
-                skip_task_format_error=skip_task_format_error,
-            )
-        except PlaybookFormatError as e:
-            if skip_playbook_format_error:
-                logger.debug("this file is not in a playbook format, maybe not a playbook file, skip this: {}".format(e.args[0]))
-                continue
-            else:
-                raise PlaybookFormatError(f"this file is not in a playbook format, maybe not a playbook file: {e.args[0]}")
-        except Exception:
-            logger.exception("error while loading the playbook at {}".format(f))
-            continue
-        if load_children:
-            playbooks.append(p)
-        else:
-            playbooks.append(p.defined_in)
-    if not load_children:
-        playbooks = sorted(playbooks)
+    playbooks = load_playbooks(
+        path=fullpath,
+        basedir=basedir,
+        skip_playbook_format_error=skip_playbook_format_error,
+        skip_task_format_error=skip_task_format_error,
+        include_test_contents=include_test_contents,
+        load_children=load_children,
+    )
 
     taskfile_paths = search_taskfiles_for_playbooks(fullpath)
     if len(taskfile_paths) > 0:
@@ -1382,7 +1395,13 @@ def load_collection(
             taskfiles = sorted(taskfiles)
         colObj.taskfiles = taskfiles
 
-    roles = load_roles(fullpath, basedir=basedir, use_ansible_doc=use_ansible_doc, load_children=load_children)
+    roles = load_roles(
+        path=fullpath,
+        basedir=basedir,
+        use_ansible_doc=use_ansible_doc,
+        include_test_contents=include_test_contents,
+        load_children=load_children,
+    )
 
     module_files = search_module_files(fullpath)
 
@@ -1429,7 +1448,7 @@ def load_object(loadObj):
     path = loadObj.path
     obj = None
     if target_type == LoadType.COLLECTION:
-        obj = load_collection(collection_dir=path, basedir=path, load_children=False)
+        obj = load_collection(collection_dir=path, basedir=path, include_test_contents=loadObj.include_test_contents, load_children=False)
     elif target_type == LoadType.ROLE:
         obj = load_role(path=path, basedir=path, load_children=False)
     elif target_type == LoadType.PLAYBOOK:

@@ -58,6 +58,7 @@ class RAMClient(object):
     builtin_modules_cache: dict = field(default_factory=dict)
 
     module_index: dict = field(default_factory=dict)
+    role_index: dict = field(default_factory=dict)
 
     def __post_init__(self):
         module_index_path = os.path.join(self.root_dir, "indices", module_index_name)
@@ -76,14 +77,20 @@ class RAMClient(object):
         out_dir = self.make_findings_dir_path(type, name, version, hash)
         self.save_findings(findings, out_dir)
 
-    def module_index_register(self, findings: Findings):
+    def register_module_index(self, findings: Findings):
         modules = self.load_module_index()
         for module in findings.root_definitions.get("definitions", {}).get("modules", []):
             if not isinstance(module, Module):
                 continue
             m_meta = ModuleMetadata.from_module(module, findings.metadata)
             current = modules.get(module.name, [])
-            if m_meta not in current:
+            exists = False
+            for m_dict in current:
+                m = ModuleMetadata.from_dict(m_dict)
+                if m == m_meta:
+                    exists = True
+                    break
+            if not exists:
                 current.append(m_meta)
             modules.update({module.name: current})
         self.save_module_index(modules)
@@ -368,6 +375,11 @@ class RAMClient(object):
     def search_taskfile(self, name, include_task_path="", max_match=-1, is_key=False, collection_name="", collection_version="", used_in=""):
         if max_match == 0:
             return []
+
+        # search taskfiles only when collection_name is provided
+        if not collection_name:
+            return []
+
         findings_json_list = []
         if self.findings_json_list_cache:
             findings_json_list = self.findings_json_list_cache
@@ -762,7 +774,7 @@ class RAMClient(object):
         indices = os.path.join(self.root_dir, "indices")
         collection_findings = os.path.join(self.root_dir, "collections", "findings")
         role_findings = os.path.join(self.root_dir, "roles", "findings")
-        with tarfile.open(outfile, 'w:gz') as tar:
+        with tarfile.open(outfile, "w:gz") as tar:
             if os.path.exists(indices):
                 tar.add(indices, arcname="indices")
             if os.path.exists(collection_findings):
