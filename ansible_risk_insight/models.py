@@ -115,6 +115,7 @@ class Load(JSONSerializable):
     playbook_only: bool = False
     taskfile_yaml: str = ""
     taskfile_only: bool = False
+    include_test_contents: bool = False
     timestamp: str = ""
 
     # the following variables are list of paths; not object
@@ -348,6 +349,21 @@ class ModuleMetadata(object):
         mm.version = metadata.get("version", "")
         mm.hash = metadata.get("hash", "")
         return mm
+
+    @staticmethod
+    def from_dict(d: dict):
+        mm = ModuleMetadata()
+        mm.fqcn = d.get("fqcn", "")
+        mm.type = d.get("type", "")
+        mm.name = d.get("name", "")
+        mm.version = d.get("version", "")
+        mm.hash = d.get("hash", "")
+        return mm
+
+    def __eq__(self, mm):
+        if not isinstance(mm, ModuleMetadata):
+            return False
+        return self.fqcn == mm.fqcn and self.name == mm.name and self.type == mm.type and self.version == mm.version and self.hash == mm.hash
 
 
 @dataclass

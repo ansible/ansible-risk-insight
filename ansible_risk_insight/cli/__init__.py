@@ -48,6 +48,8 @@ class ARICLI:
         parser.add_argument("--source", help="source server name in ansible config file (if empty, use public ansible galaxy)")
         parser.add_argument("--without-ram", action="store_true", help="if true, RAM data is not used and not even updated")
         parser.add_argument("--update-ram", action="store_true", help="if true, RAM data is not used for scan but updated with the scan result")
+        parser.add_argument("--include-tests", action="store_true", help='if true, load test contents in "tests/integration/targets"')
+        parser.add_argument("--objects", action="store_true", help="if true, output objects.json to the output directory")
         parser.add_argument("--show-all", action="store_true", help="if true, show findings even if missing dependencies are found")
         parser.add_argument("--json", help="if specified, show findings in json format")
         parser.add_argument("--yaml", help="if specified, show findings in yaml format")
@@ -144,5 +146,7 @@ class ARICLI:
             source_repository=args.source,
             playbook_only=args.playbook_only,
             taskfile_only=args.taskfile_only,
+            include_test_contents=args.include_tests,
+            objects=args.objects,
             out_dir=args.out_dir,
         )

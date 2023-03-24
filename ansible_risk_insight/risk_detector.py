@@ -36,6 +36,8 @@ def key2name(key: str):
 
 
 def load_rules(rules_dir: str = "", rule_id_list: list = [], fail_on_error: bool = False):
+    if not rules_dir:
+        return []
     rules_dir_list = rules_dir.split(":")
     _rules = []
     for _rules_dir in rules_dir_list:
