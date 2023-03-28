@@ -24,6 +24,7 @@ from .models import (
     LoadType,
     ObjectList,
     ExecutableType,
+    Collection,
     Module,
     ModuleMetadata,
 )
@@ -93,6 +94,26 @@ class RAMClient(object):
             if not exists:
                 current.append(m_meta)
             modules.update({module.name: current})
+        for collection in findings.root_definitions.get("definitions", {}).get("collections", []):
+            if not isinstance(collection, Collection):
+                continue
+            if collection.meta_runtime and isinstance(collection.meta_runtime, dict):
+                for short_name, routing in collection.meta_runtime.get("plugin_routing", {}).get("modules", {}).items():
+                    redirect_to = routing.get("redirect", "")
+                    if not redirect_to:
+                        continue
+                    m_meta = ModuleMetadata.from_routing(redirect_to, findings.metadata)
+                    current = modules.get(short_name, [])
+                    exists = False
+                    for m_dict in current:
+                        m = ModuleMetadata.from_dict(m_dict)
+                        if m == m_meta:
+                            exists = True
+                            break
+                    if not exists:
+                        current.append(m_meta)
+                    modules.update({short_name: current})
+
         self.save_module_index(modules)
 
     def make_findings_dir_path(self, type, name, version, hash):
