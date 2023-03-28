@@ -98,36 +98,38 @@ class RiskAssessmentModelGenerator(object):
         self.save_ram_log(type, name, fail)
 
     def save_ram_log(self, type, name, fail):
-        out_dir = os.path.join(self._scanner.root_dir, "log")
+        out_dir = os.path.join(self._scanner.root_dir, "log", type, name)
         path = os.path.join(out_dir, "ram_log.json")
 
         scan_time = datetime.datetime.utcnow().isoformat()
         new_record = {"type": type, "name": name, "succeed": not fail, "time": scan_time}
 
-        ram_logs = {"collection": {}, "role": {}}
+        logs = []
         if os.path.exists(path):
             with open(path, "r") as file:
-                ram_logs = json.load(file)
-            log = ram_logs.get(type, {}).get(name, [])
-            log.append(new_record)
-            ram_logs[type].update({name: log})
+                for line in file:
+                    d = json.loads(line)
+                    logs.append(d)
+        logs.append(new_record)
         if not os.path.exists(out_dir):
             os.makedirs(out_dir, exist_ok=True)
 
         with open(path, "w") as file:
-            json.dump(ram_logs, file)
+            json.dump(logs, file)
         return
 
     def skip_scan(self, type, name) -> bool:
         skip = False
-        path = os.path.join(self._scanner.root_dir, "log", "ram_log.json")
+        path = os.path.join(self._scanner.root_dir, "log", type, name, "ram_log.json")
         if not os.path.exists(path):
             return skip
+        logs = []
         with open(path, "r") as file:
-            ram_logs = json.load(file)
-        log = ram_logs.get(type, {}).get(name, [])
-        if log:
-            latest = log[-1]
+            for line in file:
+                d = json.loads(line)
+                logs.append(d)
+        if logs:
+            latest = logs[-1]
             if latest.get("succeed", False):
                 skip = True
                 return skip
