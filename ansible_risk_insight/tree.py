@@ -206,7 +206,7 @@ def load_all_definitions(definitions: dict):
     else:
         _definitions = definitions
     loaded = {}
-    types = ["roles", "taskfiles", "modules", "playbooks", "plays", "tasks"]
+    types = ["collections", "roles", "taskfiles", "modules", "playbooks", "plays", "tasks"]
     for type_key in types:
         loaded[type_key] = ObjectList()
     for _, definitions_per_artifact in _definitions.items():
@@ -237,6 +237,25 @@ def make_dicts(root_definitions, ext_definitions):
                 dicts[type_key] = {}
             dicts[type_key][obj_dict_key] = obj
     return dicts
+
+
+def load_module_redirects(root_definitions, ext_definitions, module_dict={}):
+    collection_list = root_definitions.get("collections", ObjectList())
+    ext_collection_list = ext_definitions.get("collections", ObjectList())
+    collection_list.merge(ext_collection_list)
+    redirects = {}
+    for coll in collection_list.items:
+        if not coll.meta_runtime:
+            continue
+        for short_name, routing in coll.meta_runtime.get("plugin_routing", {}).get("modules", {}).items():
+            redirect_to = routing.get("redirect", "")
+            if short_name in redirects:
+                continue
+            found_module = module_dict.get(redirect_to, None)
+            if found_module:
+                module_key = found_module.key
+                redirects[short_name] = module_key
+    return redirects
 
 
 def resolve(obj, dicts):
@@ -274,7 +293,7 @@ def resolve(obj, dicts):
     return obj, failed
 
 
-def resolve_module(module_name, module_dict={}):
+def resolve_module(module_name, module_dict={}, module_redirects={}):
     module_key = ""
     found_module = module_dict.get(module_name, None)
     if found_module is not None:
@@ -285,6 +304,9 @@ def resolve_module(module_name, module_dict={}):
             if k.endswith(suffix):
                 module_key = module_dict[k].key
                 break
+    if module_key == "":
+        if module_name in module_redirects:
+            module_key = module_redirects[module_name]
     return module_key
 
 
@@ -413,6 +435,8 @@ class TreeLoader(object):
         self.add_builtin_modules()
 
         self.dicts = make_dicts(self.root_definitions, self.ext_definitions)
+
+        self.module_redirects = load_module_redirects(self.root_definitions, self.ext_definitions, self.dicts["modules"])
 
         self.var_manager: VariableManager = VariableManager()
 
@@ -649,7 +673,7 @@ class TreeLoader(object):
                 if target_name in self.module_resolve_cache:
                     resolved_key = self.module_resolve_cache[target_name]
                 else:
-                    resolved_key = resolve_module(target_name, self.dicts["modules"])
+                    resolved_key = resolve_module(target_name, self.dicts["modules"], self.module_redirects)
                     if resolved_key != "":
                         self.module_resolve_cache[target_name] = resolved_key
                 if resolved_key == "" and self.ram_client is not None:
