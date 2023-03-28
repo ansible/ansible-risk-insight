@@ -1038,6 +1038,8 @@ class ARIScanner(object):
                     playbook_only=playbook_only,
                     taskfile_yaml=taskfile_yaml,
                     taskfile_only=taskfile_only,
+                    include_test_contents=include_test_contents,
+                    objects=objects,
                     raw_yaml=raw_yaml,
                     out_dir=out_dir,
                     spec_mutations_from_previous_scan=scandata.spec_mutations,

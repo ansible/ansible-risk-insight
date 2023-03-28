@@ -132,6 +132,7 @@ def flatten_block_tasks(task_dict):
     if task_dict is None:
         return []
     tasks = []
+    # load normal tasks first
     if "block" in task_dict:
         tasks_in_block = task_dict.get("block", [])
         if isinstance(tasks_in_block, list):
@@ -142,6 +143,23 @@ def flatten_block_tasks(task_dict):
             tasks = [task_dict]
     else:
         tasks = [task_dict]
+
+    # then add "rescue" block
+    if "rescue" in task_dict:
+        tasks_in_rescue = task_dict.get("rescue", [])
+        if isinstance(tasks_in_rescue, list):
+            for t_dict in tasks_in_rescue:
+                tasks_in_item = flatten_block_tasks(t_dict)
+                tasks.extend(tasks_in_item)
+
+    # finally add "always" block
+    if "always" in task_dict:
+        tasks_in_always = task_dict.get("always", [])
+        if isinstance(tasks_in_always, list):
+            for t_dict in tasks_in_always:
+                tasks_in_item = flatten_block_tasks(t_dict)
+                tasks.extend(tasks_in_item)
+
     return tasks
 
 
