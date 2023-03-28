@@ -351,6 +351,16 @@ class ModuleMetadata(object):
         return mm
 
     @staticmethod
+    def from_routing(dst: str, metadata: dict):
+        mm = ModuleMetadata()
+        mm.fqcn = dst
+        mm.type = metadata.get("type", "")
+        mm.name = metadata.get("name", "")
+        mm.version = metadata.get("version", "")
+        mm.hash = metadata.get("hash", "")
+        return mm
+
+    @staticmethod
     def from_dict(d: dict):
         mm = ModuleMetadata()
         mm.fqcn = d.get("fqcn", "")
@@ -374,6 +384,7 @@ class Collection(Object, Resolvable):
     key: str = ""
     local_key: str = ""
     metadata: dict = field(default_factory=dict)
+    meta_runtime: dict = field(default_factory=dict)
     files: dict = field(default_factory=dict)
     playbooks: list = field(default_factory=list)
     taskfiles: list = field(default_factory=list)

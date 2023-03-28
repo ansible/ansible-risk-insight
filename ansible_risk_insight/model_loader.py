@@ -1361,6 +1361,14 @@ def load_collection(
         with open(files_file_path, "r") as file:
             colObj.files = json.load(file)
 
+    meta_runtime_file_path = os.path.join(fullpath, "meta", "runtime.yml")
+    if os.path.exists(meta_runtime_file_path):
+        with open(meta_runtime_file_path, "r") as file:
+            try:
+                colObj.meta_runtime = yaml.safe_load(file)
+            except Exception as e:
+                logger.debug("failed to load meta/runtime.yml; {}".format(e.args[0]))
+
     requirements_yml_path = os.path.join(fullpath, "requirements.yml")
     if os.path.exists(requirements_yml_path):
         with open(requirements_yml_path, "r") as file:
