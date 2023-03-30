@@ -24,6 +24,7 @@ import datetime
 from dataclasses import dataclass, field
 
 from .models import (
+    Object,
     Load,
     LoadType,
     ObjectList,
@@ -168,6 +169,8 @@ class SingleScan(object):
 
     root_definitions: dict = field(default_factory=dict)
     ext_definitions: dict = field(default_factory=dict)
+
+    target_object: Object = field(default_factory=Object)
 
     trees: list = field(default_factory=list)
     # for inventory object
@@ -527,6 +530,22 @@ class SingleScan(object):
                     self.root_definitions["definitions"][type_name][i] = mutated_spec
         return
 
+    def set_target_object(self):
+        type_name = self.type + "s"
+        obj_list = self.root_definitions.get("definitions", {}).get(type_name, [])
+        if len(obj_list) == 0:
+            return
+        elif len(obj_list) == 1:
+            self.target_object = obj_list[0]
+        else:
+            # only for playbook / taskfile not in `--xxxx-only` mode
+            for obj in obj_list:
+                obj_path = getattr(obj, "defined_in")
+                if self.name in obj_path:
+                    self.target_object = obj
+                    break
+        return
+
     def construct_trees(self, ram_client=None):
         trees, additional, extra_requirements, resolve_failures = tree(
             self.root_definitions, self.ext_definitions, ram_client, self.target_playbook_name, self.target_taskfile_name
@@ -571,7 +590,7 @@ class SingleScan(object):
         self.taskcalls_in_trees = taskcalls_in_trees
 
         for tree in self.trees:
-            ctx = AnsibleRunContext.from_tree(tree)
+            ctx = AnsibleRunContext.from_tree(tree=tree, parent=self.target_object)
             self.contexts.append(ctx)
 
         if self.do_save:
@@ -932,6 +951,8 @@ class ARIScanner(object):
 
         if not loaded:
             scandata.load_definitions_root(target_path=scandata.target_path)
+
+        scandata.set_target_object()
 
         if not self.silent:
             logger.debug("load_definitions_root() done")

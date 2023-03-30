@@ -1535,6 +1535,7 @@ class TaskCall(CallObject, RunTarget):
 class AnsibleRunContext(object):
     sequence: RunTargetList = None
     root_key: str = ""
+    parent: Object = None
 
     # used by rule check
     current: RunTarget = None
@@ -1564,11 +1565,11 @@ class AnsibleRunContext(object):
         return self.sequence[i]
 
     @staticmethod
-    def from_tree(tree: ObjectList):
+    def from_tree(tree: ObjectList, parent: Object = None):
         if not tree:
-            return AnsibleRunContext()
+            return AnsibleRunContext(parent=parent)
         if len(tree.items) == 0:
-            return AnsibleRunContext()
+            return AnsibleRunContext(parent=parent)
 
         root_key = tree.items[0].spec.key
         sequence_items = []
@@ -1577,15 +1578,15 @@ class AnsibleRunContext(object):
                 continue
             sequence_items.append(item)
         tl = RunTargetList(items=sequence_items)
-        return AnsibleRunContext(sequence=tl, root_key=root_key)
+        return AnsibleRunContext(sequence=tl, root_key=root_key, parent=parent)
 
     @staticmethod
-    def from_targets(targets: List[RunTarget], root_key: str = ""):
+    def from_targets(targets: List[RunTarget], root_key: str = "", parent: Object = None):
         if not root_key:
             if len(targets) > 0:
                 root_key = targets[0].spec.key
         tl = RunTargetList(items=targets)
-        return AnsibleRunContext(sequence=tl, root_key=root_key)
+        return AnsibleRunContext(sequence=tl, root_key=root_key, parent=parent)
 
     def find(self, target: RunTarget):
         for t in self.sequence:
@@ -1599,11 +1600,11 @@ class AnsibleRunContext(object):
             if rt.key == target.key:
                 break
             targets.append(rt)
-        return AnsibleRunContext.from_targets(targets, root_key=self.root_key)
+        return AnsibleRunContext.from_targets(targets, root_key=self.root_key, parent=self.parent)
 
     def search(self, cond: AnnotationCondition):
         targets = [t for t in self.sequence if t.type == RunTargetType.Task and t.has_annotation_by_condition(cond)]
-        return AnsibleRunContext.from_targets(targets, root_key=self.root_key)
+        return AnsibleRunContext.from_targets(targets, root_key=self.root_key, parent=self.parent)
 
     def is_end(self, target: RunTarget):
         if len(self) == 0:
@@ -1616,7 +1617,7 @@ class AnsibleRunContext(object):
         return target.key == self.sequence[0].key
 
     def copy(self):
-        return AnsibleRunContext.from_targets(targets=self.sequence.items, root_key=self.root_key)
+        return AnsibleRunContext.from_targets(targets=self.sequence.items, root_key=self.root_key, parent=self.parent)
 
     @property
     def info(self):

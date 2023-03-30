@@ -32,6 +32,7 @@ class RAMGenerateCLI:
         parser.add_argument("--download-only", action="store_true", help="if True, just download the content")
         parser.add_argument("--include-tests", action="store_true", help='if true, load test contents in "tests/integration/targets"')
         parser.add_argument("--no-retry", action="store_true", help="if True, not retry failed items.")
+        parser.add_argument("-o", "--out-dir", help="output directory for the rule evaluation result")
         args = parser.parse_args()
         self.args = args
 
@@ -57,6 +58,7 @@ class RAMGenerateCLI:
             resume=resume,
             download_only=args.download_only,
             include_test_contents=args.include_tests,
+            out_dir=args.out_dir,
             no_module_spec=args.no_module_spec,
             no_retry=args.no_retry,
         )

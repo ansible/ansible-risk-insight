@@ -1385,6 +1385,20 @@ def load_collection(
             except Exception as e:
                 logger.debug("failed to load requirements.yml; {}".format(e.args[0]))
 
+    if isinstance(colObj.metadata, dict):
+        license_filename = colObj.metadata.get("collection_info", {}).get("license_file", None)
+        if license_filename:
+            license_filepath = os.path.join(fullpath, license_filename)
+            if os.path.exists(license_filepath):
+                with open(license_filepath, "r") as file:
+                    contents = file.read()
+                    lines = contents.splitlines()
+                    if len(lines) > 10:
+                        contents = "\n".join(lines[:10])
+                    colObj.metadata["_ari_added"] = {
+                        "license_file_contents_head": contents,
+                    }
+
     playbooks = load_playbooks(
         path=fullpath,
         basedir=basedir,
