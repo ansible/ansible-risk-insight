@@ -549,6 +549,13 @@ class DependencyDirPreparator(object):
         # return proc.stdout
 
     def install_galaxy_collection_from_reqfile(self, requirements, output_dir):
+        if not os.path.isfile(requirements):
+            # get requirements file from archives dir under current root_dir
+            child_dir_path = requirements.split("archives")[-1]
+            requirements = f'{self.download_location}{child_dir_path}'
+            if not os.path.isfile(requirements):
+                logger.warning("requirements file not found: {}".format(requirements))
+                return
         logger.debug("install collection from {}".format(requirements))
         src_dir = requirements.replace(requirements_yml, "")
         proc = subprocess.run(
@@ -565,7 +572,7 @@ class DependencyDirPreparator(object):
     def is_download_file_exist(self, type, target, dir):
         is_exist = False
         filename = ""
-        download_metadata_files = glob.glob(os.path.join(dir, type, target, "**", download_metadata_file), recursive=True)
+        download_metadata_files = glob.glob(f'{dir}/{type}/{target}/**/{download_metadata_file}', recursive=True)
         # check if tar.gz file already exists
         if len(download_metadata_files) != 0:
             for metafile in download_metadata_files:
@@ -602,6 +609,7 @@ class DependencyDirPreparator(object):
         version = ""
         hash = ""
         match_messages = re.findall(download_url_pattern, log_message)
+        download_path_from_root_dir = download_location.replace(f'{self.root_dir}/',"")
         metadata_list = []
         for m in match_messages:
             metadata = DownloadMetadata()
@@ -622,10 +630,12 @@ class DependencyDirPreparator(object):
                 m_time = os.path.getmtime(fullpath)
                 dt_m = datetime.datetime.utcfromtimestamp(m_time).isoformat()
                 metadata.download_timestamp = dt_m
-                metadata.download_src_path = fullpath
-                metadata.metafile_path, metadata.files_json_path = self.get_metafile_in_target(LoadType.COLLECTION, fullpath)
+                metadata.download_src_path = fullpath.replace(download_location, download_path_from_root_dir)
+                metafile_path, files_json_path = self.get_metafile_in_target(LoadType.COLLECTION, fullpath)
+                metadata.metafile_path = metafile_path.replace(download_location, download_path_from_root_dir)
+                metadata.files_json_path = files_json_path.replace(download_location, download_path_from_root_dir)
                 metadata.author = self.get_author(LoadType.COLLECTION, metadata.metafile_path)
-                metadata.requirements_file = "{}/{}".format(download_location, requirements_yml)
+                metadata.requirements_file = "{}/{}".format(download_path_from_root_dir, requirements_yml)
 
                 if url != "":
                     hash = get_hash_of_url(url)
@@ -659,7 +669,7 @@ class DependencyDirPreparator(object):
                 m_time = os.path.getmtime(role_dir)
                 dt_m = datetime.datetime.utcfromtimestamp(m_time).isoformat()
                 metadata.download_timestamp = dt_m
-                metadata.download_src_path = role_dir
+                metadata.download_src_path = role_dir.replace(f'{self.root_dir}/',"")
                 if url != "":
                     hash = get_hash_of_url(url)
                     metadata.hash = hash
@@ -669,6 +679,13 @@ class DependencyDirPreparator(object):
         return result
 
     def find_target_metadata(self, type, metadata_file, target):
+        if not os.path.isfile(metadata_file):
+            # get metadata file from archives dir under current root_dir
+            child_dir_path = metadata_file.split("archives")[-1]
+            metadata_file = f'{self.download_location}{child_dir_path}'
+            if not os.path.isfile(metadata_file):
+                logger.warning("metadata file not found: {}".format(target))
+                return None
         with open(metadata_file, "r") as f:
             metadata = json.load(f)
         if type == LoadType.COLLECTION:
@@ -822,12 +839,14 @@ class DependencyDirPreparator(object):
         metadata_list = metadata.get("roles", [])
         for i, data in enumerate(metadata_list):
             dm = DownloadMetadata(**data)
-            value = "{}/{}".format(dst_src_dir, dm.name)
+            full_path = "{}/{}".format(dst_src_dir, dm.name)
+            path_from_root = full_path.replace(f'{self.root_dir}/', "")
             key = "download_src_path"
             if hasattr(dm, key):
-                setattr(dm, key, value)
-            dm.metafile_path, _ = self.get_metafile_in_target(LoadType.ROLE, value)
-            dm.author = self.get_author(LoadType.ROLE, dm.metafile_path)
+                setattr(dm, key, path_from_root)
+            metafile_path, _ = self.get_metafile_in_target(LoadType.ROLE, full_path)
+            dm.metafile_path = metafile_path.replace(f'{self.root_dir}/', "")
+            dm.author = self.get_author(LoadType.ROLE, metafile_path)
             metadata_list[i] = asdict(dm)
             logger.debug("update {} in metadata: {}".format(key, dm))
         metadata["roles"] = metadata_list
@@ -837,8 +856,10 @@ class DependencyDirPreparator(object):
 
     def get_author(self, type, metafile_path):
         if not os.path.exists(metafile_path):
-            logger.warning("invalid file path: {}".format(metafile_path))
-            return ""
+            metafile_path = f'{self.root_dir}/{metafile_path}'
+            if not os.path.exists(metafile_path):
+                logger.warning("invalid file path: {}".format(metafile_path))
+                return ""
         if type == LoadType.COLLECTION:
             with open(metafile_path, "r") as f:
                 metadata = json.load(f)

@@ -41,6 +41,8 @@ class Findings:
         return d
 
     def dump(self, fpath=""):
+        if "ari_result" in self.report:
+            del self.report["ari_result"]
         json_str = jsonpickle.encode(self, make_refs=False)
         if fpath:
             with open(fpath, "w") as file:
