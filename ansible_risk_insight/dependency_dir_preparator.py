@@ -609,7 +609,7 @@ class DependencyDirPreparator(object):
         version = ""
         hash = ""
         match_messages = re.findall(download_url_pattern, log_message)
-        download_path_from_root_dir = download_location.replace(f'{self.root_dir}/',"")
+        download_path_from_root_dir = download_location.replace(f'{self.root_dir}/', "")
         metadata_list = []
         for m in match_messages:
             metadata = DownloadMetadata()
@@ -669,7 +669,7 @@ class DependencyDirPreparator(object):
                 m_time = os.path.getmtime(role_dir)
                 dt_m = datetime.datetime.utcfromtimestamp(m_time).isoformat()
                 metadata.download_timestamp = dt_m
-                metadata.download_src_path = role_dir.replace(f'{self.root_dir}/',"")
+                metadata.download_src_path = role_dir.replace(f'{self.root_dir}/', "")
                 if url != "":
                     hash = get_hash_of_url(url)
                     metadata.hash = hash
