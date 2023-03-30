@@ -485,7 +485,7 @@ class TreeLoader(object):
             self.trees.append(tree_objects)
         return self.trees, additional_objects
 
-    def _recursive_get_calls(self, key, caller=None, index=0):
+    def _recursive_get_calls(self, key, caller=None, handover={}, index=0):
         obj_list = ObjectList()
         obj = self.get_object(key)
         if obj is None:
@@ -493,11 +493,12 @@ class TreeLoader(object):
         call_obj = call_obj_from_spec(spec=obj, caller=caller, index=index)
         if call_obj is not None:
             obj_list.add(call_obj, update_dict=False)
-        children_keys, from_ram = self._get_children_keys(obj)
+        children_keys, from_ram, handover = self._get_children_keys(obj, handover_from_upper_node=handover)
         for i, c_key in enumerate(children_keys):
             child_objects = self._recursive_get_calls(
                 c_key,
                 call_obj,
+                handover,
                 i,
             )
             if isinstance(call_obj, TaskCall):
@@ -589,11 +590,12 @@ class TreeLoader(object):
         obj_list = ObjectList(items=builtin_modules)
         self.ext_definitions["modules"].merge(obj_list)
 
-    def _get_children_keys(self, obj):
+    def _get_children_keys(self, obj, handover_from_upper_node={}):
         if isinstance(obj, CallObject):
             return self._get_children_keys(obj.spec)
         children_keys = []
         from_ram = {}
+        handover = {}
         if isinstance(obj, Playbook):
             children_keys = obj.plays
         elif isinstance(obj, Play):
@@ -659,7 +661,12 @@ class TreeLoader(object):
                     children_keys.append(resolved_role_key)
             children_keys.extend(obj.post_tasks)
         elif isinstance(obj, Role):
-            main_taskfile_key = [tf for tf in obj.taskfiles if tf.split(key_delimiter)[-1].split("/")[-1] in ["main.yml", "main.yaml"]]
+            target_taskfiles = ["main.yml", "main.yaml"]
+            if isinstance(handover_from_upper_node, dict) and "tasks_from" in handover_from_upper_node:
+                tasks_from = handover_from_upper_node.get("tasks_from")
+                if tasks_from:
+                    target_taskfiles = [tasks_from]
+            main_taskfile_key = [tf for tf in obj.taskfiles if tf.split(key_delimiter)[-1].split("/")[-1] in target_taskfiles]
             children_keys.extend(main_taskfile_key)
         elif isinstance(obj, TaskFile):
             children_keys = obj.tasks
@@ -667,7 +674,7 @@ class TreeLoader(object):
             executable_type = obj.executable_type
             resolved_key = ""
             if obj.executable == "":
-                return [], {}
+                return [], {}, {}
             target_name = obj.executable
             if executable_type == ExecutableType.MODULE_TYPE:
                 if target_name in self.module_resolve_cache:
@@ -703,6 +710,12 @@ class TreeLoader(object):
                         self.resolve_failures["module"][target_name] = 0
                     self.resolve_failures["module"][target_name] += 1
             elif executable_type == ExecutableType.ROLE_TYPE:
+                tasks_from = None
+                if isinstance(obj.module_options, dict):
+                    tasks_from = obj.module_options.get("tasks_from", None)
+                if tasks_from:
+                    handover["tasks_from"] = tasks_from
+
                 if target_name in self.role_resolve_cache:
                     resolved_key = self.role_resolve_cache[target_name]
                 else:
@@ -770,7 +783,7 @@ class TreeLoader(object):
                         resolved_key, req_info = self.resolved_role_from_ram[target_name]
                         from_ram[resolved_key] = req_info
                     else:
-                        matched_taskfiles = self.ram_client.search_taskfile(target_name, include_task_path=obj.defined_in)
+                        matched_taskfiles = self.ram_client.search_taskfile(target_name, from_path=obj.defined_in, from_key=obj.key)
                         if len(matched_taskfiles) > 0:
                             resolved_key = matched_taskfiles[0]["object"].key
                             self.ext_definitions["taskfiles"].add(matched_taskfiles[0]["object"], update_dict=False)
@@ -806,7 +819,7 @@ class TreeLoader(object):
 
             if resolved_key != "":
                 children_keys.append(resolved_key)
-        return children_keys, from_ram
+        return children_keys, from_ram, handover
 
     def node_objects(self, tree):
         loaded = {}

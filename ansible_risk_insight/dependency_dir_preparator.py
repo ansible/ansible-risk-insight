@@ -24,6 +24,7 @@ import re
 import sys
 import datetime
 import tarfile
+from copy import deepcopy
 from dataclasses import dataclass, field, asdict
 
 import ansible_risk_insight.logger as logger
@@ -104,6 +105,9 @@ class DependencyDirPreparator(object):
     silent: bool = False
     do_save: bool = False
     tmp_install_dir: tempfile.TemporaryDirectory = None
+    periodical_cleanup: bool = False
+    cleanup_queue: list = field(default_factory=list)
+    cleanup_threshold: int = 200
 
     # -- out --
     dependency_dirs: list = field(default_factory=list)
@@ -112,7 +116,7 @@ class DependencyDirPreparator(object):
         logger.debug("setup base dirs")
         self.setup_dirs(cache_enabled, cache_dir)
         logger.debug("prepare target dir")
-        self.prepare_root_dir(root_install, is_src_installed)
+        self.prepare_root_dir(root_install, is_src_installed, cache_enabled, cache_dir)
         logger.debug("search dependencies")
         dependencies = find_dependency(self.target_type, self.target_path, self.target_dependency_dir)
         logger.debug("prepare dir for dependencies")
@@ -133,7 +137,7 @@ class DependencyDirPreparator(object):
             os.makedirs(self.dependency_dir_path)
         return
 
-    def prepare_root_dir(self, root_install=True, is_src_installed=False):
+    def prepare_root_dir(self, root_install=True, is_src_installed=False, cache_enabled=False, cache_dir=""):
         # install root
         if is_src_installed:
             pass
@@ -146,20 +150,33 @@ class DependencyDirPreparator(object):
             if self.target_type in [LoadType.COLLECTION, LoadType.ROLE] and is_local_path(self.target_name):
                 root_install = False
 
-            if root_install:
-                self.src_install()
-                if not self.silent:
-                    logger.debug("install() done")
+            cache_found = False
+            if cache_enabled:
+                is_exist, targz_file = self.is_download_file_exist(self.target_type, self.target_name, cache_dir)
+                # check cache data
+                if is_exist:
+                    metadata_file = os.path.join(targz_file.rsplit("/", 1)[0], download_metadata_file)
+                    md = self.find_target_metadata(self.target_type, metadata_file, self.target_name)
+                    if md and os.path.exists(md.source_repository):
+                        self.metadata = md
+                        cache_found = True
+            if cache_found:
+                pass
             else:
-                download_url = ""
-                version = ""
-                hash = ""
-                download_url, version = get_installed_metadata(self.target_type, self.target_name, self.target_path, self.target_dependency_dir)
-                if download_url != "":
-                    hash = get_hash_of_url(download_url)
-                self.metadata.download_url = download_url
-                self.metadata.version = version
-                self.metadata.hash = hash
+                if root_install:
+                    self.src_install()
+                    if not self.silent:
+                        logger.debug("install() done")
+                else:
+                    download_url = ""
+                    version = ""
+                    hash = ""
+                    download_url, version = get_installed_metadata(self.target_type, self.target_name, self.target_path, self.target_dependency_dir)
+                    if download_url != "":
+                        hash = get_hash_of_url(download_url)
+                    self.metadata.download_url = download_url
+                    self.metadata.version = version
+                    self.metadata.hash = hash
         return
 
     def prepare_dependency_dir(self, dependencies, cache_enabled=False, cache_dir=""):
@@ -718,11 +735,22 @@ class DependencyDirPreparator(object):
     def setup_tmp_dir(self):
         if self.tmp_install_dir is None or not os.path.exists(self.tmp_install_dir.name):
             self.tmp_install_dir = tempfile.TemporaryDirectory()
+            if self.periodical_cleanup:
+                self.cleanup_queue.append(deepcopy(self.tmp_install_dir))
 
     def clean_tmp_dir(self):
         if self.tmp_install_dir is not None and os.path.exists(self.tmp_install_dir.name):
-            self.tmp_install_dir.cleanup()
-            self.tmp_install_dir = None
+            if self.periodical_cleanup:
+                if len(self.cleanup_queue) > self.cleanup_threshold:
+                    for tmp_dir in self.cleanup_queue:
+                        try:
+                            tmp_dir.cleanup()
+                        except Exception:
+                            pass
+                    self.cleanup_queue = []
+            else:
+                self.tmp_install_dir.cleanup()
+                self.tmp_install_dir = None
 
     def export_data(self, data, dir, filename):
         if not os.path.exists(dir):

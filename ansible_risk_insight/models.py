@@ -328,55 +328,6 @@ class ModuleCall(CallObject, Resolvable):
 
 
 @dataclass
-class ModuleMetadata(object):
-    fqcn: str = ""
-    # arguments: list = field(default_factory=list)
-    type: str = ""
-    name: str = ""
-    version: str = ""
-    hash: str = ""
-
-    @staticmethod
-    def from_module(m: Module, metadata: dict):
-        mm = ModuleMetadata()
-        for key in mm.__dict__:
-            if hasattr(m, key):
-                val = getattr(m, key, None)
-                setattr(mm, key, val)
-
-        mm.type = metadata.get("type", "")
-        mm.name = metadata.get("name", "")
-        mm.version = metadata.get("version", "")
-        mm.hash = metadata.get("hash", "")
-        return mm
-
-    @staticmethod
-    def from_routing(dst: str, metadata: dict):
-        mm = ModuleMetadata()
-        mm.fqcn = dst
-        mm.type = metadata.get("type", "")
-        mm.name = metadata.get("name", "")
-        mm.version = metadata.get("version", "")
-        mm.hash = metadata.get("hash", "")
-        return mm
-
-    @staticmethod
-    def from_dict(d: dict):
-        mm = ModuleMetadata()
-        mm.fqcn = d.get("fqcn", "")
-        mm.type = d.get("type", "")
-        mm.name = d.get("name", "")
-        mm.version = d.get("version", "")
-        mm.hash = d.get("hash", "")
-        return mm
-
-    def __eq__(self, mm):
-        if not isinstance(mm, ModuleMetadata):
-            return False
-        return self.fqcn == mm.fqcn and self.name == mm.name and self.type == mm.type and self.version == mm.version and self.hash == mm.hash
-
-
-@dataclass
 class Collection(Object, Resolvable):
     type: str = "collection"
     name: str = ""
@@ -2022,6 +1973,131 @@ class GalaxyArtifact(Repository):
     playbook_dict: dict = field(default_factory=dict)
     # make it easier to search a collection
     collection_dict: dict = field(default_factory=dict)
+
+
+@dataclass
+class ModuleMetadata(object):
+    fqcn: str = ""
+    # arguments: list = field(default_factory=list)
+    type: str = ""
+    name: str = ""
+    version: str = ""
+    hash: str = ""
+
+    @staticmethod
+    def from_module(m: Module, metadata: dict):
+        mm = ModuleMetadata()
+        for key in mm.__dict__:
+            if hasattr(m, key):
+                val = getattr(m, key, None)
+                setattr(mm, key, val)
+
+        mm.type = metadata.get("type", "")
+        mm.name = metadata.get("name", "")
+        mm.version = metadata.get("version", "")
+        mm.hash = metadata.get("hash", "")
+        return mm
+
+    @staticmethod
+    def from_routing(dst: str, metadata: dict):
+        mm = ModuleMetadata()
+        mm.fqcn = dst
+        mm.type = metadata.get("type", "")
+        mm.name = metadata.get("name", "")
+        mm.version = metadata.get("version", "")
+        mm.hash = metadata.get("hash", "")
+        return mm
+
+    @staticmethod
+    def from_dict(d: dict):
+        mm = ModuleMetadata()
+        mm.fqcn = d.get("fqcn", "")
+        mm.type = d.get("type", "")
+        mm.name = d.get("name", "")
+        mm.version = d.get("version", "")
+        mm.hash = d.get("hash", "")
+        return mm
+
+    def __eq__(self, mm):
+        if not isinstance(mm, ModuleMetadata):
+            return False
+        return self.fqcn == mm.fqcn and self.name == mm.name and self.type == mm.type and self.version == mm.version and self.hash == mm.hash
+
+
+@dataclass
+class RoleMetadata(object):
+    fqcn: str = ""
+    type: str = ""
+    name: str = ""
+    version: str = ""
+    hash: str = ""
+
+    @staticmethod
+    def from_role(r: Role, metadata: dict):
+        rm = RoleMetadata()
+        for key in rm.__dict__:
+            if hasattr(r, key):
+                val = getattr(r, key, None)
+                setattr(rm, key, val)
+
+        rm.type = metadata.get("type", "")
+        rm.name = metadata.get("name", "")
+        rm.version = metadata.get("version", "")
+        rm.hash = metadata.get("hash", "")
+        return rm
+
+    @staticmethod
+    def from_dict(d: dict):
+        rm = RoleMetadata()
+        rm.fqcn = d.get("fqcn", "")
+        rm.type = d.get("type", "")
+        rm.name = d.get("name", "")
+        rm.version = d.get("version", "")
+        rm.hash = d.get("hash", "")
+        return rm
+
+    def __eq__(self, rm):
+        if not isinstance(rm, ModuleMetadata):
+            return False
+        return self.fqcn == rm.fqcn and self.name == rm.name and self.type == rm.type and self.version == rm.version and self.hash == rm.hash
+
+
+@dataclass
+class TaskFileMetadata(object):
+    key: str = ""
+    type: str = ""
+    name: str = ""
+    version: str = ""
+    hash: str = ""
+
+    @staticmethod
+    def from_taskfile(tf: TaskFile, metadata: dict):
+        tfm = TaskFileMetadata()
+        for key in tfm.__dict__:
+            if hasattr(tf, key):
+                val = getattr(tf, key, None)
+                setattr(tfm, key, val)
+
+        tfm.type = metadata.get("type", "")
+        tfm.name = metadata.get("name", "")
+        tfm.version = metadata.get("version", "")
+        tfm.hash = metadata.get("hash", "")
+        return tfm
+
+    @staticmethod
+    def from_dict(d: dict):
+        tfm = RoleMetadata()
+        tfm.key = d.get("key", "")
+        tfm.type = d.get("type", "")
+        tfm.name = d.get("name", "")
+        tfm.version = d.get("version", "")
+        tfm.hash = d.get("hash", "")
+        return tfm
+
+    def __eq__(self, tfm):
+        if not isinstance(tfm, TaskFileMetadata):
+            return False
+        return self.key == tfm.key and self.name == tfm.name and self.type == tfm.type and self.version == tfm.version and self.hash == tfm.hash
 
 
 # following ansible-lint severity levels
