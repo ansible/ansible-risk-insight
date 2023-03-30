@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 import jsonpickle
 
@@ -41,9 +42,10 @@ class Findings:
         return d
 
     def dump(self, fpath=""):
-        if "ari_result" in self.report:
-            del self.report["ari_result"]
-        json_str = jsonpickle.encode(self, make_refs=False)
+        f = deepcopy(self)
+        if isinstance(f.report, dict) and "ari_result" in f.report:
+            f.report.pop("ari_result")
+        json_str = jsonpickle.encode(f, make_refs=False)
         if fpath:
             with open(fpath, "w") as file:
                 file.write(json_str)

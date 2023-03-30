@@ -32,12 +32,12 @@ class UnarchiveAnnotator(ModuleAnnotator):
         is_remote_src = False
         if remote_src:
 
-            if isinstance(remote_src.raw, str):
+            if isinstance(remote_src.raw, str) or isinstance(remote_src.raw, bool):
                 try:
                     is_remote_src = boolean(remote_src.raw)
                 except Exception:
                     pass
-            if not is_remote_src and isinstance(remote_src.templated, str):
+            if not is_remote_src and (isinstance(remote_src.templated, str) or isinstance(remote_src.templated, bool)):
                 try:
                     is_remote_src = boolean(remote_src.templated)
                 except Exception:
