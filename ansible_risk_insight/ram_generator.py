@@ -36,6 +36,7 @@ class RiskAssessmentModelGenerator(object):
         parallel=True,
         download_only=False,
         include_test_contents=False,
+        out_dir=None,
         no_module_spec=False,
         no_retry=False,
     ):
@@ -45,6 +46,7 @@ class RiskAssessmentModelGenerator(object):
         self._parallel = parallel
         self._download_only = download_only
         self._include_test_contents = include_test_contents
+        self._out_dir_base = out_dir
         self._no_module_spec = no_module_spec
         self._no_retry = no_retry
 
@@ -94,7 +96,9 @@ class RiskAssessmentModelGenerator(object):
             # disable dependency cache when update mode to avoid using the old src
             use_src_cache = False
         try:
-
+            out_dir = None
+            if self._out_dir_base:
+                out_dir = os.path.join(self._out_dir_base, type, name)
             self._scanner.evaluate(
                 type=type,
                 name=name,
@@ -102,6 +106,7 @@ class RiskAssessmentModelGenerator(object):
                 download_only=self._download_only,
                 include_test_contents=self._include_test_contents,
                 use_src_cache=use_src_cache,
+                out_dir=out_dir,
             )
         except Exception:
             error = traceback.format_exc()
