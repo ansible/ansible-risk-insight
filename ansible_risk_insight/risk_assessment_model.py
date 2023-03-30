@@ -27,15 +27,49 @@ from .models import (
     Collection,
     Module,
     ModuleMetadata,
+    Role,
+    RoleMetadata,
+    TaskFile,
+    TaskFileMetadata,
 )
 from .findings import Findings
 from .utils import escape_url, version_to_num, diff_files_data
 from .safe_glob import safe_glob
-from .keyutil import get_obj_info_by_key
+from .keyutil import get_obj_info_by_key, make_imported_taskfile_key
 from .model_loader import load_builtin_modules
 
 
+try:
+    # Posix based file locking (Linux, Ubuntu, MacOS, etc.)
+    #   Only allows locking on writable files, might cause
+    #   strange results for reading.
+    import fcntl
+
+    def lock_file(f):
+        if f.writable():
+            fcntl.lockf(f, fcntl.LOCK_EX)
+
+    def unlock_file(f):
+        if f.writable():
+            fcntl.lockf(f, fcntl.LOCK_UN)
+
+except ModuleNotFoundError:
+    # Windows file locking
+    import msvcrt
+
+    def file_size(f):
+        return os.path.getsize(os.path.realpath(f.name))
+
+    def lock_file(f):
+        msvcrt.locking(f.fileno(), msvcrt.LK_RLCK, file_size(f))
+
+    def unlock_file(f):
+        msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, file_size(f))
+
+
 module_index_name = "module_index.json"
+role_index_name = "role_index.json"
+taskfile_index_name = "taskfile_index.json"
 
 
 @dataclass
@@ -43,10 +77,6 @@ class RAMClient(object):
     root_dir: str = ""
 
     findings_json_list_cache: list = field(default_factory=list)
-    modules_json_list_cache: list = field(default_factory=list)
-    roles_json_list_cache: list = field(default_factory=list)
-    taskfiles_json_list_cache: list = field(default_factory=list)
-    tasks_json_list_cache: list = field(default_factory=list)
 
     modules_cache: dict = field(default_factory=dict)
     roles_cache: dict = field(default_factory=dict)
@@ -54,18 +84,55 @@ class RAMClient(object):
     tasks_cache: dict = field(default_factory=dict)
 
     module_search_cache: dict = field(default_factory=dict)
+    role_search_cache: dict = field(default_factory=dict)
+    taskfile_search_cache: dict = field(default_factory=dict)
     task_search_cache: dict = field(default_factory=dict)
 
     builtin_modules_cache: dict = field(default_factory=dict)
 
     module_index: dict = field(default_factory=dict)
     role_index: dict = field(default_factory=dict)
+    taskfile_index: dict = field(default_factory=dict)
+
+    max_cache_size: int = 200
 
     def __post_init__(self):
         module_index_path = os.path.join(self.root_dir, "indices", module_index_name)
         if os.path.exists(module_index_path):
             with open(module_index_path, "r") as file:
                 self.module_index = json.load(file)
+
+        role_index_path = os.path.join(self.root_dir, "indices", role_index_name)
+        if os.path.exists(role_index_path):
+            with open(role_index_path, "r") as file:
+                self.role_index = json.load(file)
+
+        taskfile_index_path = os.path.join(self.root_dir, "indices", taskfile_index_name)
+        if os.path.exists(taskfile_index_path):
+            with open(taskfile_index_path, "r") as file:
+                self.taskfile_index = json.load(file)
+
+    def clear_old_cache(self):
+        size = self.max_cache_size
+        self._remove_old_item(self.findings_json_list_cache, size)
+        self._remove_old_item(self.modules_cache, size)
+        self._remove_old_item(self.roles_cache, size)
+        self._remove_old_item(self.taskfiles_cache, size)
+        self._remove_old_item(self.tasks_cache, size)
+        self._remove_old_item(self.module_search_cache, size)
+        self._remove_old_item(self.role_search_cache, size)
+        self._remove_old_item(self.taskfile_search_cache, size)
+        self._remove_old_item(self.task_search_cache, size)
+        return
+
+    def _remove_old_item(self, data: dict, size: int):
+        if len(data) <= size:
+            return
+        num = len(data) - size
+        for _ in range(num):
+            oldest_key = next(iter(data))
+            data.pop(oldest_key)
+        return
 
     def register(self, findings: Findings):
         metadata = findings.metadata
@@ -78,7 +145,15 @@ class RAMClient(object):
         out_dir = self.make_findings_dir_path(type, name, version, hash)
         self.save_findings(findings, out_dir)
 
-    def register_module_index(self, findings: Findings):
+        self.clear_old_cache()
+
+    def register_indices_to_ram(self, findings: Findings):
+        self.register_module_index_to_ram(findings=findings)
+        self.register_role_index_to_ram(findings=findings)
+        self.register_taskfile_index_to_ram(findings=findings)
+
+    def register_module_index_to_ram(self, findings: Findings):
+        new_data_found = False
         modules = self.load_module_index()
         for module in findings.root_definitions.get("definitions", {}).get("modules", []):
             if not isinstance(module, Module):
@@ -93,6 +168,7 @@ class RAMClient(object):
                     break
             if not exists:
                 current.append(m_meta)
+                new_data_found = True
             modules.update({module.name: current})
         for collection in findings.root_definitions.get("definitions", {}).get("collections", []):
             if not isinstance(collection, Collection):
@@ -112,9 +188,55 @@ class RAMClient(object):
                             break
                     if not exists:
                         current.append(m_meta)
+                        new_data_found = True
                     modules.update({short_name: current})
+        if new_data_found:
+            self.save_module_index(modules)
+        return
 
-        self.save_module_index(modules)
+    def register_role_index_to_ram(self, findings: Findings):
+        new_data_found = False
+        roles = self.load_role_index()
+        for role in findings.root_definitions.get("definitions", {}).get("roles", []):
+            if not isinstance(role, Role):
+                continue
+            r_meta = RoleMetadata.from_role(role, findings.metadata)
+            current = roles.get(r_meta.name, [])
+            exists = False
+            for r_dict in current:
+                r = RoleMetadata.from_dict(r_dict)
+                if r == r_meta:
+                    exists = True
+                    break
+            if not exists:
+                current.append(r_meta)
+                new_data_found = True
+            roles.update({role.name: current})
+        if new_data_found:
+            self.save_role_index(roles)
+        return
+
+    def register_taskfile_index_to_ram(self, findings: Findings):
+        new_data_found = False
+        taskfiles = self.load_taskfile_index()
+        for taskfile in findings.root_definitions.get("definitions", {}).get("taskfiles", []):
+            if not isinstance(taskfile, TaskFile):
+                continue
+            tf_meta = TaskFileMetadata.from_taskfile(taskfile, findings.metadata)
+            current = taskfiles.get(tf_meta.name, [])
+            exists = False
+            for tf_dict in current:
+                tf = TaskFileMetadata.from_dict(tf_dict)
+                if tf == tf_meta:
+                    exists = True
+                    break
+            if not exists:
+                current.append(tf_meta)
+                new_data_found = True
+            taskfiles.update({taskfile.name: current})
+        if new_data_found:
+            self.save_taskfile_index(taskfiles)
+        return
 
     def make_findings_dir_path(self, type, name, version, hash):
         type_root = type + "s"
@@ -294,42 +416,33 @@ class RAMClient(object):
         self.module_search_cache[args_str] = matched_modules
         return matched_modules
 
-    def search_role(self, name, exact_match=False, max_match=-1, collection_name="", collection_version="", used_in=""):
+    def search_role(self, name, exact_match=False, max_match=-1, used_in=""):
         if max_match == 0:
             return []
-        findings_json_list = []
-        if self.findings_json_list_cache:
-            findings_json_list = self.findings_json_list_cache
-        else:
-            search_patterns = os.path.join(self.root_dir, "collections", "findings", "*", "*", "*", "findings.json")
-            findings_json_list_coll = safe_glob(search_patterns)
-            findings_json_list_coll = sort_by_version(findings_json_list_coll)
-            search_patterns = os.path.join(self.root_dir, "roles", "findings", "*", "*", "*", "findings.json")
-            findings_json_list_role = safe_glob(search_patterns)
-            findings_json_list_role = sort_by_version(findings_json_list_role)
-            findings_json_list = findings_json_list_coll + findings_json_list_role
-            self.findings_json_list_cache = findings_json_list
+        args_str = json.dumps([name, exact_match, max_match])
+        if args_str in self.role_search_cache:
+            return self.role_search_cache[args_str]
+
+        from_indices = False
+        found_index = None
+        if name in self.role_index and self.role_index[name]:
+            from_indices = True
+            found_index = self.role_index[name][0]
 
         roles_json_list = []
-        if self.roles_json_list_cache:
-            roles_json_list = self.roles_json_list_cache
+        if from_indices:
+            _type = found_index.get("type", "")
+            _name = found_index.get("name", "")
+            _version = found_index.get("version", "")
+            _hash = found_index.get("hash", "")
+            findings_path = os.path.join(self.root_dir, _type + "s", "findings", _name, _version, _hash, "findings.json")
+            if os.path.exists(findings_path):
+                roles_json_list.append(findings_path)
         else:
-            for findings_json in findings_json_list:
-                f = Findings.load(fpath=findings_json)
-                if not isinstance(f, Findings):
-                    continue
-                # avoid using unresolved RAM data
-                if f.extra_requirements:
-                    continue
-                roles = f.root_definitions.get("definitions", {}).get("roles", [])
-                self.roles_cache[findings_json] = roles
-                roles_json_list.append(findings_json)
-            self.roles_json_list_cache = roles_json_list
-
-        if collection_name != "":
-            roles_json_list = [fpath for fpath in roles_json_list if f"/{collection_name}/" in fpath]
-        if collection_version != "":
-            roles_json_list = [fpath for fpath in roles_json_list if f"/{collection_version}/" in fpath]
+            # Do not search a role from all findings
+            # when it is not found in the role index.
+            # Instead, just return nothing in the case.
+            pass
 
         matched_roles = []
         search_end = False
@@ -355,7 +468,7 @@ class RAMClient(object):
                     parts = findings_json.split("/")
                     offspring_objects = []
                     for taskfile_key in r.taskfiles:
-                        _tmp_offspring_objects = self.search_taskfile(taskfile_key, is_key=True, collection_name=r.collection)
+                        _tmp_offspring_objects = self.search_taskfile(taskfile_key, is_key=True)
                         if len(_tmp_offspring_objects) > 0:
                             tf = _tmp_offspring_objects[0]
                             if tf:
@@ -391,60 +504,68 @@ class RAMClient(object):
                         break
             if search_end:
                 break
+        self.role_search_cache[args_str] = matched_roles
         return matched_roles
 
-    def search_taskfile(self, name, include_task_path="", max_match=-1, is_key=False, collection_name="", collection_version="", used_in=""):
-        if max_match == 0:
-            return []
-
-        # search taskfiles only when collection_name is provided
-        if not collection_name:
-            return []
-
-        findings_json_list = []
-        if self.findings_json_list_cache:
-            findings_json_list = self.findings_json_list_cache
-        else:
-            search_patterns = os.path.join(self.root_dir, "collections", "findings", "*", "*", "*", "findings.json")
-            findings_json_list_coll = safe_glob(search_patterns)
-            findings_json_list_coll = sort_by_version(findings_json_list_coll)
-            search_patterns = os.path.join(self.root_dir, "roles", "findings", "*", "*", "*", "findings.json")
-            findings_json_list_role = safe_glob(search_patterns)
-            findings_json_list_role = sort_by_version(findings_json_list_role)
-            findings_json_list = findings_json_list_coll + findings_json_list_role
-            self.findings_json_list_cache = findings_json_list
-
-        taskfiles_json_list = []
-        if self.taskfiles_json_list_cache:
-            taskfiles_json_list = self.taskfiles_json_list_cache
-        else:
-            for findings_json in findings_json_list:
-                f = Findings.load(fpath=findings_json)
-                if not isinstance(f, Findings):
-                    continue
-                # avoid using unresolved RAM data
-                if f.extra_requirements:
-                    continue
-                taskfiles = f.root_definitions.get("definitions", {}).get("taskfiles", [])
-                self.taskfiles_cache[findings_json] = taskfiles
-                taskfiles_json_list.append(findings_json)
-            self.taskfiles_json_list_cache = taskfiles_json_list
-
-        if collection_name != "":
-            taskfiles_json_list = [fpath for fpath in taskfiles_json_list if f"/{collection_name}/" in fpath]
-        if collection_version != "":
-            taskfiles_json_list = [fpath for fpath in taskfiles_json_list if f"/{collection_version}/" in fpath]
-
-        search_path_list = []
+    def make_taskfile_key_candidates(self, name, from_path, from_key):
+        key_candidates = []
         taskfile_ref = name
-        if include_task_path != "":
-            base_path = os.path.dirname(include_task_path)
+        if from_path:
+            base_path = os.path.dirname(from_path)
             taskfile_path = os.path.normpath(os.path.join(base_path, taskfile_ref))
-            search_path_list.append(taskfile_path)
+            candidate_key_1 = make_imported_taskfile_key(from_key, taskfile_path)
+            key_candidates.append(candidate_key_1)
             if "roles/" in taskfile_ref and "roles/" in base_path:
                 root_path = base_path.split("roles/")[0]
                 taskfile_path = os.path.normpath(os.path.join(root_path, taskfile_ref))
-                search_path_list.append(taskfile_path)
+                candidate_key_2 = make_imported_taskfile_key(from_key, taskfile_path)
+                key_candidates.append(candidate_key_2)
+
+        return key_candidates
+
+    def search_taskfile(self, name, from_path="", from_key="", max_match=-1, is_key=False, used_in=""):
+        if max_match == 0:
+            return []
+
+        # it name is not an object key, we need `from_path` to create a key to be searched
+        if not is_key and not from_path:
+            return []
+
+        args_str = json.dumps([name, from_path, from_key, max_match, is_key])
+        if args_str in self.taskfile_search_cache:
+            return self.taskfile_search_cache[args_str]
+
+        from_indices = False
+        found_index = None
+        found_key = ""
+        taskfile_key_candidates = []
+        if is_key:
+            taskfile_key_candidates = [name]
+        else:
+            taskfile_key_candidates = self.make_taskfile_key_candidates(name, from_path, from_key)
+        for taskfile_key in taskfile_key_candidates:
+            if taskfile_key in self.taskfile_index and self.taskfile_index[taskfile_key]:
+                from_indices = True
+                found_index = self.taskfile_index[taskfile_key][0]
+                found_key = taskfile_key
+                break
+
+        taskfiles_json_list = []
+        content_info = None
+        if from_indices:
+            _type = found_index.get("type", "")
+            _name = found_index.get("name", "")
+            _version = found_index.get("version", "")
+            _hash = found_index.get("hash", "")
+            content_info = found_index
+            findings_path = os.path.join(self.root_dir, _type + "s", "findings", _name, _version, _hash, "findings.json")
+            if os.path.exists(findings_path):
+                taskfiles_json_list.append(findings_path)
+        else:
+            # Do not search a role from all findings
+            # when it is not found in the role index.
+            # Instead, just return nothing in the case.
+            pass
 
         matched_taskfiles = []
         search_end = False
@@ -460,18 +581,15 @@ class RAMClient(object):
                 self.taskfiles_cache[findings_json] = taskfiles
             for tf in taskfiles:
                 matched = False
-                if is_key:
-                    if tf.key == name:
-                        matched = True
-                else:
-                    if tf.defined_in in search_path_list:
-                        matched = True
-                    # TODO: support taskfile reference with variables
+                if tf.key == found_key:
+                    matched = True
+
+                # TODO: support taskfile reference with variables
                 if matched:
                     parts = findings_json.split("/")
                     offspring_objects = []
                     for task_key in tf.tasks:
-                        _tmp_offspring_objects = self.search_task(task_key, is_key=True, collection_name=tf.collection, used_in=used_in)
+                        _tmp_offspring_objects = self.search_task(task_key, is_key=True, content_info=content_info, used_in=used_in)
                         if len(_tmp_offspring_objects) > 0:
                             t = _tmp_offspring_objects[0]
                             if t:
@@ -510,45 +628,28 @@ class RAMClient(object):
                 break
         return matched_taskfiles
 
-    def search_task(self, name, exact_match=False, max_match=-1, is_key=False, collection_name="", collection_version="", used_in=""):
+    def search_task(self, name, exact_match=False, max_match=-1, is_key=False, content_info=None, used_in=""):
         if max_match == 0:
             return []
-        args_str = json.dumps([name, exact_match, max_match, is_key, collection_name, collection_version])
+        # search task in RAM must be done for a specific content (collection/role)
+        # so give up search here when no content_info is provided
+        if not content_info or not isinstance(content_info, dict):
+            return []
+
+        args_str = json.dumps([name, exact_match, max_match, is_key, content_info])
         if args_str in self.task_search_cache:
             return self.task_search_cache[args_str]
-        findings_json_list = []
-        if self.findings_json_list_cache:
-            findings_json_list = self.findings_json_list_cache
-        else:
-            search_patterns = os.path.join(self.root_dir, "collections", "findings", "*", "*", "*", "findings.json")
-            findings_json_list_coll = safe_glob(search_patterns)
-            findings_json_list_coll = sort_by_version(findings_json_list_coll)
-            search_patterns = os.path.join(self.root_dir, "roles", "findings", "*", "*", "*", "findings.json")
-            findings_json_list_role = safe_glob(search_patterns)
-            findings_json_list_role = sort_by_version(findings_json_list_role)
-            findings_json_list = findings_json_list_coll + findings_json_list_role
-            self.findings_json_list_cache = findings_json_list
 
         tasks_json_list = []
-        if self.tasks_json_list_cache:
-            tasks_json_list = self.tasks_json_list_cache
-        else:
-            for findings_json in findings_json_list:
-                f = Findings.load(fpath=findings_json)
-                if not isinstance(f, Findings):
-                    continue
-                # avoid using unresolved RAM data
-                if f.extra_requirements:
-                    continue
-                tasks = f.root_definitions.get("definitions", {}).get("tasks", [])
-                self.tasks_cache[findings_json] = tasks
-                tasks_json_list.append(findings_json)
-            self.tasks_json_list_cache = tasks_json_list
-
-        if collection_name != "":
-            tasks_json_list = [fpath for fpath in tasks_json_list if f"/{collection_name}/" in fpath]
-        if collection_version != "":
-            tasks_json_list = [fpath for fpath in tasks_json_list if f"/{collection_version}/" in fpath]
+        _type = content_info.get("type", "")
+        if _type:
+            _type = _type + "s"
+        _name = content_info.get("name", "")
+        _version = content_info.get("version", "")
+        _hash = content_info.get("hash", "")
+        findings_path = os.path.join(self.root_dir, _type, "findings", _name, _version, _hash, "findings.json")
+        if os.path.exists(findings_path):
+            tasks_json_list.append(findings_path)
 
         matched_tasks = []
         search_end = False
@@ -582,9 +683,7 @@ class RAMClient(object):
                     elif t.executable_type == ExecutableType.ROLE_TYPE:
                         _tmp_offspring_objects = self.search_role(t.executable, used_in=t.defined_in)
                     elif t.executable_type == ExecutableType.TASKFILE_TYPE:
-                        _tmp_offspring_objects = self.search_taskfile(
-                            t.executable, include_task_path=t.defined_in, collection_name=t.collection, used_in=t.defined_in
-                        )
+                        _tmp_offspring_objects = self.search_taskfile(t.executable, from_path=t.defined_in, from_key=t.key, used_in=t.defined_in)
                     if len(_tmp_offspring_objects) > 0:
                         child = _tmp_offspring_objects[0]
                         if child:
@@ -738,21 +837,41 @@ class RAMClient(object):
 
         findings.dump(fpath=os.path.join(out_dir, "findings.json"))
 
-    def save_module_index(self, modules):
+    def save_index(self, index_objects, filename):
         out_dir = os.path.join(self.root_dir, "indices")
         if not os.path.exists(out_dir):
             os.makedirs(out_dir, exist_ok=True)
-        modules_str = jsonpickle.encode(modules, make_refs=False, unpicklable=False)
-        with open(os.path.join(out_dir, "module_index.json"), "w") as file:
-            file.write(modules_str)
+        index_objects_str = jsonpickle.encode(index_objects, make_refs=False, unpicklable=False)
+        with open(os.path.join(out_dir, filename), "w") as file:
+            lock_file(file)
+            file.write(index_objects_str)
+            unlock_file(file)
 
-    def load_module_index(self):
-        path = os.path.join(self.root_dir, "indices", "module_index.json")
-        modules = {}
+    def load_index(self, filename=""):
+        path = os.path.join(self.root_dir, "indices", filename)
+        index_objects = {}
         if os.path.exists(path):
             with open(path, "r") as file:
-                modules = json.load(file)
-        return modules
+                index_objects = json.load(file)
+        return index_objects
+
+    def save_module_index(self, modules):
+        return self.save_index(modules, module_index_name)
+
+    def load_module_index(self):
+        return self.load_index(module_index_name)
+
+    def save_role_index(self, roles):
+        return self.save_index(roles, role_index_name)
+
+    def load_role_index(self):
+        return self.load_index(role_index_name)
+
+    def save_taskfile_index(self, taskfiles):
+        return self.save_index(taskfiles, taskfile_index_name)
+
+    def load_taskfile_index(self):
+        return self.load_index(taskfile_index_name)
 
     def save_error(self, error: str, out_dir: str):
         if out_dir == "":
