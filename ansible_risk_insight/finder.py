@@ -209,7 +209,7 @@ def search_taskfiles_for_playbooks(path, taskfile_dir_paths=[]):
         search_targets.append(os.path.join(path, playbook_taskfile_dir_pattern))
     candidates = []
     for search_target in search_targets:
-        patterns = [search_target + "/**/*.yml", search_target + "/**/*.yaml"]
+        patterns = [search_target + "/**/*.ya?ml"]
         found = safe_glob(patterns, recursive=True)
         for f in found:
             # taskfiles in role will be loaded when the role is loaded, so skip

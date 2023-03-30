@@ -36,6 +36,7 @@ class DownloadExecRule(Rule):
     version: str = "v0.0.1"
     severity: Severity = Severity.HIGH
     tags: tuple = (Tag.NETWORK, Tag.COMMAND)
+    precedence: int = 11
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         return ctx.current.type == RunTargetType.Task

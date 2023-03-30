@@ -60,6 +60,7 @@ from .utils import (
     get_module_specs_by_ansible_doc,
     get_documentation_in_module_file,
     get_class_by_arg_type,
+    is_test_object,
 )
 from .awx_utils import could_be_playbook
 
@@ -574,14 +575,12 @@ def load_playbooks(path, basedir="", skip_playbook_format_error=True, skip_task_
     if path == "":
         return []
     patterns = [
-        os.path.join(path, "/*.yml"),
-        os.path.join(path, "/*.yaml"),
-        os.path.join(path, "/playbooks/**/*.yml"),
-        os.path.join(path, "/playbooks/**/*.yaml"),
+        os.path.join(path, "/*.ya?ml"),
+        os.path.join(path, "/playbooks/**/*.ya?ml"),
     ]
     if include_test_contents:
-        patterns.append(os.path.join(path, "tests/integration/**/*.yml"))
-        patterns.append(os.path.join(path, "tests/integration/**/*.yaml"))
+        patterns.append(os.path.join(path, "tests/integration/**/*.ya?ml"))
+        patterns.append(os.path.join(path, "molecule/**/*.ya?ml"))
     candidates = safe_glob(patterns, recursive=True)
     playbooks = []
     playbook_names = []
@@ -658,7 +657,6 @@ def load_role(
             if roleObj.metadata is not None and isinstance(roleObj.metadata, dict):
                 roleObj.dependency["roles"] = roleObj.metadata.get("dependencies", [])
                 roleObj.dependency["collections"] = roleObj.metadata.get("collections", [])
-    is_test = "/tests/" in fullpath
 
     requirements_yml_path = os.path.join(fullpath, "requirements.yml")
     if os.path.exists(requirements_yml_path):
@@ -680,6 +678,8 @@ def load_role(
             if defined_in.startswith("/"):
                 defined_in = defined_in[1:]
     roleObj.defined_in = defined_in
+    is_test = is_test_object(defined_in)
+
     collection = ""
     fqcn = role_name
     if collection_name != "" and not is_test:
@@ -690,7 +690,7 @@ def load_role(
     roleObj.set_key()
 
     if os.path.exists(os.path.join(fullpath, "playbooks")):
-        playbook_files = safe_glob(fullpath + "/playbooks/**/*.yml", recursive=True)
+        playbook_files = safe_glob(fullpath + "/playbooks/**/*.ya?ml", recursive=True)
         playbooks = []
         for f in playbook_files:
             p = None
@@ -721,8 +721,7 @@ def load_role(
 
     if os.path.exists(defaults_dir_path):
         patterns = [
-            defaults_dir_path + "/**/*.yml",
-            defaults_dir_path + "/**/*.yaml",
+            defaults_dir_path + "/**/*.ya?ml",
         ]
         defaults_yaml_files = safe_glob(patterns, recursive=True)
         default_variables = {}
@@ -740,7 +739,7 @@ def load_role(
         roleObj.default_variables = default_variables
 
     if os.path.exists(vars_dir_path):
-        patterns = [vars_dir_path + "/**/*.yml", vars_dir_path + "/**/*.yaml"]
+        patterns = [vars_dir_path + "/**/*.ya?ml"]
         vars_yaml_files = safe_glob(patterns, recursive=True)
         variables = {}
         for fpath in vars_yaml_files:
@@ -791,26 +790,17 @@ def load_role(
         modules = sorted(modules)
     roleObj.modules = modules
 
-    patterns = [tasks_dir_path + "/**/*.yml", tasks_dir_path + "/**/*.yaml"]
+    patterns = [tasks_dir_path + "/**/*.ya?ml"]
     # ansible.network collection has this type of another taskfile directory
     if os.path.exists(includes_dir_path):
-        patterns.extend(
-            [
-                includes_dir_path + "/**/*.yml",
-                includes_dir_path + "/**/*.yaml",
-            ]
-        )
+        patterns.extend([includes_dir_path + "/**/*.ya?ml"])
     if os.path.exists(handlers_dir_path):
-        patterns.extend(
-            [
-                handlers_dir_path + "/**/*.yml",
-                handlers_dir_path + "/**/*.yaml",
-            ]
-        )
+        patterns.extend([handlers_dir_path + "/**/*.ya?ml"])
     task_yaml_files = safe_glob(patterns, recursive=True)
 
     taskfiles = []
     for task_yaml_path in task_yaml_files:
+        tf = None
         try:
             tf = load_taskfile(
                 task_yaml_path,
@@ -826,6 +816,8 @@ def load_role(
                 raise TaskFormatError(f"Task format error found: {e.args[0]}")
         except Exception:
             logger.exception("error while loading the task file at {}".format(task_yaml_path))
+        if not tf:
+            continue
         if load_children:
             taskfiles.append(tf)
         else:
@@ -923,7 +915,7 @@ def load_installed_roles(installed_roles_path):
     basedir = os.path.dirname(os.path.normpath(installed_roles_path))
     for d in dirs:
         role_path = os.path.join(installed_roles_path, d)
-        role_meta_files = safe_glob(role_path + "/**/meta/main.yml", recursive=True)
+        role_meta_files = safe_glob(role_path + "/**/meta/main.ya?ml", recursive=True)
 
         roles_root_dirs = set([f.split("/roles/")[-2] for f in role_meta_files if "/roles/" in f])
         module_dirs = []
@@ -932,7 +924,7 @@ def load_installed_roles(installed_roles_path):
             module_dirs.extend(moddirs)
 
         for i, role_meta_file in enumerate(role_meta_files):
-            role_dir_path = role_meta_file.replace("/meta/main.yml", "")
+            role_dir_path = role_meta_file.replace("/meta/main.yml", "").replace("/meta/main.yaml", "")
             module_dir_paths = []
             if i == 0:
                 module_dir_paths = module_dirs

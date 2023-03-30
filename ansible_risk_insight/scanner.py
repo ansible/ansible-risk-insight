@@ -899,6 +899,7 @@ class ARIScanner(object):
                     target_path=ext_path,
                     dependency_dir=scandata.dependency_dir,
                     source_repository=scandata.source_repository,
+                    include_test_contents=include_test_contents,
                 )
 
                 if self.read_ram:
@@ -920,7 +921,7 @@ class ARIScanner(object):
 
         loaded = False
         self.record_begin(time_records, "target_load")
-        if self.read_ram and scandata.type not in [LoadType.PLAYBOOK, LoadType.TASKFILE] and not include_test_contents:
+        if self.read_ram and scandata.type not in [LoadType.PLAYBOOK, LoadType.TASKFILE]:
             loaded, root_defs = self.load_definitions_from_ram(scandata.type, scandata.name, scandata.version, scandata.hash, allow_unresolved=True)
             logger.debug(f"spec data loaded: {loaded}")
             if loaded:
@@ -984,11 +985,9 @@ class ARIScanner(object):
             # print("root definitions:", root_counts)
 
         # save RAM data
-        # if tests are included in this scan, findings can be huge and it may cause performance issue
-        # so we don't save it when `include_test_contents` is True
-        if self.write_ram and not include_test_contents:
+        if self.write_ram:
             self.register_findings_to_ram(scandata.findings)
-            self.register_indices_to_ram(scandata.findings)
+            self.register_indices_to_ram(scandata.findings, include_test_contents)
 
         if scandata.out_dir is not None and scandata.out_dir != "":
             self.save_rule_result(scandata.findings, scandata.out_dir)
@@ -1069,8 +1068,8 @@ class ARIScanner(object):
     def register_findings_to_ram(self, findings: Findings):
         self.ram_client.register(findings)
 
-    def register_indices_to_ram(self, findings: Findings):
-        self.ram_client.register_indices_to_ram(findings)
+    def register_indices_to_ram(self, findings: Findings, include_test_contents: bool = False):
+        self.ram_client.register_indices_to_ram(findings, include_test_contents)
 
     def save_findings(self, findings: Findings, out_dir: str):
         self.ram_client.save_findings(findings, out_dir)

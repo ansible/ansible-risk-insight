@@ -28,12 +28,23 @@ class RiskAssessmentModelGenerator(object):
     _resume: int = -1
     _update: bool = False
 
-    def __init__(self, target_list=[], resume=-1, update=False, parallel=True, download_only=False, no_module_spec=False, no_retry=False):
+    def __init__(
+        self,
+        target_list=[],
+        resume=-1,
+        update=False,
+        parallel=True,
+        download_only=False,
+        include_test_contents=False,
+        no_module_spec=False,
+        no_retry=False,
+    ):
         self._queue = target_list
         self._resume = resume
         self._update = update
         self._parallel = parallel
         self._download_only = download_only
+        self._include_test_contents = include_test_contents
         self._no_module_spec = no_module_spec
         self._no_retry = no_retry
 
@@ -89,6 +100,7 @@ class RiskAssessmentModelGenerator(object):
                 name=name,
                 install_dependencies=True,
                 download_only=self._download_only,
+                include_test_contents=self._include_test_contents,
                 use_src_cache=use_src_cache,
             )
         except Exception:
