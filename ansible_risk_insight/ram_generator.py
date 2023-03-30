@@ -107,9 +107,9 @@ class RiskAssessmentModelGenerator(object):
         logs = []
         if os.path.exists(path):
             with open(path, "r") as file:
-                for line in file:
-                    d = json.loads(line)
-                    logs.append(d)
+                data = file.read()
+                d = json.loads(data)
+                logs.extend(d)
         logs.append(new_record)
         if not os.path.exists(out_dir):
             os.makedirs(out_dir, exist_ok=True)
@@ -125,9 +125,9 @@ class RiskAssessmentModelGenerator(object):
             return skip
         logs = []
         with open(path, "r") as file:
-            for line in file:
-                d = json.loads(line)
-                logs.append(d)
+            data = file.read()
+            d = json.loads(data)
+            logs.extend(d)
         if logs:
             latest = logs[-1]
             if latest.get("succeed", False):
