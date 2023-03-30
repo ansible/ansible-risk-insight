@@ -256,3 +256,14 @@ def set_call_object_key(cls_name: str, spec_key: str, caller_key: str):
     parts = spec_key.split(" ", 1)
     caller_only = caller_key.split(" FROM ")[0]
     return "{} {} FROM {}".format(cls_name, parts[1], caller_only)
+
+
+def make_imported_taskfile_key(caller_key, path):
+    caller_key_payload = caller_key.split(" ")[-1]
+    parts = caller_key_payload.split(object_delimiter)
+    parent = ""
+    if parts[0].startswith(("collection", "role")):
+        parent = parts[0] + object_delimiter
+    normed_path = os.path.normpath(path)
+    key = f"taskfile {parent}taskfile{key_delimiter}{normed_path}"
+    return key

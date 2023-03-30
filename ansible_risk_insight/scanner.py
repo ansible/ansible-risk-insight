@@ -208,6 +208,7 @@ class SingleScan(object):
     root_dir: str = ""
     rules_dir: str = ""
     rules: list = field(default_factory=list)
+    persist_dependency_cache: bool = False
     spec_mutations_from_previous_scan: dict = field(default_factory=dict)
     spec_mutations: dict = field(default_factory=dict)
     use_ansible_doc: bool = True
@@ -373,6 +374,7 @@ class SingleScan(object):
             do_save=self.do_save,
             silent=self.silent,
             tmp_install_dir=self.tmp_install_dir,
+            periodical_cleanup=self.persist_dependency_cache,
         )
         dep_dirs = ddp.prepare_dir(
             root_install=root_install,
@@ -706,6 +708,8 @@ class ARIScanner(object):
     read_ram: bool = True
     write_ram: bool = True
 
+    persist_dependency_cache: bool = False
+
     skip_playbook_format_error: bool = (True,)
     skip_task_format_error: bool = (True,)
 
@@ -805,6 +809,7 @@ class ARIScanner(object):
             root_dir=self.root_dir,
             rules_dir=self.rules_dir,
             rules=self.rules,
+            persist_dependency_cache=self.persist_dependency_cache,
             spec_mutations_from_previous_scan=spec_mutations_from_previous_scan,
             use_ansible_doc=self.use_ansible_doc,
             do_save=self.do_save,
@@ -983,7 +988,7 @@ class ARIScanner(object):
         # so we don't save it when `include_test_contents` is True
         if self.write_ram and not include_test_contents:
             self.register_findings_to_ram(scandata.findings)
-            self.register_module_index_to_ram(scandata.findings)
+            self.register_indices_to_ram(scandata.findings)
 
         if scandata.out_dir is not None and scandata.out_dir != "":
             self.save_rule_result(scandata.findings, scandata.out_dir)
@@ -1064,8 +1069,8 @@ class ARIScanner(object):
     def register_findings_to_ram(self, findings: Findings):
         self.ram_client.register(findings)
 
-    def register_module_index_to_ram(self, findings: Findings):
-        self.ram_client.register_module_index(findings)
+    def register_indices_to_ram(self, findings: Findings):
+        self.ram_client.register_indices_to_ram(findings)
 
     def save_findings(self, findings: Findings, out_dir: str):
         self.ram_client.save_findings(findings, out_dir)

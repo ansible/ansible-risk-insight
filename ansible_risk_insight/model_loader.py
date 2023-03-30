@@ -869,8 +869,14 @@ def load_roles(
             for test_name in test_names:
                 test_dir = os.path.join(test_targets_dir, test_name)
                 test_tasks_dir = os.path.join(test_dir, "tasks")
+                test_sub_roles_dir = os.path.join(test_dir, "roles")
                 if os.path.exists(test_tasks_dir):
                     role_dirs.append(test_dir)
+                elif os.path.exists(test_sub_roles_dir):
+                    test_sub_role_names = os.listdir(test_sub_roles_dir)
+                    for test_sub_role_name in test_sub_role_names:
+                        test_sub_role_dir = os.path.join(test_sub_roles_dir, test_sub_role_name)
+                        role_dirs.append(test_sub_role_dir)
 
     if not role_dirs:
         return []
@@ -999,23 +1005,33 @@ def load_module(module_file_path, collection_name="", role_name="", basedir="", 
             doc_dict = yaml.safe_load(doc_yaml)
         except Exception:
             logger.debug(f"failed to load the arguments documentation of the module: {module_name}")
+        if not doc_dict:
+            doc_dict = {}
         arg_specs = doc_dict.get("options", {})
-        for arg_name in arg_specs:
-            arg_spec = arg_specs[arg_name]
-            arg_value_type = get_class_by_arg_type(arg_spec.get("type", None))
-            arg_value_type_str = ""
-            if arg_value_type:
-                arg_value_type_str = arg_value_type.__name__
-            arg = ModuleArgument(
-                name=arg_name,
-                type=arg_value_type_str,
-                required=boolean(arg_spec.get("required", "false")),
-                description=arg_spec.get("description", ""),
-                default=arg_spec.get("default", None),
-                choices=arg_spec.get("choices", None),
-                aliases=arg_spec.get("aliases", None),
-            )
-            arguments.append(arg)
+        if isinstance(arg_specs, dict):
+            for arg_name in arg_specs:
+                arg_spec = arg_specs[arg_name]
+                if not isinstance(arg_spec, dict):
+                    continue
+                arg_value_type = get_class_by_arg_type(arg_spec.get("type", None))
+                arg_value_type_str = ""
+                if arg_value_type:
+                    arg_value_type_str = arg_value_type.__name__
+                required = None
+                try:
+                    required = boolean(arg_spec.get("required", "false"))
+                except Exception:
+                    pass
+                arg = ModuleArgument(
+                    name=arg_name,
+                    type=arg_value_type_str,
+                    required=required,
+                    description=arg_spec.get("description", ""),
+                    default=arg_spec.get("default", None),
+                    choices=arg_spec.get("choices", None),
+                    aliases=arg_spec.get("aliases", None),
+                )
+                arguments.append(arg)
     moduleObj.documentation = doc_yaml
     moduleObj.examples = examples
     moduleObj.arguments = arguments

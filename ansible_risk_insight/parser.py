@@ -237,7 +237,7 @@ class Parser:
                 continue
             mappings["roles"].append([role_path, r.key])
 
-        taskfiles = [tf for r in roles for tf in r.taskfiles]
+        taskfiles = [tf for r in roles for tf in r.taskfiles if r.fqcn != ld.target_name]
         for taskfile_path in ld.taskfiles:
             try:
                 tf = load_taskfile(

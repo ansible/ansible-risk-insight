@@ -45,7 +45,7 @@ class RiskAssessmentModelGenerator(object):
             root_dir=config.data_dir,
             silent=True,
             use_ansible_doc=use_ansible_doc,
-            read_ram=False,
+            persist_dependency_cache=True,
         )
 
     def run(self):
