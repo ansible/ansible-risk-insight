@@ -33,7 +33,7 @@ from .models import (
     TaskFileMetadata,
 )
 from .findings import Findings
-from .utils import escape_url, version_to_num, diff_files_data
+from .utils import escape_url, version_to_num, diff_files_data, is_test_object
 from .safe_glob import safe_glob
 from .keyutil import get_obj_info_by_key, make_imported_taskfile_key
 from .model_loader import load_builtin_modules
@@ -147,22 +147,30 @@ class RAMClient(object):
 
         self.clear_old_cache()
 
-    def register_indices_to_ram(self, findings: Findings):
-        self.register_module_index_to_ram(findings=findings)
-        self.register_role_index_to_ram(findings=findings)
-        self.register_taskfile_index_to_ram(findings=findings)
+    def register_indices_to_ram(self, findings: Findings, include_test_contents: bool = False):
+        self.register_module_index_to_ram(findings=findings, include_test_contents=include_test_contents)
+        self.register_role_index_to_ram(findings=findings, include_test_contents=include_test_contents)
+        self.register_taskfile_index_to_ram(findings=findings, include_test_contents=include_test_contents)
 
-    def register_module_index_to_ram(self, findings: Findings):
+    def register_module_index_to_ram(self, findings: Findings, include_test_contents: bool = False):
         new_data_found = False
         modules = self.load_module_index()
         for module in findings.root_definitions.get("definitions", {}).get("modules", []):
             if not isinstance(module, Module):
                 continue
+            if include_test_contents and is_test_object(module.defined_in):
+                continue
             m_meta = ModuleMetadata.from_module(module, findings.metadata)
             current = modules.get(module.name, [])
             exists = False
             for m_dict in current:
-                m = ModuleMetadata.from_dict(m_dict)
+                m = None
+                if isinstance(m_dict, dict):
+                    m = ModuleMetadata.from_dict(m_dict)
+                elif isinstance(m_dict, ModuleMetadata):
+                    m = m_dict
+                if not m:
+                    continue
                 if m == m_meta:
                     exists = True
                     break
@@ -182,7 +190,13 @@ class RAMClient(object):
                     current = modules.get(short_name, [])
                     exists = False
                     for m_dict in current:
-                        m = ModuleMetadata.from_dict(m_dict)
+                        m = None
+                        if isinstance(m_dict, dict):
+                            m = ModuleMetadata.from_dict(m_dict)
+                        elif isinstance(m_dict, ModuleMetadata):
+                            m = m_dict
+                        if not m:
+                            continue
                         if m == m_meta:
                             exists = True
                             break
@@ -194,17 +208,25 @@ class RAMClient(object):
             self.save_module_index(modules)
         return
 
-    def register_role_index_to_ram(self, findings: Findings):
+    def register_role_index_to_ram(self, findings: Findings, include_test_contents: bool = False):
         new_data_found = False
         roles = self.load_role_index()
         for role in findings.root_definitions.get("definitions", {}).get("roles", []):
             if not isinstance(role, Role):
                 continue
+            if include_test_contents and is_test_object(role.defined_in):
+                continue
             r_meta = RoleMetadata.from_role(role, findings.metadata)
             current = roles.get(r_meta.name, [])
             exists = False
             for r_dict in current:
-                r = RoleMetadata.from_dict(r_dict)
+                r = None
+                if isinstance(r_dict, dict):
+                    r = RoleMetadata.from_dict(r_dict)
+                elif isinstance(r_dict, RoleMetadata):
+                    r = r_dict
+                if not r:
+                    continue
                 if r == r_meta:
                     exists = True
                     break
@@ -216,17 +238,25 @@ class RAMClient(object):
             self.save_role_index(roles)
         return
 
-    def register_taskfile_index_to_ram(self, findings: Findings):
+    def register_taskfile_index_to_ram(self, findings: Findings, include_test_contents: bool = False):
         new_data_found = False
         taskfiles = self.load_taskfile_index()
         for taskfile in findings.root_definitions.get("definitions", {}).get("taskfiles", []):
             if not isinstance(taskfile, TaskFile):
                 continue
+            if include_test_contents and is_test_object(taskfile.defined_in):
+                continue
             tf_meta = TaskFileMetadata.from_taskfile(taskfile, findings.metadata)
             current = taskfiles.get(tf_meta.name, [])
             exists = False
             for tf_dict in current:
-                tf = TaskFileMetadata.from_dict(tf_dict)
+                tf = None
+                if isinstance(tf_dict, dict):
+                    tf = TaskFileMetadata.from_dict(tf_dict)
+                elif isinstance(tf_dict, TaskFileMetadata):
+                    tf = tf_dict
+                if not tf:
+                    continue
                 if tf == tf_meta:
                     exists = True
                     break

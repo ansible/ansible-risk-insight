@@ -698,3 +698,7 @@ def recursive_copy_dict(src, dst):
         else:
             dst[k] = deepcopy(sv)
     return
+
+
+def is_test_object(path: str):
+    return path.startswith("tests/integration/") or path.startswith("molecule/")

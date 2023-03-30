@@ -704,9 +704,9 @@ class KeyConfigChangeDetail(AnnotationDetail):
     def __post_init__(self):
         if self._key_arg:
             self.key = self._key_arg.vars
-            if self._key_arg.is_mutable:
+            if self._key_arg and self._key_arg.is_mutable:
                 self.is_mutable_key = True
-        if self._state_arg.raw == "absent":
+        if self._state_arg and self._state_arg.raw == "absent":
             self.is_deletion = True
 
 
@@ -757,7 +757,9 @@ class CommandExecDetail(AnnotationDetail):
         self.exec_files = self.extract_exec_files()
 
     def extract_exec_files(self):
-        cmd_str = self.command.raw
+        cmd_str = ""
+        if self.command:
+            cmd_str = self.command.raw
         if isinstance(cmd_str, list):
             cmd_str = " ".join(cmd_str)
         if isinstance(cmd_str, dict):
