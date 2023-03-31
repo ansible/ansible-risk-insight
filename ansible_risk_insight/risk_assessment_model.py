@@ -33,38 +33,17 @@ from .models import (
     TaskFileMetadata,
 )
 from .findings import Findings
-from .utils import escape_url, version_to_num, diff_files_data, is_test_object
+from .utils import (
+    escape_url,
+    version_to_num,
+    diff_files_data,
+    is_test_object,
+    lock_file,
+    unlock_file,
+)
 from .safe_glob import safe_glob
 from .keyutil import get_obj_info_by_key, make_imported_taskfile_key
 from .model_loader import load_builtin_modules
-
-
-try:
-    # Posix based file locking (Linux, Ubuntu, MacOS, etc.)
-    #   Only allows locking on writable files, might cause
-    #   strange results for reading.
-    import fcntl
-
-    def lock_file(f):
-        if f.writable():
-            fcntl.lockf(f, fcntl.LOCK_EX)
-
-    def unlock_file(f):
-        if f.writable():
-            fcntl.lockf(f, fcntl.LOCK_UN)
-
-except ModuleNotFoundError:
-    # Windows file locking
-    import msvcrt
-
-    def file_size(f):
-        return os.path.getsize(os.path.realpath(f.name))
-
-    def lock_file(f):
-        msvcrt.locking(f.fileno(), msvcrt.LK_RLCK, file_size(f))
-
-    def unlock_file(f):
-        msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, file_size(f))
 
 
 module_index_name = "module_index.json"
@@ -78,10 +57,7 @@ class RAMClient(object):
 
     findings_json_list_cache: list = field(default_factory=list)
 
-    modules_cache: dict = field(default_factory=dict)
-    roles_cache: dict = field(default_factory=dict)
-    taskfiles_cache: dict = field(default_factory=dict)
-    tasks_cache: dict = field(default_factory=dict)
+    findings_cache: dict = field(default_factory=dict)
 
     module_search_cache: dict = field(default_factory=dict)
     role_search_cache: dict = field(default_factory=dict)
@@ -115,10 +91,7 @@ class RAMClient(object):
     def clear_old_cache(self):
         size = self.max_cache_size
         self._remove_old_item(self.findings_json_list_cache, size)
-        self._remove_old_item(self.modules_cache, size)
-        self._remove_old_item(self.roles_cache, size)
-        self._remove_old_item(self.taskfiles_cache, size)
-        self._remove_old_item(self.tasks_cache, size)
+        self._remove_old_item(self.findings_cache, size)
         self._remove_old_item(self.module_search_cache, size)
         self._remove_old_item(self.role_search_cache, size)
         self._remove_old_item(self.taskfile_search_cache, size)
@@ -217,7 +190,7 @@ class RAMClient(object):
             if include_test_contents and is_test_object(role.defined_in):
                 continue
             r_meta = RoleMetadata.from_role(role, findings.metadata)
-            current = roles.get(r_meta.name, [])
+            current = roles.get(r_meta.fqcn, [])
             exists = False
             for r_dict in current:
                 r = None
@@ -233,7 +206,7 @@ class RAMClient(object):
             if not exists:
                 current.append(r_meta)
                 new_data_found = True
-            roles.update({role.name: current})
+            roles.update({role.fqcn: current})
         if new_data_found:
             self.save_role_index(roles)
         return
@@ -247,7 +220,7 @@ class RAMClient(object):
             if include_test_contents and is_test_object(taskfile.defined_in):
                 continue
             tf_meta = TaskFileMetadata.from_taskfile(taskfile, findings.metadata)
-            current = taskfiles.get(tf_meta.name, [])
+            current = taskfiles.get(tf_meta.key, [])
             exists = False
             for tf_dict in current:
                 tf = None
@@ -263,7 +236,7 @@ class RAMClient(object):
             if not exists:
                 current.append(tf_meta)
                 new_data_found = True
-            taskfiles.update({taskfile.name: current})
+            taskfiles.update({taskfile.key: current})
         if new_data_found:
             self.save_taskfile_index(taskfiles)
         return
@@ -404,14 +377,15 @@ class RAMClient(object):
         search_end = False
         for findings_json in modules_json_list:
             modules = ObjectList()
-            if findings_json in self.modules_cache:
-                modules = self.modules_cache[findings_json]
+            if findings_json in self.findings_cache:
+                modules = self.findings_cache[findings_json].get("modules", [])
             else:
                 f = Findings.load(fpath=findings_json)
                 if not isinstance(f, Findings):
                     continue
-                modules = f.root_definitions.get("definitions", {}).get("modules", [])
-                self.modules_cache[findings_json] = modules
+                definitions = f.root_definitions.get("definitions", {})
+                modules = definitions.get("modules", [])
+                self.findings_cache[findings_json] = definitions
             for m in modules:
                 matched = False
                 if exact_match:
@@ -478,14 +452,15 @@ class RAMClient(object):
         search_end = False
         for findings_json in roles_json_list:
             roles = ObjectList()
-            if findings_json in self.roles_cache:
-                roles = self.roles_cache[findings_json]
+            if findings_json in self.findings_cache:
+                roles = self.findings_cache[findings_json].get("roles", [])
             else:
                 f = Findings.load(fpath=findings_json)
                 if not isinstance(f, Findings):
                     continue
-                roles = f.root_definitions.get("definitions", {}).get("roles", [])
-                self.roles_cache[findings_json] = roles
+                definitions = f.root_definitions.get("definitions", {})
+                roles = definitions.get("roles", [])
+                self.findings_cache[findings_json] = definitions
             for r in roles:
                 matched = False
                 if exact_match:
@@ -601,14 +576,15 @@ class RAMClient(object):
         search_end = False
         for findings_json in taskfiles_json_list:
             taskfiles = ObjectList()
-            if findings_json in self.taskfiles_cache:
-                taskfiles = self.taskfiles_cache[findings_json]
+            if findings_json in self.findings_cache:
+                taskfiles = self.findings_cache[findings_json].get("taskfiles", [])
             else:
                 f = Findings.load(fpath=findings_json)
                 if not isinstance(f, Findings):
                     continue
-                taskfiles = f.root_definitions.get("definitions", {}).get("taskfiles", [])
-                self.taskfiles_cache[findings_json] = taskfiles
+                definitions = f.root_definitions.get("definitions", {})
+                taskfiles = definitions.get("taskfiles", [])
+                self.findings_cache[findings_json] = definitions
             for tf in taskfiles:
                 matched = False
                 if tf.key == found_key:
@@ -685,14 +661,15 @@ class RAMClient(object):
         search_end = False
         for findings_json in tasks_json_list:
             tasks = ObjectList()
-            if findings_json in self.tasks_cache:
-                tasks = self.tasks_cache[findings_json]
+            if findings_json in self.findings_cache:
+                tasks = self.findings_cache[findings_json].get("tasks", [])
             else:
                 f = Findings.load(fpath=findings_json)
                 if not isinstance(f, Findings):
                     continue
-                tasks = f.root_definitions.get("definitions", {}).get("tasks", [])
-                self.tasks_cache[findings_json] = tasks
+                definitions = f.root_definitions.get("definitions", {})
+                tasks = definitions.get("tasks", [])
+                self.findings_cache[findings_json] = definitions
             for t in tasks:
                 matched = False
                 if is_key:
