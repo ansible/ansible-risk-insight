@@ -604,12 +604,13 @@ def load_playbooks(path, basedir="", skip_playbook_format_error=True, skip_task_
                     raise PlaybookFormatError(f"this file is not in a playbook format, maybe not a playbook file: {e.args[0]}")
             except Exception:
                 logger.exception("error while loading the playbook at {}".format(fpath))
-            if load_children:
-                playbooks.append(p)
-                playbook_names.append(p.defined_in)
-            else:
-                playbooks.append(p.defined_in)
-                playbook_names.append(p.defined_in)
+            if p:
+                if load_children:
+                    playbooks.append(p)
+                    playbook_names.append(p.defined_in)
+                else:
+                    playbooks.append(p.defined_in)
+                    playbook_names.append(p.defined_in)
     if not load_children:
         playbooks = sorted(playbooks)
     return playbooks
