@@ -27,7 +27,6 @@ from inspect import isclass
 from importlib.util import spec_from_file_location, module_from_spec
 
 import ansible_risk_insight.logger as logger
-from .findings import Findings
 
 
 try:
@@ -299,7 +298,7 @@ def report_to_display(data_report: dict):
     return output_txt
 
 
-def summarize_findings(findings: Findings, show_all: bool = False):
+def summarize_findings(findings, show_all: bool = False):
     metadata = findings.metadata
     dependencies = findings.dependencies
     report = findings.report
