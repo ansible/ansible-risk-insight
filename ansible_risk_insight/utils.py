@@ -30,6 +30,34 @@ import ansible_risk_insight.logger as logger
 from .findings import Findings
 
 
+try:
+    # Posix based file locking (Linux, Ubuntu, MacOS, etc.)
+    #   Only allows locking on writable files, might cause
+    #   strange results for reading.
+    import fcntl
+
+    def lock_file(f):
+        if f.writable():
+            fcntl.lockf(f, fcntl.LOCK_EX)
+
+    def unlock_file(f):
+        if f.writable():
+            fcntl.lockf(f, fcntl.LOCK_UN)
+
+except ModuleNotFoundError:
+    # Windows file locking
+    import msvcrt
+
+    def file_size(f):
+        return os.path.getsize(os.path.realpath(f.name))
+
+    def lock_file(f):
+        msvcrt.locking(f.fileno(), msvcrt.LK_RLCK, file_size(f))
+
+    def unlock_file(f):
+        msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, file_size(f))
+
+
 def install_galaxy_target(target, target_type, output_dir, source_repository="", target_version=""):
     server_option = ""
     if source_repository:

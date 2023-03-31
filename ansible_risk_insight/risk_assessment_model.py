@@ -33,38 +33,17 @@ from .models import (
     TaskFileMetadata,
 )
 from .findings import Findings
-from .utils import escape_url, version_to_num, diff_files_data, is_test_object
+from .utils import (
+    escape_url,
+    version_to_num,
+    diff_files_data,
+    is_test_object,
+    lock_file,
+    unlock_file,
+)
 from .safe_glob import safe_glob
 from .keyutil import get_obj_info_by_key, make_imported_taskfile_key
 from .model_loader import load_builtin_modules
-
-
-try:
-    # Posix based file locking (Linux, Ubuntu, MacOS, etc.)
-    #   Only allows locking on writable files, might cause
-    #   strange results for reading.
-    import fcntl
-
-    def lock_file(f):
-        if f.writable():
-            fcntl.lockf(f, fcntl.LOCK_EX)
-
-    def unlock_file(f):
-        if f.writable():
-            fcntl.lockf(f, fcntl.LOCK_UN)
-
-except ModuleNotFoundError:
-    # Windows file locking
-    import msvcrt
-
-    def file_size(f):
-        return os.path.getsize(os.path.realpath(f.name))
-
-    def lock_file(f):
-        msvcrt.locking(f.fileno(), msvcrt.LK_RLCK, file_size(f))
-
-    def unlock_file(f):
-        msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, file_size(f))
 
 
 module_index_name = "module_index.json"

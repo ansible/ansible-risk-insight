@@ -17,6 +17,10 @@
 from copy import deepcopy
 from dataclasses import dataclass, field
 import jsonpickle
+from .utils import (
+    lock_file,
+    unlock_file,
+)
 
 
 @dataclass
@@ -48,7 +52,9 @@ class Findings:
         json_str = jsonpickle.encode(f, make_refs=False)
         if fpath:
             with open(fpath, "w") as file:
+                lock_file(file)
                 file.write(json_str)
+                unlock_file(file)
         return json_str
 
     def save_rule_result(self, fpath=""):
