@@ -196,7 +196,7 @@ class RAMClient(object):
             if include_test_contents and is_test_object(role.defined_in):
                 continue
             r_meta = RoleMetadata.from_role(role, findings.metadata)
-            current = roles.get(r_meta.name, [])
+            current = roles.get(r_meta.fqcn, [])
             exists = False
             for r_dict in current:
                 r = None
@@ -212,7 +212,7 @@ class RAMClient(object):
             if not exists:
                 current.append(r_meta)
                 new_data_found = True
-            roles.update({role.name: current})
+            roles.update({role.fqcn: current})
         if new_data_found:
             self.save_role_index(roles)
         return
@@ -226,7 +226,7 @@ class RAMClient(object):
             if include_test_contents and is_test_object(taskfile.defined_in):
                 continue
             tf_meta = TaskFileMetadata.from_taskfile(taskfile, findings.metadata)
-            current = taskfiles.get(tf_meta.name, [])
+            current = taskfiles.get(tf_meta.key, [])
             exists = False
             for tf_dict in current:
                 tf = None
@@ -242,7 +242,7 @@ class RAMClient(object):
             if not exists:
                 current.append(tf_meta)
                 new_data_found = True
-            taskfiles.update({taskfile.name: current})
+            taskfiles.update({taskfile.key: current})
         if new_data_found:
             self.save_taskfile_index(taskfiles)
         return
