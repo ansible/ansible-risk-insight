@@ -2142,6 +2142,7 @@ class RuleMetadata(object):
     name: str = ""
 
     version: str = ""
+    commit_id: str = ""
     severity: str = ""
     tags: tuple = ()
 
@@ -2233,6 +2234,7 @@ class Rule(RuleMetadata):
             description=self.description,
             name=self.name,
             version=self.version,
+            commit_id=self.commit_id,
             severity=self.severity,
             tags=self.tags,
         )

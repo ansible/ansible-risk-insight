@@ -16,6 +16,7 @@
 
 import argparse
 import os
+import json
 import traceback
 from typing import List
 import time
@@ -27,6 +28,9 @@ from .analyzer import load_taskcalls_in_trees
 from .utils import load_classes_in_dir
 
 
+rule_versions_filename = "rule_versions.json"
+
+
 def key2name(key: str):
     _type = detect_type(key)
     if _type == "playbook":
@@ -35,12 +39,38 @@ def key2name(key: str):
         return key.split(key_delimiter)[-1]
 
 
+def load_rule_versions_file(filepath: str):
+    if not os.path.exists(filepath):
+        return {}
+
+    version_dict = {}
+    with open(filepath, "r") as file:
+        for line in file:
+            d = None
+            try:
+                d = json.loads(line)
+            except Exception:
+                pass
+            if not d or not isinstance(d, dict):
+                continue
+            rule_id = d.get("rule_id")
+            if not rule_id:
+                continue
+            commit_id = d.get("commit_id")
+            version_dict[rule_id] = commit_id
+    return version_dict
+
+
 def load_rules(rules_dir: str = "", rule_id_list: list = [], fail_on_error: bool = False):
     if not rules_dir:
         return []
     rules_dir_list = rules_dir.split(":")
     _rules = []
     for _rules_dir in rules_dir_list:
+        versions_file = os.path.join(_rules_dir, rule_versions_filename)
+        versions_dict = {}
+        if os.path.exists(versions_file):
+            versions_dict = load_rule_versions_file(versions_file)
         _rule_classes, _errors_for_this_dir = load_classes_in_dir(_rules_dir, Rule, fail_on_error=fail_on_error)
         if _errors_for_this_dir:
             if fail_on_error:
@@ -54,6 +84,9 @@ def load_rules(rules_dir: str = "", rule_id_list: list = [], fail_on_error: bool
                 if rule_id_list:
                     if _rule.rule_id not in rule_id_list:
                         continue
+                if versions_dict:
+                    if _rule.rule_id in versions_dict:
+                        _rule.commit_id = versions_dict[_rule.rule_id]
                 _rules.append(_rule)
             except Exception:
                 exc = traceback.format_exc()
