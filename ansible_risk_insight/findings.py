@@ -47,8 +47,10 @@ class Findings:
 
     def dump(self, fpath=""):
         f = deepcopy(self)
-        if isinstance(f.report, dict) and "ari_result" in f.report:
-            f.report.pop("ari_result")
+        # omit report and summary_txt when the findings are saved
+        # to reduce unnecessary file write
+        f.report = {}
+        f.summary_txt = ""
         json_str = jsonpickle.encode(f, make_refs=False)
         if fpath:
             with open(fpath, "w") as file:
