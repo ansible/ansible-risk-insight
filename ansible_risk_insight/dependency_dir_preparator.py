@@ -407,10 +407,11 @@ class DependencyDirPreparator(object):
             self.metadata = md
         elif self.target_type == LoadType.ROLE:
             install_msg = ""
-            sub_download_location = os.path.join(self.download_location, "role", self.target_name)
+            sub_download_location = os.path.join(self.download_location, "roles", self.target_name)
+            metafile_location = os.path.join(self.download_location, "roles_download_meta", self.target_name)
             if os.path.exists(sub_download_location) and len(os.listdir(sub_download_location)) != 0:
                 logger.debug("found cache data {}".format(sub_download_location))
-                metadata_file = os.path.join(sub_download_location, download_metadata_file)
+                metadata_file = os.path.join(metafile_location, download_metadata_file)
                 md = self.find_target_metadata(LoadType.ROLE, metadata_file, self.target_name)
                 self.move_src(sub_download_location, tmp_src_dir)
             else:
@@ -419,8 +420,10 @@ class DependencyDirPreparator(object):
                 )
                 logger.debug("role install msg: {}".format(install_msg))
                 metadata = self.extract_roles_metadata(install_msg)
-                metadata_file = self.export_data(metadata, sub_download_location, download_metadata_file)
+                metadata_file = self.export_data(metadata, metafile_location, download_metadata_file)
                 md = self.find_target_metadata(LoadType.ROLE, metadata_file, self.target_name)
+                # save cache
+                self.move_src(tmp_src_dir, "{}.{}".format(sub_download_location, self.target_name))
             if not md:
                 raise ValueError("failed to install {} {}".format(self.target_type, self.target_name))
             dependency_dir = tmp_src_dir
