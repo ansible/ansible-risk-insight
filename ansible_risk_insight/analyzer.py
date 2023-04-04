@@ -23,7 +23,15 @@ from .models import TaskCallsInTree, AnsibleRunContext
 from .utils import load_classes_in_dir
 
 
+annotator_cache = []
+
+
 def load_annotators(ctx: AnsibleRunContext = None):
+    global annotator_cache
+
+    if annotator_cache:
+        return annotator_cache
+
     _annotator_classes, _ = load_classes_in_dir("annotators", RiskAnnotator, __file__)
     _annotators = []
     for a in _annotator_classes:
@@ -32,6 +40,7 @@ def load_annotators(ctx: AnsibleRunContext = None):
             _annotators.append(_annotator)
         except Exception:
             raise ValueError(f"failed to load an annotator: {a}")
+    annotator_cache = _annotators
     return _annotators
 
 

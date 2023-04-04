@@ -19,6 +19,14 @@ import json
 import os
 import re
 import yaml
+
+try:
+    # if `libyaml` is available, use C based loader for performance
+    import _yaml  # noqa: F401
+    from yaml import CSafeLoader as Loader
+except Exception:
+    # otherwise, use Python based loader
+    from yaml import SafeLoader as Loader
 from ansible.module_utils.parsing.convert_bool import boolean
 
 import ansible_risk_insight.logger as logger
@@ -237,7 +245,7 @@ def load_inventory(path, basedir=""):
     elif file_ext == ".yml" or file_ext == ".yaml":
         with open(fullpath, "r") as file:
             try:
-                data = yaml.safe_load(file)
+                data = yaml.load(file, Loader=Loader)
             except Exception as e:
                 logger.debug("failed to load this yaml file (inventory); {}".format(e.args[0]))
     elif file_ext == ".json":
@@ -300,11 +308,16 @@ def load_play(
     play_options = {}
     import_module = ""
     import_playbook = ""
-    __pre_task_blocks, _ = get_task_blocks(task_dict_list=data_block.get("pre_tasks", []))
-    __task_blocks, _ = get_task_blocks(task_dict_list=data_block.get("tasks", []))
-    pre_task_num = len(__pre_task_blocks) if __pre_task_blocks else 0
-    task_num = len(__task_blocks) if __task_blocks else 0
-    for k, v in data_block.items():
+
+    tasks_keys = ["pre_tasks", "tasks", "post_tasks"]
+    keys = [k for k in data_block if k not in tasks_keys]
+    keys.extend(tasks_keys)
+    task_count = 0
+
+    for k in keys:
+        if k not in data_block:
+            continue
+        v = data_block[k]
         if k == "name":
             pass
         elif k == "collections":
@@ -315,7 +328,8 @@ def load_play(
             task_blocks, _ = get_task_blocks(task_dict_list=v)
             if task_blocks is None:
                 continue
-            for i, task_dict in enumerate(task_blocks):
+            for task_dict in task_blocks:
+                i = task_count
                 try:
                     t = load_task(
                         path=path,
@@ -334,23 +348,24 @@ def load_play(
                 except TaskFormatError:
                     if skip_task_format_error:
                         logger.debug("this task is wrong format; skip the task in {}," " index: {}; skip this".format(path, i))
-                        continue
                     else:
                         raise TaskFormatError(f"this task is wrong format; skip the task in {path}," " index: {i}")
                 except Exception:
                     logger.exception("error while loading the task at {} (index={})".format(path, i))
+                finally:
+                    task_count += 1
         elif k == "tasks":
             if not isinstance(v, list):
                 continue
             task_blocks, _ = get_task_blocks(task_dict_list=v)
             if task_blocks is None:
                 continue
-            for i, task_dict in enumerate(task_blocks):
-                _i = i + pre_task_num
+            for task_dict in task_blocks:
+                i = task_count
                 try:
                     t = load_task(
                         path=path,
-                        index=_i,
+                        index=i,
                         task_block_dict=task_dict,
                         role_name=role_name,
                         collection_name=collection_name,
@@ -365,23 +380,24 @@ def load_play(
                 except TaskFormatError:
                     if skip_task_format_error:
                         logger.debug("this task is wrong format; skip the task in {}," " index: {}; skip this".format(path, i))
-                        continue
                     else:
                         raise TaskFormatError(f"this task is wrong format; skip the task in {path}," " index: {i}")
                 except Exception:
                     logger.exception("error while loading the task at {} (index={})".format(path, i))
+                finally:
+                    task_count += 1
         elif k == "post_tasks":
             if not isinstance(v, list):
                 continue
             task_blocks, _ = get_task_blocks(task_dict_list=v)
             if task_blocks is None:
                 continue
-            for i, task_dict in enumerate(task_blocks):
-                _i = i + pre_task_num + task_num
+            for task_dict in task_blocks:
+                i = task_count
                 try:
                     t = load_task(
                         path=path,
-                        index=_i,
+                        index=i,
                         task_block_dict=task_dict,
                         role_name=role_name,
                         collection_name=collection_name,
@@ -396,11 +412,12 @@ def load_play(
                 except TaskFormatError:
                     if skip_task_format_error:
                         logger.debug("this task is wrong format; skip the task in {}," " index: {}; skip this".format(path, i))
-                        continue
                     else:
                         raise TaskFormatError(f"this task is wrong format; skip the task in {path}," " index: {i}")
                 except Exception:
                     logger.exception("error while loading the task at {} (index={})".format(path, i))
+                finally:
+                    task_count += 1
         elif k == "roles":
             if not isinstance(v, list):
                 continue
@@ -519,7 +536,7 @@ def load_playbook(path="", yaml_str="", role_name="", collection_name="", basedi
     if yaml_str:
         try:
             yaml_lines = yaml_str
-            data = yaml.safe_load(yaml_lines)
+            data = yaml.load(yaml_lines, Loader=Loader)
         except Exception as e:
             if skip_playbook_format_error:
                 logger.debug(f"failed to load this yaml string to load playbook, skip this yaml; {e}")
@@ -529,7 +546,7 @@ def load_playbook(path="", yaml_str="", role_name="", collection_name="", basedi
         with open(fullpath, "r") as file:
             try:
                 yaml_lines = file.read()
-                data = yaml.safe_load(yaml_lines)
+                data = yaml.load(yaml_lines, Loader=Loader)
             except Exception as e:
                 if skip_playbook_format_error:
                     logger.debug(f"failed to load this yaml file to load playbook, skip this yaml; {e}")
@@ -651,7 +668,7 @@ def load_role(
     if os.path.exists(meta_file_path):
         with open(meta_file_path, "r") as file:
             try:
-                roleObj.metadata = yaml.safe_load(file)
+                roleObj.metadata = yaml.load(file, Loader=Loader)
             except Exception as e:
                 logger.debug("failed to load this yaml file to raed metadata; {}".format(e.args[0]))
 
@@ -663,7 +680,7 @@ def load_role(
     if os.path.exists(requirements_yml_path):
         with open(requirements_yml_path, "r") as file:
             try:
-                roleObj.requirements = yaml.safe_load(file)
+                roleObj.requirements = yaml.load(file, Loader=Loader)
             except Exception as e:
                 logger.debug("failed to load requirements.yml; {}".format(e.args[0]))
 
@@ -729,7 +746,7 @@ def load_role(
         for fpath in defaults_yaml_files:
             with open(fpath, "r") as file:
                 try:
-                    vars_in_yaml = yaml.safe_load(file)
+                    vars_in_yaml = yaml.load(file, Loader=Loader)
                     if vars_in_yaml is None:
                         continue
                     if not isinstance(vars_in_yaml, dict):
@@ -746,7 +763,7 @@ def load_role(
         for fpath in vars_yaml_files:
             with open(fpath, "r") as file:
                 try:
-                    vars_in_yaml = yaml.safe_load(file)
+                    vars_in_yaml = yaml.load(file, Loader=Loader)
                     if vars_in_yaml is None:
                         continue
                     if not isinstance(vars_in_yaml, dict):
@@ -901,7 +918,7 @@ def load_requirements(path):
     if os.path.exists(requirements_yml_path):
         with open(requirements_yml_path, "r") as file:
             try:
-                requirements = yaml.safe_load(file)
+                requirements = yaml.load(file, Loader=Loader)
             except Exception as e:
                 logger.debug("failed to load requirements.yml; {}".format(e.args[0]))
     return requirements
@@ -995,7 +1012,7 @@ def load_module(module_file_path, collection_name="", role_name="", basedir="", 
     if doc_yaml:
         doc_dict = {}
         try:
-            doc_dict = yaml.safe_load(doc_yaml)
+            doc_dict = yaml.load(doc_yaml, Loader=Loader)
         except Exception:
             logger.debug(f"failed to load the arguments documentation of the module: {module_name}")
         if not doc_dict:
@@ -1374,7 +1391,7 @@ def load_collection(
     if os.path.exists(meta_runtime_file_path):
         with open(meta_runtime_file_path, "r") as file:
             try:
-                colObj.meta_runtime = yaml.safe_load(file)
+                colObj.meta_runtime = yaml.load(file, Loader=Loader)
             except Exception as e:
                 logger.debug("failed to load meta/runtime.yml; {}".format(e.args[0]))
 
@@ -1382,7 +1399,7 @@ def load_collection(
     if os.path.exists(requirements_yml_path):
         with open(requirements_yml_path, "r") as file:
             try:
-                colObj.requirements = yaml.safe_load(file)
+                colObj.requirements = yaml.load(file, Loader=Loader)
             except Exception as e:
                 logger.debug("failed to load requirements.yml; {}".format(e.args[0]))
 
