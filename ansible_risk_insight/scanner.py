@@ -780,6 +780,8 @@ class ARIScanner(object):
         target_path: str = "",
         dependency_dir: str = "",
         download_only: bool = False,
+        load_only: bool = False,
+        skip_dependency: bool = False,
         use_src_cache: bool = False,
         source_repository: str = "",
         playbook_yaml: str = "",
@@ -862,20 +864,83 @@ class ARIScanner(object):
             return None
         self.record_end(time_records, "metadata_load")
 
-        ext_list = []
-        ext_list.extend(
-            [
-                (
-                    d.get("metadata", {}).get("type", ""),
-                    d.get("metadata", {}).get("name", ""),
-                    d.get("metadata", {}).get("version", ""),
-                    d.get("metadata", {}).get("hash", ""),
-                    d.get("dir"),
-                )
-                for d in scandata.loaded_dependency_dirs
-            ]
-        )
-        ext_count = len(ext_list)
+        if not skip_dependency:
+            ext_list = []
+            ext_list.extend(
+                [
+                    (
+                        d.get("metadata", {}).get("type", ""),
+                        d.get("metadata", {}).get("name", ""),
+                        d.get("metadata", {}).get("version", ""),
+                        d.get("metadata", {}).get("hash", ""),
+                        d.get("dir"),
+                    )
+                    for d in scandata.loaded_dependency_dirs
+                ]
+            )
+            ext_count = len(ext_list)
+
+            # Start ARI Scanner main flow
+            self.record_begin(time_records, "dependency_load")
+            for i, (ext_type, ext_name, ext_ver, ext_hash, ext_path) in enumerate(ext_list):
+                if not self.silent:
+                    if i == 0:
+                        logger.info("start loading {} {}(s)".format(ext_count, ext_type))
+                    logger.info("[{}/{}] {} {}".format(i + 1, ext_count, ext_type, ext_name))
+
+                # avoid infinite loop
+                is_root = False
+                if scandata.type == ext_type and scandata.name == ext_name:
+                    is_root = True
+
+                if not is_root:
+                    key = "{}-{}".format(ext_type, ext_name)
+                    read_ram_for_dependency = self.read_ram or self.read_ram_for_dependency
+
+                    dep_loaded = False
+                    if read_ram_for_dependency:
+                        # searching findings from ARI RAM and use them if found
+                        dep_loaded, ext_defs = self.load_definitions_from_ram(ext_type, ext_name, ext_ver, ext_hash)
+                        if dep_loaded:
+                            scandata.ext_definitions[key] = ext_defs
+                            if not self.silent:
+                                logger.debug(f'Use spec data for "{ext_name}" in RAM DB')
+
+                    if not dep_loaded:
+                        # scan dependencies and save findings to ARI RAM
+                        dep_scanner = ARIScanner(
+                            root_dir=self.root_dir,
+                            rules_dir="",
+                            rules=[],
+                            ram_client=self.ram_client,
+                            read_ram=read_ram_for_dependency,
+                            read_ram_for_dependency=self.read_ram_for_dependency,
+                            write_ram=self.write_ram,
+                            use_ansible_doc=self.use_ansible_doc,
+                            do_save=self.do_save,
+                            silent=True,
+                        )
+                        # use prepared dep dirs
+                        dep_scanner.evaluate(
+                            type=ext_type,
+                            name=ext_name,
+                            version=ext_ver,
+                            hash=ext_hash,
+                            target_path=ext_path,
+                            dependency_dir=scandata.dependency_dir,
+                            skip_dependency=True,
+                            source_repository=scandata.source_repository,
+                            include_test_contents=include_test_contents,
+                            load_only=True,
+                        )
+                        dep_scandata = dep_scanner.get_last_scandata()
+                        scandata.ext_definitions[key] = dep_scandata.root_definitions
+                        dep_loaded = True
+
+            self.record_end(time_records, "dependency_load")
+
+            if not self.silent:
+                logger.debug("load_definition_ext() done")
 
         # PRM Finder
         self.record_begin(time_records, "prm_load")
@@ -884,64 +949,6 @@ class ARIScanner(object):
         # scandata.prm["roles"] = roles
         # scandata.prm["modules"] = modules
         self.record_end(time_records, "prm_load")
-
-        # Start ARI Scanner main flow
-        self.record_begin(time_records, "dependency_load")
-        for i, (ext_type, ext_name, ext_ver, ext_hash, ext_path) in enumerate(ext_list):
-            if not self.silent:
-                if i == 0:
-                    logger.info("start loading {} {}(s)".format(ext_count, ext_type))
-                logger.info("[{}/{}] {} {}".format(i + 1, ext_count, ext_type, ext_name))
-
-            # avoid infinite loop
-            is_root = False
-            if scandata.type == ext_type and scandata.name == ext_name:
-                is_root = True
-
-            if not is_root:
-                read_ram_for_dependency = self.read_ram or self.read_ram_for_dependency
-
-                # scan dependencies and save findings to ARI RAM
-                dep_scanner = ARIScanner(
-                    root_dir=self.root_dir,
-                    rules_dir="",
-                    rules=[],
-                    ram_client=self.ram_client,
-                    read_ram=read_ram_for_dependency,
-                    read_ram_for_dependency=self.read_ram_for_dependency,
-                    write_ram=self.write_ram,
-                    use_ansible_doc=self.use_ansible_doc,
-                    do_save=self.do_save,
-                    silent=True,
-                )
-                # use prepared dep dirs
-                dep_scanner.evaluate(
-                    type=ext_type,
-                    name=ext_name,
-                    version=ext_ver,
-                    hash=ext_hash,
-                    target_path=ext_path,
-                    dependency_dir=scandata.dependency_dir,
-                    source_repository=scandata.source_repository,
-                    include_test_contents=include_test_contents,
-                )
-
-                if self.read_ram:
-                    # searching findings from ARI RAM and use them if found
-                    loaded, ext_defs = self.load_definitions_from_ram(ext_type, ext_name, ext_ver, ext_hash)
-                    if loaded:
-                        key = "{}-{}".format(ext_type, ext_name)
-                        scandata.ext_definitions[key] = ext_defs
-                        if not self.silent:
-                            logger.debug(f'Use spec data for "{ext_name}" in RAM DB')
-                        continue
-
-                # load the src directory
-                scandata.load_definition_ext(ext_type, ext_name, ext_path)
-        self.record_end(time_records, "dependency_load")
-
-        if not self.silent:
-            logger.debug("load_definition_ext() done")
 
         loaded = False
         self.record_begin(time_records, "target_load")
@@ -973,6 +980,11 @@ class ARIScanner(object):
         self.record_end(time_records, "apply_spec_rules")
         if not self.silent:
             logger.debug("apply_spec_rules() done")
+
+        # load_only is True when this scanner is scanning dependency
+        # otherwise, move on tree construction / rule evaluation
+        if load_only:
+            return None
 
         _ram_client = None
         if self.read_ram:
@@ -1062,6 +1074,8 @@ class ARIScanner(object):
                     target_path=target_path,
                     dependency_dir=dependency_dir,
                     download_only=download_only,
+                    load_only=load_only,
+                    skip_dependency=skip_dependency,
                     use_src_cache=use_src_cache,
                     source_repository=source_repository,
                     playbook_yaml=playbook_yaml,
