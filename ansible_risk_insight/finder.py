@@ -19,6 +19,14 @@ from pathlib import Path
 import re
 import os
 import yaml
+
+try:
+    # if `libyaml` is available, use C based loader for performance
+    import _yaml  # noqa: F401
+    from yaml import CSafeLoader as Loader
+except Exception:
+    # otherwise, use Python based loader
+    from yaml import SafeLoader as Loader
 import ansible_risk_insight.logger as logger
 from .safe_glob import safe_glob
 from .awx_utils import could_be_playbook, search_playbooks
@@ -88,7 +96,7 @@ def get_task_blocks(fpath="", yaml_str="", task_dict_list=None):
     yaml_lines = ""
     if yaml_str:
         try:
-            d = yaml.safe_load(yaml_str)
+            d = yaml.load(yaml_str, Loader=Loader)
             yaml_lines = yaml_str
         except Exception as e:
             logger.debug("failed to load this yaml string to get task blocks; {}".format(e.args[0]))
@@ -99,7 +107,7 @@ def get_task_blocks(fpath="", yaml_str="", task_dict_list=None):
         with open(fpath, "r") as file:
             try:
                 yaml_lines = file.read()
-                d = yaml.safe_load(yaml_lines)
+                d = yaml.load(yaml_lines, Loader=Loader)
             except Exception as e:
                 logger.debug("failed to load this yaml file to get task blocks; {}".format(e.args[0]))
                 return None, None
@@ -221,7 +229,7 @@ def search_taskfiles_for_playbooks(path, taskfile_dir_paths=[]):
             d = None
             with open(f, "r") as file:
                 try:
-                    d = yaml.safe_load(file)
+                    d = yaml.load(file, Loader=Loader)
                 except Exception as e:
                     logger.debug("failed to load this yaml file to search task" " files; {}".format(e.args[0]))
             # if d cannot be loaded as tasks yaml file, skip it
@@ -285,7 +293,7 @@ def find_collection_name_of_repo(path):
         my_collection_info = None
         with open(galaxy_yml, "r") as file:
             try:
-                my_collection_info = yaml.safe_load(file)
+                my_collection_info = yaml.load(file, Loader=Loader)
             except Exception as e:
                 logger.debug("failed to load this yaml file to read galaxy.yml; {}".format(e.args[0]))
         if my_collection_info is None:

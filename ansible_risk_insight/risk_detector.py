@@ -29,6 +29,7 @@ from .utils import load_classes_in_dir
 
 
 rule_versions_filename = "rule_versions.json"
+rule_cache = []
 
 
 def key2name(key: str):
@@ -62,6 +63,11 @@ def load_rule_versions_file(filepath: str):
 
 
 def load_rules(rules_dir: str = "", rule_id_list: list = [], fail_on_error: bool = False):
+    global rule_cache
+
+    if rule_cache:
+        return rule_cache
+
     if not rules_dir:
         return []
     rules_dir_list = rules_dir.split(":")
@@ -112,6 +118,8 @@ def load_rules(rules_dir: str = "", rule_id_list: list = [], fail_on_error: bool
 
     # sort by precedence
     _rules = sorted(_rules, key=lambda r: r.precedence)
+
+    rule_cache = _rules
 
     return _rules
 
