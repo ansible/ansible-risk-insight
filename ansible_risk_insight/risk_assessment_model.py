@@ -58,6 +58,7 @@ class RAMClient(object):
     findings_json_list_cache: list = field(default_factory=list)
 
     findings_cache: dict = field(default_factory=dict)
+    findings_search_cache: dict = field(default_factory=dict)
 
     module_search_cache: dict = field(default_factory=dict)
     role_search_cache: dict = field(default_factory=dict)
@@ -88,10 +89,12 @@ class RAMClient(object):
             with open(taskfile_index_path, "r") as file:
                 self.taskfile_index = json.load(file)
 
+        self.init_findings_json_list_cache()
+
     def clear_old_cache(self):
         size = self.max_cache_size
-        self._remove_old_item(self.findings_json_list_cache, size)
         self._remove_old_item(self.findings_cache, size)
+        self._remove_old_item(self.findings_search_cache, size)
         self._remove_old_item(self.module_search_cache, size)
         self._remove_old_item(self.role_search_cache, size)
         self._remove_old_item(self.taskfile_search_cache, size)
@@ -761,19 +764,18 @@ class RAMClient(object):
                 }
         return matched_obj
 
+    def init_findings_json_list_cache(self):
+        search_patterns = os.path.join(self.root_dir, "collections", "findings", "*", "*", "*", "findings.json")
+        findings_json_list_coll = safe_glob(search_patterns)
+        findings_json_list_coll = sort_by_version(findings_json_list_coll)
+        search_patterns = os.path.join(self.root_dir, "roles", "findings", "*", "*", "*", "findings.json")
+        findings_json_list_role = safe_glob(search_patterns)
+        findings_json_list_role = sort_by_version(findings_json_list_role)
+        findings_json_list = findings_json_list_coll + findings_json_list_role
+        self.findings_json_list_cache = findings_json_list
+
     def list_all_ram_metadata(self):
-        findings_json_list = []
-        if self.findings_json_list_cache:
-            findings_json_list = self.findings_json_list_cache
-        else:
-            search_patterns = os.path.join(self.root_dir, "collections", "findings", "*", "*", "*", "findings.json")
-            findings_json_list_coll = safe_glob(search_patterns)
-            findings_json_list_coll = sort_by_version(findings_json_list_coll)
-            search_patterns = os.path.join(self.root_dir, "roles", "findings", "*", "*", "*", "findings.json")
-            findings_json_list_role = safe_glob(search_patterns)
-            findings_json_list_role = sort_by_version(findings_json_list_role)
-            findings_json_list = findings_json_list_coll + findings_json_list_role
-            self.findings_json_list_cache = findings_json_list
+        findings_json_list = self.findings_json_list_cache
 
         metadata_list = []
         for findings_path in findings_json_list:
@@ -790,25 +792,31 @@ class RAMClient(object):
         return metadata_list
 
     def search_findings(self, target_name, target_version, target_type=None):
+        args_str = json.dumps([target_name, target_version, target_type])
+        if args_str in self.findings_search_cache:
+            return self.findings_search_cache[args_str]
+
         if not target_name:
             raise ValueError("target name must be specified for searching RAM data")
         if not target_version:
             target_version = "*"
-        search_patterns = []
-        if not target_type or target_type == "collection":
-            search_patterns.append(os.path.join(self.root_dir, "collections", "findings", target_name, target_version, "*", "findings.json"))
-        if not target_type or target_type == "role":
-            search_patterns.append(os.path.join(self.root_dir, "roles", "findings", target_name, target_version, "*", "findings.json"))
-        if not target_type or target_type == "project":
-            e_target_name = escape_url(target_name)
-            search_patterns.append(os.path.join(self.root_dir, "projects", "findings", e_target_name, target_version, "*", "findings.json"))
-        if not target_type or target_type == "playbook":
-            e_target_name = escape_url(target_name)
-            search_patterns.append(os.path.join(self.root_dir, "playbooks", "findings", e_target_name, target_version, "*", "findings.json"))
-        if not target_type or target_type == "taskfile":
-            e_target_name = escape_url(target_name)
-            search_patterns.append(os.path.join(self.root_dir, "taskfiles", "findings", e_target_name, target_version, "*", "findings.json"))
-        found_path_list = safe_glob(search_patterns)
+        findings_json_list = self.findings_json_list_cache
+        found_path_list = []
+        for findings_path in findings_json_list:
+            parts = findings_path.split("/")
+            _type = parts[-5][:-1]  # collection or role
+            _name = parts[-4]
+            _version = parts[-3]
+            if _name != target_name:
+                continue
+            if target_version and target_version != "*":
+                if _version != target_name:
+                    continue
+            if target_type and target_type != "*":
+                if _type != target_type:
+                    continue
+            found_path_list.append(findings_path)
+
         latest_findings_path = ""
         if len(found_path_list) == 1:
             latest_findings_path = found_path_list[0]
@@ -823,6 +831,8 @@ class RAMClient(object):
         findings = None
         if os.path.exists(latest_findings_path):
             findings = self.load_findings(latest_findings_path)
+
+        self.findings_search_cache[args_str] = findings
         return findings
 
     def load_findings(self, path: str):

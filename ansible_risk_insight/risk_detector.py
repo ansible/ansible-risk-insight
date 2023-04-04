@@ -138,20 +138,16 @@ def make_subject_str(playbook_num: int, role_num: int):
 def detect(contexts: List[AnsibleRunContext], rules_dir: str = "", rules: list = []):
     rules = load_rules(rules_dir, rules, False)
 
-    report_num = 1
-
     playbook_count = {"total": 0, "risk_found": 0}
     role_count = {"total": 0, "risk_found": 0}
 
     data_report = {"summary": {}, "details": [], "ari_result": None}
     role_to_playbook_mappings = {}
-    risk_found_playbooks = set()
 
     ari_result = ARIResult()
     spec_mutations = {}
 
-    num = len(contexts)
-    for i, ctx in enumerate(contexts):
+    for ctx in contexts:
         if not isinstance(ctx, AnsibleRunContext):
             continue
         tree_root_key = ctx.root_key
@@ -209,84 +205,6 @@ def detect(contexts: List[AnsibleRunContext], rules_dir: str = "", rules: list =
             t_result.nodes.append(n_result)
         ari_result.targets.append(t_result)
 
-        do_report = False
-        output_dict = {}
-        data_dict = {}
-        rule_dict = {}
-        rule_count = {
-            "total": 0,
-            "rule_applied": 0,
-            "risk_found": 0,
-        }
-        for rule in rules:
-            rule_dict[rule.name] = rule
-            if not rule.enabled:
-                continue
-            rule_count["total"] += 1
-            rule_count["rule_applied"] += 1
-            results = []
-            triggered_results = []
-            triggered_messages = []
-            for t in ctx:
-                ctx.current = t
-                if not rule.match(ctx):
-                    continue
-                result = rule.process(ctx)
-                if not result:
-                    continue
-                results.append(result)
-                if result.verdict:
-                    triggered_results.append(result)
-                    triggered_messages.append(rule.print(result))
-            if triggered_results:
-                rule_count["risk_found"] += 1
-                do_report = True
-                messages = triggered_messages
-                detail_data = [r.detail for r in triggered_results]
-                output_dict[rule.name] = "\n".join(messages)
-                data_dict[rule.name] = detail_data
-        result_list = [
-            {
-                "rule": {
-                    "name": rule_name,
-                    "version": rule_dict[rule_name].version,
-                    "severity": rule_dict[rule_name].severity,
-                    "tags": rule_dict[rule_name].tags,
-                },
-                "output": output_dict[rule_name],
-                "data": data_dict[rule_name],
-            }
-            for rule_name in output_dict
-        ]
-        data_report["details"].append(
-            {
-                "type": tree_root_type,
-                "name": tree_root_name,
-                "rule_count": rule_count,
-                "results": result_list,
-            }
-        )
-
-        if do_report:
-            used_in_playbooks = role_to_playbook_mappings.get(tree_root_name, [])
-            risk_found_playbooks = risk_found_playbooks.union(set(used_in_playbooks))
-            report_num += 1
-            if is_playbook:
-                playbook_count["risk_found"] += 1
-            else:
-                role_count["risk_found"] += 1
-        logger.debug("detect() {}/{} done".format(i + 1, num))
-
-    if playbook_count["total"] > 0:
-        data_report["summary"]["playbooks"] = {
-            "total": playbook_count["total"],
-            "risk_found": playbook_count["risk_found"],
-        }
-    if role_count["total"] > 0:
-        data_report["summary"]["roles"] = {
-            "total": role_count["total"],
-            "risk_found": role_count["risk_found"],
-        }
     data_report["ari_result"] = ari_result
     data_report["spec_mutations"] = spec_mutations
 

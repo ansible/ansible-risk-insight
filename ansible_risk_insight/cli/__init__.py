@@ -47,8 +47,10 @@ class ARICLI:
         parser.add_argument("--role-name", nargs="?", help="if provided, use it as a role name")
         parser.add_argument("--source", help="source server name in ansible config file (if empty, use public ansible galaxy)")
         parser.add_argument("--without-ram", action="store_true", help="if true, RAM data is not used and not even updated")
+        parser.add_argument("--read-ram-for-dependency", action="store_true", help="if true, RAM data is used only for dependency")
         parser.add_argument("--update-ram", action="store_true", help="if true, RAM data is not used for scan but updated with the scan result")
         parser.add_argument("--include-tests", action="store_true", help='if true, load test contents in "tests/integration/targets"')
+        parser.add_argument("--silent", action="store_true", help='if true, do not print anything"')
         parser.add_argument("--objects", action="store_true", help="if true, output objects.json to the output directory")
         parser.add_argument("--show-all", action="store_true", help="if true, show findings even if missing dependencies are found")
         parser.add_argument("--json", help="if specified, show findings in json format")
@@ -99,7 +101,7 @@ class ARICLI:
         elif args.rules_dir:
             rules_dir = args.rules_dir + ":" + config.rules_dir
 
-        silent = False
+        silent = args.silent
         pretty = False
         output_format = ""
         if args.json or args.yaml:
@@ -112,12 +114,17 @@ class ARICLI:
 
         read_ram = True
         write_ram = True
+        read_ram_for_dependency = False
         if args.without_ram:
             read_ram = False
             write_ram = False
         elif args.update_ram:
             read_ram = False
             write_ram = True
+        elif args.read_ram_for_dependency:
+            read_ram_for_dependency = True
+            read_ram = False
+            write_ram = False
 
         c = ARIScanner(
             root_dir=config.data_dir,
@@ -125,6 +132,7 @@ class ARICLI:
             do_save=args.save,
             read_ram=read_ram,
             write_ram=write_ram,
+            read_ram_for_dependency=read_ram_for_dependency,
             show_all=args.show_all,
             silent=silent,
             pretty=pretty,
