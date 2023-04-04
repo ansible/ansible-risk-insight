@@ -20,9 +20,10 @@ from .cli.ram import RAMCLI
 from ansible_risk_insight.scanner import ARIScanner, Config
 
 ari_actions = ["project", "playbook", "collection", "role", "taskfile"]
+batch_actions = ["batch"]
 ram_actions = ["ram"]
 
-all_actions = ari_actions + ram_actions
+all_actions = ari_actions + batch_actions + ram_actions
 
 
 def main():
@@ -36,12 +37,16 @@ def main():
         print("   project      scan a project (e.g. `ari project path/to/project`)")
         print("   taskfile     scan a taskfile (e.g. `ari taskfile path/to/taskfile.yml`)")
         print("   ram          operate the backend data (e.g. `ari ram generate -f input.txt`)")
+        print("   batch        run a batch of scan against file (e.g. `ari batch -f input.txt`)")
         sys.exit()
 
     action = sys.argv[1]
 
     if action in ari_actions:
         cli = ARICLI()
+        cli.run()
+    elif action == "batch":
+        cli = BatchCLI()
         cli.run()
     elif action == "ram":
         cli = RAMCLI()

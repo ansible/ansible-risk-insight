@@ -589,8 +589,9 @@ class SingleScan(object):
         taskcalls_in_trees = resolve(self.trees, self.additional)
         self.taskcalls_in_trees = taskcalls_in_trees
 
-        for tree in self.trees:
-            ctx = AnsibleRunContext.from_tree(tree=tree, parent=self.target_object)
+        for i, tree in enumerate(self.trees):
+            last_item = i + 1 == len(self.trees)
+            ctx = AnsibleRunContext.from_tree(tree=tree, parent=self.target_object, last_item=last_item)
             self.contexts.append(ctx)
 
         if self.do_save:
@@ -725,6 +726,7 @@ class ARIScanner(object):
 
     ram_client: RAMClient = None
     read_ram: bool = True
+    read_ram_for_dependency: bool = True
     write_ram: bool = True
 
     persist_dependency_cache: bool = False
@@ -850,9 +852,9 @@ class ARIScanner(object):
                     logger.debug(f'Use metadata for "{scandata.name}" in RAM DB')
 
         if scandata.install_dependencies and not metdata_loaded:
-            print(f"start preparing {scandata.type} {scandata.name}")
+            logger.debug(f"start preparing {scandata.type} {scandata.name}")
             scandata._prepare_dependencies()
-            print(f"finished preparing {scandata.type} {scandata.name}")
+            logger.debug(f"finished preparing {scandata.type} {scandata.name}")
 
         if download_only:
             scandata.set_metadata_findings()
@@ -897,13 +899,16 @@ class ARIScanner(object):
                 is_root = True
 
             if not is_root:
+                read_ram_for_dependency = self.read_ram or self.read_ram_for_dependency
+
                 # scan dependencies and save findings to ARI RAM
                 dep_scanner = ARIScanner(
                     root_dir=self.root_dir,
-                    rules_dir=self.rules_dir,
-                    rules=self.rules,
+                    rules_dir="",
+                    rules=[],
                     ram_client=self.ram_client,
-                    read_ram=self.read_ram,
+                    read_ram=read_ram_for_dependency,
+                    read_ram_for_dependency=self.read_ram_for_dependency,
                     write_ram=self.write_ram,
                     use_ansible_doc=self.use_ansible_doc,
                     do_save=self.do_save,

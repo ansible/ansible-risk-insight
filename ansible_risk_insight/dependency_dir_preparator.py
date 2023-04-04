@@ -555,7 +555,7 @@ class DependencyDirPreparator(object):
         if not os.path.isfile(requirements):
             # get requirements file from archives dir under current root_dir
             child_dir_path = requirements.split("archives")[-1]
-            requirements = f'{self.download_location}{child_dir_path}'
+            requirements = f"{self.download_location}{child_dir_path}"
             if not os.path.isfile(requirements):
                 logger.warning("requirements file not found: {}".format(requirements))
                 return
@@ -568,6 +568,10 @@ class DependencyDirPreparator(object):
             stderr=subprocess.PIPE,
             text=True,
         )
+        try:
+            proc.check_returncode()
+        except Exception as exc:
+            raise ValueError("failed to install collection: " + proc.stderr) from exc
         install_msg = proc.stdout
         logger.debug("STDOUT: {}".format(install_msg))
         # return proc.stdout
@@ -575,7 +579,7 @@ class DependencyDirPreparator(object):
     def is_download_file_exist(self, type, target, dir):
         is_exist = False
         filename = ""
-        download_metadata_files = glob.glob(f'{dir}/{type}/{target}/**/{download_metadata_file}', recursive=True)
+        download_metadata_files = glob.glob(f"{dir}/{type}/{target}/**/{download_metadata_file}", recursive=True)
         # check if tar.gz file already exists
         if len(download_metadata_files) != 0:
             for metafile in download_metadata_files:
@@ -612,7 +616,7 @@ class DependencyDirPreparator(object):
         version = ""
         hash = ""
         match_messages = re.findall(download_url_pattern, log_message)
-        download_path_from_root_dir = download_location.replace(f'{self.root_dir}/', "")
+        download_path_from_root_dir = download_location.replace(f"{self.root_dir}/", "")
         metadata_list = []
         for m in match_messages:
             metadata = DownloadMetadata()
@@ -672,7 +676,7 @@ class DependencyDirPreparator(object):
                 m_time = os.path.getmtime(role_dir)
                 dt_m = datetime.datetime.utcfromtimestamp(m_time).isoformat()
                 metadata.download_timestamp = dt_m
-                metadata.download_src_path = role_dir.replace(f'{self.root_dir}/', "")
+                metadata.download_src_path = role_dir.replace(f"{self.root_dir}/", "")
                 if url != "":
                     hash = get_hash_of_url(url)
                     metadata.hash = hash
@@ -685,7 +689,7 @@ class DependencyDirPreparator(object):
         if not os.path.isfile(metadata_file):
             # get metadata file from archives dir under current root_dir
             child_dir_path = metadata_file.split("archives")[-1]
-            metadata_file = f'{self.download_location}{child_dir_path}'
+            metadata_file = f"{self.download_location}{child_dir_path}"
             if not os.path.isfile(metadata_file):
                 logger.warning("metadata file not found: {}".format(target))
                 return None
@@ -749,7 +753,19 @@ class DependencyDirPreparator(object):
         # we use cp command here because shutil module is slow,
         # but the behavior of cp command is slightly different between Mac and Linux
         # we use a command like `cp -r <src>/* <dst>/` so the behavior will be the same
-        os.system("cp -r {}/* {}/".format(src, dst))
+        dirs = os.listdir(src)
+        proc = subprocess.run(
+            f"cp -r {src}/* {dst}/",
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        # raise if copy failed
+        try:
+            proc.check_returncode()
+        except Exception as exc:
+            raise ValueError(proc.stderr + "\ndirs: " + ", ".join(dirs)) from exc
         return
 
     def setup_tmp_dir(self):
@@ -843,12 +859,12 @@ class DependencyDirPreparator(object):
         for i, data in enumerate(metadata_list):
             dm = DownloadMetadata(**data)
             full_path = "{}/{}".format(dst_src_dir, dm.name)
-            path_from_root = full_path.replace(f'{self.root_dir}/', "")
+            path_from_root = full_path.replace(f"{self.root_dir}/", "")
             key = "download_src_path"
             if hasattr(dm, key):
                 setattr(dm, key, path_from_root)
             metafile_path, _ = self.get_metafile_in_target(LoadType.ROLE, full_path)
-            dm.metafile_path = metafile_path.replace(f'{self.root_dir}/', "")
+            dm.metafile_path = metafile_path.replace(f"{self.root_dir}/", "")
             dm.author = self.get_author(LoadType.ROLE, metafile_path)
             metadata_list[i] = asdict(dm)
             logger.debug("update {} in metadata: {}".format(key, dm))
@@ -859,7 +875,7 @@ class DependencyDirPreparator(object):
 
     def get_author(self, type, metafile_path):
         if not os.path.exists(metafile_path):
-            metafile_path = f'{self.root_dir}/{metafile_path}'
+            metafile_path = f"{self.root_dir}/{metafile_path}"
             if not os.path.exists(metafile_path):
                 logger.warning("invalid file path: {}".format(metafile_path))
                 return ""
