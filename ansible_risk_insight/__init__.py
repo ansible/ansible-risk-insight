@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import sys
+import subprocess
 from .cli import ARICLI
 from .cli.ram import RAMCLI
 from ansible_risk_insight.scanner import ARIScanner, Config
@@ -24,6 +25,9 @@ ram_actions = ["ram"]
 
 all_actions = ari_actions + ram_actions
 
+
+def get_git_revision_hash() -> str:
+    return subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
 
 def main():
     if len(sys.argv) == 1:
@@ -46,6 +50,8 @@ def main():
     elif action == "ram":
         cli = RAMCLI()
         cli.run()
+    elif action == "version":
+        print(get_git_revision_hash())
     else:
         print(f"The action {action} is not supported!", file=sys.stderr)
         sys.exit(1)
