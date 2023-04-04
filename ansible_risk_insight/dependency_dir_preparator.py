@@ -310,7 +310,6 @@ class DependencyDirPreparator(object):
             sub_dependency_dir_path = os.path.join(
                 self.dependency_dir_path,
                 "roles",
-                "src",
                 name,
             )
 
@@ -321,19 +320,23 @@ class DependencyDirPreparator(object):
                 cache_dir_path = os.path.join(
                     cache_dir,
                     "roles",
-                    "src",
+                    name,
+                )
+                download_meta_dir_path = os.path.join(
+                    cache_dir,
+                    "roles_download_meta",
                     name,
                 )
                 if os.path.exists(cache_dir_path) and len(os.listdir(cache_dir_path)) != 0:
                     logger.debug("cache data found")
-                    metadata_file = os.path.join(cache_dir_path, download_metadata_file)
+                    metadata_file = os.path.join(download_meta_dir_path, download_metadata_file)
                     md = self.find_target_metadata(LoadType.ROLE, metadata_file, self.target_name)
                 else:
                     logger.debug("cache data not found")
                     install_msg = install_galaxy_target(name, LoadType.ROLE, cache_dir_path, self.source_repository, target_version)
                     logger.debug("role install msg: {}".format(install_msg))
                     metadata = self.extract_roles_metadata(install_msg)
-                    metadata_file = self.export_data(metadata, cache_dir_path, download_metadata_file)
+                    metadata_file = self.export_data(metadata, download_meta_dir_path, download_metadata_file)
                     md = self.find_target_metadata(LoadType.ROLE, metadata_file, self.target_name)
                 self.move_src(sub_dependency_dir_path, cache_dir_path)
                 if md is not None:
@@ -413,7 +416,10 @@ class DependencyDirPreparator(object):
                 logger.debug("found cache data {}".format(sub_download_location))
                 metadata_file = os.path.join(metafile_location, download_metadata_file)
                 md = self.find_target_metadata(LoadType.ROLE, metadata_file, self.target_name)
-                self.move_src(sub_download_location, tmp_src_dir)
+                tmp_target_dir = os.path.join(tmp_src_dir, self.target_name)
+                if not os.path.exists(tmp_target_dir):
+                    os.makedirs(tmp_target_dir)
+                self.move_src(sub_download_location, tmp_target_dir)
             else:
                 install_msg = install_galaxy_target(
                     self.target_name, self.target_type, tmp_src_dir, self.source_repository, target_version=self.target_version
@@ -423,7 +429,7 @@ class DependencyDirPreparator(object):
                 metadata_file = self.export_data(metadata, metafile_location, download_metadata_file)
                 md = self.find_target_metadata(LoadType.ROLE, metadata_file, self.target_name)
                 # save cache
-                self.move_src(tmp_src_dir, "{}.{}".format(sub_download_location, self.target_name))
+                self.move_src(tmp_src_dir, sub_download_location)
             if not md:
                 raise ValueError("failed to install {} {}".format(self.target_type, self.target_name))
             dependency_dir = tmp_src_dir
