@@ -54,11 +54,19 @@ class RiskAssessmentModelGenerator(object):
         if self._no_module_spec:
             use_ansible_doc = False
 
+        read_ram = True
+        write_ram = True
+        if self._include_test_contents:
+            read_ram = False
+            write_ram = False
+
         self._scanner = ARIScanner(
             root_dir=config.data_dir,
             silent=True,
             use_ansible_doc=use_ansible_doc,
             persist_dependency_cache=True,
+            read_ram=read_ram,
+            write_ram=write_ram,
         )
 
     def run(self):
