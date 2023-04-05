@@ -690,6 +690,8 @@ def extract_variable_names(txt):
         for i, p in enumerate(parts):
             if i == 0:
                 var_name = p.replace("{{", "").replace("}}", "").replace(" ", "")
+                if "lookup(" in var_name and "first_found" in var_name:
+                    var_name = var_name.split(",")[-1].replace(")", "")
             else:
                 if "default(" in p and ")" in p:
                     default_var = p.replace("}}", "").replace("default(", "").replace(")", "").replace(" ", "")
