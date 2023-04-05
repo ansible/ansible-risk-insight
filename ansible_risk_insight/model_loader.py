@@ -812,8 +812,6 @@ def load_role(
     # ansible.network collection has this type of another taskfile directory
     if os.path.exists(includes_dir_path):
         patterns.extend([includes_dir_path + "/**/*.ya?ml"])
-    if os.path.exists(handlers_dir_path):
-        patterns.extend([handlers_dir_path + "/**/*.ya?ml"])
     task_yaml_files = safe_glob(patterns, recursive=True)
 
     taskfiles = []
@@ -843,6 +841,38 @@ def load_role(
     if not load_children:
         taskfiles = sorted(taskfiles)
     roleObj.taskfiles = taskfiles
+
+    if os.path.exists(handlers_dir_path):
+        handler_patterns = [handlers_dir_path + "/**/*.ya?ml"]
+        handler_files = safe_glob(handler_patterns, recursive=True)
+
+        handlers = []
+        for handler_yaml_path in handler_files:
+            tf = None
+            try:
+                tf = load_taskfile(
+                    handler_yaml_path,
+                    role_name=fqcn,
+                    collection_name=collection_name,
+                    basedir=basedir,
+                    skip_task_format_error=skip_task_format_error,
+                )
+            except TaskFormatError as e:
+                if skip_task_format_error:
+                    logger.debug(f"Task format error found; skip this taskfile {task_yaml_path}")
+                else:
+                    raise TaskFormatError(f"Task format error found: {e.args[0]}")
+            except Exception:
+                logger.exception("error while loading the task file at {}".format(task_yaml_path))
+            if not tf:
+                continue
+            if load_children:
+                handlers.append(tf)
+            else:
+                handlers.append(tf.defined_in)
+        if not load_children:
+            handlers = sorted(handlers)
+        roleObj.handlers = handlers
 
     return roleObj
 
@@ -1380,7 +1410,7 @@ def load_collection(
             colObj.metadata = json.load(file)
 
         if colObj.metadata is not None and isinstance(colObj.metadata, dict):
-            colObj.dependency["collections"] = colObj.metadata.get("dependencies", {})
+            colObj.dependency["collections"] = colObj.metadata.get("collection_info", {}).get("dependencies", {})
 
     files_file_path = os.path.join(fullpath, "FILES.json")
     if os.path.exists(files_file_path):
