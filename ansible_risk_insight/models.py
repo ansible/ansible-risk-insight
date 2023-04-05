@@ -1705,6 +1705,7 @@ class Role(Object, Resolvable):
     playbooks: list = field(default_factory=list)
     # 1 role can have multiple task yamls
     taskfiles: list = field(default_factory=list)
+    handlers: list = field(default_factory=list)
     # roles/xxxx/library/zzzz.py can be called as module zzzz
     modules: list = field(default_factory=list)
     dependency: dict = field(default_factory=dict)

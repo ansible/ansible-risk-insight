@@ -671,8 +671,10 @@ class TreeLoader(object):
                 tasks_from = handover_from_upper_node.get("tasks_from")
                 if tasks_from:
                     target_taskfiles = [tasks_from]
-            main_taskfile_key = [tf for tf in obj.taskfiles if tf.split(key_delimiter)[-1].split("/")[-1] in target_taskfiles]
-            children_keys.extend(main_taskfile_key)
+            target_taskfile_key = [
+                tf for tf in obj.taskfiles if tf.split(key_delimiter)[-1].split("/")[-1] in target_taskfiles and "/handlers/" not in tf
+            ]
+            children_keys.extend(target_taskfile_key)
         elif isinstance(obj, TaskFile):
             children_keys = obj.tasks
         elif isinstance(obj, Task):
