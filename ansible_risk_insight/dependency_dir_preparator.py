@@ -248,7 +248,8 @@ class DependencyDirPreparator(object):
                     self.install_galaxy_collection_from_targz(targz_file, sub_dependency_dir_path)
                     downloaded_dep.metadata.cache_dir = targz_file
                     parts = col_name.split(".")
-                    downloaded_dep.dir = os.path.join(sub_dependency_dir_path, "ansible_collections", parts[0], parts[1])
+                    full_path = os.path.join(sub_dependency_dir_path, "ansible_collections", parts[0], parts[1])
+                    downloaded_dep.dir = full_path.replace(f"{self.root_dir}/", "")
                 elif col_name in col_dependency_dirs:
                     logger.debug("use the specified dependency dirs")
                     sub_dependency_dir_path = col_dependency_dirs[col_name]
@@ -289,7 +290,8 @@ class DependencyDirPreparator(object):
                         downloaded_dep.metadata = md
                     downloaded_dep.metadata.source_repository = self.source_repository
                     parts = col_name.split(".")
-                    downloaded_dep.dir = os.path.join(sub_dependency_dir_path, "ansible_collections", parts[0], parts[1])
+                    fullpath = os.path.join(sub_dependency_dir_path, "ansible_collections", parts[0], parts[1])
+                    downloaded_dep.dir = fullpath.replace(f"{self.root_dir}/", "")
                 self.dependency_dirs.append(asdict(downloaded_dep))
 
         if role_dependencies:
@@ -371,7 +373,6 @@ class DependencyDirPreparator(object):
                     if md is not None:
                         downloaded_dep.metadata = md
                 downloaded_dep.metadata.source_repository = self.source_repository
-                downloaded_dep.dir = sub_dependency_dir_path
                 self.dependency_dirs.append(asdict(downloaded_dep))
         return
 
@@ -948,7 +949,9 @@ class DependencyDirPreparator(object):
                 name=dm.name,
                 metadata=dm,
             )
-            downloaded_dep.dir = os.path.join(dm.download_src_path)
+            parts = dm.name.split(".")
+            full_path = os.path.join(self.target_path_mappings["src"], "ansible_collections", parts[0], parts[1])
+            downloaded_dep.dir = full_path.replace(f"{self.root_dir}/", "")
             if target_type == LoadType.COLLECTION and target_name == dm.name:
                 continue
             dependency_dirs.append(asdict(downloaded_dep))
