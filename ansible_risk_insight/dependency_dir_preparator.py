@@ -117,10 +117,19 @@ class DependencyDirPreparator(object):
         self.setup_dirs(cache_enabled, cache_dir)
         logger.debug("prepare target dir")
         self.prepare_root_dir(root_install, is_src_installed, cache_enabled, cache_dir)
-        logger.debug("search dependencies")
-        dependencies = find_dependency(self.target_type, self.target_path, self.target_dependency_dir)
-        logger.debug("prepare dir for dependencies")
-        self.prepare_dependency_dir(dependencies, cache_enabled, cache_dir)
+
+        prepare_dependency = False
+        # if a project target is a local path, then skip install
+        if self.target_type in [LoadType.PROJECT, LoadType.PLAYBOOK, LoadType.TASKFILE] and not is_url(self.target_name):
+            prepare_dependency = True
+        # if a collection/role is a local path, then skip install (require MANIFEST.json or meta/main.yml to get the actual name)
+        if self.target_type in [LoadType.COLLECTION, LoadType.ROLE] and is_local_path(self.target_name):
+            prepare_dependency = True
+        if prepare_dependency:
+            logger.debug("search dependencies")
+            dependencies = find_dependency(self.target_type, self.target_path, self.target_dependency_dir)
+            logger.debug("prepare dir for dependencies")
+            self.prepare_dependency_dir(dependencies, cache_enabled, cache_dir)
         return self.dependency_dirs
 
     def setup_dirs(self, cache_enabled=False, cache_dir=""):
@@ -189,179 +198,182 @@ class DependencyDirPreparator(object):
         col_dependency_metadata = dependencies.get("metadata", {}).get("collections", {})
         # role_dependency_metadata = dependencies.get("metadata", {}).get("roles", {})
 
-        # TODO: if requirements.yml is provided, download dependencies using it.
+        if col_dependencies:
+            for cdep in col_dependencies:
+                col_name = cdep
+                col_version = ""
+                if type(cdep) is dict:
+                    col_name = cdep.get("name", "")
+                    col_version = cdep.get("version", "")
+                    if col_name == "":
+                        col_name = cdep.get("source", "")
 
-        for cdep in col_dependencies:
-            col_name = cdep
-            col_version = ""
-            if type(cdep) is dict:
-                col_name = cdep.get("name", "")
-                col_version = cdep.get("version", "")
-                if col_name == "":
-                    col_name = cdep.get("source", "")
+                logger.debug("prepare dir for {}:{}".format(col_name, col_version))
+                downloaded_dep = Dependency(
+                    name=col_name,
+                )
+                downloaded_dep.metadata.type = LoadType.COLLECTION
+                downloaded_dep.metadata.name = col_name
+                downloaded_dep.metadata.cache_enabled = cache_enabled
+                sub_dependency_dir_path = os.path.join(
+                    self.dependency_dir_path,
+                    "collections",
+                    "src",
+                )
 
-            logger.debug("prepare dir for {}:{}".format(col_name, col_version))
-            downloaded_dep = Dependency(
-                name=col_name,
-            )
-            downloaded_dep.metadata.type = LoadType.COLLECTION
-            downloaded_dep.metadata.name = col_name
-            downloaded_dep.metadata.cache_enabled = cache_enabled
-            sub_dependency_dir_path = os.path.join(
-                self.dependency_dir_path,
-                "collections",
-                "src",
-            )
+                if not os.path.exists(sub_dependency_dir_path):
+                    os.makedirs(sub_dependency_dir_path)
 
-            if not os.path.exists(sub_dependency_dir_path):
-                os.makedirs(sub_dependency_dir_path)
-
-            if cache_enabled:
-                logger.debug("cache enabled")
-                # TODO: handle version
-                is_exist, targz_file = self.is_download_file_exist(LoadType.COLLECTION, col_name, cache_dir)
-                # check cache data
-                if is_exist:
-                    logger.debug("found cache data {}".format(targz_file))
-                    metadata_file = os.path.join(targz_file.rsplit("/", 1)[0], download_metadata_file)
-                    md = self.find_target_metadata(LoadType.COLLECTION, metadata_file, col_name)
-                    downloaded_dep.metadata = md
+                if cache_enabled:
+                    logger.debug("cache enabled")
+                    # TODO: handle version
+                    is_exist, targz_file = self.is_download_file_exist(LoadType.COLLECTION, col_name, cache_dir)
+                    # check cache data
+                    if is_exist:
+                        logger.debug("found cache data {}".format(targz_file))
+                        metadata_file = os.path.join(targz_file.rsplit("/", 1)[0], download_metadata_file)
+                        md = self.find_target_metadata(LoadType.COLLECTION, metadata_file, col_name)
+                        downloaded_dep.metadata = md
+                    else:
+                        # if no cache data, download
+                        logger.debug("cache data not found")
+                        cache_location = os.path.join(cache_dir, "collection", col_name)
+                        install_msg = self.download_galaxy_collection(col_name, cache_location, col_version, self.source_repository)
+                        metadata = self.extract_collections_metadata(install_msg, cache_location)
+                        metadata_file = self.export_data(metadata, cache_location, download_metadata_file)
+                        md = self.find_target_metadata(LoadType.COLLECTION, metadata_file, col_name)
+                        downloaded_dep.metadata = md
+                        if md:
+                            targz_file = md.download_src_path
+                    # install collection from tar.gz
+                    self.install_galaxy_collection_from_targz(targz_file, sub_dependency_dir_path)
+                    downloaded_dep.metadata.cache_dir = targz_file
+                    parts = col_name.split(".")
+                    downloaded_dep.dir = os.path.join(sub_dependency_dir_path, "ansible_collections", parts[0], parts[1])
+                elif col_name in col_dependency_dirs:
+                    logger.debug("use the specified dependency dirs")
+                    sub_dependency_dir_path = col_dependency_dirs[col_name]
+                    col_galaxy_data = col_dependency_metadata.get(col_name, {})
+                    if isinstance(col_galaxy_data, dict):
+                        download_url = col_galaxy_data.get("download_url", "")
+                        hash = ""
+                        if download_url:
+                            hash = get_hash_of_url(download_url)
+                        version = col_galaxy_data.get("version", "")
+                        downloaded_dep.metadata.source_repository = self.source_repository
+                        downloaded_dep.metadata.download_url = download_url
+                        downloaded_dep.metadata.hash = hash
+                        downloaded_dep.metadata.version = version
+                        downloaded_dep.dir = sub_dependency_dir_path
                 else:
-                    # if no cache data, download
-                    logger.debug("cache data not found")
-                    cache_location = os.path.join(cache_dir, "collection", col_name)
-                    install_msg = self.download_galaxy_collection(col_name, cache_location, col_version, self.source_repository)
-                    metadata = self.extract_collections_metadata(install_msg, cache_location)
-                    metadata_file = self.export_data(metadata, cache_location, download_metadata_file)
-                    md = self.find_target_metadata(LoadType.COLLECTION, metadata_file, col_name)
-                    downloaded_dep.metadata = md
-                    if md:
-                        targz_file = md.download_src_path
-                # install collection from tar.gz
-                self.install_galaxy_collection_from_targz(targz_file, sub_dependency_dir_path)
-                downloaded_dep.metadata.cache_dir = targz_file
-                parts = col_name.split(".")
-                downloaded_dep.dir = os.path.join(sub_dependency_dir_path, "ansible_collections", parts[0], parts[1])
-            elif col_name in col_dependency_dirs:
-                logger.debug("use the specified dependency dirs")
-                sub_dependency_dir_path = col_dependency_dirs[col_name]
-                col_galaxy_data = col_dependency_metadata.get(col_name, {})
-                if isinstance(col_galaxy_data, dict):
-                    download_url = col_galaxy_data.get("download_url", "")
-                    hash = ""
-                    if download_url:
-                        hash = get_hash_of_url(download_url)
-                    version = col_galaxy_data.get("version", "")
+                    logger.debug("download dependency {}".format(col_name))
+                    is_exist, targz = self.is_download_file_exist(
+                        LoadType.COLLECTION, col_name, os.path.join(self.download_location, "collection", col_name)
+                    )
+                    if is_exist:
+                        metadata_file = os.path.join(self.download_location, "collection", col_name, download_metadata_file)
+                        self.install_galaxy_collection_from_targz(targz, sub_dependency_dir_path)
+                        md = self.find_target_metadata(LoadType.COLLECTION, metadata_file, col_name)
+                    else:
+                        # check download_location
+                        sub_download_location = os.path.join(self.download_location, "collection", col_name)
+                        if not os.path.exists(sub_download_location):
+                            os.makedirs(sub_download_location)
+                        install_msg = self.download_galaxy_collection(col_name, sub_download_location, col_version, self.source_repository)
+                        metadata = self.extract_collections_metadata(install_msg, sub_download_location)
+                        metadata_file = self.export_data(metadata, sub_download_location, download_metadata_file)
+                        md = self.find_target_metadata(LoadType.COLLECTION, metadata_file, col_name)
+                        if md:
+                            self.install_galaxy_collection_from_reqfile(md.requirements_file, sub_dependency_dir_path)
+                        # self.install_galaxy_collection_from_targz(md.download_src_path, sub_dependency_dir_path)
+                    if md is not None:
+                        downloaded_dep.metadata = md
                     downloaded_dep.metadata.source_repository = self.source_repository
-                    downloaded_dep.metadata.download_url = download_url
-                    downloaded_dep.metadata.hash = hash
-                    downloaded_dep.metadata.version = version
-                    downloaded_dep.dir = sub_dependency_dir_path
-            else:
-                logger.debug("download dependency {}".format(col_name))
-                is_exist, targz = self.is_download_file_exist(
-                    LoadType.COLLECTION, col_name, os.path.join(self.download_location, "collection", col_name)
+                    parts = col_name.split(".")
+                    downloaded_dep.dir = os.path.join(sub_dependency_dir_path, "ansible_collections", parts[0], parts[1])
+                self.dependency_dirs.append(asdict(downloaded_dep))
+
+        if role_dependencies:
+            for rdep in role_dependencies:
+                target_version = None
+                if isinstance(rdep, dict):
+                    rdep_name = rdep.get("name", None)
+                    target_version = rdep.get("version", None)
+                    if not rdep_name:
+                        rdep_name = rdep.get("role", None)
+                    rdep = rdep_name
+                name = rdep
+                if type(rdep) is dict:
+                    name = rdep.get("name", "")
+                    if name == "":
+                        name = rdep.get("src", "")
+                logger.debug("prepare dir for {}".format(name))
+                downloaded_dep = Dependency(
+                    name=name,
                 )
-                if is_exist:
-                    metadata_file = os.path.join(self.download_location, "collection", col_name, download_metadata_file)
-                    self.install_galaxy_collection_from_targz(targz, sub_dependency_dir_path)
-                    md = self.find_target_metadata(LoadType.COLLECTION, metadata_file, col_name)
-                else:
-                    # check download_location
-                    sub_download_location = os.path.join(self.download_location, "collection", col_name)
-                    if not os.path.exists(sub_download_location):
-                        os.makedirs(sub_download_location)
-                    install_msg = self.download_galaxy_collection(col_name, sub_download_location, col_version, self.source_repository)
-                    metadata = self.extract_collections_metadata(install_msg, sub_download_location)
-                    metadata_file = self.export_data(metadata, sub_download_location, download_metadata_file)
-                    md = self.find_target_metadata(LoadType.COLLECTION, metadata_file, col_name)
-                    if md:
-                        self.install_galaxy_collection_from_reqfile(md.requirements_file, sub_dependency_dir_path)
-                    # self.install_galaxy_collection_from_targz(md.download_src_path, sub_dependency_dir_path)
-                if md is not None:
-                    downloaded_dep.metadata = md
-                downloaded_dep.metadata.source_repository = self.source_repository
-                parts = col_name.split(".")
-                downloaded_dep.dir = os.path.join(sub_dependency_dir_path, "ansible_collections", parts[0], parts[1])
-            self.dependency_dirs.append(asdict(downloaded_dep))
+                downloaded_dep.metadata.type = LoadType.ROLE
+                downloaded_dep.metadata.name = name
+                downloaded_dep.metadata.cache_enabled = cache_enabled
+                # sub_dependency_dir_path = "{}/{}".format(dependency_dir_path, rdep)
 
-        for rdep in role_dependencies:
-            target_version = None
-            if isinstance(rdep, dict):
-                rdep_name = rdep.get("name", None)
-                target_version = rdep.get("version", None)
-                if not rdep_name:
-                    rdep_name = rdep.get("role", None)
-                rdep = rdep_name
-            name = rdep
-            if type(rdep) is dict:
-                name = rdep.get("name", "")
-                if name == "":
-                    name = rdep.get("src", "")
-            logger.debug("prepare dir for {}".format(name))
-            downloaded_dep = Dependency(
-                name=name,
-            )
-            downloaded_dep.metadata.type = LoadType.ROLE
-            downloaded_dep.metadata.name = name
-            downloaded_dep.metadata.cache_enabled = cache_enabled
-            # sub_dependency_dir_path = "{}/{}".format(dependency_dir_path, rdep)
-
-            sub_dependency_dir_path = os.path.join(
-                self.dependency_dir_path,
-                "roles",
-                name,
-            )
-
-            if not os.path.exists(sub_dependency_dir_path):
-                os.makedirs(sub_dependency_dir_path)
-            if cache_enabled:
-                logger.debug("cache enabled")
-                cache_dir_path = os.path.join(
-                    cache_dir,
+                sub_dependency_dir_path = os.path.join(
+                    self.dependency_dir_path,
                     "roles",
+                    "src",
                     name,
                 )
-                download_meta_dir_path = os.path.join(
-                    cache_dir,
-                    "roles_download_meta",
-                    name,
-                )
-                if os.path.exists(cache_dir_path) and len(os.listdir(cache_dir_path)) != 0:
-                    logger.debug("cache data found")
-                    metadata_file = os.path.join(download_meta_dir_path, download_metadata_file)
-                    md = self.find_target_metadata(LoadType.ROLE, metadata_file, self.target_name)
-                else:
-                    logger.debug("cache data not found")
-                    install_msg = install_galaxy_target(name, LoadType.ROLE, cache_dir_path, self.source_repository, target_version)
-                    logger.debug("role install msg: {}".format(install_msg))
-                    metadata = self.extract_roles_metadata(install_msg)
-                    metadata_file = self.export_data(metadata, download_meta_dir_path, download_metadata_file)
-                    md = self.find_target_metadata(LoadType.ROLE, metadata_file, self.target_name)
-                self.move_src(sub_dependency_dir_path, cache_dir_path)
-                if md is not None:
-                    downloaded_dep.metadata = md
-            elif name in role_dependency_dirs:
-                logger.debug("use the specified dependency dirs")
-                sub_dependency_dir_path = role_dependency_dirs[name]
-            else:
-                is_exist, _ = self.is_download_file_exist(LoadType.ROLE, name, os.path.join(self.download_location, "role", name))
-                if is_exist:
-                    metadata_file = os.path.join(self.download_location, "role", name, download_metadata_file)
-                    md = self.find_target_metadata(LoadType.ROLE, metadata_file, name)
-                    self.move_src(md.download_src_path, sub_dependency_dir_path)
+
+                if not os.path.exists(sub_dependency_dir_path):
+                    os.makedirs(sub_dependency_dir_path)
+                if cache_enabled:
+                    logger.debug("cache enabled")
+                    cache_dir_path = os.path.join(
+                        cache_dir,
+                        "roles",
+                        name,
+                    )
+                    download_meta_dir_path = os.path.join(
+                        cache_dir,
+                        "roles_download_meta",
+                        name,
+                    )
+                    if os.path.exists(cache_dir_path) and len(os.listdir(cache_dir_path)) != 0:
+                        logger.debug("dependency cache data found")
+                        metadata_file = os.path.join(download_meta_dir_path, download_metadata_file)
+                        md = self.find_target_metadata(LoadType.ROLE, metadata_file, name)
+                        self.move_src(cache_dir_path, sub_dependency_dir_path)
+                    else:
+                        logger.debug("dependency cache data not found")
+                        install_msg = install_galaxy_target(name, LoadType.ROLE, sub_dependency_dir_path, self.source_repository, target_version)
+                        logger.debug("role install msg: {}".format(install_msg))
+                        metadata = self.extract_roles_metadata(install_msg)
+                        if not metadata:
+                            raise ValueError("failed to install {} {}".format(LoadType.ROLE, name))
+                        metadata_file = self.export_data(metadata, download_meta_dir_path, download_metadata_file)
+                        md = self.find_target_metadata(LoadType.ROLE, metadata_file, name)
+                        # save cache
+                        if not os.path.exists(cache_dir_path):
+                            os.makedirs(cache_dir_path)
+                        self.move_src(sub_dependency_dir_path, cache_dir_path)
+                    if md:
+                        downloaded_dep.metadata = md
+                elif name in role_dependency_dirs:
+                    logger.debug("use the specified dependency dirs")
+                    sub_dependency_dir_path = role_dependency_dirs[name]
                 else:
                     install_msg = install_galaxy_target(name, LoadType.ROLE, sub_dependency_dir_path, self.source_repository)
                     logger.debug("role install msg: {}".format(install_msg))
                     metadata = self.extract_roles_metadata(install_msg)
+                    if not metadata:
+                        raise ValueError("failed to install {} {}".format(LoadType.ROLE, name))
                     sub_download_location = os.path.join(self.download_location, "role", name)
                     metadata_file = self.export_data(metadata, sub_download_location, download_metadata_file)
                     md = self.find_target_metadata(LoadType.ROLE, metadata_file, name)
-                if md is not None:
-                    downloaded_dep.metadata = md
-            downloaded_dep.metadata.source_repository = self.source_repository
-            downloaded_dep.dir = sub_dependency_dir_path
-            self.dependency_dirs.append(asdict(downloaded_dep))
+                    if md is not None:
+                        downloaded_dep.metadata = md
+                downloaded_dep.metadata.source_repository = self.source_repository
+                downloaded_dep.dir = sub_dependency_dir_path
+                self.dependency_dirs.append(asdict(downloaded_dep))
         return
 
     def src_install(self):
@@ -426,9 +438,13 @@ class DependencyDirPreparator(object):
                 )
                 logger.debug("role install msg: {}".format(install_msg))
                 metadata = self.extract_roles_metadata(install_msg)
+                if not metadata:
+                    raise ValueError("failed to install {} {}".format(self.target_type, self.target_name))
                 metadata_file = self.export_data(metadata, metafile_location, download_metadata_file)
                 md = self.find_target_metadata(LoadType.ROLE, metadata_file, self.target_name)
                 # save cache
+                if not os.path.exists(sub_download_location):
+                    os.makedirs(sub_download_location)
                 self.move_src(tmp_src_dir, sub_download_location)
             if not md:
                 raise ValueError("failed to install {} {}".format(self.target_type, self.target_name))
@@ -466,6 +482,9 @@ class DependencyDirPreparator(object):
                 os.makedirs(dst_dependency_dir)
             self.move_src(dependency_dir, dst_dependency_dir)
             logger.debug("root metadata: {}".format(json.dumps(asdict(self.metadata))))
+
+        # prepare dependency data
+        self.dependency_dirs = self.dependnecy_dirs(metadata_file, self.target_type, self.target_name)
         return
 
     def set_index(self, path):
@@ -674,20 +693,24 @@ class DependencyDirPreparator(object):
                 url = line.split(" ")[-1]
                 logger.debug("extracted url from download log message: {}".format(url))
                 version = url.split("/")[-1].replace(".tar.gz", "")
-                name = messages[i + 1].split("/")[-1]
-                metadata.download_url = url
-                metadata.version = version
-                metadata.name = name
-                role_dir = messages[i + 1].split(" ")[-1]
-                m_time = os.path.getmtime(role_dir)
-                dt_m = datetime.datetime.utcfromtimestamp(m_time).isoformat()
-                metadata.download_timestamp = dt_m
-                metadata.download_src_path = role_dir.replace(f"{self.root_dir}/", "")
-                if url != "":
-                    hash = get_hash_of_url(url)
-                    metadata.hash = hash
-                logger.debug("metadata: {}".format(json.dumps(asdict(metadata))))
-                metadata_list.append(asdict(metadata))
+                if len(messages) > i:
+                    name = messages[i + 1].split("/")[-1]
+                    metadata.download_url = url
+                    metadata.version = version
+                    metadata.name = name
+                    role_dir = messages[i + 1].split(" ")[-1]
+                    m_time = os.path.getmtime(role_dir)
+                    dt_m = datetime.datetime.utcfromtimestamp(m_time).isoformat()
+                    metadata.download_timestamp = dt_m
+                    metadata.download_src_path = role_dir.replace(f"{self.root_dir}/", "")
+                    if url != "":
+                        hash = get_hash_of_url(url)
+                        metadata.hash = hash
+                    logger.debug("metadata: {}".format(json.dumps(asdict(metadata))))
+                    metadata_list.append(asdict(metadata))
+        if len(metadata_list) == 0:
+            logger.warning(f"failed to extract download metadata from install log: {log_message}")
+            return None
         result = {"roles": metadata_list}
         return result
 
@@ -895,6 +918,35 @@ class DependencyDirPreparator(object):
                 metadata = yaml.safe_load(f)
             author = metadata.get("galaxy_info", {}).get("author", "")
             return author
+
+    def dependnecy_dirs(self, metadata_file, target_type, target_name):
+        dependency_dirs = []
+        with open(metadata_file, "r") as f:
+            metadata = json.load(f)
+        metadata_list = metadata.get("roles", [])
+        for _, data in enumerate(metadata_list):
+            dm = DownloadMetadata(**data)
+            downloaded_dep = Dependency(
+                name=dm.name,
+                metadata=dm,
+            )
+            downloaded_dep.dir = os.path.join(dm.download_src_path)
+            if target_type == LoadType.ROLE and target_name == dm.name:
+                continue
+            dependency_dirs.append(asdict(downloaded_dep))
+
+        metadata_list = metadata.get("collections", [])
+        for _, data in enumerate(metadata_list):
+            dm = DownloadMetadata(**data)
+            downloaded_dep = Dependency(
+                name=dm.name,
+                metadata=dm,
+            )
+            downloaded_dep.dir = os.path.join(dm.download_src_path)
+            if target_type == LoadType.COLLECTION and target_name == dm.name:
+                continue
+            dependency_dirs.append(asdict(downloaded_dep))
+        return dependency_dirs
 
 
 def find_ext_dependencies(path):
