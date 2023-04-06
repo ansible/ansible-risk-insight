@@ -17,7 +17,7 @@
 import os
 import pathlib
 import json
-import git
+import pygit2
 import pkg_resources
 from .models import LoadType
 
@@ -60,9 +60,8 @@ def get_loader_version():
     # try to get version from commit ID in source code repository
     try:
         script_dir = pathlib.Path(__file__).parent.resolve()
-        repo = git.Repo(path=script_dir, search_parent_directories=True)
-        sha = repo.head.object.hexsha
-        version = sha
+        repo = pygit2.Repository(script_dir)
+        version = repo.head.target
     except Exception:
         pass
     return version
