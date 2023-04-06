@@ -119,10 +119,10 @@ class DependencyDirPreparator(object):
         self.prepare_root_dir(root_install, is_src_installed, cache_enabled, cache_dir)
 
         prepare_dependency = False
-        # if a project target is a local path, then skip install
+        # if a project target is a local path, check dependency
         if self.target_type in [LoadType.PROJECT, LoadType.PLAYBOOK, LoadType.TASKFILE] and not is_url(self.target_name):
             prepare_dependency = True
-        # if a collection/role is a local path, then skip install (require MANIFEST.json or meta/main.yml to get the actual name)
+        # if a collection/role is a local path, check dependency
         if self.target_type in [LoadType.COLLECTION, LoadType.ROLE] and is_local_path(self.target_name):
             prepare_dependency = True
         if prepare_dependency:
@@ -223,7 +223,6 @@ class DependencyDirPreparator(object):
 
                 if not os.path.exists(sub_dependency_dir_path):
                     os.makedirs(sub_dependency_dir_path)
-
                 if cache_enabled:
                     logger.debug("cache enabled")
                     # TODO: handle version
