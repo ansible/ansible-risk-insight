@@ -920,6 +920,13 @@ class DependencyDirPreparator(object):
 
     def dependnecy_dirs(self, metadata_file, target_type, target_name):
         dependency_dirs = []
+        if not os.path.isfile(metadata_file):
+            # get metadata file from archives dir under current root_dir
+            child_dir_path = metadata_file.split("archives")[-1]
+            metadata_file = f"{self.download_location}{child_dir_path}"
+            if not os.path.isfile(metadata_file):
+                logger.warning("metadata file not found: {}".format(target_name))
+                return dependency_dirs
         with open(metadata_file, "r") as f:
             metadata = json.load(f)
         metadata_list = metadata.get("roles", [])
