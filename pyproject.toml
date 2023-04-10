@@ -14,7 +14,7 @@ classifiers = [
 ]
 dependencies = [
     "gitdb",
-    "GitPython",
+    "pygit2",
     "joblib",
     "jsonpickle",
     "PyYAML",
