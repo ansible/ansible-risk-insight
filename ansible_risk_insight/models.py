@@ -1533,7 +1533,7 @@ class TaskCall(CallObject, RunTarget):
 
 @dataclass
 class AnsibleRunContext(object):
-    sequence: RunTargetList = None
+    sequence: RunTargetList = field(default_factory=RunTargetList)
     root_key: str = ""
     parent: Object = None
 
