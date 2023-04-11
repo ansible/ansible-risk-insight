@@ -113,7 +113,7 @@ class ARICLI:
                 output_format = "yaml"
 
         read_ram = True
-        write_ram = True
+        write_ram = False
         read_ram_for_dependency = False
         if args.without_ram:
             read_ram = False
