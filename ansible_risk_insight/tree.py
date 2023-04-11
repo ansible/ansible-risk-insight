@@ -492,11 +492,13 @@ class TreeLoader(object):
             return obj_list
         if key in history:
             return obj_list
-        _history = deepcopy(history)
+        _history = []
+        if history:
+            _history = [h for h in history]
         call_obj = call_obj_from_spec(spec=obj, caller=caller, index=index)
         if call_obj is not None:
             obj_list.add(call_obj, update_dict=False)
-            history.append(key)
+            _history.append(key)
         children_keys, from_ram, handover = self._get_children_keys(obj, handover_from_upper_node=handover)
         for i, c_key in enumerate(children_keys):
             child_objects = self._recursive_get_calls(
