@@ -47,6 +47,7 @@ class ARICLI:
         parser.add_argument("--role-name", nargs="?", help="if provided, use it as a role name")
         parser.add_argument("--source", help="source server name in ansible config file (if empty, use public ansible galaxy)")
         parser.add_argument("--without-ram", action="store_true", help="if true, RAM data is not used and not even updated")
+        parser.add_argument("--read-only-ram", action="store_true", help="if true, RAM data is used but not updated")
         parser.add_argument("--read-ram-for-dependency", action="store_true", help="if true, RAM data is used only for dependency")
         parser.add_argument("--update-ram", action="store_true", help="if true, RAM data is not used for scan but updated with the scan result")
         parser.add_argument("--include-tests", action="store_true", help='if true, load test contents in "tests/integration/targets"')
@@ -117,6 +118,9 @@ class ARICLI:
         read_ram_for_dependency = False
         if args.without_ram:
             read_ram = False
+            write_ram = False
+        elif args.read_only_ram:
+            read_ram = True
             write_ram = False
         elif args.update_ram:
             read_ram = False

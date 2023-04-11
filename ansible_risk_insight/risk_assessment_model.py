@@ -89,8 +89,6 @@ class RAMClient(object):
             with open(taskfile_index_path, "r") as file:
                 self.taskfile_index = json.load(file)
 
-        self.init_findings_json_list_cache()
-
     def clear_old_cache(self):
         size = self.max_cache_size
         self._remove_old_item(self.findings_cache, size)
@@ -775,6 +773,8 @@ class RAMClient(object):
         self.findings_json_list_cache = findings_json_list
 
     def list_all_ram_metadata(self):
+        if not self.findings_json_list_cache:
+            self.init_findings_json_list_cache()
         findings_json_list = self.findings_json_list_cache
 
         metadata_list = []
@@ -792,6 +792,8 @@ class RAMClient(object):
         return metadata_list
 
     def search_findings(self, target_name, target_version, target_type=None):
+        if not self.findings_json_list_cache:
+            self.init_findings_json_list_cache()
         args_str = json.dumps([target_name, target_version, target_type])
         if args_str in self.findings_search_cache:
             return self.findings_search_cache[args_str]

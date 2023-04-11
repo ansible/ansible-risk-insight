@@ -727,7 +727,7 @@ class ARIScanner(object):
     ram_client: RAMClient = None
     read_ram: bool = True
     read_ram_for_dependency: bool = True
-    write_ram: bool = True
+    write_ram: bool = False
 
     persist_dependency_cache: bool = False
 
@@ -844,7 +844,7 @@ class ARIScanner(object):
 
         self.record_begin(time_records, "metadata_load")
         metdata_loaded = False
-        if self.read_ram:
+        if self.read_ram and scandata.type not in [LoadType.PLAYBOOK, LoadType.TASKFILE, LoadType.PROJECT]:
             loaded, metadata, dependencies = self.load_metadata_from_ram(scandata.type, scandata.name, scandata.version)
             logger.debug(f"metadata loaded: {loaded}")
             if loaded:
@@ -952,7 +952,7 @@ class ARIScanner(object):
 
         loaded = False
         self.record_begin(time_records, "target_load")
-        if self.read_ram and scandata.type not in [LoadType.PLAYBOOK, LoadType.TASKFILE]:
+        if self.read_ram and scandata.type not in [LoadType.PLAYBOOK, LoadType.TASKFILE, LoadType.PROJECT]:
             loaded, root_defs = self.load_definitions_from_ram(scandata.type, scandata.name, scandata.version, scandata.hash, allow_unresolved=True)
             logger.debug(f"spec data loaded: {loaded}")
             if loaded:
@@ -1023,7 +1023,7 @@ class ARIScanner(object):
             # print("root definitions:", root_counts)
 
         # save RAM data
-        if self.write_ram:
+        if self.write_ram and scandata.type not in [LoadType.PLAYBOOK, LoadType.TASKFILE, LoadType.PROJECT]:
             self.register_findings_to_ram(scandata.findings)
             self.register_indices_to_ram(scandata.findings, include_test_contents)
 
