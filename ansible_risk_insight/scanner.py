@@ -844,7 +844,7 @@ class ARIScanner(object):
 
         self.record_begin(time_records, "metadata_load")
         metdata_loaded = False
-        if self.read_ram:
+        if self.read_ram and scandata.type not in [LoadType.PLAYBOOK, LoadType.TASKFILE, LoadType.PROJECT]:
             loaded, metadata, dependencies = self.load_metadata_from_ram(scandata.type, scandata.name, scandata.version)
             logger.debug(f"metadata loaded: {loaded}")
             if loaded:
