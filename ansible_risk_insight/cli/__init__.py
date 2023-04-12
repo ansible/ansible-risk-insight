@@ -129,6 +129,10 @@ class ARICLI:
             read_ram_for_dependency = True
             read_ram = False
             write_ram = False
+        elif args.include_tests:
+            read_ram_for_dependency = True
+            read_ram = False
+            write_ram = False
 
         c = ARIScanner(
             root_dir=config.data_dir,

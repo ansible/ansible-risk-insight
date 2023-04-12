@@ -60,7 +60,7 @@ class ModuleNameValidationRule(Rule):
 
             if not task.spec.resolved_name:
                 for suggestion in suggested_fqcns:
-                    if not suggestion.endswith(f".{task.spec.module}"):
+                    if suggestion != task.spec.module and not suggestion.endswith(f".{task.spec.module}"):
                         wrong_module_name = task.spec.module
                         break
                 if not task.spec.possible_candidates:
