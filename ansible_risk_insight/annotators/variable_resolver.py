@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from copy import deepcopy
 from dataclasses import dataclass
 from typing import List
 from ansible_risk_insight.keyutil import detect_type
@@ -102,8 +101,10 @@ class VariableAnnotator(Annotator):
         )
         taskcall.args = args
         # deep copy the history here because the context is updated by subsequent taskcalls
-        taskcall.variable_set = deepcopy(self.context.var_set_history)
-        taskcall.variable_use = deepcopy(self.context.var_use_history)
+        if self.context.var_set_history:
+            taskcall.variable_set = self.context.var_set_history.copy()
+        if self.context.var_use_history:
+            taskcall.variable_use = self.context.var_use_history.copy()
         taskcall.become = self.context.become
 
         return VariableAnnotatorResult()

@@ -920,14 +920,16 @@ class ARIScanner(object):
                             do_save=self.do_save,
                             silent=True,
                         )
+                        ext_target_path = os.path.join(self.root_dir, ext_path)
                         # use prepared dep dirs
                         dep_scanner.evaluate(
                             type=ext_type,
                             name=ext_name,
                             version=ext_ver,
                             hash=ext_hash,
-                            target_path=ext_path,
+                            target_path=ext_target_path,
                             dependency_dir=scandata.dependency_dir,
+                            install_dependencies=False,
                             skip_dependency=True,
                             source_repository=scandata.source_repository,
                             include_test_contents=include_test_contents,
