@@ -1998,6 +1998,7 @@ class ModuleMetadata(object):
     name: str = ""
     version: str = ""
     hash: str = ""
+    deprecated: bool = False
 
     @staticmethod
     def from_module(m: Module, metadata: dict):
@@ -2021,6 +2022,7 @@ class ModuleMetadata(object):
         mm.name = metadata.get("name", "")
         mm.version = metadata.get("version", "")
         mm.hash = metadata.get("hash", "")
+        mm.deprecated = True
         return mm
 
     @staticmethod
