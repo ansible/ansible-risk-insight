@@ -756,7 +756,8 @@ class ARIScanner(object):
             self.rules_dir = self.config.rules_dir
         if not self.rules:
             self.rules = self.config.rules
-        self.ram_client = RAMClient(root_dir=self.root_dir)
+        if not self.ram_client:
+            self.ram_client = RAMClient(root_dir=self.root_dir)
         self._parser = Parser(
             do_save=self.do_save,
             use_ansible_doc=self.use_ansible_doc,
