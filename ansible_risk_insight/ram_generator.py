@@ -18,7 +18,9 @@ import traceback
 import joblib
 import os
 import json
+import time
 import datetime
+import threading
 
 from .scanner import ARIScanner, config
 
@@ -27,6 +29,8 @@ class RiskAssessmentModelGenerator(object):
     _queue: list = []
     _resume: int = -1
     _update: bool = False
+
+    start: float = None
 
     def __init__(
         self,
@@ -86,6 +90,8 @@ class RiskAssessmentModelGenerator(object):
             _type, _name = target_info
             input_list.append((i, num, _type, _name))
 
+        self.start = time.time()
+
         if self._parallel:
             joblib.Parallel(n_jobs=-1)(joblib.delayed(self.scan)(i, num, _type, _name) for (i, num, _type, _name) in input_list)
         else:
@@ -93,7 +99,10 @@ class RiskAssessmentModelGenerator(object):
                 self.scan(i, num, _type, _name)
 
     def scan(self, i, num, type, name):
-        print(f"[{i+1}/{num}] {type} {name}")
+        elapsed = round(time.time() - self.start, 2)
+        start_of_this_scan = time.time()
+        thread_id = threading.get_native_id()
+        print(f"[{i+1}/{num}] start {type} {name} ({elapsed} sec. elapsed) (thread: {thread_id})")
         use_src_cache = True
 
         if self.skip_scan(type, name):
@@ -121,6 +130,10 @@ class RiskAssessmentModelGenerator(object):
             self._scanner.save_error(error)
             fail = True
         self.save_ram_log(type, name, fail)
+
+        elapsed_for_this_scan = round(time.time() - start_of_this_scan, 2)
+        if elapsed_for_this_scan > 60:
+            print(f"WARNING: It took {elapsed_for_this_scan} sec. to process [{i+1}/{num}] {type} {name}")
 
     def save_ram_log(self, type, name, fail):
         out_dir = os.path.join(self._scanner.root_dir, "log", type, name)
