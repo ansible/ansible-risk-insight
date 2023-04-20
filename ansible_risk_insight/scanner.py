@@ -211,6 +211,7 @@ class SingleScan(object):
     root_dir: str = ""
     rules_dir: str = ""
     rules: list = field(default_factory=list)
+    rules_cache: list = field(default_factory=list)
     persist_dependency_cache: bool = False
     spec_mutations_from_previous_scan: dict = field(default_factory=dict)
     spec_mutations: dict = field(default_factory=dict)
@@ -627,7 +628,8 @@ class SingleScan(object):
             target_name = self.collection_name
         if self.role_name:
             target_name = self.role_name
-        data_report = detect(self.contexts, rules_dir=self.rules_dir, rules=self.rules)
+        data_report, rules_cache = detect(self.contexts, rules_dir=self.rules_dir, rules=self.rules, rules_cache=self.rules_cache)
+        self.rules_cache = rules_cache
         spec_mutations = data_report.get("spec_mutations", {})
         if spec_mutations:
             self.spec_mutations = spec_mutations
@@ -723,6 +725,7 @@ class ARIScanner(object):
     root_dir: str = ""
     rules_dir: str = ""
     rules: list = field(default_factory=list)
+    rules_cache: list = field(default_factory=list)
 
     ram_client: RAMClient = None
     read_ram: bool = True
@@ -833,6 +836,7 @@ class ARIScanner(object):
             root_dir=self.root_dir,
             rules_dir=self.rules_dir,
             rules=self.rules,
+            rules_cache=self.rules_cache,
             persist_dependency_cache=self.persist_dependency_cache,
             spec_mutations_from_previous_scan=spec_mutations_from_previous_scan,
             use_ansible_doc=self.use_ansible_doc,
@@ -1016,6 +1020,9 @@ class ARIScanner(object):
         self.record_end(time_records, "apply_rules")
         if not self.silent:
             logger.debug("apply_rules() done")
+
+        if scandata.rules_cache:
+            self.rules_cache = scandata.rules_cache
 
         scandata.add_time_records(time_records=time_records)
 
