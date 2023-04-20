@@ -586,13 +586,7 @@ class TreeLoader(object):
         return None
 
     def add_builtin_modules(self):
-        builtin_module_dict = {}
-        if self.ram_client and self.ram_client.builtin_modules_cache:
-            builtin_module_dict = self.ram_client.builtin_modules_cache
-        else:
-            builtin_module_dict = load_builtin_modules()
-            if self.ram_client:
-                self.ram_client.builtin_modules_cache = builtin_module_dict
+        builtin_module_dict = load_builtin_modules()
         builtin_modules = list(builtin_module_dict.values())
         obj_list = ObjectList(items=builtin_modules)
         self.ext_definitions["modules"].merge(obj_list)
