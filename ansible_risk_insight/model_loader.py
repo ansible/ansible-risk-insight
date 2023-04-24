@@ -305,6 +305,7 @@ def load_play(
     post_tasks = []
     tasks = []
     roles = []
+    variables = {}
     play_options = {}
     import_module = ""
     import_playbook = ""
@@ -446,6 +447,10 @@ def load_play(
                     roles.append(rip)
                 except Exception:
                     logger.exception("error while loading the role in playbook at {}" " (play_index={}, role_index={})".format(path, pbObj.index, i))
+        elif k == "vars":
+            if not isinstance(v, dict):
+                continue
+            variables = v
         elif k == "import_playbook":
             if not isinstance(v, str):
                 continue
@@ -467,6 +472,7 @@ def load_play(
     pbObj.tasks = tasks
     pbObj.post_tasks = post_tasks
     pbObj.roles = roles
+    pbObj.variables = variables
     pbObj.options = play_options
     pbObj.become = BecomeInfo.from_options(play_options)
     pbObj.collections_in_play = collections_in_play
