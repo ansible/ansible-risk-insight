@@ -1362,7 +1362,6 @@ def load_taskfile(path, yaml_str="", role_name="", collection_name="", basedir="
         return tfObj
     tasks = []
     for i, t_dict in enumerate(task_dicts):
-        print("[DEBUG] t_dict:", t_dict)
         try:
             t = load_task(
                 fullpath,
