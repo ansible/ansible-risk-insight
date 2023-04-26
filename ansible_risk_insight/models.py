@@ -280,6 +280,7 @@ class RunTargetList(object):
 class ModuleArgument(object):
     name: str = ""
     type: str = None
+    elements: str = None
     default: any = None
     required: bool = False
     description: str = ""
@@ -1049,6 +1050,7 @@ class Task(Object, Resolvable):
     collection: str = ""
     become: BecomeInfo = None
     variables: dict = field(default_factory=dict)
+    module_defaults: dict = field(default_factory=dict)
     registered_variables: dict = field(default_factory=dict)
     set_facts: dict = field(default_factory=dict)
     loop: dict = field(default_factory=dict)
@@ -1454,6 +1456,7 @@ class TaskCall(CallObject, RunTarget):
     variable_set: dict = field(default_factory=dict)
     variable_use: dict = field(default_factory=dict)
     become: BecomeInfo = None
+    module_defaults: dict = field(default_factory=dict)
 
     module: Module = None
     content: MutableContent = None
@@ -1672,6 +1675,7 @@ class TaskFile(Object, Resolvable):
     annotations: dict = field(default_factory=dict)
 
     variables: dict = field(default_factory=dict)
+    module_defaults: dict = field(default_factory=dict)
     options: dict = field(default_factory=dict)
 
     def set_key(self):
@@ -1792,6 +1796,7 @@ class Play(Object, Resolvable):
     post_tasks: list = field(default_factory=list)
     # not actual Role, but RoleInPlay defined in this playbook
     roles: list = field(default_factory=list)
+    module_defaults: dict = field(default_factory=dict)
     options: dict = field(default_factory=dict)
     collections_in_play: list = field(default_factory=list)
     become: BecomeInfo = None

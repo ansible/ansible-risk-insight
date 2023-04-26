@@ -175,6 +175,7 @@ class Context:
     task_vars: list = field(default_factory=list)
 
     become: BecomeInfo = None
+    module_defaults: dict = field(default_factory=dict)
 
     var_set_history: dict = field(default_factory=dict)
     var_use_history: dict = field(default_factory=dict)
@@ -207,6 +208,8 @@ class Context:
                 self.var_set_history[key] = current
             if _spec.become:
                 self.become = _spec.become
+            if _spec.module_defaults:
+                self.module_defaults = _spec.module_defaults
         elif isinstance(_spec, Role):
             self.variables.update(_spec.default_variables)
             self.update_flat_vars(_spec.default_variables)
@@ -255,6 +258,8 @@ class Context:
                 self.var_set_history[key] = current
             if _spec.become:
                 self.become = _spec.become
+            if _spec.module_defaults:
+                self.module_defaults = _spec.module_defaults
         else:
             # Module
             return

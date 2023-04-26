@@ -70,23 +70,30 @@ class ModuleArgumentValueValidationRule(Rule):
                     wrong_val = False
                     unknown_type_val = False
                     if spec.type:
+                        actual_type = ""
                         if not isinstance(raw_value, str) or "{{" not in raw_value:
-                            if type(raw_value).__name__ != spec.type:
+                            actual_type = type(raw_value).__name__
+                        else:
+                            if isinstance(resolved_value, str) and "{{" in resolved_value:
+                                pass
+                            else:
+                                actual_type = type(resolved_value).__name__
+
+                        if actual_type:
+                            type_wrong = actual_type != spec.type
+                            elements_type_wrong = actual_type != spec.elements
+                            no_elements = False
+                            if not spec.elements:
+                                no_elements = True
+                            if type_wrong and (elements_type_wrong or no_elements):
                                 d["expected_type"] = spec.type
-                                d["actual_type"] = type(raw_value).__name__
+                                d["actual_type"] = actual_type
                                 d["actual_value"] = raw_value
                                 wrong_val = True
                         else:
-                            if isinstance(resolved_value, str) and "{{" in resolved_value:
-                                d["expected_type"] = spec.type
-                                d["unknown_type_value"] = resolved_value
-                                unknown_type_val = True
-                            else:
-                                if type(resolved_value).__name__ != spec.type:
-                                    d["expected_type"] = spec.type
-                                    d["actual_type"] = type(raw_value).__name__
-                                    d["actual_value"] = raw_value
-                                    wrong_val = True
+                            d["expected_type"] = spec.type
+                            d["unknown_type_value"] = resolved_value
+                            unknown_type_val = True
 
                     if wrong_val:
                         wrong_values.append(d)
