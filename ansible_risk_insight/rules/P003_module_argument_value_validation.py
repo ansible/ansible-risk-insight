@@ -108,12 +108,12 @@ class ModuleArgumentValueValidationRule(Rule):
 
                         if actual_type:
                             type_wrong = False
-                            if actual_type != spec.type:
+                            if spec.type != "any" and actual_type != spec.type:
                                 type_wrong = True
                             elements_type_wrong = False
                             no_elements = False
                             if spec.elements:
-                                if actual_type != spec.elements:
+                                if spec.elements != "any" and actual_type != spec.elements:
                                     elements_type_wrong = True
                             else:
                                 no_elements = True
