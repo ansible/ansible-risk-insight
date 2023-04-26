@@ -28,6 +28,22 @@ from ansible_risk_insight.models import (
 )
 
 
+def is_loop_var(value, task):
+    # `item` and alternative loop variable (if any) should not be replaced to avoid breaking loop
+    skip_variables = ["item"]
+    if task.spec.loop and isinstance(task.spec.loop, dict):
+        skip_variables.extend(list(task.spec.loop.keys()))
+
+    _v = value.replace(" ", "")
+
+    for var in skip_variables:
+        for _prefix in ["}}", "|", "."]:
+            pattern = "{{" + var + _prefix
+            if pattern in _v:
+                return True
+    return False
+
+
 @dataclass
 class ModuleArgumentValueValidationRule(Rule):
     rule_id: str = "P003"
@@ -70,23 +86,46 @@ class ModuleArgumentValueValidationRule(Rule):
                     wrong_val = False
                     unknown_type_val = False
                     if spec.type:
+                        actual_type = ""
+                        # if the raw_value is not a variable
                         if not isinstance(raw_value, str) or "{{" not in raw_value:
-                            if type(raw_value).__name__ != spec.type:
+                            actual_type = type(raw_value).__name__
+                        else:
+                            # otherwise, check the resolved value
+                            # if the variable could not be resovled successfully
+                            if isinstance(resolved_value, str) and "{{" in resolved_value:
+                                pass
+                            elif is_loop_var(raw_value, task):
+                                # if the variable is loop var, use the element type as actual type
+                                resolved_element = None
+                                if resolved_value:
+                                    resolved_element = resolved_value[0]
+                                if resolved_element:
+                                    actual_type = type(resolved_element).__name__
+                            else:
+                                # otherwise, use the resolved value type as actual type
+                                actual_type = type(resolved_value).__name__
+
+                        if actual_type:
+                            type_wrong = False
+                            if spec.type != "any" and actual_type != spec.type:
+                                type_wrong = True
+                            elements_type_wrong = False
+                            no_elements = False
+                            if spec.elements:
+                                if spec.elements != "any" and actual_type != spec.elements:
+                                    elements_type_wrong = True
+                            else:
+                                no_elements = True
+                            if type_wrong and (elements_type_wrong or no_elements):
                                 d["expected_type"] = spec.type
-                                d["actual_type"] = type(raw_value).__name__
+                                d["actual_type"] = actual_type
                                 d["actual_value"] = raw_value
                                 wrong_val = True
                         else:
-                            if isinstance(resolved_value, str) and "{{" in resolved_value:
-                                d["expected_type"] = spec.type
-                                d["unknown_type_value"] = resolved_value
-                                unknown_type_val = True
-                            else:
-                                if type(resolved_value).__name__ != spec.type:
-                                    d["expected_type"] = spec.type
-                                    d["actual_type"] = type(raw_value).__name__
-                                    d["actual_value"] = raw_value
-                                    wrong_val = True
+                            d["expected_type"] = spec.type
+                            d["unknown_type_value"] = resolved_value
+                            unknown_type_val = True
 
                     if wrong_val:
                         wrong_values.append(d)

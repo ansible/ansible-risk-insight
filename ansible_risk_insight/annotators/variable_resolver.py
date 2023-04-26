@@ -106,6 +106,7 @@ class VariableAnnotator(Annotator):
         if self.context.var_use_history:
             taskcall.variable_use = self.context.var_use_history.copy()
         taskcall.become = self.context.become
+        taskcall.module_defaults = self.context.module_defaults
 
         return VariableAnnotatorResult()
 

@@ -136,16 +136,27 @@ def get_task_blocks(fpath="", yaml_str="", task_dict_list=None):
 #         - some_module2
 #         - some_module3
 #
-def flatten_block_tasks(task_dict):
+def flatten_block_tasks(task_dict, module_defaults={}):
     if task_dict is None:
         return []
     tasks = []
+
+    # check module_defaults
+    # if found, insert this to tasks under the block
+    _module_defaults = {}
+    if module_defaults and isinstance(module_defaults, dict):
+        _module_defaults = module_defaults
+    if "module_defaults" in task_dict:
+        new_module_defaults = task_dict.get("module_defaults", {})
+        if new_module_defaults and isinstance(new_module_defaults, dict):
+            _module_defaults.update(new_module_defaults)
+
     # load normal tasks first
     if "block" in task_dict:
         tasks_in_block = task_dict.get("block", [])
         if isinstance(tasks_in_block, list):
             for t_dict in tasks_in_block:
-                tasks_in_item = flatten_block_tasks(t_dict)
+                tasks_in_item = flatten_block_tasks(t_dict, _module_defaults)
                 tasks.extend(tasks_in_item)
         else:
             tasks = [task_dict]
@@ -157,7 +168,7 @@ def flatten_block_tasks(task_dict):
         tasks_in_rescue = task_dict.get("rescue", [])
         if isinstance(tasks_in_rescue, list):
             for t_dict in tasks_in_rescue:
-                tasks_in_item = flatten_block_tasks(t_dict)
+                tasks_in_item = flatten_block_tasks(t_dict, _module_defaults)
                 tasks.extend(tasks_in_item)
 
     # finally add "always" block
@@ -165,8 +176,12 @@ def flatten_block_tasks(task_dict):
         tasks_in_always = task_dict.get("always", [])
         if isinstance(tasks_in_always, list):
             for t_dict in tasks_in_always:
-                tasks_in_item = flatten_block_tasks(t_dict)
+                tasks_in_item = flatten_block_tasks(t_dict, _module_defaults)
                 tasks.extend(tasks_in_item)
+
+    if _module_defaults:
+        for i in range(len(tasks)):
+            tasks[i]["module_defaults"] = _module_defaults
 
     return tasks
 
