@@ -46,6 +46,20 @@ class ModuleArgumentKeyValidationRule(Rule):
         if task.spec.executable_type == ExecutableType.MODULE_TYPE and task.module and task.module.arguments:
 
             mo = task.spec.module_options
+            module_fqcn = task.get_annotation(key="module.correct_fqcn")
+            module_short = ""
+            if module_fqcn:
+                parts = module_fqcn.split(".")
+                if len(parts) <= 2:
+                    module_short = module_fqcn.split(".")[-1]
+                elif len(parts) > 2:
+                    module_short = ".".join(module_fqcn.split(".")[2:])
+            default_args = {}
+            if module_short and module_short in task.module_defaults:
+                default_args = task.module_defaults[module_short]
+            elif module_fqcn and module_fqcn in task.module_defaults:
+                default_args = task.module_defaults[module_fqcn]
+
             used_keys = []
             if isinstance(mo, dict):
                 used_keys = list(mo.keys())
@@ -71,10 +85,15 @@ class ModuleArgumentKeyValidationRule(Rule):
                 aliases = k.get("aliases", [])
                 if name in used_keys:
                     continue
+                if name in default_args:
+                    continue
                 if aliases:
                     found = False
                     for a_k in aliases:
                         if a_k in used_keys:
+                            found = True
+                            break
+                        if a_k in default_args:
                             found = True
                             break
                     if found:

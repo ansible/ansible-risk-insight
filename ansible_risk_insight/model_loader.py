@@ -306,6 +306,7 @@ def load_play(
     tasks = []
     roles = []
     variables = {}
+    module_defaults = {}
     play_options = {}
     import_module = ""
     import_playbook = ""
@@ -451,6 +452,10 @@ def load_play(
             if not isinstance(v, dict):
                 continue
             variables = v
+        elif k == "module_defaults":
+            if not isinstance(v, dict):
+                continue
+            module_defaults = v
         elif k == "import_playbook":
             if not isinstance(v, str):
                 continue
@@ -473,6 +478,7 @@ def load_play(
     pbObj.post_tasks = post_tasks
     pbObj.roles = roles
     pbObj.variables = variables
+    pbObj.module_defaults = module_defaults
     pbObj.options = play_options
     pbObj.become = BecomeInfo.from_options(play_options)
     pbObj.collections_in_play = collections_in_play
@@ -1063,6 +1069,11 @@ def load_module(module_file_path, collection_name="", role_name="", basedir="", 
                 arg_value_type_str = ""
                 if arg_value_type:
                     arg_value_type_str = arg_value_type.__name__
+
+                arg_elements_type = get_class_by_arg_type(arg_spec.get("elements", None))
+                arg_elements_type_str = ""
+                if arg_elements_type:
+                    arg_elements_type_str = arg_elements_type.__name__
                 required = None
                 try:
                     required = boolean(arg_spec.get("required", "false"))
@@ -1071,6 +1082,7 @@ def load_module(module_file_path, collection_name="", role_name="", basedir="", 
                 arg = ModuleArgument(
                     name=arg_name,
                     type=arg_value_type_str,
+                    elements=arg_elements_type_str,
                     required=required,
                     description=arg_spec.get("description", ""),
                     default=arg_spec.get("default", None),
@@ -1270,6 +1282,15 @@ def load_task(
         if vars_in_task is not None and isinstance(vars_in_task, dict):
             variables.update(vars_in_task)
 
+    module_defaults = {}
+    # get module_defaults in the task
+    # NOTE: if module_defaults is defined in the parent block, get_task_blocks()
+    #       automatically embed it to the task's module_defaults)
+    if "module_defaults" in task_options:
+        m_default_in_task = task_options.get("module_defaults", {})
+        if m_default_in_task and isinstance(m_default_in_task, dict):
+            module_defaults.update(m_default_in_task)
+
     set_facts = {}
     # if the Task is set_fact, set variables too
     if module_short_name == "set_fact":
@@ -1293,6 +1314,7 @@ def load_task(
     taskObj.options = task_options
     taskObj.become = BecomeInfo.from_options(task_options)
     taskObj.variables = variables
+    taskObj.module_defaults = module_defaults
     taskObj.registered_variables = registered_variables
     taskObj.set_facts = set_facts
     taskObj.loop = loop_info
