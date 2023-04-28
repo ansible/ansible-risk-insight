@@ -23,6 +23,7 @@ from ansible_risk_insight.models import (
     Severity,
     RuleTag as Tag,
     ExecutableType,
+    ActionGroupMetadata,
 )
 
 
@@ -59,6 +60,31 @@ class ModuleArgumentKeyValidationRule(Rule):
                 default_args = task.module_defaults[module_short]
             elif module_fqcn and module_fqcn in task.module_defaults:
                 default_args = task.module_defaults[module_fqcn]
+            elif ctx.ram_client:
+                for group_name in task.module_defaults:
+                    tmp_args = task.module_defaults[group_name]
+                    found = False
+                    if not group_name.startswith("group/"):
+                        continue
+                    groups = ctx.ram_client.search_action_group(group_name)
+                    if not groups:
+                        continue
+                    for group_dict in groups:
+                        if not group_dict:
+                            continue
+                        if not isinstance(group_dict, dict):
+                            continue
+                        group = ActionGroupMetadata.from_dict(group_dict)
+                        if module_short and module_short in group.group_modules:
+                            found = True
+                            default_args = tmp_args
+                            break
+                        elif module_fqcn and module_fqcn in group.group_modules:
+                            found = True
+                            default_args = tmp_args
+                            break
+                    if found:
+                        break
 
             used_keys = []
             if isinstance(mo, dict):
@@ -118,6 +144,7 @@ class ModuleArgumentKeyValidationRule(Rule):
             task.set_annotation("module.required_arg_keys", required_keys, rule_id=self.rule_id)
             task.set_annotation("module.missing_required_arg_keys", missing_required_keys, rule_id=self.rule_id)
             task.set_annotation("module.available_args", available_args, rule_id=self.rule_id)
+            task.set_annotation("module.default_args", default_args, rule_id=self.rule_id)
             task.set_annotation("module.used_alias_and_real_keys", used_alias_and_real_keys, rule_id=self.rule_id)
 
         # TODO: find duplicate keys

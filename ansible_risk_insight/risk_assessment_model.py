@@ -31,6 +31,7 @@ from .models import (
     RoleMetadata,
     TaskFile,
     TaskFileMetadata,
+    ActionGroupMetadata,
 )
 from .findings import Findings
 from .utils import (
@@ -49,6 +50,7 @@ from .model_loader import load_builtin_modules
 module_index_name = "module_index.json"
 role_index_name = "role_index.json"
 taskfile_index_name = "taskfile_index.json"
+action_group_index_name = "action_group_index.json"
 
 
 @dataclass
@@ -71,6 +73,9 @@ class RAMClient(object):
     role_index: dict = field(default_factory=dict)
     taskfile_index: dict = field(default_factory=dict)
 
+    # used for grouped module_defaults such as `group/aws`
+    action_group_index: dict = field(default_factory=dict)
+
     max_cache_size: int = 200
 
     def __post_init__(self):
@@ -88,6 +93,11 @@ class RAMClient(object):
         if os.path.exists(taskfile_index_path):
             with open(taskfile_index_path, "r") as file:
                 self.taskfile_index = json.load(file)
+
+        action_group_index_path = os.path.join(self.root_dir, "indices", action_group_index_name)
+        if os.path.exists(action_group_index_path):
+            with open(action_group_index_path, "r") as file:
+                self.action_group_index = json.load(file)
 
     def clear_old_cache(self):
         size = self.max_cache_size
@@ -125,6 +135,7 @@ class RAMClient(object):
         self.register_module_index_to_ram(findings=findings, include_test_contents=include_test_contents)
         self.register_role_index_to_ram(findings=findings, include_test_contents=include_test_contents)
         self.register_taskfile_index_to_ram(findings=findings, include_test_contents=include_test_contents)
+        self.register_action_group_index_to_ram(findings=findings)
 
     def register_module_index_to_ram(self, findings: Findings, include_test_contents: bool = False):
         new_data_found = False
@@ -182,13 +193,11 @@ class RAMClient(object):
             self.save_module_index(modules)
         return
 
-    def register_role_index_to_ram(self, findings: Findings, include_test_contents: bool = False):
+    def register_role_index_to_ram(self, findings: Findings):
         new_data_found = False
         roles = self.load_role_index()
         for role in findings.root_definitions.get("definitions", {}).get("roles", []):
             if not isinstance(role, Role):
-                continue
-            if include_test_contents and is_test_object(role.defined_in):
                 continue
             r_meta = RoleMetadata.from_role(role, findings.metadata)
             current = roles.get(r_meta.fqcn, [])
@@ -240,6 +249,59 @@ class RAMClient(object):
             taskfiles.update({taskfile.key: current})
         if new_data_found:
             self.save_taskfile_index(taskfiles)
+        return
+
+    def register_action_group_index_to_ram(self, findings: Findings, include_test_contents: bool = False):
+        new_data_found = False
+        action_groups = self.load_action_group_index()
+
+        for collection in findings.root_definitions.get("definitions", {}).get("collections", []):
+            if not isinstance(collection, Collection):
+                continue
+            if collection.meta_runtime and isinstance(collection.meta_runtime, dict):
+                for group_name, group_modules in collection.meta_runtime.get("action_groups", {}).items():
+                    short_group_name = f"group/{group_name}"
+                    fq_group_name = f"group/{collection.name}.{group_name}"
+
+                    agm1 = ActionGroupMetadata.from_action_group(short_group_name, group_modules, findings.metadata)
+                    current1 = action_groups.get(short_group_name, [])
+                    exists = False
+                    for ag_dict in current1:
+                        ag = None
+                        if isinstance(ag_dict, dict):
+                            ag = ActionGroupMetadata.from_dict(ag_dict)
+                        elif isinstance(ag_dict, ActionGroupMetadata):
+                            ag = ag_dict
+                        if not ag:
+                            continue
+                        if ag == agm1:
+                            exists = True
+                            break
+                    if not exists:
+                        current1.append(agm1)
+                        new_data_found = True
+                    action_groups.update({short_group_name: current1})
+
+                    agm2 = ActionGroupMetadata.from_action_group(fq_group_name, group_modules, findings.metadata)
+                    current2 = action_groups.get(fq_group_name, [])
+                    exists = False
+                    for ag_dict in current2:
+                        ag = None
+                        if isinstance(ag_dict, dict):
+                            ag = ActionGroupMetadata.from_dict(ag_dict)
+                        elif isinstance(ag_dict, ActionGroupMetadata):
+                            ag = ag_dict
+                        if not ag:
+                            continue
+                        if ag == agm2:
+                            exists = True
+                            break
+                    if not exists:
+                        current2.append(agm2)
+                        new_data_found = True
+                    action_groups.update({fq_group_name: current2})
+        if new_data_found:
+            self.save_action_group_index(action_groups)
         return
 
     def make_findings_dir_path(self, type, name, version, hash):
@@ -731,6 +793,18 @@ class RAMClient(object):
         self.task_search_cache[args_str] = matched_tasks
         return matched_tasks
 
+    def search_action_group(self, name, max_match=-1):
+        if max_match == 0:
+            return []
+
+        found_groups = []
+        if name in self.action_group_index and self.action_group_index[name]:
+            found_groups = self.action_group_index[name]
+
+        if max_match > 0 and len(found_groups) > max_match:
+            found_groups = found_groups[:max_match]
+        return found_groups
+
     def get_object_by_key(self, obj_key: str):
         obj_info = get_obj_info_by_key(obj_key)
         obj_type = obj_info.get("type", "")
@@ -891,6 +965,12 @@ class RAMClient(object):
 
     def load_taskfile_index(self):
         return self.load_index(taskfile_index_name)
+
+    def save_action_group_index(self, action_groups):
+        return self.save_index(action_groups, action_group_index_name)
+
+    def load_action_group_index(self):
+        return self.load_index(action_group_index_name)
 
     def save_error(self, error: str, out_dir: str):
         if out_dir == "":
