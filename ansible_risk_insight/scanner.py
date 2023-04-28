@@ -586,13 +586,13 @@ class SingleScan(object):
                     logger.info("  tree file saved")
         return
 
-    def resolve_variables(self):
+    def resolve_variables(self, ram_client=None):
         taskcalls_in_trees = resolve(self.trees, self.additional)
         self.taskcalls_in_trees = taskcalls_in_trees
 
         for i, tree in enumerate(self.trees):
             last_item = i + 1 == len(self.trees)
-            ctx = AnsibleRunContext.from_tree(tree=tree, parent=self.target_object, last_item=last_item)
+            ctx = AnsibleRunContext.from_tree(tree=tree, parent=self.target_object, last_item=last_item, ram_client=ram_client)
             self.contexts.append(ctx)
 
         if self.do_save:
@@ -1004,16 +1004,16 @@ class ARIScanner(object):
             logger.debug("construct_trees() done")
 
         self.record_begin(time_records, "variable_resolution")
-        scandata.resolve_variables()
+        scandata.resolve_variables(_ram_client)
         self.record_end(time_records, "variable_resolution")
         if not self.silent:
             logger.debug("resolve_variables() done")
 
         self.record_begin(time_records, "module_annotators")
         scandata.annotate()
+        self.record_end(time_records, "module_annotators")
         if not self.silent:
             logger.debug("annotate() done")
-        self.record_end(time_records, "module_annotators")
 
         self.record_begin(time_records, "apply_rules")
         scandata.apply_rules()

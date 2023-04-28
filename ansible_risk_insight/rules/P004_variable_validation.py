@@ -27,6 +27,22 @@ from ansible_risk_insight.models import (
 )
 
 
+def is_loop_var(value, task):
+    # `item` or alternative loop variable (if any) should not be replaced to avoid breaking loop
+    skip_variables = []
+    if task.spec.loop and isinstance(task.spec.loop, dict):
+        skip_variables.extend(list(task.spec.loop.keys()))
+
+    _v = value.replace(" ", "")
+
+    for var in skip_variables:
+        for _prefix in ["}}", "|", "."]:
+            pattern = "{{" + var + _prefix
+            if pattern in _v:
+                return True
+    return False
+
+
 @dataclass
 class VariableValidationRule(Rule):
     rule_id: str = "P004"
@@ -58,7 +74,8 @@ class VariableValidationRule(Rule):
                 if v_name not in unknown_name_vars and v_name not in task_arg_keys:
                     unknown_name_vars.append(v_name)
                 if v_name not in unnecessary_loop:
-                    if v_name.startswith("item."):
+                    v_str = "{{ " + v_name + " }}"
+                    if not is_loop_var(v_str, task):
                         unnecessary_loop.append({"name": v_name, "suggested": v_name.replace("item.", "")})
 
         task.set_annotation("variable.undefined_vars", undefined_variables, rule_id=self.rule_id)

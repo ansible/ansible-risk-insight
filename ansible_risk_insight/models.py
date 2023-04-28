@@ -1539,6 +1539,7 @@ class AnsibleRunContext(object):
     sequence: RunTargetList = field(default_factory=RunTargetList)
     root_key: str = ""
     parent: Object = None
+    ram_client: any = None
 
     # used by rule check
     current: RunTarget = None
@@ -1571,7 +1572,7 @@ class AnsibleRunContext(object):
         return self.sequence[i]
 
     @staticmethod
-    def from_tree(tree: ObjectList, parent: Object = None, last_item: bool = False):
+    def from_tree(tree: ObjectList, parent: Object = None, last_item: bool = False, ram_client=None):
         if not tree:
             return AnsibleRunContext(parent=parent, last_item=last_item)
         if len(tree.items) == 0:
@@ -1584,15 +1585,15 @@ class AnsibleRunContext(object):
                 continue
             sequence_items.append(item)
         tl = RunTargetList(items=sequence_items)
-        return AnsibleRunContext(sequence=tl, root_key=root_key, parent=parent, last_item=last_item)
+        return AnsibleRunContext(sequence=tl, root_key=root_key, parent=parent, last_item=last_item, ram_client=ram_client)
 
     @staticmethod
-    def from_targets(targets: List[RunTarget], root_key: str = "", parent: Object = None, last_item: bool = False):
+    def from_targets(targets: List[RunTarget], root_key: str = "", parent: Object = None, last_item: bool = False, ram_client=None):
         if not root_key:
             if len(targets) > 0:
                 root_key = targets[0].spec.key
         tl = RunTargetList(items=targets)
-        return AnsibleRunContext(sequence=tl, root_key=root_key, parent=parent, last_item=last_item)
+        return AnsibleRunContext(sequence=tl, root_key=root_key, parent=parent, last_item=last_item, ram_client=ram_client)
 
     def find(self, target: RunTarget):
         for t in self.sequence:
@@ -1606,11 +1607,15 @@ class AnsibleRunContext(object):
             if rt.key == target.key:
                 break
             targets.append(rt)
-        return AnsibleRunContext.from_targets(targets, root_key=self.root_key, parent=self.parent, last_item=self.last_item)
+        return AnsibleRunContext.from_targets(
+            targets, root_key=self.root_key, parent=self.parent, last_item=self.last_item, ram_client=self.ram_client
+        )
 
     def search(self, cond: AnnotationCondition):
         targets = [t for t in self.sequence if t.type == RunTargetType.Task and t.has_annotation_by_condition(cond)]
-        return AnsibleRunContext.from_targets(targets, root_key=self.root_key, parent=self.parent, last_item=self.last_item)
+        return AnsibleRunContext.from_targets(
+            targets, root_key=self.root_key, parent=self.parent, last_item=self.last_item, ram_client=self.ram_client
+        )
 
     def is_end(self, target: RunTarget):
         if len(self) == 0:
@@ -1631,7 +1636,9 @@ class AnsibleRunContext(object):
         return target.key == self.sequence[0].key
 
     def copy(self):
-        return AnsibleRunContext.from_targets(targets=self.sequence.items, root_key=self.root_key, parent=self.parent, last_item=self.last_item)
+        return AnsibleRunContext.from_targets(
+            targets=self.sequence.items, root_key=self.root_key, parent=self.parent, last_item=self.last_item, ram_client=self.ram_client
+        )
 
     @property
     def info(self):
@@ -2120,6 +2127,55 @@ class TaskFileMetadata(object):
         if not isinstance(tfm, TaskFileMetadata):
             return False
         return self.key == tfm.key and self.name == tfm.name and self.type == tfm.type and self.version == tfm.version and self.hash == tfm.hash
+
+
+@dataclass
+class ActionGroupMetadata(object):
+    group_name: str = ""
+    group_modules: list = field(default_factory=list)
+    type: str = ""
+    name: str = ""
+    version: str = ""
+    hash: str = ""
+
+    @staticmethod
+    def from_action_group(group_name: str, group_modules: list, metadata: dict):
+        if not group_name:
+            return None
+
+        if not group_modules:
+            return None
+
+        agm = ActionGroupMetadata()
+        agm.group_name = group_name
+        agm.group_modules = group_modules
+        agm.type = metadata.get("type", "")
+        agm.name = metadata.get("name", "")
+        agm.version = metadata.get("version", "")
+        agm.hash = metadata.get("hash", "")
+        return agm
+
+    @staticmethod
+    def from_dict(d: dict):
+        agm = ActionGroupMetadata()
+        agm.group_name = d.get("group_name", "")
+        agm.group_modules = d.get("group_modules", "")
+        agm.type = d.get("type", "")
+        agm.name = d.get("name", "")
+        agm.version = d.get("version", "")
+        agm.hash = d.get("hash", "")
+        return agm
+
+    def __eq__(self, agm):
+        if not isinstance(agm, ActionGroupMetadata):
+            return False
+        return (
+            self.group_name == agm.group_name
+            and self.name == agm.name
+            and self.type == agm.type
+            and self.version == agm.version
+            and self.hash == agm.hash
+        )
 
 
 # following ansible-lint severity levels
