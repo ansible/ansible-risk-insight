@@ -424,7 +424,8 @@ class RAMClient(object):
             for possible_index in self.module_index[short_name]:
                 if possible_index["fqcn"] == name:
                     found_index = possible_index
-            # if any candidates match, use the first index
+                    break
+            # if any candidates don't match with FQCN, use the first index
             if not found_index:
                 found_index = self.module_index[short_name][0]
 
