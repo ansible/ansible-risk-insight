@@ -420,7 +420,9 @@ class RAMClient(object):
         found_index = None
         if short_name in self.module_index and self.module_index[short_name]:
             from_indices = True
-            found_index = self.module_index[short_name][0]
+            for possible_index in self.module_index[short_name]:
+                if possible_index['fqcn'] == name:
+                    found_index = possible_index
 
         modules_json_list = []
         if from_indices:
