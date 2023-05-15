@@ -21,6 +21,7 @@ import requests
 import hashlib
 import yaml
 import json
+from filelock import FileLock
 from copy import deepcopy
 from tabulate import tabulate
 from inspect import isclass
@@ -29,32 +30,38 @@ from importlib.util import spec_from_file_location, module_from_spec
 import ansible_risk_insight.logger as logger
 
 
-try:
-    # Posix based file locking (Linux, Ubuntu, MacOS, etc.)
-    #   Only allows locking on writable files, might cause
-    #   strange results for reading.
-    import fcntl
+def lock_file(fpath, timeout=10):
+    if not fpath:
+        return
+    lockfile = get_lock_file_name(fpath)
+    lock = FileLock(lockfile, timeout=timeout)
+    lock.acquire()
+    return lock
 
-    def lock_file(f):
-        if f.writable():
-            fcntl.lockf(f, fcntl.LOCK_EX)
 
-    def unlock_file(f):
-        if f.writable():
-            fcntl.lockf(f, fcntl.LOCK_UN)
+def unlock_file(lock):
+    if not lock:
+        return
+    if not isinstance(lock, FileLock):
+        return
+    lock.release()
 
-except ModuleNotFoundError:
-    # Windows file locking
-    import msvcrt
 
-    def file_size(f):
-        return os.path.getsize(os.path.realpath(f.name))
+def remove_lock_file(lock):
+    if not lock:
+        return
+    if not isinstance(lock, FileLock):
+        return
+    lockfile = lock.lock_file
+    if not lockfile:
+        return
+    if not os.path.exists(lockfile):
+        return
+    os.remove(lockfile)
 
-    def lock_file(f):
-        msvcrt.locking(f.fileno(), msvcrt.LK_RLCK, file_size(f))
 
-    def unlock_file(f):
-        msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, file_size(f))
+def get_lock_file_name(fpath):
+    return fpath + ".lock"
 
 
 def install_galaxy_target(target, target_type, output_dir, source_repository="", target_version=""):
@@ -68,6 +75,7 @@ def install_galaxy_target(target, target_type, output_dir, source_repository="",
     proc = subprocess.run(
         "ansible-galaxy {} install {} {} -p {}".format(target_type, target_name, server_option, output_dir),
         shell=True,
+        stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -79,6 +87,7 @@ def install_github_target(target, output_dir):
     proc = subprocess.run(
         "git clone {} {}".format(target, output_dir),
         shell=True,
+        stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -555,7 +564,7 @@ def get_module_specs_by_ansible_doc(module_files: str, fqcn_prefix: str, search_
     cmd_args = [f"ansible-doc {fqcn_list_str} --json"]
     _env = os.environ.copy()
     _env["ANSIBLE_COLLECTIONS_PATH"] = search_path
-    proc = subprocess.run(cmd_args, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=_env)
+    proc = subprocess.run(args=cmd_args, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=_env)
     if proc.stderr and not proc.stdout:
         logger.debug(f"error while getting the documentation for modules `{fqcn_list_str}`: {proc.stderr}")
         return ""
