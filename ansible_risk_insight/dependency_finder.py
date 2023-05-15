@@ -213,6 +213,7 @@ def install_github_target(target, output_dir):
     proc = subprocess.run(
         "git clone {} {}".format(target, output_dir),
         shell=True,
+        stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,

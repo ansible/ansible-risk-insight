@@ -20,6 +20,7 @@ import jsonpickle
 from .utils import (
     lock_file,
     unlock_file,
+    remove_lock_file,
 )
 
 
@@ -53,10 +54,13 @@ class Findings:
         f.summary_txt = ""
         json_str = jsonpickle.encode(f, make_refs=False)
         if fpath:
-            with open(fpath, "w") as file:
-                lock_file(file)
-                file.write(json_str)
-                unlock_file(file)
+            lock = lock_file(fpath)
+            try:
+                with open(fpath, "w") as file:
+                    file.write(json_str)
+            finally:
+                unlock_file(lock)
+                remove_lock_file(lock)
         return json_str
 
     def save_rule_result(self, fpath=""):

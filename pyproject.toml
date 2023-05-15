@@ -23,6 +23,7 @@ dependencies = [
     "requests",
     "ansible",
     "ruamel.yaml",
+    "filelock",
 ]
 dynamic = ["version"]
 
