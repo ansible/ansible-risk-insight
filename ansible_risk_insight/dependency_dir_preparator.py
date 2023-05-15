@@ -540,6 +540,7 @@ class DependencyDirPreparator(object):
         proc = subprocess.run(
             "ansible-galaxy collection download '{}' {} -p {}".format(target_version, server_option, output_dir),
             shell=True,
+            stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -555,6 +556,7 @@ class DependencyDirPreparator(object):
         proc = subprocess.run(
             "ansible-galaxy collection download -r {} {} -p {}".format(requirements, server_option, output_dir),
             shell=True,
+            stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -568,6 +570,7 @@ class DependencyDirPreparator(object):
         proc = subprocess.run(
             "ansible-galaxy collection install {} -p {}".format(tarfile, output_dir),
             shell=True,
+            stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -589,6 +592,7 @@ class DependencyDirPreparator(object):
         proc = subprocess.run(
             "cd {} && ansible-galaxy collection install -r {} -p {}".format(src_dir, requirements, output_dir),
             shell=True,
+            stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -625,6 +629,7 @@ class DependencyDirPreparator(object):
         proc = subprocess.run(
             "ansible-galaxy role install -r {} -p {}".format(file, output_dir),
             shell=True,
+            stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -786,6 +791,7 @@ class DependencyDirPreparator(object):
         proc = subprocess.run(
             f"cp -r {src}/* {dst}/",
             shell=True,
+            stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,

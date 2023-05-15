@@ -41,6 +41,7 @@ from .utils import (
     is_test_object,
     lock_file,
     unlock_file,
+    remove_lock_file,
 )
 from .safe_glob import safe_glob
 from .keyutil import get_obj_info_by_key, make_imported_taskfile_key
@@ -193,11 +194,13 @@ class RAMClient(object):
             self.save_module_index(modules)
         return
 
-    def register_role_index_to_ram(self, findings: Findings):
+    def register_role_index_to_ram(self, findings: Findings, include_test_contents: bool = False):
         new_data_found = False
         roles = self.load_role_index()
         for role in findings.root_definitions.get("definitions", {}).get("roles", []):
             if not isinstance(role, Role):
+                continue
+            if include_test_contents and is_test_object(role.defined_in):
                 continue
             r_meta = RoleMetadata.from_role(role, findings.metadata)
             current = roles.get(r_meta.fqcn, [])
@@ -919,7 +922,6 @@ class RAMClient(object):
         return findings
 
     def load_findings(self, path: str):
-
         basename = os.path.basename(path)
         dir_path = path
         if basename == "findings.json":
@@ -942,10 +944,14 @@ class RAMClient(object):
         if not os.path.exists(out_dir):
             os.makedirs(out_dir, exist_ok=True)
         index_objects_str = jsonpickle.encode(index_objects, make_refs=False, unpicklable=False)
-        with open(os.path.join(out_dir, filename), "w") as file:
-            lock_file(file)
-            file.write(index_objects_str)
-            unlock_file(file)
+        fpath = os.path.join(out_dir, filename)
+        lock = lock_file(fpath)
+        try:
+            with open(fpath, "w") as file:
+                file.write(index_objects_str)
+        finally:
+            unlock_file(lock)
+            remove_lock_file(lock)
 
     def load_index(self, filename=""):
         path = os.path.join(self.root_dir, "indices", filename)
