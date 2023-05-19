@@ -52,6 +52,10 @@ class TaskFormatError(Exception):
     pass
 
 
+class FatalRuleResultError(Exception):
+    pass
+
+
 class JSONSerializable(object):
     def dump(self):
         return self.to_json()
@@ -1507,7 +1511,7 @@ class TaskCall(CallObject, RunTarget):
         if cond.type:
             _annotations = [an for an in _annotations if an.type == RiskAnnotation.type and an.risk_type == cond.type]
         if cond.attr_conditions:
-            for (key, val) in cond.attr_conditions:
+            for key, val in cond.attr_conditions:
                 _annotations = [an for an in _annotations if hasattr(an, key) and getattr(an, key) == val]
         if _annotations:
             return _annotations[0]
