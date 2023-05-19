@@ -22,7 +22,7 @@ from typing import List
 import time
 
 import ansible_risk_insight.logger as logger
-from .models import AnsibleRunContext, ARIResult, TargetResult, NodeResult, RuleResult, Rule, SpecMutation
+from .models import AnsibleRunContext, ARIResult, TargetResult, NodeResult, RuleResult, Rule, SpecMutation, FatalRuleResultError
 from .keyutil import detect_type, key_delimiter
 from .analyzer import load_taskcalls_in_trees
 from .utils import load_classes_in_dir
@@ -178,6 +178,7 @@ def detect(contexts: List[AnsibleRunContext], rules_dir: str = "", rules: list =
                     continue
                 start_time = time.time()
                 r_result = RuleResult(file=t.file_info(), rule=rule.get_metadata())
+                detail = {}
                 try:
                     matched = rule.match(ctx)
                     if matched:
@@ -186,14 +187,21 @@ def detect(contexts: List[AnsibleRunContext], rules_dir: str = "", rules: list =
                             r_result = tmp_result
                         r_result.matched = matched
                     r_result.duration = round((time.time() - start_time) * 1000, 6)
+                    detail = r_result.get_detail()
+                    fatal = detail.get("fatal", False)
+                    if fatal:
+                        error = r_result.error or "unknown error"
+                        error = f"ARI rule evaluation threw fatal exception: {error}"
+                        raise FatalRuleResultError(error)
                     if rule.spec_mutation:
-                        detail = r_result.get_detail()
                         if isinstance(detail, dict):
                             s_mutations = detail.get("spec_mutations", [])
                             for s_mutation in s_mutations:
                                 if not isinstance(s_mutation, SpecMutation):
                                     continue
                                 spec_mutations[s_mutation.key] = s_mutation
+                except FatalRuleResultError:
+                    raise
                 except Exception:
                     exc = traceback.format_exc()
                     r_result.error = f"failed to execute the rule `{rule.rule_id}`: {exc}"
