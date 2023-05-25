@@ -404,7 +404,9 @@ def init_builtin_modules():
 
 
 class TreeLoader(object):
-    def __init__(self, root_definitions, ext_definitions, ram_client=None, target_playbook_path=None, target_taskfile_path=None):
+    def __init__(
+        self, root_definitions, ext_definitions, ram_client=None, target_playbook_path=None, target_taskfile_path=None, load_all_taskfiles=False
+    ):
         self.ram_client: RAMClient = ram_client
 
         # use mappings just to get tree tops (playbook/role)
@@ -418,7 +420,12 @@ class TreeLoader(object):
             self.playbook_mappings = [p for p in self.playbook_mappings if p[0] == target_playbook_path]
             self.role_mappings = []
 
-        if target_taskfile_path:
+        # some taskfiles might not be included from `tasks/main.yml` of a role.
+        # ARI does not scan them by default, but it does when `load_all_taskfiles == True`
+        if load_all_taskfiles:
+            self.taskfile_mappings = self.load_and_mapping.taskfiles
+        # or, if the scan is for a single taskfile, ARI just scans it
+        elif target_taskfile_path:
             self.taskfile_mappings = self.load_and_mapping.taskfiles
             self.taskfile_mappings = [tf for tf in self.taskfile_mappings if tf[0] == target_taskfile_path]
             self.playbook_mappings = []
@@ -441,6 +448,7 @@ class TreeLoader(object):
         self.var_manager: VariableManager = VariableManager()
 
         self.target_playbook_path = target_playbook_path
+        self.load_all_taskfiles = load_all_taskfiles
 
         self.module_resolve_cache = {}
         self.role_resolve_cache = {}
@@ -468,19 +476,44 @@ class TreeLoader(object):
             p_defs = self.org_root_definitions.get("definitions", {}).get("projects", [])
             if len(p_defs) > 0:
                 additional_objects.add(p_defs[0])
+        covered_taskfiles = []
         for i, mapping in enumerate(self.playbook_mappings):
             logger.debug("[{}/{}] {}".format(i + 1, len(self.playbook_mappings), mapping[1]))
             playbook_key = mapping[1]
             tree_objects = self._recursive_get_calls(playbook_key)
             self.trees.append(tree_objects)
+
+            if self.load_all_taskfiles and tree_objects and tree_objects.items:
+                for call_obj in tree_objects.items:
+                    if not isinstance(call_obj, CallObject):
+                        continue
+                    spec_obj = call_obj.spec
+                    if isinstance(spec_obj, TaskFile):
+                        taskfile_key = spec_obj.key
+                        if taskfile_key not in covered_taskfiles:
+                            covered_taskfiles.append(taskfile_key)
+
         for i, mapping in enumerate(self.role_mappings):
             logger.debug("[{}/{}] {}".format(i + 1, len(self.role_mappings), mapping[1]))
             role_key = mapping[1]
             tree_objects = self._recursive_get_calls(role_key)
             self.trees.append(tree_objects)
+
+            if self.load_all_taskfiles and tree_objects and tree_objects.items:
+                for call_obj in tree_objects.items:
+                    if not isinstance(call_obj, CallObject):
+                        continue
+                    spec_obj = call_obj.spec
+                    if isinstance(spec_obj, TaskFile):
+                        taskfile_key = spec_obj.key
+                        if taskfile_key not in covered_taskfiles:
+                            covered_taskfiles.append(taskfile_key)
+
         for i, mapping in enumerate(self.taskfile_mappings):
             logger.debug("[{}/{}] {}".format(i + 1, len(self.taskfile_mappings), mapping[1]))
             taskfile_key = mapping[1]
+            if self.load_all_taskfiles and taskfile_key in covered_taskfiles:
+                continue
             tree_objects = self._recursive_get_calls(taskfile_key)
             self.trees.append(tree_objects)
         return self.trees, additional_objects

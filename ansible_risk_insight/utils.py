@@ -728,8 +728,7 @@ def recursive_copy_dict(src, dst):
 
     for k, sv in src.items():
         if isinstance(sv, dict):
-            if k not in dst:
-                dst[k] = {}
+            dst[k] = {}
             recursive_copy_dict(sv, dst[k])
         else:
             dst[k] = deepcopy(sv)
