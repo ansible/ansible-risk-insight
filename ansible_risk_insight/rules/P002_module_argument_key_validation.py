@@ -27,6 +27,10 @@ from ansible_risk_insight.models import (
 )
 
 
+def is_set_fact(module_fqcn):
+    return module_fqcn == "ansible.builtin.set_fact"
+
+
 @dataclass
 class ModuleArgumentKeyValidationRule(Rule):
     rule_id: str = "P002"
@@ -89,43 +93,48 @@ class ModuleArgumentKeyValidationRule(Rule):
             used_keys = []
             if isinstance(mo, dict):
                 used_keys = list(mo.keys())
+
             available_keys = []
             required_keys = []
             alias_reverse_map = {}
             available_args = None
-            if task.module:
-                for arg in task.module.arguments:
-                    available_keys.extend(arg.available_keys())
-                    if arg.required:
-                        aliases = arg.aliases if arg.aliases else []
-                        req_k = {"key": arg.name, "aliases": aliases}
-                        required_keys.append(req_k)
-                    if arg.aliases:
-                        for al in arg.aliases:
-                            alias_reverse_map[al] = arg.name
-                available_args = task.module.arguments
-            wrong_keys = [key for key in used_keys if key not in available_keys]
+            wrong_keys = []
             missing_required_keys = []
-            for k in required_keys:
-                name = k.get("key", "")
-                aliases = k.get("aliases", [])
-                if name in used_keys:
-                    continue
-                if name in default_args:
-                    continue
-                if aliases:
-                    found = False
-                    for a_k in aliases:
-                        if a_k in used_keys:
-                            found = True
-                            break
-                        if a_k in default_args:
-                            found = True
-                            break
-                    if found:
+            if not is_set_fact(module_fqcn):
+                if task.module:
+                    for arg in task.module.arguments:
+                        available_keys.extend(arg.available_keys())
+                        if arg.required:
+                            aliases = arg.aliases if arg.aliases else []
+                            req_k = {"key": arg.name, "aliases": aliases}
+                            required_keys.append(req_k)
+                        if arg.aliases:
+                            for al in arg.aliases:
+                                alias_reverse_map[al] = arg.name
+                    available_args = task.module.arguments
+
+                wrong_keys = [key for key in used_keys if key not in available_keys]
+
+                for k in required_keys:
+                    name = k.get("key", "")
+                    aliases = k.get("aliases", [])
+                    if name in used_keys:
                         continue
-                # here, the required key was not found
-                missing_required_keys.append(name)
+                    if name in default_args:
+                        continue
+                    if aliases:
+                        found = False
+                        for a_k in aliases:
+                            if a_k in used_keys:
+                                found = True
+                                break
+                            if a_k in default_args:
+                                found = True
+                                break
+                        if found:
+                            continue
+                    # here, the required key was not found
+                    missing_required_keys.append(name)
 
             used_alias_and_real_keys = []
             for k in used_keys:

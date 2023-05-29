@@ -200,6 +200,7 @@ class SingleScan(object):
     out_dir: str = ""
 
     include_test_contents: bool = False
+    load_all_taskfiles: bool = False
 
     extra_requirements: list = field(default_factory=list)
     resolve_failures: dict = field(default_factory=dict)
@@ -549,7 +550,12 @@ class SingleScan(object):
 
     def construct_trees(self, ram_client=None):
         trees, additional, extra_requirements, resolve_failures = tree(
-            self.root_definitions, self.ext_definitions, ram_client, self.target_playbook_name, self.target_taskfile_name
+            self.root_definitions,
+            self.ext_definitions,
+            ram_client,
+            self.target_playbook_name,
+            self.target_taskfile_name,
+            self.load_all_taskfiles,
         )
 
         # set annotation for spec mutations
@@ -794,6 +800,7 @@ class ARIScanner(object):
         taskfile_only: bool = False,
         raw_yaml: str = "",
         include_test_contents: bool = False,
+        load_all_taskfiles: bool = False,
         objects: bool = False,
         out_dir: str = "",
         spec_mutations_from_previous_scan: dict = None,
@@ -832,6 +839,7 @@ class ARIScanner(object):
             taskfile_yaml=taskfile_yaml,
             taskfile_only=taskfile_only,
             include_test_contents=include_test_contents,
+            load_all_taskfiles=load_all_taskfiles,
             out_dir=out_dir,
             root_dir=self.root_dir,
             rules_dir=self.rules_dir,
@@ -938,6 +946,7 @@ class ARIScanner(object):
                             skip_dependency=True,
                             source_repository=scandata.source_repository,
                             include_test_contents=include_test_contents,
+                            load_all_taskfiles=load_all_taskfiles,
                             load_only=True,
                         )
                         dep_scandata = dep_scanner.get_last_scandata()
@@ -1093,6 +1102,7 @@ class ARIScanner(object):
                     taskfile_yaml=taskfile_yaml,
                     taskfile_only=taskfile_only,
                     include_test_contents=include_test_contents,
+                    load_all_taskfiles=load_all_taskfiles,
                     objects=objects,
                     raw_yaml=raw_yaml,
                     out_dir=out_dir,
@@ -1169,8 +1179,8 @@ class ARIScanner(object):
         time_records[record_name]["elapsed"] = elapsed
 
 
-def tree(root_definitions, ext_definitions, ram_client=None, target_playbook_path=None, target_taskfile_path=None):
-    tl = TreeLoader(root_definitions, ext_definitions, ram_client, target_playbook_path, target_taskfile_path)
+def tree(root_definitions, ext_definitions, ram_client=None, target_playbook_path=None, target_taskfile_path=None, load_all_taskfiles=False):
+    tl = TreeLoader(root_definitions, ext_definitions, ram_client, target_playbook_path, target_taskfile_path, load_all_taskfiles)
     trees, additional = tl.run()
     if trees is None:
         raise ValueError("failed to get trees")

@@ -70,13 +70,13 @@ from .utils import (
     get_class_by_arg_type,
     is_test_object,
 )
-from .awx_utils import could_be_playbook
+from .awx_utils import could_be_playbook, could_be_taskfile
 
 # collection info direcotry can be something like
 #   "brightcomputing.bcm-9.1.11+41615.gitfab9053.info"
 collection_info_dir_re = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+-[0-9]+\.[0-9]+\.[0-9]+.*\.info$")
 
-string_module_options_re = re.compile(r"[a-z0-9]+=(?:[^ ]*{{ [^ ]+ }}[^ ]*|[^ ])+")
+string_module_options_re = re.compile(r"^([a-z0-9]+=(?:[^ ]*{{ [^ ]+ }}[^ ]*|[^ ])+\s?)+$")
 
 loop_task_option_names = [
     "loop",
@@ -608,14 +608,17 @@ def load_playbooks(path, basedir="", skip_playbook_format_error=True, skip_task_
         os.path.join(path, "/playbooks/**/*.ya?ml"),
     ]
     if include_test_contents:
-        patterns.append(os.path.join(path, "tests/integration/**/*.ya?ml"))
+        patterns.append(os.path.join(path, "tests/**/*.ya?ml"))
         patterns.append(os.path.join(path, "molecule/**/*.ya?ml"))
     candidates = safe_glob(patterns, recursive=True)
     playbooks = []
     playbook_names = []
     for fpath in candidates:
         if could_be_playbook(fpath):
-            if "/roles/" in fpath:
+            relative_path = ""
+            if fpath.startswith(path):
+                relative_path = fpath[len(path) :]
+            if "/roles/" in relative_path:
                 continue
             p = None
             try:
@@ -654,6 +657,7 @@ def load_role(
     use_ansible_doc=True,
     skip_playbook_format_error=True,
     skip_task_format_error=True,
+    include_test_contents=False,
     load_children=True,
 ):
     roleObj = Role()
@@ -664,6 +668,14 @@ def load_role(
         fullpath = os.path.normpath(os.path.join(basedir, path))
     if fullpath == "":
         raise ValueError(f"directory not found: {path}, {basedir}")
+    else:
+        # some roles can be found at "/path/to/role.name/role.name"
+        # especially when the role has dependency roles
+        # so we try it here
+        basename = os.path.basename(fullpath)
+        tmp_fullpath = os.path.join(fullpath, basename)
+        if os.path.exists(tmp_fullpath):
+            fullpath = tmp_fullpath
     meta_file_path = ""
     defaults_dir_path = ""
     vars_dir_path = ""
@@ -675,6 +687,7 @@ def load_role(
         defaults_dir_path = os.path.join(fullpath, "defaults")
         vars_dir_path = os.path.join(fullpath, "vars")
         tasks_dir_path = os.path.join(fullpath, "tasks")
+        tests_dir_path = os.path.join(fullpath, "tests")
         handlers_dir_path = os.path.join(fullpath, "handlers")
         includes_dir_path = os.path.join(fullpath, "includes")
     if os.path.exists(meta_file_path):
@@ -719,35 +732,15 @@ def load_role(
     roleObj.fqcn = fqcn
     roleObj.set_key()
 
-    if os.path.exists(os.path.join(fullpath, "playbooks")):
-        playbook_files = safe_glob(fullpath + "/playbooks/**/*.ya?ml", recursive=True)
-        playbooks = []
-        for f in playbook_files:
-            p = None
-            try:
-                p = load_playbook(
-                    f,
-                    role_name=role_name,
-                    collection_name=collection_name,
-                    basedir=basedir,
-                    skip_playbook_format_error=skip_playbook_format_error,
-                    skip_task_format_error=skip_task_format_error,
-                )
-            except PlaybookFormatError as e:
-                if skip_playbook_format_error:
-                    logger.debug("this file is not in a playbook format, maybe not a playbook file, skip this: {}".format(e.args[0]))
-                    continue
-                else:
-                    raise PlaybookFormatError(f"this file is not in a playbook format, maybe not a playbook file: {e.args[0]}")
-            except Exception:
-                logger.exception("error while loading the playbook at {}".format(f))
-            if load_children:
-                playbooks.append(p)
-            else:
-                playbooks.append(p.defined_in)
-        if not load_children:
-            playbooks = sorted(playbooks)
-        roleObj.playbooks = playbooks
+    playbooks = load_playbooks(
+        path=fullpath,
+        basedir=basedir,
+        skip_playbook_format_error=skip_playbook_format_error,
+        skip_task_format_error=skip_task_format_error,
+        include_test_contents=include_test_contents,
+        load_children=load_children,
+    )
+    roleObj.playbooks = playbooks
 
     if os.path.exists(defaults_dir_path):
         patterns = [
@@ -824,11 +817,15 @@ def load_role(
     # ansible.network collection has this type of another taskfile directory
     if os.path.exists(includes_dir_path):
         patterns.extend([includes_dir_path + "/**/*.ya?ml"])
+    if include_test_contents:
+        patterns.extend([tests_dir_path + "/**/*.ya?ml"])
     task_yaml_files = safe_glob(patterns, recursive=True)
 
     taskfiles = []
     for task_yaml_path in task_yaml_files:
         tf = None
+        if not could_be_taskfile(task_yaml_path):
+            continue
         try:
             tf = load_taskfile(
                 task_yaml_path,
@@ -942,6 +939,7 @@ def load_roles(
                 use_ansible_doc=use_ansible_doc,
                 skip_playbook_format_error=skip_playbook_format_error,
                 skip_task_format_error=skip_task_format_error,
+                include_test_contents=include_test_contents,
             )
         except Exception:
             logger.exception("error while loading the role at {}".format(role_dir))
@@ -1560,7 +1558,7 @@ def load_object(loadObj):
     if target_type == LoadType.COLLECTION:
         obj = load_collection(collection_dir=path, basedir=path, include_test_contents=loadObj.include_test_contents, load_children=False)
     elif target_type == LoadType.ROLE:
-        obj = load_role(path=path, basedir=path, load_children=False)
+        obj = load_role(path=path, basedir=path, include_test_contents=loadObj.include_test_contents, load_children=False)
     elif target_type == LoadType.PLAYBOOK:
         basedir = ""
         target_playbook_path = ""
@@ -1592,6 +1590,11 @@ def load_object(loadObj):
         loadObj.playbooks = obj.playbooks
     if hasattr(obj, "taskfiles"):
         loadObj.taskfiles = obj.taskfiles
+    if hasattr(obj, "handlers"):
+        current = loadObj.taskfiles
+        if not current:
+            current = []
+        loadObj.taskfiles = current + obj.handlers
     if hasattr(obj, "modules"):
         loadObj.modules = obj.modules
 
