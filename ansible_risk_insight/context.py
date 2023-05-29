@@ -540,7 +540,8 @@ def resolve_module_options(context: Context, taskcall: TaskCall):
                 tmp_variables.update({key: v})
             variables_in_loop.append(tmp_variables)
         else:
-            raise ValueError("loop_values of type {} is not supported yet".format(type(loop_values).__name__))
+            if loop_values:
+                raise ValueError("loop_values of type {} is not supported yet".format(type(loop_values).__name__))
 
     resolved_opts_in_loop = []
     mutable_vars_per_mo = {}
