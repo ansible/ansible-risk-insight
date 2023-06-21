@@ -58,6 +58,7 @@ from .utils import (
     split_target_playbook_fullpath,
     split_target_taskfile_fullpath,
     equal,
+    download_s3_kb,
 )
 
 
@@ -73,6 +74,10 @@ default_logger_key = "ari"
 @dataclass
 class Config:
     path: str = ""
+
+    kb_remote_src: str = ""
+    kb_local_path: str = ""
+    kb_force_download: bool = False
 
     data_dir: str = ""
     rules_dir: str = ""
@@ -94,6 +99,55 @@ class Config:
                 except Exception as e:
                     raise ValueError(f"failed to load the config file: {e}")
         self._data = config_data
+
+        if not self.kb_remote_src:
+            self.kb_remote_src = self._get_single_config("ARI_KB_REMOTE_SRC", "kb_remote_src", "")
+        if not self.kb_local_path:
+            self.kb_local_path = self._get_single_config("ARI_KB_LOCAL_PATH", "kb_local_path", "")
+        if not self.kb_force_download:
+            self.kb_force_download = self._get_single_config("ARI_KB_FORCE_DOWNLOAD", "kb_force_download", False)
+
+        if self.kb_remote_src and self.kb_local_path:
+
+            kb_download_required = False
+            if self.kb_force_download:
+                kb_download_required = True
+            elif not os.path.exists(self.kb_local_path):
+                kb_download_required = True
+            elif "data" not in os.listdir(self.kb_local_path):
+                kb_download_required = True
+
+            if kb_download_required:
+                if is_url(self.kb_remote_src):
+                    schema = self.kb_remote_src.split("://")[0]
+                    if schema in ["s3"]:
+                        s3_region = self._get_single_config("ARI_S3_KB_REGION", "s3_kb_region", "")
+                        s3_endpoint_url = self._get_single_config("ARI_S3_KB_ENDPOINT_URL", "s3_kb_endpoint_url", "")
+                        s3_access_key = self._get_single_config("AWS_ACCESS_KEY_ID", "s3_kb_access_key", "")
+                        s3_secret_key = self._get_single_config("AWS_SECRET_ACCESS_KEY", "s3_kb_secret_key", "")
+                        try:
+                            download_s3_kb(
+                                src=self.kb_remote_src,
+                                dest=self.kb_local_path,
+                                region=s3_region,
+                                endpoint_url=s3_endpoint_url,
+                                access_key=s3_access_key,
+                                secret_key=s3_secret_key,
+                            )
+                        except Exception as exc:
+                            raise ValueError(f"failed to download KB data from S3: {exc}")
+                    else:
+                        raise ValueError(f"remote KB source with schema `{schema}` is not supported")
+                else:
+                    raise ValueError("local KB data should be specified with config `kb_local_path`")
+
+        # assume that `data` and `rules` are inside kb_local_path when it is specified
+        if self.kb_local_path and os.path.exists(self.kb_local_path):
+            self.data_dir = os.path.join(self.kb_local_path, "data")
+            if self.rules_dir:
+                self.rules_dir = os.path.join(self.kb_local_path, "rules") + ":" + self.rules_dir
+            else:
+                self.rules_dir = os.path.join(self.kb_local_path, "rules")
 
         if not self.data_dir:
             self.data_dir = self._get_single_config("ARI_DATA_DIR", "data_dir", default_data_dir)

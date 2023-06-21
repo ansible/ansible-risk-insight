@@ -24,6 +24,8 @@ dependencies = [
     "ansible",
     "ruamel.yaml",
     "filelock",
+    "tqdm",
+    "boto3",
 ]
 dynamic = ["version"]
 

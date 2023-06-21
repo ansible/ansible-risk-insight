@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import os
+import time
 import traceback
 import subprocess
 import requests
@@ -25,6 +26,11 @@ from filelock import FileLock
 from copy import deepcopy
 from tabulate import tabulate
 from inspect import isclass
+import csv
+import tqdm
+import boto3
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import partial
 from importlib.util import spec_from_file_location, module_from_spec
 
 import ansible_risk_insight.logger as logger
@@ -737,3 +743,101 @@ def recursive_copy_dict(src, dst):
 
 def is_test_object(path: str):
     return path.startswith("tests/integration/") or path.startswith("molecule/")
+
+
+def get_s3_file_folders(s3_client, bucket_name, prefix=""):
+    file_names = []
+    folders = []
+
+    default_kwargs = {"Bucket": bucket_name, "Prefix": prefix}
+    next_token = ""
+
+    start = time.time()
+    print("\rListing S3 objects ... ", end="")
+    object_count = 0
+    while next_token is not None:
+        updated_kwargs = default_kwargs.copy()
+        if next_token != "":
+            updated_kwargs["ContinuationToken"] = next_token
+
+        response = s3_client.list_objects_v2(**updated_kwargs)
+        contents = response.get("Contents")
+
+        for result in contents:
+            key = result.get("Key")
+            if key[-1] == "/":
+                folders.append(key)
+            else:
+                file_names.append(key)
+
+        next_token = response.get("NextContinuationToken")
+        object_count += len(contents)
+        elapsed = round(time.time() - start, 1)
+        print(f"\rListing S3 objects ... found {object_count} (elapsed {elapsed}s)", end="")
+    print("")
+
+    return file_names, folders
+
+
+def download_s3_files(s3_client, bucket_name, local_path, file_names, folders, kb_dir_prefix):
+    def _download_single_file(client, bucket, local_root, kb_dir_prefix, file_name):
+        src = file_name
+        file_name_in_kb_dir = file_name.split(kb_dir_prefix, 1)[-1]
+        dest = os.path.join(local_root, file_name_in_kb_dir)
+        parent_dir = os.path.dirname(dest)
+        os.makedirs(parent_dir, exist_ok=True)
+        client.download_file(bucket, src, dest)
+
+    # The client is shared between threads
+    func = partial(_download_single_file, s3_client, bucket_name, local_path, kb_dir_prefix)
+
+    # List for storing possible failed downloads to retry later
+    failed_downloads = []
+
+    with tqdm.tqdm(desc="Downloading images from S3", total=len(file_names)) as pbar:
+        with ThreadPoolExecutor(max_workers=32) as executor:
+            # Using a dict for preserving the downloaded file for each future, to store it as a failure if we need that
+            futures = {executor.submit(func, file_to_download): file_to_download for file_to_download in file_names}
+            for future in as_completed(futures):
+                if future.exception():
+                    failed_downloads.append(futures[future])
+                pbar.update(1)
+    if len(failed_downloads) > 0:
+        print("Some downloads have failed. Saving ids to csv")
+        with open(os.path.join(local_path, "failed_downloads.csv"), "w", newline="") as csvfile:
+            wr = csv.writer(csvfile, quoting=csv.QUOTE_ALL)
+            wr.writerow(failed_downloads)
+    return
+
+
+def download_s3_kb(src, dest, region="", endpoint_url="", access_key="", secret_key=""):
+    if not src:
+        raise ValueError("Source must be non-empty value when using S3 KB")
+
+    if not dest:
+        raise ValueError("Destination path must be non-empty value when using S3 KB")
+
+    prefix = "s3://"
+    if not src.startswith(prefix):
+        raise ValueError(f"S3 KB source value must start with {prefix}")
+
+    bucket_name = src.split(prefix)[1].split("/")[0]
+    bucket_part = prefix + bucket_name + "/"
+    kb_dir = src.split(bucket_part)[1]
+    if kb_dir and kb_dir[-1] != "/":
+        kb_dir = kb_dir + "/"
+
+    kwargs = {}
+    if region:
+        kwargs["region_name"] = region
+    if endpoint_url:
+        kwargs["endpoint_url"] = endpoint_url
+    if access_key:
+        kwargs["aws_access_key_id"] = access_key
+    if secret_key:
+        kwargs["aws_secret_access_key"] = secret_key
+
+    s3_client = boto3.client("s3", **kwargs)
+    file_names, folders = get_s3_file_folders(s3_client, bucket_name, kb_dir)
+    download_s3_files(s3_client, bucket_name, dest, file_names, folders, kb_dir)
+    return
