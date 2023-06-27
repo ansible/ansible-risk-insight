@@ -317,3 +317,93 @@ def find_collection_name_of_repo(path):
         name = my_collection_info.get("name", "")
         my_collection_name = "{}.{}".format(namespace, name)
     return my_collection_name
+
+
+def find_all_ymls(root_dir: str):
+    patterns = [os.path.join(root_dir, "**", "*.ya?ml")]
+    ymls = safe_glob(patterns)
+    return ymls
+
+
+def could_be_playbook_detail(body: str, data: list):
+    if not body:
+        return False
+
+    if len(data) == 0:
+        return False
+
+    if not isinstance(data[0], dict):
+        return False
+
+    if "hosts" in data[0]:
+        return True
+
+    if "include" in data[0] or "import_playbook" in data[0]:
+        return True
+
+    return False
+
+
+def could_be_taskfile(body: str, data: list):
+    if not body:
+        return False
+
+    if len(data) == 0:
+        return False
+
+    if not isinstance(data[0], dict):
+        return False
+
+    if "name" in data[0]:
+        return True
+
+    if find_module_name(data[0]):
+        return True
+
+    return False
+
+
+def get_role_name_from_taskfile_path(taskfile_path: str):
+    patterns = [
+        "/roles/",
+        "/tests/integration/targets/",
+    ]
+    role_name = ""
+
+    for p in patterns:
+        if p in taskfile_path:
+            if "/tasks/" in taskfile_path:
+                role_name = taskfile_path.rsplit("/tasks/", 1)[0].split("/")[-1]
+                break
+            elif "/handlers/" in taskfile_path:
+                role_name = taskfile_path.rsplit("/handlers/", 1)[0].split("/")[-1]
+                break
+    return role_name
+
+
+def label_yml_file(yml_path: str):
+    body = ""
+    data = None
+    try:
+        with open(yml_path, "r") as file:
+            body = file.read()
+            data = yaml.safe_load(body)
+    except Exception:
+        pass
+
+    label = ""
+    if not body or not data:
+        label = "others"
+    elif data and not isinstance(data, list):
+        label = "others"
+    elif could_be_playbook(yml_path) and could_be_playbook_detail(body, data):
+        label = "playbook"
+    elif could_be_taskfile(body, data):
+        role_name = get_role_name_from_taskfile_path(yml_path)
+        if role_name:
+            label = "role"
+        else:
+            label = "taskfile"
+    else:
+        label = "others"
+    return label
