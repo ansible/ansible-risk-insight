@@ -363,22 +363,26 @@ def could_be_taskfile(body: str, data: list):
     return False
 
 
-def get_role_name_from_taskfile_path(taskfile_path: str):
+def get_role_info_from_taskfile_path(taskfile_path: str):
     patterns = [
         "/roles/",
         "/tests/integration/targets/",
     ]
+    targets = ["/tasks/", "/handlers/"]
     role_name = ""
-
+    role_path = ""
     for p in patterns:
+        found = False
         if p in taskfile_path:
-            if "/tasks/" in taskfile_path:
-                role_name = taskfile_path.rsplit("/tasks/", 1)[0].split("/")[-1]
-                break
-            elif "/handlers/" in taskfile_path:
-                role_name = taskfile_path.rsplit("/handlers/", 1)[0].split("/")[-1]
-                break
-    return role_name
+            for t in targets:
+                if t in taskfile_path:
+                    role_path = taskfile_path.rsplit(t, 1)[0]
+                    role_name = role_path.split("/")[-1]
+                    found = True
+                    break
+        if found:
+            break
+    return role_name, role_path
 
 
 def label_yml_file(yml_path: str):
@@ -399,7 +403,7 @@ def label_yml_file(yml_path: str):
     elif could_be_playbook(yml_path) and could_be_playbook_detail(body, data):
         label = "playbook"
     elif could_be_taskfile(body, data):
-        role_name = get_role_name_from_taskfile_path(yml_path)
+        role_name, _ = get_role_info_from_taskfile_path(yml_path)
         if role_name:
             label = "role"
         else:
