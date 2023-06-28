@@ -325,7 +325,25 @@ def find_all_ymls(root_dir: str):
     return ymls
 
 
-def could_be_playbook_detail(body: str, data: list):
+def _get_body_data(body: str = "", data: list = None, fpath: str = ""):
+    if fpath and not body and not data:
+        try:
+            with open(fpath, "r") as file:
+                body = file.read()
+                data = yaml.safe_load(body)
+        except Exception:
+            pass
+    elif body and not data:
+        try:
+            data = yaml.safe_load(body)
+        except Exception:
+            pass
+    return body, data, fpath
+
+
+def could_be_playbook_detail(body: str = "", data: list = None, fpath: str = ""):
+    body, data, fpath = _get_body_data(body, data, fpath)
+
     if not body:
         return False
 
@@ -344,7 +362,9 @@ def could_be_playbook_detail(body: str, data: list):
     return False
 
 
-def could_be_taskfile(body: str, data: list):
+def could_be_taskfile(body: str = "", data: list = None, fpath: str = ""):
+    body, data, fpath = _get_body_data(body, data, fpath)
+
     if not body:
         return False
 

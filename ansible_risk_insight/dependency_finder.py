@@ -92,6 +92,22 @@ def find_role_dependency(target):
                     if metadata is not None and isinstance(metadata, dict):
                         requirements["roles"] = metadata.get("dependencies", [])
                         requirements["collections"] = metadata.get("collections", [])
+
+    # remove local dependencies
+    role_reqs = requirements.get("roles", [])
+    if role_reqs:
+        updated_role_reqs = []
+        _target = target[:-1] if target[-1] == "/" else target
+        base_dir = os.path.dirname(_target)
+        for r_req in role_reqs:
+            is_local_dir = False
+            if "." not in r_req:
+                r_req_dir = os.path.join(base_dir, r_req)
+                if os.path.exists(r_req_dir):
+                    is_local_dir = True
+            updated_role_reqs.append({"name": r_req, "is_local_dir": is_local_dir})
+        requirements["roles"] = updated_role_reqs
+
     return requirements, main_yaml
 
 

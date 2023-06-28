@@ -1544,6 +1544,7 @@ class AnsibleRunContext(object):
     root_key: str = ""
     parent: Object = None
     ram_client: any = None
+    scan_metadata: dict = field(default_factory=dict)
 
     # used by rule check
     current: RunTarget = None
@@ -1576,7 +1577,7 @@ class AnsibleRunContext(object):
         return self.sequence[i]
 
     @staticmethod
-    def from_tree(tree: ObjectList, parent: Object = None, last_item: bool = False, ram_client=None):
+    def from_tree(tree: ObjectList, parent: Object = None, last_item: bool = False, ram_client=None, scan_metadata=None):
         if not tree:
             return AnsibleRunContext(parent=parent, last_item=last_item)
         if len(tree.items) == 0:
@@ -1589,15 +1590,21 @@ class AnsibleRunContext(object):
                 continue
             sequence_items.append(item)
         tl = RunTargetList(items=sequence_items)
-        return AnsibleRunContext(sequence=tl, root_key=root_key, parent=parent, last_item=last_item, ram_client=ram_client)
+        return AnsibleRunContext(
+            sequence=tl, root_key=root_key, parent=parent, last_item=last_item, ram_client=ram_client, scan_metadata=scan_metadata
+        )
 
     @staticmethod
-    def from_targets(targets: List[RunTarget], root_key: str = "", parent: Object = None, last_item: bool = False, ram_client=None):
+    def from_targets(
+        targets: List[RunTarget], root_key: str = "", parent: Object = None, last_item: bool = False, ram_client=None, scan_metadata=None
+    ):
         if not root_key:
             if len(targets) > 0:
                 root_key = targets[0].spec.key
         tl = RunTargetList(items=targets)
-        return AnsibleRunContext(sequence=tl, root_key=root_key, parent=parent, last_item=last_item, ram_client=ram_client)
+        return AnsibleRunContext(
+            sequence=tl, root_key=root_key, parent=parent, last_item=last_item, ram_client=ram_client, scan_metadata=scan_metadata
+        )
 
     def find(self, target: RunTarget):
         for t in self.sequence:
@@ -1612,13 +1619,23 @@ class AnsibleRunContext(object):
                 break
             targets.append(rt)
         return AnsibleRunContext.from_targets(
-            targets, root_key=self.root_key, parent=self.parent, last_item=self.last_item, ram_client=self.ram_client
+            targets,
+            root_key=self.root_key,
+            parent=self.parent,
+            last_item=self.last_item,
+            ram_client=self.ram_client,
+            scan_metadata=self.scan_metadata,
         )
 
     def search(self, cond: AnnotationCondition):
         targets = [t for t in self.sequence if t.type == RunTargetType.Task and t.has_annotation_by_condition(cond)]
         return AnsibleRunContext.from_targets(
-            targets, root_key=self.root_key, parent=self.parent, last_item=self.last_item, ram_client=self.ram_client
+            targets,
+            root_key=self.root_key,
+            parent=self.parent,
+            last_item=self.last_item,
+            ram_client=self.ram_client,
+            scan_metadata=self.scan_metadata,
         )
 
     def is_end(self, target: RunTarget):
@@ -1641,7 +1658,12 @@ class AnsibleRunContext(object):
 
     def copy(self):
         return AnsibleRunContext.from_targets(
-            targets=self.sequence.items, root_key=self.root_key, parent=self.parent, last_item=self.last_item, ram_client=self.ram_client
+            targets=self.sequence.items,
+            root_key=self.root_key,
+            parent=self.parent,
+            last_item=self.last_item,
+            ram_client=self.ram_client,
+            scan_metadata=self.scan_metadata,
         )
 
     @property
