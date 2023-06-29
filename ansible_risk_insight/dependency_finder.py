@@ -100,14 +100,28 @@ def find_role_dependency(target):
         _target = target[:-1] if target[-1] == "/" else target
         base_dir = os.path.dirname(_target)
         for r_req in role_reqs:
+            r_req_name = ""
+            if isinstance(r_req, str):
+                r_req_name = r_req
+            elif isinstance(r_req, dict):
+                r_req_name = r_req.get("role", "")
+                if not r_req_name and "name" in r_req:
+                    r_req_name = r_req.get("name", "")
+            # if role dependency name does not have ".", it should be a local dependency
             is_local_dir = False
-            if "." not in r_req:
-                r_req_dir = os.path.join(base_dir, r_req)
+            if "." not in r_req_name:
+                r_req_dir = os.path.join(base_dir, r_req_name)
                 if os.path.exists(r_req_dir):
                     is_local_dir = True
-            updated_role_reqs.append({"name": r_req, "is_local_dir": is_local_dir})
+            # or, it can be written as `<collection_name>.<role_name>`
+            if "." in r_req_name:
+                r_short_name = r_req_name.split(".")[-1]
+                r_req_dir = os.path.join(base_dir, r_short_name)
+                if os.path.exists(r_req_dir):
+                    r_req_name = r_short_name
+                    is_local_dir = True
+            updated_role_reqs.append({"name": r_req_name, "is_local_dir": is_local_dir})
         requirements["roles"] = updated_role_reqs
-
     return requirements, main_yaml
 
 

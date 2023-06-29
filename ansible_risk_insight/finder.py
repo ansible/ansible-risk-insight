@@ -19,6 +19,7 @@ from pathlib import Path
 import re
 import os
 import yaml
+import traceback
 
 try:
     # if `libyaml` is available, use C based loader for performance
@@ -356,7 +357,7 @@ def could_be_playbook_detail(body: str = "", data: list = None, fpath: str = "")
     if "hosts" in data[0]:
         return True
 
-    if "include" in data[0] or "import_playbook" in data[0]:
+    if "import_playbook" in data[0] or "ansible.builtin.import_playbook" in data[0]:
         return True
 
     return False
@@ -368,7 +369,10 @@ def could_be_taskfile(body: str = "", data: list = None, fpath: str = ""):
     if not body:
         return False
 
-    if len(data) == 0:
+    if not data:
+        return False
+
+    if not isinstance(data, list):
         return False
 
     if not isinstance(data[0], dict):
@@ -377,8 +381,14 @@ def could_be_taskfile(body: str = "", data: list = None, fpath: str = ""):
     if "name" in data[0]:
         return True
 
-    if find_module_name(data[0]):
-        return True
+    module_name = find_module_name(data[0])
+    if module_name:
+        short_module_name = module_name.split(".")[-1] if "." in module_name else module_name
+        if short_module_name == "import_playbook":
+            # if the found module name is import_playbook, the file is a playbook
+            return False
+        else:
+            return True
 
     return False
 
@@ -405,18 +415,45 @@ def get_role_info_from_taskfile_path(taskfile_path: str):
     return role_name, role_path
 
 
+def is_meta_yml(yml_path):
+    parts = yml_path.split("/")
+    if len(parts) > 2 and parts[-2] == "meta":
+        return True
+    return False
+
+
+def is_vars_yml(yml_path):
+    parts = yml_path.split("/")
+    if len(parts) > 2 and parts[-2] in ["vars", "defaults"]:
+        return True
+    return False
+
+
 def label_yml_file(yml_path: str):
     body = ""
     data = None
+    error = None
     try:
         with open(yml_path, "r") as file:
             body = file.read()
-            data = yaml.safe_load(body)
     except Exception:
-        pass
+        error = {"type": "FileReadError", "detail": traceback.format_exc()}
+    if error:
+        return "others", error
+
+    try:
+        data = yaml.safe_load(body)
+    except Exception:
+        error = {"type": "YAMLParseError", "detail": traceback.format_exc()}
+    if error:
+        return "others", error
 
     label = ""
-    if not body or not data:
+    if is_meta_yml(yml_path):
+        label = "meta"
+    elif is_vars_yml(yml_path):
+        label = "vars"
+    elif not body or not data:
         label = "others"
     elif data and not isinstance(data, list):
         label = "others"
@@ -430,4 +467,4 @@ def label_yml_file(yml_path: str):
             label = "taskfile"
     else:
         label = "others"
-    return label
+    return label, None
