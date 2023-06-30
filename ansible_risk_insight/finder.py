@@ -303,6 +303,18 @@ def find_best_repo_root_path(path):
 def find_collection_name_of_repo(path):
     pattern = os.path.join(path, "**/galaxy.yml")
     found_galaxy_ymls = safe_glob(pattern, recursive=True)
+
+    # skip galaxy ymls found in collections/roles in the repository
+    _galaxy_ymls = []
+    for gpath in found_galaxy_ymls:
+        relative_path = gpath.replace(path, "", 1)
+        if "/collections/" in relative_path:
+            continue
+        if "/roles/" in relative_path:
+            continue
+        _galaxy_ymls.append(gpath)
+    found_galaxy_ymls = _galaxy_ymls
+
     my_collection_name = ""
     if len(found_galaxy_ymls) > 0:
         galaxy_yml = found_galaxy_ymls[0]
