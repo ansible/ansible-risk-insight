@@ -606,8 +606,8 @@ def load_playbooks(path, basedir="", skip_playbook_format_error=True, skip_task_
     if path == "":
         return []
     patterns = [
-        os.path.join(path, "/*.ya?ml"),
-        os.path.join(path, "/playbooks/**/*.ya?ml"),
+        os.path.join(path, "*.ya?ml"),
+        os.path.join(path, "playbooks/**/*.ya?ml"),
     ]
     if include_test_contents:
         patterns.append(os.path.join(path, "tests/**/*.ya?ml"))
