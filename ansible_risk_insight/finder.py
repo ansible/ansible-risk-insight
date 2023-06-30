@@ -393,20 +393,45 @@ def could_be_taskfile(body: str = "", data: list = None, fpath: str = ""):
     return False
 
 
-def get_role_info_from_taskfile_path(taskfile_path: str):
+# this function is only for empty files
+# if a target file has some contents, it should be checked with
+# some dedicated functions like `could_be_taskfile()`.
+def label_empty_file_by_path(fpath: str):
+
+    taskfile_dir = ["/tasks/", "/handlers/"]
+    for t_d in taskfile_dir:
+        if t_d in fpath:
+            return "taskfile"
+
+    playbook_dir = ["/playbooks/"]
+    for p_d in playbook_dir:
+        if p_d in fpath:
+            return "playbook"
+
+    return ""
+
+
+def get_role_info_from_path(fpath: str):
     patterns = [
         "/roles/",
         "/tests/integration/targets/",
     ]
-    targets = ["/tasks/", "/handlers/"]
+    targets = [
+        "/tasks/",
+        "/handlers/",
+        "/vars/",
+        "/defaults/",
+        "/meta/",
+    ]
     role_name = ""
     role_path = ""
     for p in patterns:
         found = False
-        if p in taskfile_path:
+        if p in fpath:
+            relative_path = fpath.split(p, 1)[-1]
             for t in targets:
-                if t in taskfile_path:
-                    role_path = taskfile_path.rsplit(t, 1)[0]
+                if t in relative_path:
+                    role_path = relative_path.rsplit(t, 1)[0]
                     role_name = role_path.split("/")[-1]
                     found = True
                     break
@@ -449,22 +474,15 @@ def label_yml_file(yml_path: str):
         return "others", error
 
     label = ""
-    if is_meta_yml(yml_path):
-        label = "meta"
-    elif is_vars_yml(yml_path):
-        label = "vars"
-    elif not body or not data:
-        label = "others"
+    if not body or not data:
+        label_by_path = label_empty_file_by_path(yml_path)
+        label = label_by_path if label_by_path else "others"
     elif data and not isinstance(data, list):
         label = "others"
     elif could_be_playbook(yml_path) and could_be_playbook_detail(body, data):
         label = "playbook"
     elif could_be_taskfile(body, data):
-        role_name, _ = get_role_info_from_taskfile_path(yml_path)
-        if role_name:
-            label = "role"
-        else:
-            label = "taskfile"
+        label = "taskfile"
     else:
         label = "others"
     return label, None
