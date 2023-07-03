@@ -452,6 +452,11 @@ def get_role_info_from_path(fpath: str):
     return role_name, role_path
 
 
+# TODO: implement this
+def get_project_info_for_file(fpath, root_dir):
+    return os.path.basename(root_dir), root_dir
+
+
 def is_meta_yml(yml_path):
     parts = yml_path.split("/")
     if len(parts) > 2 and parts[-2] == "meta":
