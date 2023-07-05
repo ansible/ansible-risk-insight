@@ -171,6 +171,26 @@ def load_requirements(path):
     return requirements, yaml_path
 
 
+def is_galaxy_yml(path):
+    if not os.path.exists(path):
+        return False
+
+    metadata = None
+    try:
+        with open(path, "r") as file:
+            metadata = yaml.safe_load(file)
+    except Exception:
+        pass
+
+    if not isinstance(metadata, dict):
+        return False
+
+    if "name" in metadata and "namespace" in metadata:
+        return True
+
+    return False
+
+
 def load_dependency_from_galaxy(path):
     requirements = {}
     yaml_path = ""
@@ -179,7 +199,7 @@ def load_dependency_from_galaxy(path):
     logger.debug("found meta files {}".format(galaxy_yml_files))
     if len(galaxy_yml_files) > 0:
         for g in galaxy_yml_files:
-            if os.path.exists(g):
+            if is_galaxy_yml(g):
                 yaml_path = g
                 metadata = {}
                 with open(g, "r") as file:
