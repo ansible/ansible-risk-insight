@@ -168,6 +168,10 @@ def load_requirements(path):
                 logger.debug("failed to load requirements.yml; {}".format(e.args[0]))
     else:
         requirements, yaml_path = load_dependency_from_galaxy(path)
+    # sometimes there is empty requirements.yml
+    # if so, we set empty dict as requirements instead of `None`
+    if not requirements:
+        requirements = {}
     return requirements, yaml_path
 
 

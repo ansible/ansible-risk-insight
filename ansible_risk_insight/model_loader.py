@@ -143,6 +143,23 @@ def load_repository(
     repoObj.roles = load_roles(
         repo_path, basedir=basedir, use_ansible_doc=use_ansible_doc, include_test_contents=include_test_contents, load_children=load_children
     )
+    # in case the target project is a role
+    if os.path.exists(os.path.join(repo_path, "tasks")):
+        role_name = os.path.basename(repo_path)
+        role = load_role(
+            path=repo_path,
+            name=role_name,
+            collection_name=my_collection_name,
+            basedir=basedir,
+            use_ansible_doc=use_ansible_doc,
+            include_test_contents=include_test_contents,
+            load_children=load_children,
+        )
+        if role:
+            if load_children:
+                repoObj.roles.append(role)
+            else:
+                repoObj.roles.append(role.defined_in)
     logger.debug("done ... {} roles loaded".format(len(repoObj.roles)))
     logger.debug("start loading modules (that are defined in this repository)")
     repoObj.modules = load_modules(
