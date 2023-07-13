@@ -1163,6 +1163,7 @@ class Task(Object, Resolvable):
     # this keeps original contents like comments, indentation
     # and quotes for string as much as possible
     def yaml(self, original_module="", use_yaml_lines=True):
+        task_data_wrapper = None
         task_data = None
         if use_yaml_lines:
             try:
@@ -1174,6 +1175,7 @@ class Task(Object, Resolvable):
             if not task_data:
                 return self.yaml_lines
         else:
+            task_data_wrapper = []
             task_data = {}
 
         # task name
@@ -1216,7 +1218,10 @@ class Task(Object, Resolvable):
                     current_to.pop(old_key)
             options_without_name = {k: v for k, v in self.options.items() if k != "name"}
             recursive_copy_dict(options_without_name, current_to)
-        task_data_wrapper[0] = current_to
+        if len(task_data_wrapper) == 0:
+            task_data_wrapper.append(current_to)
+        else:
+            task_data_wrapper[0] = current_to
         new_yaml = ariyaml.dump(task_data_wrapper)
         return new_yaml
 
