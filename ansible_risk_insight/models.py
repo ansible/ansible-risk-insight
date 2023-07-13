@@ -1162,16 +1162,19 @@ class Task(Object, Resolvable):
 
     # this keeps original contents like comments, indentation
     # and quotes for string as much as possible
-    def yaml(self, original_module=""):
+    def yaml(self, original_module="", use_yaml_lines=True):
         task_data = None
-        try:
-            task_data_wrapper = ariyaml.load(self.yaml_lines)
-            task_data = task_data_wrapper[0]
-        except Exception:
-            pass
+        if use_yaml_lines:
+            try:
+                task_data_wrapper = ariyaml.load(self.yaml_lines)
+                task_data = task_data_wrapper[0]
+            except Exception:
+                pass
 
-        if not task_data:
-            return self.yaml_lines
+            if not task_data:
+                return self.yaml_lines
+        else:
+            task_data = {}
 
         # task name
         if self.name:
