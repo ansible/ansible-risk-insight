@@ -449,6 +449,14 @@ def get_role_info_from_path(fpath: str):
                     break
         if found:
             break
+    if not found:
+        relative_path = fpath
+        for t in targets:
+            if t in relative_path:
+                role_path = relative_path.rsplit(t, 1)[0]
+                role_name = role_path.split("/")[-1]
+                found = True
+                break
     return role_name, role_path
 
 
