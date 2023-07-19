@@ -1223,7 +1223,14 @@ def load_task(
         else:
             task_options.update({k: v})
 
-    taskObj.set_yaml_lines(fullpath=fullpath, yaml_lines=yaml_lines, task_name=task_name, module_name=module_name, module_options=module_options)
+    taskObj.set_yaml_lines(
+        fullpath=fullpath,
+        yaml_lines=yaml_lines,
+        task_name=task_name,
+        module_name=module_name,
+        module_options=module_options,
+        task_options=task_options,
+    )
 
     # module_options can be passed as a string like below
     #

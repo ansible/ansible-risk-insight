@@ -80,7 +80,7 @@ def install_galaxy_target(target, target_type, output_dir, source_repository="",
         stderr=subprocess.PIPE,
         text=True,
     )
-    return proc.stdout
+    return proc.stdout, proc.stderr
 
 
 def install_github_target(target, output_dir):
@@ -572,7 +572,7 @@ def get_module_specs_by_ansible_doc(module_files: str, fqcn_prefix: str, search_
     specs = {}
     for fqcn in wrapper_dict:
         doc_dict = wrapper_dict[fqcn].get("doc", {})
-        doc = yaml.safe_dump(doc_dict)
+        doc = yaml.safe_dump(doc_dict, sort_keys=False)
         examples = wrapper_dict[fqcn].get("examples", "")
         specs[fqcn] = {
             "doc": doc,

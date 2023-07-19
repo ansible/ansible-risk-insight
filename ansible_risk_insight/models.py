@@ -24,6 +24,7 @@ from ruamel.yaml.scalarstring import DoubleQuotedScalarString
 from copy import deepcopy
 import json
 import jsonpickle
+import Levenshtein
 import ansible_risk_insight.yaml as ariyaml
 from ansible.module_utils.parsing.convert_bool import boolean
 from .keyutil import (
@@ -1072,25 +1073,30 @@ class Task(Object, Resolvable):
     # candidates of resovled_name
     possible_candidates: list = field(default_factory=list)
 
-    def set_yaml_lines(self, fullpath="", yaml_lines="", task_name="", module_name="", module_options=None):
+    def set_yaml_lines(self, fullpath="", yaml_lines="", task_name="", module_name="", module_options=None, task_options=None):
         if not task_name and not module_options:
             return
-        found_line_num = -1
+
         lines = []
         if yaml_lines:
             lines = yaml_lines.splitlines()
         else:
             lines = open(fullpath, "r").read().splitlines()
+
+        # search candidates that match either of the following conditions
+        #   - task name is included in the line
+        #   - if module name is included,
+        #       - if module option is string, it is included
+        #       - if module option is dict, at least one key is included
+        candidate_line_nums = []
         for i, line in enumerate(lines):
             if task_name:
                 if task_name in line:
-                    found_line_num = i
-                    break
+                    candidate_line_nums.append(i)
             elif "{}:".format(module_name) in line:
                 if isinstance(module_options, str):
                     if module_options in line:
-                        found_line_num = i
-                        break
+                        candidate_line_nums.append(i)
                 elif isinstance(module_options, dict):
                     option_matched = False
                     for key in module_options:
@@ -1098,13 +1104,86 @@ class Task(Object, Resolvable):
                             option_matched = True
                             break
                     if option_matched:
-                        found_line_num = i
-                        break
-        if found_line_num < 0:
+                        candidate_line_nums.append(i)
+        if not candidate_line_nums:
             return
-        found_line = lines[found_line_num]
+
+        # get task yaml_lines for each candidate
+        candidate_blocks = []
+        for candidate_line_num in candidate_line_nums:
+            _yaml_lines, _line_num_in_file = self._find_task_block(lines, candidate_line_num)
+            if _yaml_lines and _line_num_in_file:
+                candidate_blocks.append((_yaml_lines, _line_num_in_file))
+
+        if not candidate_blocks:
+            return
+
+        reconstructed_yaml = ""
+        best_yaml_lines = ""
+        best_line_num_in_file = []
+        sorted_candidates = []
+        if len(candidate_blocks) == 1:
+            best_yaml_lines = candidate_blocks[0][0]
+            best_line_num_in_file = candidate_blocks[0][1]
+        else:
+            # reconstruct yaml from the task data to calculate similarity (edit distance) later
+            reconstructed_data = [{}]
+            if task_name:
+                reconstructed_data[0]["name"] = task_name
+            reconstructed_data[0][module_name] = module_options
+            if isinstance(task_options, dict):
+                for key, val in task_options.items():
+                    if key not in reconstructed_data[0]:
+                        reconstructed_data[0][key] = val
+
+            try:
+                reconstructed_yaml = ariyaml.dump(reconstructed_data)
+            except Exception:
+                pass
+
+            # find best match by edit distance
+            if reconstructed_yaml:
+
+                def remove_comment_lines(s):
+                    lines = s.splitlines()
+                    updated = []
+                    for line in lines:
+                        if line.strip().startswith("#"):
+                            continue
+                        updated.append(line)
+                    return "\n".join(updated)
+
+                def calc_dist(s1, s2):
+                    us1 = remove_comment_lines(s1)
+                    us2 = remove_comment_lines(s2)
+                    dist = Levenshtein.distance(us1, us2)
+                    return dist
+
+                r = reconstructed_yaml
+                sorted_candidates = sorted(candidate_blocks, key=lambda x: calc_dist(r, x[0]))
+                best_yaml_lines = sorted_candidates[0][0]
+                best_line_num_in_file = sorted_candidates[0][1]
+            else:
+                # give up here if yaml reconstruction failed
+                # use the first candidate
+                best_yaml_lines = candidate_blocks[0][0]
+                best_line_num_in_file = candidate_blocks[0][1]
+
+        self.yaml_lines = best_yaml_lines
+        self.line_num_in_file = best_line_num_in_file
+        return
+
+    def _find_task_block(self, yaml_lines: list, start_line_num: int):
+        if not yaml_lines:
+            return None, None
+
+        if start_line_num < 0:
+            return None, None
+
+        lines = yaml_lines
+        found_line = lines[start_line_num]
         is_top_of_block = found_line.replace(" ", "").startswith("-")
-        begin_line_num = found_line_num
+        begin_line_num = start_line_num
         indent_of_block = -1
         if is_top_of_block:
             indent_of_block = len(found_line.split("-")[0])
@@ -1131,7 +1210,7 @@ class Task(Object, Resolvable):
                 if begin_line_num < 0:
                     break
             if not found:
-                return
+                return None, None
             indent_of_block = len(found_line.split("-")[0])
         index = begin_line_num + 1
         end_found = False
@@ -1153,12 +1232,13 @@ class Task(Object, Resolvable):
                 end_line_num = index
                 break
         if not end_found:
-            return
+            return None, None
         if begin_line_num < 0 or end_line_num > len(lines) or begin_line_num > end_line_num:
-            return
-        self.yaml_lines = "\n".join(lines[begin_line_num : end_line_num + 1])
-        self.line_num_in_file = [begin_line_num + 1, end_line_num + 1]
-        return
+            return None, None
+
+        yaml_lines = "\n".join(lines[begin_line_num : end_line_num + 1])
+        line_num_in_file = [begin_line_num + 1, end_line_num + 1]
+        return yaml_lines, line_num_in_file
 
     # this keeps original contents like comments, indentation
     # and quotes for string as much as possible
