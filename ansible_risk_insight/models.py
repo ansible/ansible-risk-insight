@@ -1073,6 +1073,10 @@ class Task(Object, Resolvable):
     # candidates of resovled_name
     possible_candidates: list = field(default_factory=list)
 
+    # embed these data when module/role/taskfile are resolved
+    module_info: dict = field(default_factory=dict)
+    include_info: dict = field(default_factory=dict)
+
     def set_yaml_lines(self, fullpath="", yaml_lines="", task_name="", module_name="", module_options=None, task_options=None):
         if not task_name and not module_options:
             return
@@ -1922,6 +1926,9 @@ class Play(Object, Resolvable):
     collections_in_play: list = field(default_factory=list)
     become: BecomeInfo = None
     variables: dict = field(default_factory=dict)
+
+    # embed this data when role is resolved
+    roles_info: list = field(default_factory=list)
 
     def set_key(self, parent_key="", parent_local_key=""):
         set_play_key(self, parent_key, parent_local_key)
