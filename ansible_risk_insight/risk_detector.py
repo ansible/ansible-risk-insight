@@ -188,7 +188,7 @@ def detect(contexts: List[AnsibleRunContext], rules_dir: str = "", rules: list =
                         r_result.matched = matched
                     r_result.duration = round((time.time() - start_time) * 1000, 6)
                     detail = r_result.get_detail()
-                    fatal = detail.get("fatal", False)
+                    fatal = detail.get("fatal", False) if detail else False
                     if fatal:
                         error = r_result.error or "unknown error"
                         error = f"ARI rule evaluation threw fatal exception: {error}"
