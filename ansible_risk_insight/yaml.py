@@ -24,10 +24,11 @@ _yaml: ContextVar[YAML] = ContextVar("yaml")
 
 def _set_yaml():
     if not _yaml.get(None):
-        _yaml.set(YAML(typ="rt", pure=True))
-        _yaml.default_flow_style = False
-        _yaml.preserve_quotes = True
-        _yaml.allow_duplicate_keys = True
+        yaml = YAML(typ="rt", pure=True)
+        yaml.default_flow_style = False
+        yaml.preserve_quotes = True
+        yaml.allow_duplicate_keys = True
+        _yaml.set(yaml)
 
 
 def load(stream: any):
