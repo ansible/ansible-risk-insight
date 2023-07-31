@@ -32,11 +32,7 @@ rule_versions_filename = "rule_versions.json"
 
 
 def key2name(key: str):
-    _type = detect_type(key)
-    if _type == "playbook":
-        return os.path.basename(key.split(key_delimiter)[-1])
-    elif _type == "role":
-        return key.split(key_delimiter)[-1]
+    return key.split(key_delimiter)[-1]
 
 
 def load_rule_versions_file(filepath: str):

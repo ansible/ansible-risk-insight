@@ -92,6 +92,36 @@ def find_role_dependency(target):
                     if metadata is not None and isinstance(metadata, dict):
                         requirements["roles"] = metadata.get("dependencies", [])
                         requirements["collections"] = metadata.get("collections", [])
+
+    # remove local dependencies
+    role_reqs = requirements.get("roles", [])
+    if role_reqs:
+        updated_role_reqs = []
+        _target = target[:-1] if target[-1] == "/" else target
+        base_dir = os.path.dirname(_target)
+        for r_req in role_reqs:
+            r_req_name = ""
+            if isinstance(r_req, str):
+                r_req_name = r_req
+            elif isinstance(r_req, dict):
+                r_req_name = r_req.get("role", "")
+                if not r_req_name and "name" in r_req:
+                    r_req_name = r_req.get("name", "")
+            # if role dependency name does not have ".", it should be a local dependency
+            is_local_dir = False
+            if "." not in r_req_name:
+                r_req_dir = os.path.join(base_dir, r_req_name)
+                if os.path.exists(r_req_dir):
+                    is_local_dir = True
+            # or, it can be written as `<collection_name>.<role_name>`
+            if "." in r_req_name:
+                r_short_name = r_req_name.split(".")[-1]
+                r_req_dir = os.path.join(base_dir, r_short_name)
+                if os.path.exists(r_req_dir):
+                    r_req_name = r_short_name
+                    is_local_dir = True
+            updated_role_reqs.append({"name": r_req_name, "is_local_dir": is_local_dir})
+        requirements["roles"] = updated_role_reqs
     return requirements, main_yaml
 
 
@@ -138,7 +168,31 @@ def load_requirements(path):
                 logger.debug("failed to load requirements.yml; {}".format(e.args[0]))
     else:
         requirements, yaml_path = load_dependency_from_galaxy(path)
+    # sometimes there is empty requirements.yml
+    # if so, we set empty dict as requirements instead of `None`
+    if not requirements:
+        requirements = {}
     return requirements, yaml_path
+
+
+def is_galaxy_yml(path):
+    if not os.path.exists(path):
+        return False
+
+    metadata = None
+    try:
+        with open(path, "r") as file:
+            metadata = yaml.safe_load(file)
+    except Exception:
+        pass
+
+    if not isinstance(metadata, dict):
+        return False
+
+    if "name" in metadata and "namespace" in metadata:
+        return True
+
+    return False
 
 
 def load_dependency_from_galaxy(path):
@@ -149,7 +203,7 @@ def load_dependency_from_galaxy(path):
     logger.debug("found meta files {}".format(galaxy_yml_files))
     if len(galaxy_yml_files) > 0:
         for g in galaxy_yml_files:
-            if os.path.exists(g):
+            if is_galaxy_yml(g):
                 yaml_path = g
                 metadata = {}
                 with open(g, "r") as file:

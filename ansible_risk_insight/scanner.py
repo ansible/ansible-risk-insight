@@ -598,7 +598,13 @@ class SingleScan(object):
 
         for i, tree in enumerate(self.trees):
             last_item = i + 1 == len(self.trees)
-            ctx = AnsibleRunContext.from_tree(tree=tree, parent=self.target_object, last_item=last_item, ram_client=ram_client)
+            scan_metadata = {
+                "type": self.type,
+                "name": self.name,
+            }
+            ctx = AnsibleRunContext.from_tree(
+                tree=tree, parent=self.target_object, last_item=last_item, ram_client=ram_client, scan_metadata=scan_metadata
+            )
             self.contexts.append(ctx)
 
         if self.do_save:
@@ -857,7 +863,10 @@ class ARIScanner(object):
 
         self.record_begin(time_records, "metadata_load")
         metdata_loaded = False
-        if self.read_ram and scandata.type not in [LoadType.PLAYBOOK, LoadType.TASKFILE, LoadType.PROJECT]:
+        read_root_from_ram = (
+            self.read_ram and scandata.type not in [LoadType.PLAYBOOK, LoadType.TASKFILE, LoadType.PROJECT] and not is_local_path(scandata.name)
+        )
+        if read_root_from_ram:
             loaded, metadata, dependencies = self.load_metadata_from_ram(scandata.type, scandata.name, scandata.version)
             logger.debug(f"metadata loaded: {loaded}")
             if loaded:
@@ -887,6 +896,7 @@ class ARIScanner(object):
                         d.get("metadata", {}).get("version", ""),
                         d.get("metadata", {}).get("hash", ""),
                         d.get("dir"),
+                        d.get("is_local_dir", False),
                     )
                     for d in scandata.loaded_dependency_dirs
                 ]
@@ -895,7 +905,7 @@ class ARIScanner(object):
 
             # Start ARI Scanner main flow
             self.record_begin(time_records, "dependency_load")
-            for i, (ext_type, ext_name, ext_ver, ext_hash, ext_path) in enumerate(ext_list):
+            for i, (ext_type, ext_name, ext_ver, ext_hash, ext_path, is_local_dir) in enumerate(ext_list):
                 if not self.silent:
                     if i == 0:
                         logger.info("start loading {} {}(s)".format(ext_count, ext_type))
@@ -906,8 +916,22 @@ class ARIScanner(object):
                 if scandata.type == ext_type and scandata.name == ext_name:
                     is_root = True
 
+                ext_target_path = os.path.join(self.root_dir, ext_path)
+                role_name_for_local_dep = ""
+                # if a dependency is a local role, set the local path
+                if scandata.type == LoadType.ROLE and ext_type == LoadType.ROLE:
+                    if is_local_dir and is_local_path(scandata.name) and scandata.name != ext_name:
+                        root_role_path = scandata.name[:-1] if scandata.name[-1] == "/" else scandata.name
+                        role_base_dir = os.path.dirname(root_role_path)
+                        dep_role_path = os.path.join(role_base_dir, ext_name)
+                        role_name_for_local_dep = ext_name
+                        ext_name = dep_role_path
+                        ext_target_path = dep_role_path
+
                 if not is_root:
                     key = "{}-{}".format(ext_type, ext_name)
+                    if role_name_for_local_dep:
+                        key = "{}-{}".format(ext_type, role_name_for_local_dep)
                     read_ram_for_dependency = self.read_ram or self.read_ram_for_dependency
 
                     dep_loaded = False
@@ -933,7 +957,6 @@ class ARIScanner(object):
                             do_save=self.do_save,
                             silent=True,
                         )
-                        ext_target_path = os.path.join(self.root_dir, ext_path)
                         # use prepared dep dirs
                         dep_scanner.evaluate(
                             type=ext_type,
@@ -968,7 +991,7 @@ class ARIScanner(object):
 
         loaded = False
         self.record_begin(time_records, "target_load")
-        if self.read_ram and scandata.type not in [LoadType.PLAYBOOK, LoadType.TASKFILE, LoadType.PROJECT]:
+        if read_root_from_ram:
             loaded, root_defs = self.load_definitions_from_ram(scandata.type, scandata.name, scandata.version, scandata.hash, allow_unresolved=True)
             logger.debug(f"spec data loaded: {loaded}")
             if loaded:

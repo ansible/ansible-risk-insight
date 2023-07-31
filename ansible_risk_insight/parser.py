@@ -98,6 +98,9 @@ class Parser:
                     include_test_contents=ld.include_test_contents,
                     load_children=False,
                 )
+                # use fqcn as role_name when the original target_name is a local path
+                if role_name != obj.fqcn:
+                    role_name = obj.fqcn
             except PlaybookFormatError:
                 if not self.skip_playbook_format_error:
                     raise
