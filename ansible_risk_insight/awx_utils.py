@@ -48,18 +48,6 @@ def could_be_playbook(fpath):
     return matched
 
 
-def could_be_taskfile(fpath):
-    if could_be_playbook(fpath):
-        return False
-    with codecs.open(fpath, "r", encoding="utf-8", errors="ignore") as f:
-        for n, line in enumerate(f):
-            if "- name: " in line:
-                return True
-            if "ansible.builtin." in line:
-                return True
-    return False
-
-
 # this method is based on awx code
 # awx/main/models/projects.py#L206-L217 in ansible/awx
 def search_playbooks(root_path):

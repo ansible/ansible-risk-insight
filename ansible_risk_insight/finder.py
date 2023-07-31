@@ -19,6 +19,7 @@ from pathlib import Path
 import re
 import os
 import yaml
+import traceback
 
 try:
     # if `libyaml` is available, use C based loader for performance
@@ -302,6 +303,18 @@ def find_best_repo_root_path(path):
 def find_collection_name_of_repo(path):
     pattern = os.path.join(path, "**/galaxy.yml")
     found_galaxy_ymls = safe_glob(pattern, recursive=True)
+
+    # skip galaxy ymls found in collections/roles in the repository
+    _galaxy_ymls = []
+    for gpath in found_galaxy_ymls:
+        relative_path = gpath.replace(path, "", 1)
+        if "/collections/" in relative_path:
+            continue
+        if "/roles/" in relative_path:
+            continue
+        _galaxy_ymls.append(gpath)
+    found_galaxy_ymls = _galaxy_ymls
+
     my_collection_name = ""
     if len(found_galaxy_ymls) > 0:
         galaxy_yml = found_galaxy_ymls[0]
@@ -317,3 +330,176 @@ def find_collection_name_of_repo(path):
         name = my_collection_info.get("name", "")
         my_collection_name = "{}.{}".format(namespace, name)
     return my_collection_name
+
+
+def find_all_ymls(root_dir: str):
+    patterns = [os.path.join(root_dir, "**", "*.ya?ml")]
+    ymls = safe_glob(patterns)
+    return ymls
+
+
+def _get_body_data(body: str = "", data: list = None, fpath: str = ""):
+    if fpath and not body and not data:
+        try:
+            with open(fpath, "r") as file:
+                body = file.read()
+                data = yaml.safe_load(body)
+        except Exception:
+            pass
+    elif body and not data:
+        try:
+            data = yaml.safe_load(body)
+        except Exception:
+            pass
+    return body, data, fpath
+
+
+def could_be_playbook_detail(body: str = "", data: list = None, fpath: str = ""):
+    body, data, fpath = _get_body_data(body, data, fpath)
+
+    if not body:
+        return False
+
+    if len(data) == 0:
+        return False
+
+    if not isinstance(data[0], dict):
+        return False
+
+    if "hosts" in data[0]:
+        return True
+
+    if "import_playbook" in data[0] or "ansible.builtin.import_playbook" in data[0]:
+        return True
+
+    return False
+
+
+def could_be_taskfile(body: str = "", data: list = None, fpath: str = ""):
+    body, data, fpath = _get_body_data(body, data, fpath)
+
+    if not body:
+        return False
+
+    if not data:
+        return False
+
+    if not isinstance(data, list):
+        return False
+
+    if not isinstance(data[0], dict):
+        return False
+
+    if "name" in data[0]:
+        return True
+
+    module_name = find_module_name(data[0])
+    if module_name:
+        short_module_name = module_name.split(".")[-1] if "." in module_name else module_name
+        if short_module_name == "import_playbook":
+            # if the found module name is import_playbook, the file is a playbook
+            return False
+        else:
+            return True
+
+    return False
+
+
+# this function is only for empty files
+# if a target file has some contents, it should be checked with
+# some dedicated functions like `could_be_taskfile()`.
+def label_empty_file_by_path(fpath: str):
+
+    taskfile_dir = ["/tasks/", "/handlers/"]
+    for t_d in taskfile_dir:
+        if t_d in fpath:
+            return "taskfile"
+
+    playbook_dir = ["/playbooks/"]
+    for p_d in playbook_dir:
+        if p_d in fpath:
+            return "playbook"
+
+    return ""
+
+
+def get_role_info_from_path(fpath: str):
+    patterns = [
+        "/roles/",
+        "/tests/integration/targets/",
+    ]
+    targets = [
+        "/tasks/",
+        "/handlers/",
+        "/vars/",
+        "/defaults/",
+        "/meta/",
+    ]
+    role_name = ""
+    role_path = ""
+    for p in patterns:
+        found = False
+        if p in fpath:
+            relative_path = fpath.split(p, 1)[-1]
+            for t in targets:
+                if t in relative_path:
+                    role_path = relative_path.rsplit(t, 1)[0]
+                    role_name = role_path.split("/")[-1]
+                    found = True
+                    break
+        if found:
+            break
+    return role_name, role_path
+
+
+# TODO: implement this
+def get_project_info_for_file(fpath, root_dir):
+    return os.path.basename(root_dir), root_dir
+
+
+def is_meta_yml(yml_path):
+    parts = yml_path.split("/")
+    if len(parts) > 2 and parts[-2] == "meta":
+        return True
+    return False
+
+
+def is_vars_yml(yml_path):
+    parts = yml_path.split("/")
+    if len(parts) > 2 and parts[-2] in ["vars", "defaults"]:
+        return True
+    return False
+
+
+def label_yml_file(yml_path: str):
+    body = ""
+    data = None
+    error = None
+    try:
+        with open(yml_path, "r") as file:
+            body = file.read()
+    except Exception:
+        error = {"type": "FileReadError", "detail": traceback.format_exc()}
+    if error:
+        return "others", error
+
+    try:
+        data = yaml.safe_load(body)
+    except Exception:
+        error = {"type": "YAMLParseError", "detail": traceback.format_exc()}
+    if error:
+        return "others", error
+
+    label = ""
+    if not body or not data:
+        label_by_path = label_empty_file_by_path(yml_path)
+        label = label_by_path if label_by_path else "others"
+    elif data and not isinstance(data, list):
+        label = "others"
+    elif could_be_playbook(yml_path) and could_be_playbook_detail(body, data):
+        label = "playbook"
+    elif could_be_taskfile(body, data):
+        label = "taskfile"
+    else:
+        label = "others"
+    return label, None

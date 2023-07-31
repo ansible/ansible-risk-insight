@@ -70,13 +70,15 @@ from .utils import (
     get_class_by_arg_type,
     is_test_object,
 )
-from .awx_utils import could_be_playbook, could_be_taskfile
+from .awx_utils import could_be_playbook
+from .finder import could_be_taskfile
+
 
 # collection info direcotry can be something like
 #   "brightcomputing.bcm-9.1.11+41615.gitfab9053.info"
 collection_info_dir_re = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+-[0-9]+\.[0-9]+\.[0-9]+.*\.info$")
 
-string_module_options_re = re.compile(r"^([a-z0-9]+=(?:[^ ]*{{ [^ ]+ }}[^ ]*|[^ ])+\s?)+$")
+string_module_options_re = re.compile(r"^(?:[^ ]* )([a-z0-9_]+=(?:[^ ]*{{ [^ ]+ }}[^ ]*|[^ ])+\s?)+$")
 
 loop_task_option_names = [
     "loop",
@@ -141,6 +143,23 @@ def load_repository(
     repoObj.roles = load_roles(
         repo_path, basedir=basedir, use_ansible_doc=use_ansible_doc, include_test_contents=include_test_contents, load_children=load_children
     )
+    # in case the target project is a role
+    if os.path.exists(os.path.join(repo_path, "tasks")):
+        role_name = os.path.basename(repo_path)
+        role = load_role(
+            path=repo_path,
+            name=role_name,
+            collection_name=my_collection_name,
+            basedir=basedir,
+            use_ansible_doc=use_ansible_doc,
+            include_test_contents=include_test_contents,
+            load_children=load_children,
+        )
+        if role:
+            if load_children:
+                repoObj.roles.append(role)
+            else:
+                repoObj.roles.append(role.defined_in)
     logger.debug("done ... {} roles loaded".format(len(repoObj.roles)))
     logger.debug("start loading modules (that are defined in this repository)")
     repoObj.modules = load_modules(
@@ -604,8 +623,8 @@ def load_playbooks(path, basedir="", skip_playbook_format_error=True, skip_task_
     if path == "":
         return []
     patterns = [
-        os.path.join(path, "/*.ya?ml"),
-        os.path.join(path, "/playbooks/**/*.ya?ml"),
+        os.path.join(path, "*.ya?ml"),
+        os.path.join(path, "playbooks/**/*.ya?ml"),
     ]
     if include_test_contents:
         patterns.append(os.path.join(path, "tests/**/*.ya?ml"))
@@ -824,7 +843,7 @@ def load_role(
     taskfiles = []
     for task_yaml_path in task_yaml_files:
         tf = None
-        if not could_be_taskfile(task_yaml_path):
+        if not could_be_taskfile(fpath=task_yaml_path):
             continue
         try:
             tf = load_taskfile(
@@ -1204,7 +1223,14 @@ def load_task(
         else:
             task_options.update({k: v})
 
-    taskObj.set_yaml_lines(fullpath=fullpath, yaml_lines=yaml_lines, task_name=task_name, module_name=module_name, module_options=module_options)
+    taskObj.set_yaml_lines(
+        fullpath=fullpath,
+        yaml_lines=yaml_lines,
+        task_name=task_name,
+        module_name=module_name,
+        module_options=module_options,
+        task_options=task_options,
+    )
 
     # module_options can be passed as a string like below
     #
@@ -1231,7 +1257,7 @@ def load_task(
             else:
                 unknown_key_val = module_options.split(matched_options[0])[0]
                 if unknown_key_val != "":
-                    new_module_options[unknown_key] = unknown_key_val
+                    new_module_options[unknown_key] = unknown_key_val.strip()
                 for p in matched_options:
                     key = p.split("=")[0]
                     val = "=".join(p.split("=")[1:])

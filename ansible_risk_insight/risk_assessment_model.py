@@ -416,6 +416,7 @@ class RAMClient(object):
             return matched_builtin_modules
 
         short_name = name
+        search_name = name
         if "." in name:
             short_name = name.split(".")[-1]
 
@@ -441,6 +442,7 @@ class RAMClient(object):
             findings_path = os.path.join(self.root_dir, _type + "s", "findings", _name, _version, _hash, "findings.json")
             if os.path.exists(findings_path):
                 modules_json_list.append(findings_path)
+            search_name = found_index.get("fqcn", "")
         else:
             # Do not search a module from all findings
             # when it is not found in the module index.
@@ -462,10 +464,10 @@ class RAMClient(object):
             for m in modules:
                 matched = False
                 if exact_match:
-                    if m.fqcn == name:
+                    if m.fqcn == search_name:
                         matched = True
                 else:
-                    if m.fqcn == name or m.fqcn.endswith(f".{name}"):
+                    if m.fqcn == search_name or m.fqcn == name or m.fqcn.endswith(f".{short_name}"):
                         matched = True
                 if matched:
                     parts = findings_json.split("/")
