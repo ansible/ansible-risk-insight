@@ -1433,7 +1433,7 @@ class MutableContent(object):
             new_value = DoubleQuotedScalarString(new_value)
             need_restore = True
         for k, v in self._task_spec.options.items():
-            if type(v) != type(old_value):
+            if type(v).__name__ != type(old_value).__name__:
                 continue
             if v != old_value:
                 continue
@@ -1495,7 +1495,7 @@ class MutableContent(object):
             if key and k != key:
                 continue
             value = self._task_spec.module_options[k]
-            if type(value) == type(old_value) and value == old_value:
+            if type(value).__name__ == type(old_value).__name__ and value == old_value:
                 self._task_spec.module_options[k] = new_value
                 keys_to_be_restored.append(k)
         self._yaml = self._task_spec.yaml()
