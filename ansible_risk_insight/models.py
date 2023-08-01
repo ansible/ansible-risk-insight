@@ -1803,6 +1803,8 @@ class TaskFile(Object, Resolvable):
     module_defaults: dict = field(default_factory=dict)
     options: dict = field(default_factory=dict)
 
+    task_loading: dict = field(default_factory=dict)
+
     def set_key(self):
         set_taskfile_key(self)
 
@@ -1929,6 +1931,8 @@ class Play(Object, Resolvable):
 
     # embed this data when role is resolved
     roles_info: list = field(default_factory=list)
+
+    task_loading: dict = field(default_factory=dict)
 
     def set_key(self, parent_key="", parent_local_key=""):
         set_play_key(self, parent_key, parent_local_key)
