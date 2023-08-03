@@ -1658,7 +1658,7 @@ def load_object(loadObj):
         else:
             obj = load_repository(path=basedir, basedir=basedir, target_taskfile_path=target_taskfile_path, load_children=False)
     elif target_type == LoadType.PROJECT:
-        obj = load_repository(path=path, basedir=path, load_children=False)
+        obj = load_repository(path=path, basedir=path, include_test_contents=loadObj.include_test_contents, load_children=False)
 
     if hasattr(obj, "roles"):
         loadObj.roles = obj.roles

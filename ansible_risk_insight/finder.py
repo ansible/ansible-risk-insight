@@ -440,7 +440,9 @@ def get_role_info_from_path(fpath: str):
     for p in patterns:
         found = False
         if p in fpath:
-            relative_path = fpath.split(p, 1)[-1]
+            relative_path = os.path.join(p, fpath.split(p, 1)[-1])
+            if relative_path[0] == "/":
+                relative_path = relative_path[1:]
             for t in targets:
                 if t in relative_path:
                     role_path = relative_path.rsplit(t, 1)[0]
