@@ -1104,7 +1104,7 @@ class Task(Object, Resolvable):
                 elif isinstance(module_options, dict):
                     option_matched = False
                     for key in module_options:
-                        if "{}:".format(key) in lines[i + 1]:
+                        if i + 1 < len(lines) and "{}:".format(key) in lines[i + 1]:
                             option_matched = True
                             break
                     if option_matched:
