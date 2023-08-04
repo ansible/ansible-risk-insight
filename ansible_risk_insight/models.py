@@ -120,6 +120,7 @@ class Load(JSONSerializable):
     playbook_only: bool = False
     taskfile_yaml: str = ""
     taskfile_only: bool = False
+    base_dir: str = ""
     include_test_contents: bool = False
     timestamp: str = ""
 
