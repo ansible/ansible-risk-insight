@@ -15,20 +15,31 @@
 # limitations under the License.
 
 import io
+from contextvars import ContextVar
 from ruamel.yaml import YAML
 
 
-_yaml = YAML(typ="rt", pure=True)
-_yaml.default_flow_style = False
-_yaml.preserve_quotes = True
-_yaml.allow_duplicate_keys = True
+_yaml: ContextVar[YAML] = ContextVar("yaml")
+
+
+def _set_yaml():
+    if not _yaml.get(None):
+        yaml = YAML(typ="rt", pure=True)
+        yaml.default_flow_style = False
+        yaml.preserve_quotes = True
+        yaml.allow_duplicate_keys = True
+        _yaml.set(yaml)
 
 
 def load(stream: any):
-    return _yaml.load(stream)
+    _set_yaml()
+    yaml = _yaml.get()
+    return yaml.load(stream)
 
 
 def dump(data: any):
+    _set_yaml()
+    yaml = _yaml.get()
     output = io.StringIO()
-    _yaml.dump(data, output)
+    yaml.dump(data, output)
     return output.getvalue()

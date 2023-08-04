@@ -24,6 +24,7 @@ from ruamel.yaml.scalarstring import DoubleQuotedScalarString
 from copy import deepcopy
 import json
 import jsonpickle
+import Levenshtein
 import ansible_risk_insight.yaml as ariyaml
 from ansible.module_utils.parsing.convert_bool import boolean
 from .keyutil import (
@@ -1072,39 +1073,121 @@ class Task(Object, Resolvable):
     # candidates of resovled_name
     possible_candidates: list = field(default_factory=list)
 
-    def set_yaml_lines(self, fullpath="", yaml_lines="", task_name="", module_name="", module_options=None):
+    # embed these data when module/role/taskfile are resolved
+    module_info: dict = field(default_factory=dict)
+    include_info: dict = field(default_factory=dict)
+
+    def set_yaml_lines(self, fullpath="", yaml_lines="", task_name="", module_name="", module_options=None, task_options=None):
         if not task_name and not module_options:
             return
-        found_line_num = -1
+
         lines = []
         if yaml_lines:
             lines = yaml_lines.splitlines()
         else:
             lines = open(fullpath, "r").read().splitlines()
+
+        # search candidates that match either of the following conditions
+        #   - task name is included in the line
+        #   - if module name is included,
+        #       - if module option is string, it is included
+        #       - if module option is dict, at least one key is included
+        candidate_line_nums = []
         for i, line in enumerate(lines):
             if task_name:
                 if task_name in line:
-                    found_line_num = i
-                    break
+                    candidate_line_nums.append(i)
             elif "{}:".format(module_name) in line:
                 if isinstance(module_options, str):
                     if module_options in line:
-                        found_line_num = i
-                        break
+                        candidate_line_nums.append(i)
                 elif isinstance(module_options, dict):
                     option_matched = False
                     for key in module_options:
-                        if "{}:".format(key) in lines[i + 1]:
+                        if i + 1 < len(lines) and "{}:".format(key) in lines[i + 1]:
                             option_matched = True
                             break
                     if option_matched:
-                        found_line_num = i
-                        break
-        if found_line_num < 0:
+                        candidate_line_nums.append(i)
+        if not candidate_line_nums:
             return
-        found_line = lines[found_line_num]
+
+        # get task yaml_lines for each candidate
+        candidate_blocks = []
+        for candidate_line_num in candidate_line_nums:
+            _yaml_lines, _line_num_in_file = self._find_task_block(lines, candidate_line_num)
+            if _yaml_lines and _line_num_in_file:
+                candidate_blocks.append((_yaml_lines, _line_num_in_file))
+
+        if not candidate_blocks:
+            return
+
+        reconstructed_yaml = ""
+        best_yaml_lines = ""
+        best_line_num_in_file = []
+        sorted_candidates = []
+        if len(candidate_blocks) == 1:
+            best_yaml_lines = candidate_blocks[0][0]
+            best_line_num_in_file = candidate_blocks[0][1]
+        else:
+            # reconstruct yaml from the task data to calculate similarity (edit distance) later
+            reconstructed_data = [{}]
+            if task_name:
+                reconstructed_data[0]["name"] = task_name
+            reconstructed_data[0][module_name] = module_options
+            if isinstance(task_options, dict):
+                for key, val in task_options.items():
+                    if key not in reconstructed_data[0]:
+                        reconstructed_data[0][key] = val
+
+            try:
+                reconstructed_yaml = ariyaml.dump(reconstructed_data)
+            except Exception:
+                pass
+
+            # find best match by edit distance
+            if reconstructed_yaml:
+
+                def remove_comment_lines(s):
+                    lines = s.splitlines()
+                    updated = []
+                    for line in lines:
+                        if line.strip().startswith("#"):
+                            continue
+                        updated.append(line)
+                    return "\n".join(updated)
+
+                def calc_dist(s1, s2):
+                    us1 = remove_comment_lines(s1)
+                    us2 = remove_comment_lines(s2)
+                    dist = Levenshtein.distance(us1, us2)
+                    return dist
+
+                r = reconstructed_yaml
+                sorted_candidates = sorted(candidate_blocks, key=lambda x: calc_dist(r, x[0]))
+                best_yaml_lines = sorted_candidates[0][0]
+                best_line_num_in_file = sorted_candidates[0][1]
+            else:
+                # give up here if yaml reconstruction failed
+                # use the first candidate
+                best_yaml_lines = candidate_blocks[0][0]
+                best_line_num_in_file = candidate_blocks[0][1]
+
+        self.yaml_lines = best_yaml_lines
+        self.line_num_in_file = best_line_num_in_file
+        return
+
+    def _find_task_block(self, yaml_lines: list, start_line_num: int):
+        if not yaml_lines:
+            return None, None
+
+        if start_line_num < 0:
+            return None, None
+
+        lines = yaml_lines
+        found_line = lines[start_line_num]
         is_top_of_block = found_line.replace(" ", "").startswith("-")
-        begin_line_num = found_line_num
+        begin_line_num = start_line_num
         indent_of_block = -1
         if is_top_of_block:
             indent_of_block = len(found_line.split("-")[0])
@@ -1131,7 +1214,7 @@ class Task(Object, Resolvable):
                 if begin_line_num < 0:
                     break
             if not found:
-                return
+                return None, None
             indent_of_block = len(found_line.split("-")[0])
         index = begin_line_num + 1
         end_found = False
@@ -1153,25 +1236,31 @@ class Task(Object, Resolvable):
                 end_line_num = index
                 break
         if not end_found:
-            return
+            return None, None
         if begin_line_num < 0 or end_line_num > len(lines) or begin_line_num > end_line_num:
-            return
-        self.yaml_lines = "\n".join(lines[begin_line_num : end_line_num + 1])
-        self.line_num_in_file = [begin_line_num + 1, end_line_num + 1]
-        return
+            return None, None
+
+        yaml_lines = "\n".join(lines[begin_line_num : end_line_num + 1])
+        line_num_in_file = [begin_line_num + 1, end_line_num + 1]
+        return yaml_lines, line_num_in_file
 
     # this keeps original contents like comments, indentation
     # and quotes for string as much as possible
-    def yaml(self, original_module=""):
+    def yaml(self, original_module="", use_yaml_lines=True):
+        task_data_wrapper = None
         task_data = None
-        try:
-            task_data_wrapper = ariyaml.load(self.yaml_lines)
-            task_data = task_data_wrapper[0]
-        except Exception:
-            pass
+        if use_yaml_lines:
+            try:
+                task_data_wrapper = ariyaml.load(self.yaml_lines)
+                task_data = task_data_wrapper[0]
+            except Exception:
+                pass
 
-        if not task_data:
-            return self.yaml_lines
+            if not task_data:
+                return self.yaml_lines
+        else:
+            task_data_wrapper = []
+            task_data = {}
 
         # task name
         if self.name:
@@ -1213,7 +1302,10 @@ class Task(Object, Resolvable):
                     current_to.pop(old_key)
             options_without_name = {k: v for k, v in self.options.items() if k != "name"}
             recursive_copy_dict(options_without_name, current_to)
-        task_data_wrapper[0] = current_to
+        if len(task_data_wrapper) == 0:
+            task_data_wrapper.append(current_to)
+        else:
+            task_data_wrapper[0] = current_to
         new_yaml = ariyaml.dump(task_data_wrapper)
         return new_yaml
 
@@ -1341,7 +1433,7 @@ class MutableContent(object):
             new_value = DoubleQuotedScalarString(new_value)
             need_restore = True
         for k, v in self._task_spec.options.items():
-            if type(v) != type(old_value):
+            if type(v).__name__ != type(old_value).__name__:
                 continue
             if v != old_value:
                 continue
@@ -1403,7 +1495,7 @@ class MutableContent(object):
             if key and k != key:
                 continue
             value = self._task_spec.module_options[k]
-            if type(value) == type(old_value) and value == old_value:
+            if type(value).__name__ == type(old_value).__name__ and value == old_value:
                 self._task_spec.module_options[k] = new_value
                 keys_to_be_restored.append(k)
         self._yaml = self._task_spec.yaml()
@@ -1544,6 +1636,7 @@ class AnsibleRunContext(object):
     root_key: str = ""
     parent: Object = None
     ram_client: any = None
+    scan_metadata: dict = field(default_factory=dict)
 
     # used by rule check
     current: RunTarget = None
@@ -1576,7 +1669,7 @@ class AnsibleRunContext(object):
         return self.sequence[i]
 
     @staticmethod
-    def from_tree(tree: ObjectList, parent: Object = None, last_item: bool = False, ram_client=None):
+    def from_tree(tree: ObjectList, parent: Object = None, last_item: bool = False, ram_client=None, scan_metadata=None):
         if not tree:
             return AnsibleRunContext(parent=parent, last_item=last_item)
         if len(tree.items) == 0:
@@ -1589,15 +1682,21 @@ class AnsibleRunContext(object):
                 continue
             sequence_items.append(item)
         tl = RunTargetList(items=sequence_items)
-        return AnsibleRunContext(sequence=tl, root_key=root_key, parent=parent, last_item=last_item, ram_client=ram_client)
+        return AnsibleRunContext(
+            sequence=tl, root_key=root_key, parent=parent, last_item=last_item, ram_client=ram_client, scan_metadata=scan_metadata
+        )
 
     @staticmethod
-    def from_targets(targets: List[RunTarget], root_key: str = "", parent: Object = None, last_item: bool = False, ram_client=None):
+    def from_targets(
+        targets: List[RunTarget], root_key: str = "", parent: Object = None, last_item: bool = False, ram_client=None, scan_metadata=None
+    ):
         if not root_key:
             if len(targets) > 0:
                 root_key = targets[0].spec.key
         tl = RunTargetList(items=targets)
-        return AnsibleRunContext(sequence=tl, root_key=root_key, parent=parent, last_item=last_item, ram_client=ram_client)
+        return AnsibleRunContext(
+            sequence=tl, root_key=root_key, parent=parent, last_item=last_item, ram_client=ram_client, scan_metadata=scan_metadata
+        )
 
     def find(self, target: RunTarget):
         for t in self.sequence:
@@ -1612,13 +1711,23 @@ class AnsibleRunContext(object):
                 break
             targets.append(rt)
         return AnsibleRunContext.from_targets(
-            targets, root_key=self.root_key, parent=self.parent, last_item=self.last_item, ram_client=self.ram_client
+            targets,
+            root_key=self.root_key,
+            parent=self.parent,
+            last_item=self.last_item,
+            ram_client=self.ram_client,
+            scan_metadata=self.scan_metadata,
         )
 
     def search(self, cond: AnnotationCondition):
         targets = [t for t in self.sequence if t.type == RunTargetType.Task and t.has_annotation_by_condition(cond)]
         return AnsibleRunContext.from_targets(
-            targets, root_key=self.root_key, parent=self.parent, last_item=self.last_item, ram_client=self.ram_client
+            targets,
+            root_key=self.root_key,
+            parent=self.parent,
+            last_item=self.last_item,
+            ram_client=self.ram_client,
+            scan_metadata=self.scan_metadata,
         )
 
     def is_end(self, target: RunTarget):
@@ -1641,7 +1750,12 @@ class AnsibleRunContext(object):
 
     def copy(self):
         return AnsibleRunContext.from_targets(
-            targets=self.sequence.items, root_key=self.root_key, parent=self.parent, last_item=self.last_item, ram_client=self.ram_client
+            targets=self.sequence.items,
+            root_key=self.root_key,
+            parent=self.parent,
+            last_item=self.last_item,
+            ram_client=self.ram_client,
+            scan_metadata=self.scan_metadata,
         )
 
     @property
@@ -1688,6 +1802,8 @@ class TaskFile(Object, Resolvable):
     variables: dict = field(default_factory=dict)
     module_defaults: dict = field(default_factory=dict)
     options: dict = field(default_factory=dict)
+
+    task_loading: dict = field(default_factory=dict)
 
     def set_key(self):
         set_taskfile_key(self)
@@ -1812,6 +1928,11 @@ class Play(Object, Resolvable):
     collections_in_play: list = field(default_factory=list)
     become: BecomeInfo = None
     variables: dict = field(default_factory=dict)
+
+    # embed this data when role is resolved
+    roles_info: list = field(default_factory=list)
+
+    task_loading: dict = field(default_factory=dict)
 
     def set_key(self, parent_key="", parent_local_key=""):
         set_play_key(self, parent_key, parent_local_key)

@@ -87,6 +87,7 @@ class Dependency(object):
     dir: str = ""
     name: str = ""
     metadata: DownloadMetadata = field(default_factory=DownloadMetadata)
+    is_local_dir: bool = False
 
 
 @dataclass
@@ -297,11 +298,13 @@ class DependencyDirPreparator(object):
         if role_dependencies:
             for rdep in role_dependencies:
                 target_version = None
+                is_local_dir = False
                 if isinstance(rdep, dict):
                     rdep_name = rdep.get("name", None)
                     target_version = rdep.get("version", None)
                     if not rdep_name:
                         rdep_name = rdep.get("role", None)
+                    is_local_dir = rdep.get("is_local_dir", False)
                     rdep = rdep_name
                 name = rdep
                 if type(rdep) is dict:
@@ -311,6 +314,7 @@ class DependencyDirPreparator(object):
                 logger.debug("prepare dir for {}".format(name))
                 downloaded_dep = Dependency(
                     name=name,
+                    is_local_dir=is_local_dir,
                 )
                 downloaded_dep.metadata.type = LoadType.ROLE
                 downloaded_dep.metadata.name = name
@@ -326,7 +330,9 @@ class DependencyDirPreparator(object):
 
                 if not os.path.exists(sub_dependency_dir_path):
                     os.makedirs(sub_dependency_dir_path)
-                if cache_enabled:
+                if is_local_dir:
+                    downloaded_dep.is_local_dir = is_local_dir
+                elif cache_enabled:
                     logger.debug("cache enabled")
                     cache_dir_path = os.path.join(
                         cache_dir,
@@ -345,8 +351,11 @@ class DependencyDirPreparator(object):
                         self.move_src(cache_dir_path, sub_dependency_dir_path)
                     else:
                         logger.debug("dependency cache data not found")
-                        install_msg = install_galaxy_target(name, LoadType.ROLE, sub_dependency_dir_path, self.source_repository, target_version)
+                        install_msg, install_err = install_galaxy_target(
+                            name, LoadType.ROLE, sub_dependency_dir_path, self.source_repository, target_version
+                        )
                         logger.debug("role install msg: {}".format(install_msg))
+                        logger.debug("role install msg err: {}".format(install_err))
                         metadata = self.extract_roles_metadata(install_msg)
                         if not metadata:
                             raise ValueError("failed to install {} {}".format(LoadType.ROLE, name))
@@ -362,8 +371,9 @@ class DependencyDirPreparator(object):
                     logger.debug("use the specified dependency dirs")
                     sub_dependency_dir_path = role_dependency_dirs[name]
                 else:
-                    install_msg = install_galaxy_target(name, LoadType.ROLE, sub_dependency_dir_path, self.source_repository)
+                    install_msg, install_err = install_galaxy_target(name, LoadType.ROLE, sub_dependency_dir_path, self.source_repository)
                     logger.debug("role install msg: {}".format(install_msg))
+                    logger.debug("role install msg err: {}".format(install_err))
                     metadata = self.extract_roles_metadata(install_msg)
                     if not metadata:
                         raise ValueError("failed to install {} {}".format(LoadType.ROLE, name))
@@ -433,10 +443,11 @@ class DependencyDirPreparator(object):
                     os.makedirs(tmp_target_dir)
                 self.move_src(sub_download_location, tmp_target_dir)
             else:
-                install_msg = install_galaxy_target(
+                install_msg, install_err = install_galaxy_target(
                     self.target_name, self.target_type, tmp_src_dir, self.source_repository, target_version=self.target_version
                 )
                 logger.debug("role install msg: {}".format(install_msg))
+                logger.debug("role install msg err: {}".format(install_err))
                 metadata = self.extract_roles_metadata(install_msg)
                 if not metadata:
                     raise ValueError("failed to install {} {}".format(self.target_type, self.target_name))

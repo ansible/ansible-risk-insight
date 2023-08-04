@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from copy import deepcopy
 from dataclasses import dataclass, field
 import jsonpickle
@@ -66,6 +67,9 @@ class Findings:
     def save_rule_result(self, fpath=""):
         json_str = jsonpickle.encode(self.report.get("ari_result", {}), make_refs=False, unpicklable=False)
         if fpath:
+            rule_result_dir = os.path.dirname(fpath)
+            if not os.path.exists(rule_result_dir):
+                os.makedirs(rule_result_dir, exist_ok=True)
             with open(fpath, "w") as file:
                 file.write(json_str)
         return json_str

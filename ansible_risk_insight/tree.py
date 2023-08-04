@@ -33,6 +33,8 @@ from .models import (
     LoadType,
     CallObject,
     TaskCall,
+    PlayCall,
+    RoleCall,
     call_obj_from_spec,
 )
 from .model_loader import load_builtin_modules
@@ -552,18 +554,46 @@ class TreeLoader(object):
                             taskcall.spec.possible_candidates = [(c_obj.spec.fqcn, req_info)]
                         else:
                             taskcall.spec.resolved_name = c_obj.spec.fqcn
+                        taskcall.spec.module_info = {
+                            "collection": c_obj.spec.collection,
+                            "short_name": c_obj.spec.name,
+                            "fqcn": c_obj.spec.fqcn,
+                            "key": c_obj.spec.key,
+                        }
                     elif taskcall.spec.executable_type == ExecutableType.ROLE_TYPE:
                         if c_key in from_ram:
                             req_info = from_ram[c_key]
                             taskcall.spec.possible_candidates = [(c_obj.spec.fqcn, req_info)]
                         else:
                             taskcall.spec.resolved_name = c_obj.spec.fqcn
+                        taskcall.spec.include_info = {
+                            "type": "role",
+                            "fqcn": c_obj.spec.fqcn,
+                            "path": c_obj.spec.defined_in,
+                            "key": c_obj.spec.key,
+                        }
                     elif taskcall.spec.executable_type == ExecutableType.TASKFILE_TYPE:
                         if c_key in from_ram:
                             req_info = from_ram[c_key]
                             taskcall.spec.possible_candidates = [(c_obj.spec.key, req_info)]
                         else:
                             taskcall.spec.resolved_name = c_obj.spec.key
+                        taskcall.spec.include_info = {
+                            "type": "taskfile",
+                            "path": c_obj.spec.defined_in,
+                            "key": c_obj.spec.key,
+                        }
+            elif isinstance(call_obj, PlayCall):
+                playcall = call_obj
+                if len(child_objects.items) > 0:
+                    c_obj = child_objects.items[0]
+                    if isinstance(c_obj, RoleCall):
+                        role_info = {
+                            "fqcn": c_obj.spec.fqcn,
+                            "path": c_obj.spec.defined_in,
+                            "key": c_obj.spec.key,
+                        }
+                        playcall.spec.roles_info.append(role_info)
             for c_obj in child_objects.items:
                 obj_list.add(c_obj)
         return obj_list

@@ -70,10 +70,8 @@ class ModuleArgumentValueValidationRule(Rule):
                 for key in task.args.raw:
                     raw_value = task.args.raw[key]
                     resolved_value = None
-                    if len(task.args.templated) == 1:
+                    if len(task.args.templated) >= 1:
                         resolved_value = task.args.templated[0][key]
-                    elif len(task.args.templated) > 1:
-                        resolved_value = [t[key] for t in task.args.templated]
                     spec = None
                     for arg_spec in task.module.arguments:
                         if key == arg_spec.name or (arg_spec.aliases and key in arg_spec.aliases):
