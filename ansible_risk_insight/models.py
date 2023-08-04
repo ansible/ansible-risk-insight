@@ -1104,7 +1104,7 @@ class Task(Object, Resolvable):
                 elif isinstance(module_options, dict):
                     option_matched = False
                     for key in module_options:
-                        if "{}:".format(key) in lines[i + 1]:
+                        if i + 1 < len(lines) and "{}:".format(key) in lines[i + 1]:
                             option_matched = True
                             break
                     if option_matched:
@@ -1803,6 +1803,8 @@ class TaskFile(Object, Resolvable):
     module_defaults: dict = field(default_factory=dict)
     options: dict = field(default_factory=dict)
 
+    task_loading: dict = field(default_factory=dict)
+
     def set_key(self):
         set_taskfile_key(self)
 
@@ -1929,6 +1931,8 @@ class Play(Object, Resolvable):
 
     # embed this data when role is resolved
     roles_info: list = field(default_factory=list)
+
+    task_loading: dict = field(default_factory=dict)
 
     def set_key(self, parent_key="", parent_local_key=""):
         set_play_key(self, parent_key, parent_local_key)

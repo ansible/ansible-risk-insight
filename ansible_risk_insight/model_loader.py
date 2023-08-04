@@ -334,7 +334,12 @@ def load_play(
     keys = [k for k in data_block if k not in tasks_keys]
     keys.extend(tasks_keys)
     task_count = 0
-
+    task_loading = {
+        "total": 0,
+        "success": 0,
+        "failure": 0,
+        "errors": [],
+    }
     for k in keys:
         if k not in data_block:
             continue
@@ -350,7 +355,9 @@ def load_play(
             if task_blocks is None:
                 continue
             for task_dict in task_blocks:
+                task_loading["total"] += 1
                 i = task_count
+                error = None
                 try:
                     t = load_task(
                         path=path,
@@ -366,15 +373,22 @@ def load_play(
                         basedir=basedir,
                     )
                     pre_tasks.append(t)
-                except TaskFormatError:
+                    if t:
+                        task_loading["success"] += 1
+                except TaskFormatError as exc:
+                    error = exc
                     if skip_task_format_error:
                         logger.debug("this task is wrong format; skip the task in {}," " index: {}; skip this".format(path, i))
                     else:
                         raise TaskFormatError(f"this task is wrong format; skip the task in {path}," " index: {i}")
-                except Exception:
+                except Exception as exc:
+                    error = exc
                     logger.exception("error while loading the task at {} (index={})".format(path, i))
                 finally:
                     task_count += 1
+                    if error:
+                        task_loading["failure"] += 1
+                        task_loading["errors"].append(error)
         elif k == "tasks":
             if not isinstance(v, list):
                 continue
@@ -383,6 +397,8 @@ def load_play(
                 continue
             for task_dict in task_blocks:
                 i = task_count
+                task_loading["total"] += 1
+                error = None
                 try:
                     t = load_task(
                         path=path,
@@ -398,15 +414,22 @@ def load_play(
                         basedir=basedir,
                     )
                     tasks.append(t)
-                except TaskFormatError:
+                    if t:
+                        task_loading["success"] += 1
+                except TaskFormatError as exc:
+                    error = exc
                     if skip_task_format_error:
                         logger.debug("this task is wrong format; skip the task in {}," " index: {}; skip this".format(path, i))
                     else:
                         raise TaskFormatError(f"this task is wrong format; skip the task in {path}," " index: {i}")
-                except Exception:
+                except Exception as exc:
+                    error = exc
                     logger.exception("error while loading the task at {} (index={})".format(path, i))
                 finally:
                     task_count += 1
+                    if error:
+                        task_loading["failure"] += 1
+                        task_loading["errors"].append(error)
         elif k == "post_tasks":
             if not isinstance(v, list):
                 continue
@@ -415,6 +438,8 @@ def load_play(
                 continue
             for task_dict in task_blocks:
                 i = task_count
+                task_loading["total"] += 1
+                error = None
                 try:
                     t = load_task(
                         path=path,
@@ -430,15 +455,22 @@ def load_play(
                         basedir=basedir,
                     )
                     post_tasks.append(t)
-                except TaskFormatError:
+                    if t:
+                        task_loading["success"] += 1
+                except TaskFormatError as exc:
+                    error = exc
                     if skip_task_format_error:
                         logger.debug("this task is wrong format; skip the task in {}," " index: {}; skip this".format(path, i))
                     else:
                         raise TaskFormatError(f"this task is wrong format; skip the task in {path}," " index: {i}")
-                except Exception:
+                except Exception as exc:
+                    error = exc
                     logger.exception("error while loading the task at {} (index={})".format(path, i))
                 finally:
                     task_count += 1
+                    if error:
+                        task_loading["failure"] += 1
+                        task_loading["errors"].append(error)
         elif k == "roles":
             if not isinstance(v, list):
                 continue
@@ -501,6 +533,7 @@ def load_play(
     pbObj.options = play_options
     pbObj.become = BecomeInfo.from_options(play_options)
     pbObj.collections_in_play = collections_in_play
+    pbObj.task_loading = task_loading
 
     return pbObj
 
@@ -1385,7 +1418,15 @@ def load_taskfile(path, yaml_str="", role_name="", collection_name="", basedir="
     if task_dicts is None:
         return tfObj
     tasks = []
+    task_loading = {
+        "total": 0,
+        "success": 0,
+        "failure": 0,
+        "errors": [],
+    }
     for i, t_dict in enumerate(task_dicts):
+        task_loading["total"] += 1
+        error = None
         try:
             t = load_task(
                 fullpath,
@@ -1399,15 +1440,24 @@ def load_taskfile(path, yaml_str="", role_name="", collection_name="", basedir="
                 basedir=basedir,
             )
             tasks.append(t)
-        except TaskFormatError:
+            if t:
+                task_loading["success"] += 1
+        except TaskFormatError as exc:
+            error = exc
             if skip_task_format_error:
                 logger.debug("this task is wrong format; skip the task in {}, index: {}; skip this".format(fullpath, i))
                 continue
             else:
                 raise TaskFormatError(f"Task format error found; {fullpath}, index: {i}")
-        except Exception:
+        except Exception as exc:
+            error = exc
             logger.exception("error while loading the task at {}, index: {}".format(fullpath, i))
+        finally:
+            if error:
+                task_loading["failure"] += 1
+                task_loading["errors"].append(error)
     tfObj.tasks = tasks
+    tfObj.task_loading = task_loading
 
     return tfObj
 
@@ -1608,7 +1658,7 @@ def load_object(loadObj):
         else:
             obj = load_repository(path=basedir, basedir=basedir, target_taskfile_path=target_taskfile_path, load_children=False)
     elif target_type == LoadType.PROJECT:
-        obj = load_repository(path=path, basedir=path, load_children=False)
+        obj = load_repository(path=path, basedir=path, include_test_contents=loadObj.include_test_contents, load_children=False)
 
     if hasattr(obj, "roles"):
         loadObj.roles = obj.roles

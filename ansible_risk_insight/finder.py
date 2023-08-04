@@ -440,7 +440,9 @@ def get_role_info_from_path(fpath: str):
     for p in patterns:
         found = False
         if p in fpath:
-            relative_path = fpath.split(p, 1)[-1]
+            relative_path = os.path.join(p, fpath.split(p, 1)[-1])
+            if relative_path[0] == "/":
+                relative_path = relative_path[1:]
             for t in targets:
                 if t in relative_path:
                     role_path = relative_path.rsplit(t, 1)[0]
@@ -471,7 +473,7 @@ def is_vars_yml(yml_path):
     return False
 
 
-def label_yml_file(yml_path: str):
+def label_yml_file(yml_path: str, task_num_thresh: int = 50):
     body = ""
     data = None
     error = None
@@ -481,14 +483,24 @@ def label_yml_file(yml_path: str):
     except Exception:
         error = {"type": "FileReadError", "detail": traceback.format_exc()}
     if error:
-        return "others", error
+        return "others", -1, error
+
+    lines = body.splitlines()
+    # roughly count tasks
+    name_count = len([line for line in lines if line.lstrip().startswith("- name:")])
+
+    if task_num_thresh > 0:
+        if name_count > task_num_thresh:
+            error_detail = f"The number of tasks found in yml exceeds the threshold ({task_num_thresh})"
+            error = {"type": "TooManyTasksError", "detail": error_detail}
+            return "others", name_count, error
 
     try:
         data = yaml.safe_load(body)
     except Exception:
         error = {"type": "YAMLParseError", "detail": traceback.format_exc()}
     if error:
-        return "others", error
+        return "others", name_count, error
 
     label = ""
     if not body or not data:
@@ -502,4 +514,4 @@ def label_yml_file(yml_path: str):
         label = "taskfile"
     else:
         label = "others"
-    return label, None
+    return label, name_count, None
