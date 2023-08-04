@@ -186,6 +186,7 @@ class SingleScan(object):
     install_dependencies: bool = False
 
     dependency_dir: str = ""
+    base_dir: str = ""
     target_path: str = ""
     loaded_dependency_dirs: list = field(default_factory=list)
     use_src_cache: bool = True
@@ -416,6 +417,7 @@ class SingleScan(object):
             playbook_only=self.playbook_only,
             taskfile_yaml=self.taskfile_yaml,
             taskfile_only=self.taskfile_only,
+            base_dir=self.base_dir,
             include_test_contents=self.include_test_contents,
         )
         load_object(ld)
@@ -788,6 +790,7 @@ class ARIScanner(object):
         type: str,
         name: str = "",
         path: str = "",
+        base_dir: str = "",
         collection_name: str = "",
         role_name: str = "",
         install_dependencies: bool = True,
@@ -835,6 +838,7 @@ class ARIScanner(object):
             version=version,
             hash=hash,
             target_path=target_path,
+            base_dir=base_dir,
             skip_playbook_format_error=self.skip_playbook_format_error,
             skip_task_format_error=self.skip_task_format_error,
             dependency_dir=dependency_dir,

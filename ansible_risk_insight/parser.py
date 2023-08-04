@@ -140,7 +140,13 @@ class Parser:
             if ld.playbook_yaml:
                 target_playbook_path = ld.path
             else:
-                basedir, target_playbook_path = split_target_playbook_fullpath(ld.path)
+                if ld.base_dir:
+                    basedir = ld.base_dir
+                    target_playbook_path = ld.path.replace(basedir, "")
+                    if target_playbook_path[0] == "/":
+                        target_playbook_path = target_playbook_path[1:]
+                else:
+                    basedir, target_playbook_path = split_target_playbook_fullpath(ld.path)
             playbook_name = ld.target_name
             try:
                 if ld.playbook_only:
@@ -174,9 +180,15 @@ class Parser:
             basedir = ""
             target_taskfile_path = ""
             if ld.taskfile_yaml:
-                target_playbook_path = ld.path
+                target_taskfile_path = ld.path
             else:
-                basedir, target_taskfile_path = split_target_taskfile_fullpath(ld.path)
+                if ld.base_dir:
+                    basedir = ld.base_dir
+                    target_taskfile_path = ld.path.replace(basedir, "")
+                    if target_taskfile_path[0] == "/":
+                        target_taskfile_path = target_taskfile_path[1:]
+                else:
+                    basedir, target_taskfile_path = split_target_taskfile_fullpath(ld.path)
             taskfile_name = ld.target_name
             try:
                 if ld.taskfile_only:
@@ -214,9 +226,15 @@ class Parser:
 
         basedir = ld.path
         if ld.target_type == LoadType.PLAYBOOK:
-            basedir, _ = split_target_playbook_fullpath(ld.path)
+            if ld.base_dir:
+                basedir = ld.base_dir
+            else:
+                basedir, _ = split_target_playbook_fullpath(ld.path)
         elif ld.target_type == LoadType.TASKFILE:
-            basedir, _ = split_target_taskfile_fullpath(ld.path)
+            if ld.base_dir:
+                basedir = ld.base_dir
+            else:
+                basedir, _ = split_target_taskfile_fullpath(ld.path)
 
         roles = []
         for role_path in ld.roles:

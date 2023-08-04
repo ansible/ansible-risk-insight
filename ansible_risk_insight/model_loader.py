@@ -1641,7 +1641,13 @@ def load_object(loadObj):
         if loadObj.playbook_yaml:
             target_playbook_path = path
         else:
-            basedir, target_playbook_path = split_target_playbook_fullpath(path)
+            if loadObj.base_dir:
+                basedir = loadObj.base_dir
+                target_playbook_path = path.replace(basedir, "")
+                if target_playbook_path[0] == "/":
+                    target_playbook_path = target_playbook_path[1:]
+            else:
+                basedir, target_playbook_path = split_target_playbook_fullpath(path)
         if loadObj.playbook_only:
             obj = load_playbook(path=target_playbook_path, yaml_str=loadObj.playbook_yaml, basedir=basedir)
         else:
@@ -1652,7 +1658,13 @@ def load_object(loadObj):
         if loadObj.taskfile_yaml:
             target_taskfile_path = path
         else:
-            basedir, target_taskfile_path = split_target_taskfile_fullpath(path)
+            if loadObj.base_dir:
+                basedir = loadObj.base_dir
+                target_taskfile_path = path.replace(basedir, "")
+                if target_taskfile_path[0] == "/":
+                    target_taskfile_path = target_taskfile_path[1:]
+            else:
+                basedir, target_taskfile_path = split_target_taskfile_fullpath(path)
         if loadObj.taskfile_only:
             obj = load_taskfile(path=target_taskfile_path, yaml_str=loadObj.taskfile_yaml, basedir=basedir)
         else:
