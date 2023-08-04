@@ -944,6 +944,11 @@ class ARIScanner(object):
                                 logger.debug(f'Use spec data for "{ext_name}" in RAM DB')
 
                     if not dep_loaded:
+                        # if the dependency was not found in RAM and if the target path does not exist,
+                        # then we give up getting dependency data here
+                        if not os.path.exists(ext_target_path):
+                            continue
+
                         # scan dependencies and save findings to ARI RAM
                         dep_scanner = ARIScanner(
                             root_dir=self.root_dir,
