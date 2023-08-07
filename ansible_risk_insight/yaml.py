@@ -31,6 +31,13 @@ def _set_yaml():
         _yaml.set(yaml)
 
 
+def indent(**kwargs):
+    _set_yaml()
+    yaml = _yaml.get()
+    yaml.indent(**kwargs)
+    _yaml.set(yaml)
+
+
 def load(stream: any):
     _set_yaml()
     yaml = _yaml.get()
