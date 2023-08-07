@@ -411,6 +411,17 @@ class TreeLoader(object):
     ):
         self.ram_client: RAMClient = ram_client
 
+        self.org_root_definitions = root_definitions
+        self.org_ext_definitions = ext_definitions
+
+        self.root_definitions = load_all_definitions(root_definitions)
+        self.ext_definitions = load_all_definitions(ext_definitions)
+        self.add_builtin_modules()
+
+        self.dicts = make_dicts(self.root_definitions, self.ext_definitions)
+
+        self.module_redirects = load_module_redirects(self.root_definitions, self.ext_definitions, self.dicts["modules"])
+
         # use mappings just to get tree tops (playbook/role)
         # we don't load any files by this mappings here
         self.load_and_mapping = root_definitions.get("mappings", None)
@@ -425,7 +436,15 @@ class TreeLoader(object):
         # some taskfiles might not be included from `tasks/main.yml` of a role.
         # ARI does not scan them by default, but it does when `load_all_taskfiles == True`
         if load_all_taskfiles:
-            self.taskfile_mappings = self.load_and_mapping.taskfiles
+            for mapping in self.role_mappings:
+                role_key = mapping[1]
+                role = self.get_object(role_key, False)
+                if not role:
+                    continue
+                taskfile_keys = role.taskfiles
+                taskfile_mappings_in_role = [(None, tf_key) for tf_key in taskfile_keys]
+                self.taskfile_mappings.extend(taskfile_mappings_in_role)
+            self.taskfile_mappings.extend(self.load_and_mapping.taskfiles)
         # or, if the scan is for a single taskfile, ARI just scans it
         elif target_taskfile_path:
             self.taskfile_mappings = self.load_and_mapping.taskfiles
@@ -435,17 +454,6 @@ class TreeLoader(object):
 
         # TODO: dependency check, especially for
         # collection dependencies for role
-
-        self.org_root_definitions = root_definitions
-        self.org_ext_definitions = ext_definitions
-
-        self.root_definitions = load_all_definitions(root_definitions)
-        self.ext_definitions = load_all_definitions(ext_definitions)
-        self.add_builtin_modules()
-
-        self.dicts = make_dicts(self.root_definitions, self.ext_definitions)
-
-        self.module_redirects = load_module_redirects(self.root_definitions, self.ext_definitions, self.dicts["modules"])
 
         self.var_manager: VariableManager = VariableManager()
 
