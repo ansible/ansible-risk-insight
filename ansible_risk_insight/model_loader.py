@@ -879,6 +879,8 @@ def load_role(
         tf = None
         if not could_be_taskfile(fpath=task_yaml_path):
             continue
+        if could_be_playbook_detail(fpath=task_yaml_path):
+            continue
         try:
             tf = load_taskfile(
                 task_yaml_path,
