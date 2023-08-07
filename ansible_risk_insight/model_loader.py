@@ -60,6 +60,7 @@ from .finder import (
     find_module_dirs,
     search_module_files,
     search_taskfiles_for_playbooks,
+    could_be_playbook_detail,
     module_dir_patterns,
 )
 from .utils import (
@@ -666,7 +667,7 @@ def load_playbooks(path, basedir="", skip_playbook_format_error=True, skip_task_
     playbooks = []
     playbook_names = []
     for fpath in candidates:
-        if could_be_playbook(fpath):
+        if could_be_playbook(fpath) and could_be_playbook_detail(fpath):
             relative_path = ""
             if fpath.startswith(path):
                 relative_path = fpath[len(path) :]
