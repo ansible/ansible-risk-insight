@@ -261,12 +261,26 @@ class SingleScan(object):
                 if self.playbook_yaml:
                     self.target_playbook_name = self.name
                 else:
-                    _, self.target_playbook_name = split_target_playbook_fullpath(self.name)
+                    if self.base_dir:
+                        basedir = self.base_dir
+                        target_playbook_path = self.name.replace(basedir, "")
+                        if target_playbook_path[0] == "/":
+                            target_playbook_path = target_playbook_path[1:]
+                        self.target_playbook_name = target_playbook_path
+                    else:
+                        _, self.target_playbook_name = split_target_playbook_fullpath(self.name)
             elif self.type == LoadType.TASKFILE:
                 if self.taskfile_yaml:
                     self.target_taskfile_name = self.name
                 else:
-                    _, self.target_taskfile_name = split_target_taskfile_fullpath(self.name)
+                    if self.base_dir:
+                        basedir = self.base_dir
+                        target_taskfile_path = self.name.replace(basedir, "")
+                        if target_taskfile_path[0] == "/":
+                            target_taskfile_path = target_taskfile_path[1:]
+                        self.target_taskfile_name = target_taskfile_path
+                    else:
+                        _, self.target_taskfile_name = split_target_taskfile_fullpath(self.name)
             self.__path_mappings = {
                 "src": os.path.join(self.root_dir, type_root, proj_name, "src"),
                 "root_definitions": os.path.join(
