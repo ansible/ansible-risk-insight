@@ -360,6 +360,12 @@ def could_be_playbook_detail(body: str = "", data: list = None, fpath: str = "")
     if not body:
         return False
 
+    if not data:
+        return False
+
+    if not isinstance(data, list):
+        return False
+
     if len(data) == 0:
         return False
 

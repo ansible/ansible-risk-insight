@@ -667,7 +667,7 @@ def load_playbooks(path, basedir="", skip_playbook_format_error=True, skip_task_
     playbooks = []
     playbook_names = []
     for fpath in candidates:
-        if could_be_playbook(fpath) and could_be_playbook_detail(fpath):
+        if could_be_playbook(fpath=fpath) and could_be_playbook_detail(fpath=fpath):
             relative_path = ""
             if fpath.startswith(path):
                 relative_path = fpath[len(path) :]
