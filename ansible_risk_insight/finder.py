@@ -80,6 +80,8 @@ def find_module_name(data_block):
     task_keywords = TaskKeywordSet().task_keywords
     builtin_modules = BuiltinModuleSet().builtin_modules
     for k in keys:
+        if type(k) is not str:
+            continue
         if k.startswith("ansible.builtin"):
             return k
         if k in builtin_modules:
@@ -87,6 +89,8 @@ def find_module_name(data_block):
         if module_name_re.match(k):
             return k
     for k in keys:
+        if type(k) is not str:
+            continue
         if k not in task_keywords and not k.startswith("with_"):
             return k
     return ""
