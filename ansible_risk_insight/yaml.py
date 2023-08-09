@@ -31,6 +31,14 @@ def _set_yaml():
         _yaml.set(yaml)
 
 
+def config(**kwargs):
+    _set_yaml()
+    yaml = _yaml.get()
+    for key, value in kwargs.items():
+        setattr(yaml, key, value)
+    _yaml.set(yaml)
+
+
 def indent(**kwargs):
     _set_yaml()
     yaml = _yaml.get()
