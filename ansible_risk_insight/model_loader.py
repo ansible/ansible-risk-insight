@@ -81,6 +81,8 @@ collection_info_dir_re = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+-[0-9]+\.[0-9]+\.[0
 
 string_module_options_re = re.compile(r"^(?:[^ ]* )([a-z0-9_]+=(?:[^ ]*{{ [^ ]+ }}[^ ]*|[^ ])+\s?)+$")
 
+string_module_option_parts_re = re.compile(r"([a-z0-9_]+=(?:[^ ]*{{ [^ ]+ }}[^ ]*|[^ ])+\s?)")
+
 loop_task_option_names = [
     "loop",
     "with_list",
@@ -1287,7 +1289,7 @@ def load_task(
                 "include",
             ]:
                 unknown_key = "file"
-            matched_options = string_module_options_re.findall(module_options)
+            matched_options = string_module_option_parts_re.findall(module_options)
             if len(matched_options) == 0:
                 new_module_options[unknown_key] = module_options
             else:
@@ -1296,7 +1298,7 @@ def load_task(
                     new_module_options[unknown_key] = unknown_key_val.strip()
                 for p in matched_options:
                     key = p.split("=")[0]
-                    val = "=".join(p.split("=")[1:])
+                    val = "=".join(p.split("=")[1:]).rstrip()
                     new_module_options[key] = val
             module_options = new_module_options
     executable = module_name
