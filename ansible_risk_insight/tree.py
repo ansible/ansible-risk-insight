@@ -419,6 +419,7 @@ class TreeLoader(object):
         self.add_builtin_modules()
 
         self.dicts = make_dicts(self.root_definitions, self.ext_definitions)
+        print('[DEBUG] self.dicts["roles"]:', self.dicts["roles"])
 
         self.module_redirects = load_module_redirects(self.root_definitions, self.ext_definitions, self.dicts["modules"])
 
