@@ -965,7 +965,9 @@ class ARIScanner(object):
                     if not dep_loaded:
                         # if the dependency was not found in RAM and if the target path does not exist,
                         # then we give up getting dependency data here
+                        print("[DEBUG] ext_target_path:", ext_target_path)
                         if not os.path.exists(ext_target_path):
+                            print("[DEBUG] not exists")
                             continue
 
                         # scan dependencies and save findings to ARI RAM
