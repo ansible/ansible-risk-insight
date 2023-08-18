@@ -26,6 +26,8 @@ def test_scanner_with_project(type, name):
     ari_result, _ = _scan(type, name)
     print("[DEBUG] test1:", os.path.exists("/tmp/ari-data"))
     print("[DEBUG] test2:", os.listdir("/tmp/ari-data"))
+    print("[DEBUG] test3:", os.listdir("/tmp/ari-data/collections/src/ansible_collections/"))
+    print("[DEBUG] test4:", os.listdir("/tmp/ari-data/collections/src/ansible_collections/google/"))
     assert ari_result
     role_result = ari_result.role(name="my.collection.sample-role-1")
     assert role_result
@@ -41,6 +43,8 @@ def test_scanner_with_project(type, name):
 @pytest.mark.parametrize("type, name", [("collection", "community.mongodb")])
 def test_scanner_with_collection(type, name):
     _, scandata = _scan(type, name)
+    print("[DEBUG] test5:", os.listdir("/tmp/ari-data/collections/src/ansible_collections/"))
+    print("[DEBUG] test6:", os.listdir("/tmp/ari-data/collections/src/ansible_collections/community/"))
     dep_names = [dep.get("name", "") for dep in scandata.findings.dependencies]
     assert len(dep_names) == 2
     assert "community.general" in dep_names
