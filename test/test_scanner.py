@@ -27,7 +27,7 @@ def test_scanner_with_project(type, name):
     print("[DEBUG] test1:", os.path.exists("/tmp/ari-data"))
     print("[DEBUG] test2:", os.listdir("/tmp/ari-data"))
     print("[DEBUG] test3:", os.listdir("/tmp/ari-data/collections/src/ansible_collections/"))
-    print("[DEBUG] test4:", os.listdir("/tmp/ari-data/collections/src/ansible_collections/google/"))
+    print("[DEBUG] test4:", os.listdir("/tmp/ari-data/archives/collection/google.cloud"))
     assert ari_result
     role_result = ari_result.role(name="my.collection.sample-role-1")
     assert role_result
