@@ -124,8 +124,8 @@ def load_repository(
         # otherwise, find the root path by searching playbooks
         try:
             repo_path = find_best_repo_root_path(path)
-        except Exception:
-            logger.debug('failed to find a root directory for ansible files; use "{}"' " but this may be wrong".format(path))
+        except Exception as exc:
+            logger.debug(f'failed to find a root directory for a project in "{path}"; error: {exc}')
         if repo_path == "":
             repo_path = path
 
