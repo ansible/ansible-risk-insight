@@ -601,7 +601,7 @@ class DependencyDirPreparator(object):
         logger.debug("install collection from {}".format(requirements))
         src_dir = requirements.replace(requirements_yml, "")
         proc = subprocess.run(
-            "cd {} && ansible-galaxy collection install -r {} -p {}".format(src_dir, requirements, output_dir),
+            "cd {} && ansible-galaxy collection install -r {} -p {} --force".format(src_dir, requirements, output_dir),
             shell=True,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
