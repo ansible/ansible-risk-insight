@@ -32,4 +32,6 @@ jobs:
       - name: Install pytest
         run: pip install pytest
       - name: Run Tests
+        env:
+          ARI_LOG_LEVEL: debug
         run: pytest test -s
