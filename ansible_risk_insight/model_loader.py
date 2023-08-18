@@ -79,7 +79,7 @@ from .finder import could_be_taskfile
 #   "brightcomputing.bcm-9.1.11+41615.gitfab9053.info"
 collection_info_dir_re = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+-[0-9]+\.[0-9]+\.[0-9]+.*\.info$")
 
-string_module_options_re = re.compile(r"^(?:[^ ]* )([a-z0-9_]+=(?:[^ ]*{{ [^ ]+ }}[^ ]*|[^ ])+\s?)+$")
+string_module_options_re = re.compile(r"^(?:[^ ]* )([a-z0-9_]+=(?:[^ ]*{{ [^ ]+ }}[^ ]*|[^ ])+\s?)")
 
 string_module_option_parts_re = re.compile(r"([a-z0-9_]+=(?:[^ ]*{{ [^ ]+ }}[^ ]*|[^ ])+\s?)")
 
@@ -124,8 +124,8 @@ def load_repository(
         # otherwise, find the root path by searching playbooks
         try:
             repo_path = find_best_repo_root_path(path)
-        except Exception:
-            logger.debug('failed to find a root directory for ansible files; use "{}"' " but this may be wrong".format(path))
+        except Exception as exc:
+            logger.debug(f'failed to find a root directory for a project in "{path}"; error: {exc}')
         if repo_path == "":
             repo_path = path
 

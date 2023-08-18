@@ -269,6 +269,7 @@ def search_inventory_files(path):
 
 
 def find_best_repo_root_path(path):
+    base_path = path
     # get all possible playbooks
     playbooks = search_playbooks(path)
     # sort by directory depth to find the most top playbook
@@ -294,11 +295,14 @@ def find_best_repo_root_path(path):
     if len(playbooks) == 0:
         raise ValueError("no playbook files found under {}".format(path))
     top_playbook_path = playbooks[0]
+    top_playbook_relative_path = top_playbook_path[len(base_path) :]
+    if top_playbook_relative_path[0] == "/":
+        top_playbook_relative_path = top_playbook_relative_path[1:]
     root_path = ""
-    if "/playbooks/" in top_playbook_path:
-        root_path = top_playbook_path.split("/playbooks/")[0]
-    elif "/playbook/" in top_playbook_path:
-        root_path = top_playbook_path.split("/playbook/")[0]
+    if "/playbooks/" in top_playbook_relative_path:
+        root_path = top_playbook_path.rsplit("/playbooks/", 1)[0]
+    elif "/playbook/" in top_playbook_relative_path:
+        root_path = top_playbook_path.rsplit("/playbook/", 1)[0]
     else:
         root_path = os.path.dirname(top_playbook_path)
     return root_path
