@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import pytest
+import os
 
 from ansible_risk_insight.scanner import ARIScanner, Config
 from ansible_risk_insight.rules.R103_download_exec import DownloadExecRule
@@ -23,6 +24,8 @@ from ansible_risk_insight.rules.R103_download_exec import DownloadExecRule
 @pytest.mark.parametrize("type, name", [("project", "test/testdata/projects/my.collection")])
 def test_scanner_with_project(type, name):
     ari_result, _ = _scan(type, name)
+    print("[DEBUG] test1:", os.path.exists("/tmp/ari-data"))
+    print("[DEBUG] test2:", os.listdir("/tmp/ari-data"))
     assert ari_result
     role_result = ari_result.role(name="my.collection.sample-role-1")
     assert role_result
@@ -61,7 +64,9 @@ def test_scanner_with_role(type, name):
 
 def _scan(type, name):
     s = ARIScanner(
-        config=Config(),
+        config=Config(
+            data_dir="/tmp/ari-data",
+        ),
         use_ansible_doc=False,
         read_ram=False,
         write_ram=False,
