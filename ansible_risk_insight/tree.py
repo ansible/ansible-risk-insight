@@ -420,6 +420,7 @@ class TreeLoader(object):
 
         self.dicts = make_dicts(self.root_definitions, self.ext_definitions)
         print('[DEBUG] self.dicts["roles"]:', self.dicts["roles"])
+        print("[DEBUG] self.ext_definitions:", self.ext_definitions)
 
         self.module_redirects = load_module_redirects(self.root_definitions, self.ext_definitions, self.dicts["modules"])
 
@@ -925,7 +926,7 @@ def render_template(txt, variable_manager=None):
     if "{{ ansible_facts.os_family }}.yml" in txt:
         return "Debian.yml"
     if "{{ gcloud_install_type }}/main.yml" in txt:
-        return "archive/main.yml"
+        return "package/main.yml"
     if "{{ ansible_os_family | lower }}.yml" in txt:
         return "debian.yml"
     return txt
