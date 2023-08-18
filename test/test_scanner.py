@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import pytest
-import os
 
 from ansible_risk_insight.scanner import ARIScanner, Config
 from ansible_risk_insight.rules.R103_download_exec import DownloadExecRule
@@ -24,16 +23,9 @@ from ansible_risk_insight.rules.R103_download_exec import DownloadExecRule
 @pytest.mark.parametrize("type, name", [("project", "test/testdata/projects/my.collection")])
 def test_scanner_with_project(type, name):
     ari_result, _ = _scan(type, name)
-    print("[DEBUG] test1:", os.path.exists("/tmp/ari-data"))
-    print("[DEBUG] test2:", os.listdir("/tmp/ari-data"))
-    print("[DEBUG] test3:", os.listdir("/tmp/ari-data/collections/src/ansible_collections/"))
-    print("[DEBUG] test4:", os.listdir("/tmp/ari-data/archives/collection/google.cloud"))
     assert ari_result
     role_result = ari_result.role(name="my.collection.sample-role-1")
     assert role_result
-    for node_result in role_result.nodes:
-        node = node_result.node
-        print("[DEBUG] key:", node.spec.key)
     task_result = role_result.task(name="Gcloud | Archive | Install into Path")
     assert task_result
     result = task_result.find_result(rule_id=DownloadExecRule.rule_id)
@@ -46,8 +38,6 @@ def test_scanner_with_project(type, name):
 @pytest.mark.parametrize("type, name", [("collection", "community.mongodb")])
 def test_scanner_with_collection(type, name):
     _, scandata = _scan(type, name)
-    print("[DEBUG] test5:", os.listdir("/tmp/ari-data/collections/src/ansible_collections/"))
-    print("[DEBUG] test6:", os.listdir("/tmp/ari-data/collections/src/ansible_collections/community/"))
     dep_names = [dep.get("name", "") for dep in scandata.findings.dependencies]
     assert len(dep_names) == 2
     assert "community.general" in dep_names
