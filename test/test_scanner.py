@@ -31,6 +31,9 @@ def test_scanner_with_project(type, name):
     assert ari_result
     role_result = ari_result.role(name="my.collection.sample-role-1")
     assert role_result
+    for node_result in role_result.nodes:
+        node = node_result.node
+        print("[DEBUG] key:", node.spec.key)
     task_result = role_result.task(name="Gcloud | Archive | Install into Path")
     assert task_result
     result = task_result.find_result(rule_id=DownloadExecRule.rule_id)
