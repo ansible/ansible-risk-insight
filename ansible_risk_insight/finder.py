@@ -322,7 +322,6 @@ def find_collection_name_of_repo(path):
             continue
         _galaxy_ymls.append(gpath)
     found_galaxy_ymls = _galaxy_ymls
-    print("[DEBUG] found_galaxy_ymls:", found_galaxy_ymls)
 
     my_collection_name = ""
     if len(found_galaxy_ymls) > 0:
