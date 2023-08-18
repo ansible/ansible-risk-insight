@@ -924,7 +924,7 @@ def render_template(txt, variable_manager=None):
     if "{{ ansible_facts.os_family }}.yml" in txt:
         return "Debian.yml"
     if "{{ gcloud_install_type }}/main.yml" in txt:
-        return "package/main.yml"
+        return "archive/main.yml"
     if "{{ ansible_os_family | lower }}.yml" in txt:
         return "debian.yml"
     return txt
