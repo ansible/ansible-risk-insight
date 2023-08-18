@@ -16,7 +16,7 @@
 
 import pytest
 
-from ansible_risk_insight.scanner import ARIScanner, config
+from ansible_risk_insight.scanner import ARIScanner, Config
 from ansible_risk_insight.rules.R103_download_exec import DownloadExecRule
 
 
@@ -61,7 +61,7 @@ def test_scanner_with_role(type, name):
 
 def _scan(type, name):
     s = ARIScanner(
-        root_dir=config.data_dir,
+        config=Config(),
         use_ansible_doc=False,
         read_ram=False,
         write_ram=False,

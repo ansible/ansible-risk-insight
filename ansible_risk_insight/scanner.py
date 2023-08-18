@@ -93,7 +93,8 @@ class Config:
                     config_data = yaml.safe_load(file)
                 except Exception as e:
                     raise ValueError(f"failed to load the config file: {e}")
-        self._data = config_data
+        if config_data:
+            self._data = config_data
 
         if not self.data_dir:
             self.data_dir = self._get_single_config("ARI_DATA_DIR", "data_dir", default_data_dir)
