@@ -487,15 +487,18 @@ def is_vars_yml(yml_path):
     return False
 
 
-def label_yml_file(yml_path: str, task_num_thresh: int = 50):
+def label_yml_file(yml_path: str = "", yml_body: str = "", task_num_thresh: int = 50):
     body = ""
     data = None
     error = None
-    try:
-        with open(yml_path, "r") as file:
-            body = file.read()
-    except Exception:
-        error = {"type": "FileReadError", "detail": traceback.format_exc()}
+    if yml_body:
+        body = yml_body
+    elif not yml_body and yml_path:
+        try:
+            with open(yml_path, "r") as file:
+                body = file.read()
+        except Exception:
+            error = {"type": "FileReadError", "detail": traceback.format_exc()}
     if error:
         return "others", -1, error
 
@@ -518,11 +521,10 @@ def label_yml_file(yml_path: str, task_num_thresh: int = 50):
 
     label = ""
     if not body or not data:
-        label_by_path = label_empty_file_by_path(yml_path)
-        label = label_by_path if label_by_path else "others"
+        label = label_empty_file_by_path(yml_path) if yml_path else "others"
     elif data and not isinstance(data, list):
         label = "others"
-    elif could_be_playbook(yml_path) and could_be_playbook_detail(body, data):
+    elif could_be_playbook_detail(body, data):
         label = "playbook"
     elif could_be_taskfile(body, data):
         label = "taskfile"
