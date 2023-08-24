@@ -73,6 +73,12 @@ def skip_directory(relative_directory_path):
     # Filter files in a tasks subdirectory.
     if "tasks" in path_elements:
         return True
+    # Filter files in a molecule subdirectory.
+    if "molecule" in path_elements:
+        return True
+    # Filter files in a tests/integration subdirectory.
+    if "tests" in path_elements and "integration" in path_elements:
+        return True
     for element in path_elements:
         # Do not include dot files or dirs
         if element.startswith("."):
