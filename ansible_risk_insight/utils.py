@@ -216,6 +216,8 @@ def split_target_taskfile_fullpath(fullpath: str):
     if "/roles/" in fullpath:
         basedir = fullpath.split("/roles/")[0]
     target_taskfile_path = fullpath.replace(basedir, "")
+    if not target_taskfile_path:
+        return basedir, ""
     if target_taskfile_path[0] == "/":
         target_taskfile_path = target_taskfile_path[1:]
     return basedir, target_taskfile_path
