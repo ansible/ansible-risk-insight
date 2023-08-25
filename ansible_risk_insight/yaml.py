@@ -28,6 +28,7 @@ def _set_yaml():
         yaml.default_flow_style = False
         yaml.preserve_quotes = True
         yaml.allow_duplicate_keys = True
+        yaml.width = 1024
         _yaml.set(yaml)
 
 
