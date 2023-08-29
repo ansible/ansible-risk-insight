@@ -168,6 +168,22 @@ def load_requirements(path):
                 logger.debug("failed to load requirements.yml; {}".format(e.args[0]))
     else:
         requirements, yaml_path = load_dependency_from_galaxy(path)
+
+    # convert old style requirements yml (a list of role info) to new one (a dict)
+    if requirements and isinstance(requirements, list):
+        new_req = {"roles": []}
+        for item in requirements:
+            role_name = ""
+            if isinstance(item, str):
+                role_name = item
+            elif isinstance(item, dict):
+                role_name = item.get("name", "")
+            # if no `name` field is given in the requirements yml, we skip this item
+            if not role_name:
+                continue
+            new_req["roles"].append(role_name)
+        requirements = new_req
+
     # sometimes there is empty requirements.yml
     # if so, we set empty dict as requirements instead of `None`
     if not requirements:
@@ -209,7 +225,8 @@ def load_dependency_from_galaxy(path):
                 with open(g, "r") as file:
                     metadata = yaml.safe_load(file)
                     dependencies = metadata.get("dependencies", {})
-                    requirements["collections"] = format_dependency_info(dependencies)
+                    if dependencies:
+                        requirements["collections"] = format_dependency_info(dependencies)
     return requirements, yaml_path
 
 
