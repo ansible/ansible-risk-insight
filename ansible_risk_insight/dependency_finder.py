@@ -147,6 +147,15 @@ def find_collection_dependency(target):
 
 def find_project_dependency(target):
     if os.path.exists(target):
+        coll_req = os.path.join(target, collection_manifest_json)
+        role_req1 = os.path.join(target, role_meta_main_yaml)
+        role_req2 = os.path.join(target, role_meta_main_yml)
+        # collection project
+        if os.path.exists(coll_req):
+            return find_collection_dependency(target)
+        # role project
+        elif os.path.exists(role_req1) or os.path.exists(role_req2):
+            return find_role_dependency(target)
         # local dir
         logger.debug("load requirements from dir {}".format(target))
         return load_requirements(target)
