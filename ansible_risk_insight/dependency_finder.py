@@ -18,13 +18,15 @@ import os
 import yaml
 import json
 import subprocess
+from pathlib import Path
+from ansible import constants as C
+
 import ansible_risk_insight.logger as logger
 from .safe_glob import safe_glob
 
 from .models import (
     LoadType,
 )
-
 
 collection_manifest_json = "MANIFEST.json"
 role_meta_main_yml = "meta/main.yml"
@@ -34,7 +36,7 @@ galaxy_yml = "galaxy.yml"
 GALAXY_yml = "GALAXY.yml"
 
 
-def find_dependency(type, target, dependency_dir):
+def find_dependency(type, target, dependency_dir, use_ansible_path=False):
     dependencies = {"dependencies": {}, "type": "", "file": ""}
     logger.debug("search dependency")
     if dependency_dir:
@@ -64,7 +66,81 @@ def find_dependency(type, target, dependency_dir):
             dependencies["type"] = LoadType.COLLECTION
             dependencies["file"] = manifestjson
 
+    if use_ansible_path and dependencies["dependencies"]:
+        ansible_dir = Path(C.ANSIBLE_HOME).expanduser()
+        paths, metadata = search_ansible_dir(dependencies["dependencies"], str(ansible_dir))
+        if paths:
+            dependencies["paths"] = paths
+        if metadata:
+            dependencies["metadata"] = metadata
+
     return dependencies
+
+
+def search_ansible_dir(dependencies: dict, ansible_dir: str):
+    if not dependencies:
+        return {}, {}
+    if not isinstance(dependencies, dict):
+        return {}, {}
+
+    paths = {
+        "roles": {},
+        "collections": {},
+    }
+
+    metadata = {
+        "roles": {},
+        "collections": {},
+    }
+
+    collections = dependencies.get("collections", [])
+    if collections:
+        for coll_info in collections:
+            if not isinstance(coll_info, dict):
+                continue
+            coll_name = coll_info.get("name", "")
+            if not coll_name:
+                continue
+
+            parts = coll_name.split(":")[0].split(".")
+            if len(parts) != 2:
+                continue
+            collection_dir = os.path.join(ansible_dir, "collections", "ansible_collections")
+            search_path = os.path.join(collection_dir, parts[0], parts[1])
+            if os.path.exists(search_path):
+                paths["collections"][coll_name] = search_path
+
+            _dirs = os.listdir(collection_dir)
+            for d_name in _dirs:
+                galaxy_data = None
+                if d_name.startswith(f"{coll_name}-") and d_name.endswith(".info"):
+                    galaxy_yml_path = os.path.join(collection_dir, d_name, GALAXY_yml)
+                    try:
+                        with open(galaxy_yml_path, "r") as galaxy_yml_file:
+                            galaxy_data = yaml.safe_load(galaxy_yml_file)
+                    except Exception:
+                        pass
+                if not isinstance(galaxy_data, dict):
+                    continue
+                metadata["collections"][coll_name] = galaxy_data
+
+    roles = dependencies.get("roles", [])
+    if roles:
+        for role_info in roles:
+            if not isinstance(role_info, dict):
+                continue
+            role_name = role_info.get("name", "")
+            if not role_name:
+                continue
+
+            role_name = role_name.split(":")[0]
+            search_path = os.path.join(ansible_dir, "roles", role_name)
+            if os.path.exists(search_path):
+                paths["roles"][role_name] = search_path
+
+            # set empty metadata because no download_url / version are available in an installed role dir
+            metadata["roles"][role_name] = {}
+    return paths, metadata
 
 
 def find_role_dependency(target):
