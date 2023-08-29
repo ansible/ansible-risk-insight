@@ -378,7 +378,9 @@ class Context:
     def update_flat_vars(self, new_vars: dict, _prefix: str = ""):
         for k, v in new_vars.items():
             if isinstance(v, dict):
-                new_prefix = f"{k}." if _prefix == "" else f"{_prefix}{k}"
+                flat_var_name = f"{_prefix}{k}"
+                self._flat_vars.update({flat_var_name: v})
+                new_prefix = f"{flat_var_name}."
                 self.update_flat_vars(v, new_prefix)
             else:
                 flat_key = f"{_prefix}{k}"
