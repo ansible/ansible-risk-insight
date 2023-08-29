@@ -71,9 +71,9 @@ def install_galaxy_target(target, target_type, output_dir, source_repository="",
     target_name = target
     if target_version:
         target_name = f"{target}:{target_version}"
-    logger.debug("exec ansible-galaxy cmd: ansible-galaxy {} install {} {} -p {}".format(target_type, target_name, server_option, output_dir))
+    logger.debug("exec ansible-galaxy cmd: ansible-galaxy {} install {} {} -p {} --force".format(target_type, target_name, server_option, output_dir))
     proc = subprocess.run(
-        "ansible-galaxy {} install {} {} -p {}".format(target_type, target_name, server_option, output_dir),
+        "ansible-galaxy {} install {} {} -p {} --force".format(target_type, target_name, server_option, output_dir),
         shell=True,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,

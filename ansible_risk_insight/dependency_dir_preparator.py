@@ -113,7 +113,7 @@ class DependencyDirPreparator(object):
     # -- out --
     dependency_dirs: list = field(default_factory=list)
 
-    def prepare_dir(self, root_install=True, is_src_installed=False, cache_enabled=False, cache_dir=""):
+    def prepare_dir(self, root_install=True, use_ansible_path=False, is_src_installed=False, cache_enabled=False, cache_dir=""):
         logger.debug("setup base dirs")
         self.setup_dirs(cache_enabled, cache_dir)
         logger.debug("prepare target dir")
@@ -128,7 +128,7 @@ class DependencyDirPreparator(object):
             prepare_dependency = True
         if prepare_dependency:
             logger.debug("search dependencies")
-            dependencies = find_dependency(self.target_type, self.target_path, self.target_dependency_dir)
+            dependencies = find_dependency(self.target_type, self.target_path, self.target_dependency_dir, use_ansible_path)
             logger.debug("prepare dir for dependencies")
             self.prepare_dependency_dir(dependencies, cache_enabled, cache_dir)
         return self.dependency_dirs
@@ -197,7 +197,7 @@ class DependencyDirPreparator(object):
         role_dependency_dirs = dependencies.get("paths", {}).get("roles", {})
 
         col_dependency_metadata = dependencies.get("metadata", {}).get("collections", {})
-        # role_dependency_metadata = dependencies.get("metadata", {}).get("roles", {})
+        role_dependency_metadata = dependencies.get("metadata", {}).get("roles", {})
 
         if col_dependencies:
             for cdep in col_dependencies:
@@ -351,9 +351,10 @@ class DependencyDirPreparator(object):
                         self.move_src(cache_dir_path, sub_dependency_dir_path)
                     else:
                         logger.debug("dependency cache data not found")
-                        install_msg, install_err = install_galaxy_target(
-                            name, LoadType.ROLE, sub_dependency_dir_path, self.source_repository, target_version
-                        )
+                        install_dir = sub_dependency_dir_path
+                        if os.path.exists(install_dir):
+                            install_dir = os.path.dirname(install_dir)
+                        install_msg, install_err = install_galaxy_target(name, LoadType.ROLE, install_dir, self.source_repository, target_version)
                         logger.debug("role install msg: {}".format(install_msg))
                         logger.debug("role install msg err: {}".format(install_err))
                         metadata = self.extract_roles_metadata(install_msg)
@@ -364,12 +365,27 @@ class DependencyDirPreparator(object):
                         # save cache
                         if not os.path.exists(cache_dir_path):
                             os.makedirs(cache_dir_path)
+                        # copy to cache
                         self.move_src(sub_dependency_dir_path, cache_dir_path)
                     if md:
                         downloaded_dep.metadata = md
+                    full_path = cache_dir_path
+                    downloaded_dep.dir = full_path.replace(f"{self.root_dir}/", "")
                 elif name in role_dependency_dirs:
                     logger.debug("use the specified dependency dirs")
                     sub_dependency_dir_path = role_dependency_dirs[name]
+                    role_galaxy_data = role_dependency_metadata.get(name, {})
+                    if isinstance(role_galaxy_data, dict):
+                        download_url = role_galaxy_data.get("download_url", "")
+                        hash = ""
+                        if download_url:
+                            hash = get_hash_of_url(download_url)
+                        version = role_galaxy_data.get("version", "")
+                        downloaded_dep.metadata.source_repository = self.source_repository
+                        downloaded_dep.metadata.download_url = download_url
+                        downloaded_dep.metadata.hash = hash
+                        downloaded_dep.metadata.version = version
+                        downloaded_dep.dir = sub_dependency_dir_path
                 else:
                     install_msg, install_err = install_galaxy_target(name, LoadType.ROLE, sub_dependency_dir_path, self.source_repository)
                     logger.debug("role install msg: {}".format(install_msg))
@@ -795,6 +811,10 @@ class DependencyDirPreparator(object):
             raise ValueError("src {} is not directory".format(src))
         if dst == "" or ".." in dst:
             raise ValueError("dst {} is invalid".format(dst))
+        if src and src[-1] == "/":
+            src = src[:-1]
+        if dst and dst[-1] == "/":
+            dst = dst[:-1]
         # we use cp command here because shutil module is slow,
         # but the behavior of cp command is slightly different between Mac and Linux
         # we use a command like `cp -r <src>/* <dst>/` so the behavior will be the same

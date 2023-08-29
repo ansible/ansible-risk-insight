@@ -185,6 +185,7 @@ class SingleScan(object):
     __path_mappings: dict = field(default_factory=dict)
 
     install_dependencies: bool = False
+    use_ansible_path: bool = False
 
     dependency_dir: str = ""
     base_dir: str = ""
@@ -399,6 +400,7 @@ class SingleScan(object):
         )
         dep_dirs = ddp.prepare_dir(
             root_install=root_install,
+            use_ansible_path=self.use_ansible_path,
             is_src_installed=self.is_src_installed(),
             cache_enabled=self.use_src_cache,
             cache_dir=os.path.join(self.root_dir, "archives"),
@@ -809,6 +811,7 @@ class ARIScanner(object):
         collection_name: str = "",
         role_name: str = "",
         install_dependencies: bool = True,
+        use_ansible_path: bool = False,
         version: str = "",
         hash: str = "",
         target_path: str = "",
@@ -850,6 +853,7 @@ class ARIScanner(object):
             collection_name=collection_name,
             role_name=role_name,
             install_dependencies=install_dependencies,
+            use_ansible_path=use_ansible_path,
             version=version,
             hash=hash,
             target_path=target_path,
@@ -990,6 +994,7 @@ class ARIScanner(object):
                             target_path=ext_target_path,
                             dependency_dir=scandata.dependency_dir,
                             install_dependencies=False,
+                            use_ansible_path=False,
                             skip_dependency=True,
                             source_repository=scandata.source_repository,
                             include_test_contents=include_test_contents,
@@ -1135,6 +1140,7 @@ class ARIScanner(object):
                     collection_name=collection_name,
                     role_name=role_name,
                     install_dependencies=install_dependencies,
+                    use_ansible_path=use_ansible_path,
                     version=version,
                     hash=hash,
                     target_path=target_path,
