@@ -147,6 +147,15 @@ def find_collection_dependency(target):
 
 def find_project_dependency(target):
     if os.path.exists(target):
+        coll_req = os.path.join(target, collection_manifest_json)
+        role_req1 = os.path.join(target, role_meta_main_yaml)
+        role_req2 = os.path.join(target, role_meta_main_yml)
+        # collection project
+        if os.path.exists(coll_req):
+            return find_collection_dependency(target)
+        # role project
+        elif os.path.exists(role_req1) or os.path.exists(role_req2):
+            return find_role_dependency(target)
         # local dir
         logger.debug("load requirements from dir {}".format(target))
         return load_requirements(target)
@@ -168,6 +177,22 @@ def load_requirements(path):
                 logger.debug("failed to load requirements.yml; {}".format(e.args[0]))
     else:
         requirements, yaml_path = load_dependency_from_galaxy(path)
+
+    # convert old style requirements yml (a list of role info) to new one (a dict)
+    if requirements and isinstance(requirements, list):
+        new_req = {"roles": []}
+        for item in requirements:
+            role_name = ""
+            if isinstance(item, str):
+                role_name = item
+            elif isinstance(item, dict):
+                role_name = item.get("name", "")
+            # if no `name` field is given in the requirements yml, we skip this item
+            if not role_name:
+                continue
+            new_req["roles"].append(role_name)
+        requirements = new_req
+
     # sometimes there is empty requirements.yml
     # if so, we set empty dict as requirements instead of `None`
     if not requirements:
@@ -209,7 +234,8 @@ def load_dependency_from_galaxy(path):
                 with open(g, "r") as file:
                     metadata = yaml.safe_load(file)
                     dependencies = metadata.get("dependencies", {})
-                    requirements["collections"] = format_dependency_info(dependencies)
+                    if dependencies:
+                        requirements["collections"] = format_dependency_info(dependencies)
     return requirements, yaml_path
 
 
