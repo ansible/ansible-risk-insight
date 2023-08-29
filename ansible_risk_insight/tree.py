@@ -429,6 +429,18 @@ class TreeLoader(object):
         self.role_mappings = self.load_and_mapping.roles
         self.taskfile_mappings = []
 
+        # role can have child playbooks (mostly for test)
+        # we add them to playbook_mappins here
+        if self.role_mappings:
+            for mapping in self.role_mappings:
+                role_key = mapping[1]
+                role = self.get_object(role_key, False)
+                if not role:
+                    continue
+                playbook_keys = role.playbooks
+                playbook_mappings_in_role = [(None, p_key) for p_key in playbook_keys]
+                self.playbook_mappings.extend(playbook_mappings_in_role)
+
         if target_playbook_path:
             self.playbook_mappings = [p for p in self.playbook_mappings if p[0] == target_playbook_path]
             self.role_mappings = []
