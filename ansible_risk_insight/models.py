@@ -122,6 +122,7 @@ class Load(JSONSerializable):
     taskfile_only: bool = False
     base_dir: str = ""
     include_test_contents: bool = False
+    yaml_label_list: list = field(default_factory=list)
     timestamp: str = ""
 
     # the following variables are list of paths; not object

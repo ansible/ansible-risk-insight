@@ -313,6 +313,9 @@ def resolve_module(module_name, module_dict={}, module_redirects={}):
 
 
 def resolve_role(role_name, role_dict={}, my_collection_name="", collections_in_play=[]):
+    if os.sep in role_name:
+        role_name = os.path.basename(role_name)
+
     role_key = ""
     if "." not in role_name and len(collections_in_play) > 0:
         for coll in collections_in_play:
@@ -326,16 +329,16 @@ def resolve_role(role_name, role_dict={}, my_collection_name="", collections_in_
             found_role = role_dict.get(role_name_cand, None)
             if found_role is not None:
                 role_key = found_role.key
-        if role_key == "":
-            found_role = role_dict.get(role_name, None)
-            if found_role is not None:
-                role_key = found_role.key
-            else:
-                for k in role_dict:
-                    suffix = ".{}".format(role_name)
-                    if k.endswith(suffix):
-                        role_key = role_dict[k].key
-                        break
+    if role_key == "":
+        found_role = role_dict.get(role_name, None)
+        if found_role is not None:
+            role_key = found_role.key
+        else:
+            for k in role_dict:
+                suffix = ".{}".format(role_name)
+                if k.endswith(suffix):
+                    role_key = role_dict[k].key
+                    break
     return role_key
 
 
@@ -556,6 +559,13 @@ class TreeLoader(object):
             _history.append(key)
         children_keys, from_ram, handover = self._get_children_keys(obj, handover_from_upper_node=handover)
         for i, c_key in enumerate(children_keys):
+            loop_found = False
+            loop_obj = None
+            if c_key in _history:
+                loop_found = True
+                loop_obj = self.get_object(c_key)
+                if isinstance(loop_obj, CallObject):
+                    loop_obj = loop_obj.spec
             child_objects = self._recursive_get_calls(
                 c_key,
                 call_obj,
@@ -602,6 +612,19 @@ class TreeLoader(object):
                             "type": "taskfile",
                             "path": c_obj.spec.defined_in,
                             "key": c_obj.spec.key,
+                        }
+                elif loop_found and loop_obj:
+                    if taskcall.spec.executable_type == ExecutableType.ROLE_TYPE:
+                        taskcall.spec.include_info = {
+                            "type": "role",
+                            "path": loop_obj.defined_in,
+                            "key": loop_obj.key,
+                        }
+                    elif taskcall.spec.executable_type == ExecutableType.TASKFILE_TYPE:
+                        taskcall.spec.include_info = {
+                            "type": "taskfile",
+                            "path": loop_obj.defined_in,
+                            "key": loop_obj.key,
                         }
             elif isinstance(call_obj, PlayCall):
                 playcall = call_obj

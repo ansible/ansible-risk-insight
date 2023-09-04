@@ -79,7 +79,7 @@ from .finder import could_be_taskfile
 #   "brightcomputing.bcm-9.1.11+41615.gitfab9053.info"
 collection_info_dir_re = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+-[0-9]+\.[0-9]+\.[0-9]+.*\.info$")
 
-string_module_options_re = re.compile(r"^(?:[^ ]* )([a-z0-9_]+=(?:[^ ]*{{ [^ ]+ }}[^ ]*|[^ ])+\s?)")
+string_module_options_re = re.compile(r"^(?:[^ ]* ?)([a-z0-9_]+=(?:[^ ]*{{ [^ ]+ }}[^ ]*|[^ ])+\s?)")
 
 string_module_option_parts_re = re.compile(r"([a-z0-9_]+=(?:[^ ]*{{ [^ ]+ }}[^ ]*|[^ ])+\s?)")
 
@@ -112,6 +112,7 @@ def load_repository(
     skip_playbook_format_error=True,
     skip_task_format_error=True,
     include_test_contents=False,
+    yaml_label_list=None,
     load_children=True,
 ):
     repoObj = Repository()
@@ -126,7 +127,7 @@ def load_repository(
             repo_path = find_best_repo_root_path(path)
         except Exception as exc:
             logger.debug(f'failed to find a root directory for a project in "{path}"; error: {exc}')
-        if repo_path == "":
+            # if an exception occurs while finding repo root, use the input path as repo root
             repo_path = path
 
     if repo_path != "":
@@ -140,11 +141,18 @@ def load_repository(
 
     logger.debug("start loading the repo {}".format(repo_path))
     logger.debug("start loading playbooks")
-    repoObj.playbooks = load_playbooks(repo_path, basedir=basedir, include_test_contents=include_test_contents, load_children=load_children)
+    repoObj.playbooks = load_playbooks(
+        repo_path, basedir=basedir, include_test_contents=include_test_contents, yaml_label_list=yaml_label_list, load_children=load_children
+    )
     logger.debug("done ... {} playbooks loaded".format(len(repoObj.playbooks)))
     logger.debug("start loading roles")
     repoObj.roles = load_roles(
-        repo_path, basedir=basedir, use_ansible_doc=use_ansible_doc, include_test_contents=include_test_contents, load_children=load_children
+        repo_path,
+        basedir=basedir,
+        use_ansible_doc=use_ansible_doc,
+        include_test_contents=include_test_contents,
+        yaml_label_list=yaml_label_list,
+        load_children=load_children,
     )
     # in case the target project is a role
     if os.path.exists(os.path.join(repo_path, "tasks")):
@@ -174,7 +182,7 @@ def load_repository(
     )
     logger.debug("done ... {} modules loaded".format(len(repoObj.modules)))
     logger.debug("start loading taskfiles (that are defined for playbooks in this" " repository)")
-    repoObj.taskfiles = load_taskfiles(repo_path, basedir=basedir, load_children=load_children)
+    repoObj.taskfiles = load_taskfiles(repo_path, basedir=basedir, yaml_label_list=yaml_label_list, load_children=load_children)
     logger.debug("done ... {} task files loaded".format(len(repoObj.taskfiles)))
     logger.debug("start loading inventory files")
     repoObj.inventories = load_inventories(repo_path, basedir=basedir)
@@ -655,7 +663,15 @@ def load_playbook(path="", yaml_str="", role_name="", collection_name="", basedi
     return pbObj
 
 
-def load_playbooks(path, basedir="", skip_playbook_format_error=True, skip_task_format_error=True, include_test_contents=False, load_children=True):
+def load_playbooks(
+    path,
+    basedir="",
+    skip_playbook_format_error=True,
+    skip_task_format_error=True,
+    include_test_contents=False,
+    yaml_label_list=None,
+    load_children=True,
+):
     if path == "":
         return []
     patterns = [
@@ -666,6 +682,21 @@ def load_playbooks(path, basedir="", skip_playbook_format_error=True, skip_task_
         patterns.append(os.path.join(path, "tests/**/*.ya?ml"))
         patterns.append(os.path.join(path, "molecule/**/*.ya?ml"))
     candidates = safe_glob(patterns, recursive=True)
+
+    # add files if yaml_label_list is given
+    if yaml_label_list:
+        for (fpath, label, role_info) in yaml_label_list:
+            if label == "playbook":
+                # if it is a playbook in role, it should be scanned by load_role
+                if role_info:
+                    continue
+
+                _fpath = fpath
+                if not _fpath.startswith(basedir):
+                    _fpath = os.path.join(basedir, fpath)
+                if _fpath not in candidates:
+                    candidates.append(_fpath)
+
     playbooks = []
     playbook_names = []
     for fpath in candidates:
@@ -950,6 +981,7 @@ def load_roles(
     skip_playbook_format_error=True,
     skip_task_format_error=True,
     include_test_contents=False,
+    yaml_label_list=None,
     load_children=True,
 ):
 
@@ -962,6 +994,12 @@ def load_roles(
         if os.path.exists(candidate):
             roles_dir_path = candidate
             break
+    if not roles_dir_path:
+        pattern = os.path.join(path, "**", "roles")
+        found_roles = safe_glob(pattern, recursive=True)
+        found_roles = [r for r in found_roles if r.endswith("/roles")]
+        if found_roles:
+            roles_dir_path = found_roles[0]
 
     role_dirs = []
     if roles_dir_path:
@@ -983,6 +1021,17 @@ def load_roles(
                     for test_sub_role_name in test_sub_role_names:
                         test_sub_role_dir = os.path.join(test_sub_roles_dir, test_sub_role_name)
                         role_dirs.append(test_sub_role_dir)
+
+    # add role dirs if yaml_label_list is given
+    if yaml_label_list:
+        for (fpath, label, role_info) in yaml_label_list:
+            if role_info and isinstance(role_info, dict):
+                role_path = role_info.get("path", "")
+                _role_path = role_path
+                if not _role_path.startswith(path):
+                    _role_path = os.path.join(path, _role_path)
+                if _role_path not in role_dirs:
+                    role_dirs.append(_role_path)
 
     if not role_dirs:
         return []
@@ -1469,13 +1518,27 @@ def load_taskfile(path, yaml_str="", role_name="", collection_name="", basedir="
 
 # playbooks possibly include/import task files around the playbook file
 # we search this type of isolated taskfile in `playbooks` and `tasks` dir
-def load_taskfiles(path, basedir="", load_children=True):
+def load_taskfiles(path, basedir="", yaml_label_list=None, load_children=True):
     if not os.path.exists(path):
         return []
 
     taskfile_paths = search_taskfiles_for_playbooks(path)
     if len(taskfile_paths) == 0:
         return []
+
+    # add files if yaml_label_list is given
+    if yaml_label_list:
+        for (fpath, label, role_info) in yaml_label_list:
+            if label == "taskfile":
+                # if it is a taskfile in role, it should be scanned by load_role
+                if role_info:
+                    continue
+
+                _fpath = fpath
+                if not _fpath.startswith(path):
+                    _fpath = os.path.join(path, fpath)
+                if _fpath not in taskfile_paths:
+                    taskfile_paths.append(_fpath)
 
     taskfiles = []
     for taskfile_path in taskfile_paths:
@@ -1675,7 +1738,9 @@ def load_object(loadObj):
         else:
             obj = load_repository(path=basedir, basedir=basedir, target_taskfile_path=target_taskfile_path, load_children=False)
     elif target_type == LoadType.PROJECT:
-        obj = load_repository(path=path, basedir=path, include_test_contents=loadObj.include_test_contents, load_children=False)
+        obj = load_repository(
+            path=path, basedir=path, include_test_contents=loadObj.include_test_contents, yaml_label_list=loadObj.yaml_label_list, load_children=False
+        )
 
     if hasattr(obj, "roles"):
         loadObj.roles = obj.roles
