@@ -296,8 +296,6 @@ def find_best_repo_root_path(path):
         raise ValueError("no playbook files found under {}".format(path))
     top_playbook_path = playbooks[0]
     top_playbook_relative_path = top_playbook_path[len(base_path) :]
-    if top_playbook_relative_path[0] == "/":
-        top_playbook_relative_path = top_playbook_relative_path[1:]
     root_path = ""
     if "/playbooks/" in top_playbook_relative_path:
         root_path = top_playbook_path.rsplit("/playbooks/", 1)[0]
@@ -305,6 +303,18 @@ def find_best_repo_root_path(path):
         root_path = top_playbook_path.rsplit("/playbook/", 1)[0]
     else:
         root_path = os.path.dirname(top_playbook_path)
+
+    # if the root_path is a subdirectory of the input path,
+    # then try finding more appropriate root dir based on `roles`
+    if path != root_path:
+        pattern = os.path.join(path, "**", "roles")
+        found_roles = safe_glob(pattern, recursive=True)
+        if found_roles:
+            roles_dir = found_roles[0]
+            candidate = os.path.dirname(roles_dir)
+            if len(candidate) < len(root_path):
+                root_path = candidate
+
     return root_path
 
 
@@ -448,19 +458,41 @@ def get_role_info_from_path(fpath: str):
         "/vars/",
         "/defaults/",
         "/meta/",
+        "/tests/",
     ]
+    # use alternative target if it matches
+    # e.g.) tests/integration/targets/xxxx/playbooks/tasks/included.yml
+    #        --> role_name should be `xxxx`, not `playbooks`
+    alternative_targets = {
+        "/tasks/": [
+            "/playbooks/tasks/",
+        ],
+        "/vars/": [
+            "/playbooks/vars/",
+        ],
+    }
     role_name = ""
     role_path = ""
     for p in patterns:
         found = False
         if p in fpath:
+            parent_dir = fpath.split(p, 1)[0]
             relative_path = os.path.join(p, fpath.split(p, 1)[-1])
             if relative_path[0] == "/":
                 relative_path = relative_path[1:]
             for t in targets:
                 if t in relative_path:
-                    role_path = relative_path.rsplit(t, 1)[0]
-                    role_name = role_path.split("/")[-1]
+                    _target = t
+
+                    _alt_targets = alternative_targets.get(t, [])
+                    for at in _alt_targets:
+                        if at in relative_path:
+                            _target = at
+                            break
+
+                    _path = relative_path.rsplit(_target, 1)[0]
+                    role_name = _path.split("/")[-1]
+                    role_path = os.path.join(parent_dir, p[1:], role_name)
                     found = True
                     break
         if found:

@@ -204,6 +204,7 @@ class SingleScan(object):
 
     include_test_contents: bool = False
     load_all_taskfiles: bool = False
+    yaml_label_list: list = field(default_factory=list)
 
     extra_requirements: list = field(default_factory=list)
     resolve_failures: dict = field(default_factory=dict)
@@ -436,6 +437,7 @@ class SingleScan(object):
             taskfile_only=self.taskfile_only,
             base_dir=self.base_dir,
             include_test_contents=self.include_test_contents,
+            yaml_label_list=self.yaml_label_list,
         )
         load_object(ld)
         return ld
@@ -828,6 +830,7 @@ class ARIScanner(object):
         raw_yaml: str = "",
         include_test_contents: bool = False,
         load_all_taskfiles: bool = False,
+        yaml_label_list: list = None,
         objects: bool = False,
         out_dir: str = "",
         spec_mutations_from_previous_scan: dict = None,
@@ -869,6 +872,7 @@ class ARIScanner(object):
             taskfile_only=taskfile_only,
             include_test_contents=include_test_contents,
             load_all_taskfiles=load_all_taskfiles,
+            yaml_label_list=yaml_label_list,
             out_dir=out_dir,
             root_dir=self.root_dir,
             rules_dir=self.rules_dir,
