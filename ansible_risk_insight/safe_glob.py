@@ -49,6 +49,13 @@ def safe_glob(patterns, root_dir="", recursive=True, followlinks=False):
         # if recusive, use os.walk to search files recursively
         if recursive:
             for dirpath, folders, files in os.walk(root_dir_for_this_pattern, followlinks=followlinks):
+                for dir_name in folders:
+                    dpath = os.path.join(dirpath, dir_name)
+                    dpath = os.path.normpath(dpath)
+                    if dpath in matched_files:
+                        continue
+                    if pattern_match(pattern, dpath):
+                        matched_files.append(dpath)
                 for file in files:
                     fpath = os.path.join(dirpath, file)
                     fpath = os.path.normpath(fpath)
