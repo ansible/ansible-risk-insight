@@ -315,6 +315,7 @@ def load_play(
     yaml_lines="",
     basedir="",
     skip_task_format_error=True,
+    inside_test_file=False,
 ):
     pbObj = Play()
     if play_block_dict is None:
@@ -328,6 +329,7 @@ def load_play(
     pbObj.index = index
     pbObj.role = role_name
     pbObj.collection = collection_name
+    pbObj.test_object = inside_test_file
     pbObj.set_key(parent_key, parent_local_key)
     play_name = data_block.get("name", "")
     collections_in_play = data_block.get("collections", [])
@@ -382,6 +384,7 @@ def load_play(
                         parent_local_key=pbObj.local_key,
                         yaml_lines=yaml_lines,
                         basedir=basedir,
+                        inside_test_file=inside_test_file,
                     )
                     pre_tasks.append(t)
                     if t:
@@ -423,6 +426,7 @@ def load_play(
                         parent_local_key=pbObj.local_key,
                         yaml_lines=yaml_lines,
                         basedir=basedir,
+                        inside_test_file=inside_test_file,
                     )
                     tasks.append(t)
                     if t:
@@ -464,6 +468,7 @@ def load_play(
                         parent_local_key=pbObj.local_key,
                         yaml_lines=yaml_lines,
                         basedir=basedir,
+                        inside_test_file=inside_test_file,
                     )
                     post_tasks.append(t)
                     if t:
@@ -506,6 +511,7 @@ def load_play(
                         collection_name=collection_name,
                         collections_in_play=collections_in_play,
                         basedir=basedir,
+                        inside_test_file=inside_test_file,
                     )
                     roles.append(rip)
                 except Exception:
@@ -560,6 +566,7 @@ def load_roleinplay(
     collections_in_play=[],
     playbook_yaml="",
     basedir="",
+    inside_test_file=False,
 ):
     ripObj = RoleInPlay()
     if name == "":
@@ -579,6 +586,7 @@ def load_roleinplay(
     ripObj.role_index = role_index
     ripObj.play_index = play_index
     ripObj.collections_in_play = collections_in_play
+    ripObj.test_object = inside_test_file
 
     return ripObj
 
@@ -601,10 +609,12 @@ def load_playbook(path="", yaml_str="", role_name="", collection_name="", basedi
             defined_in = defined_in[len(basedir) :]
             if defined_in.startswith("/"):
                 defined_in = defined_in[1:]
+    is_test_file = is_test_object(defined_in)
     pbObj.defined_in = defined_in
     pbObj.name = os.path.basename(fullpath)
     pbObj.role = role_name
     pbObj.collection = collection_name
+    pbObj.test_object = is_test_file
     pbObj.set_key()
     yaml_lines = ""
     data = None
@@ -649,6 +659,7 @@ def load_playbook(path="", yaml_str="", role_name="", collection_name="", basedi
                 yaml_lines=yaml_str,
                 basedir=basedir,
                 skip_task_format_error=skip_task_format_error,
+                inside_test_file=is_test_file,
             )
             plays.append(play)
         except PlaybookFormatError:
@@ -816,6 +827,7 @@ def load_role(
         fqcn = "{}.{}".format(collection_name, role_name)
     roleObj.collection = collection
     roleObj.fqcn = fqcn
+    roleObj.test_object = is_test
     roleObj.set_key()
 
     playbooks = load_playbooks(
@@ -921,6 +933,7 @@ def load_role(
                 collection_name=collection_name,
                 basedir=basedir,
                 skip_task_format_error=skip_task_format_error,
+                is_test_file=is_test,
             )
         except TaskFormatError as e:
             if skip_task_format_error:
@@ -953,6 +966,7 @@ def load_role(
                     collection_name=collection_name,
                     basedir=basedir,
                     skip_task_format_error=skip_task_format_error,
+                    is_test_file=is_test,
                 )
             except TaskFormatError as e:
                 if skip_task_format_error:
@@ -1277,6 +1291,7 @@ def load_task(
     parent_local_key="",
     yaml_lines="",
     basedir="",
+    inside_test_file=False,
 ):
 
     taskObj = Task()
@@ -1384,6 +1399,7 @@ def load_task(
     taskObj.executable = executable
     taskObj.executable_type = executable_type
     taskObj.collections_in_play = collections_in_play
+    taskObj.test_object = inside_test_file
     taskObj.set_key(parent_key, parent_local_key)
 
     variables = {}
@@ -1435,7 +1451,7 @@ def load_task(
     return taskObj
 
 
-def load_taskfile(path, yaml_str="", role_name="", collection_name="", basedir="", skip_task_format_error=True):
+def load_taskfile(path, yaml_str="", role_name="", collection_name="", basedir="", skip_task_format_error=True, is_test_file=False):
     tfObj = TaskFile()
     fullpath = ""
     if yaml_str:
@@ -1492,6 +1508,7 @@ def load_taskfile(path, yaml_str="", role_name="", collection_name="", basedir="
                 parent_key=tfObj.key,
                 parent_local_key=tfObj.local_key,
                 basedir=basedir,
+                inside_test_file=is_test_file,
             )
             tasks.append(t)
             if t:

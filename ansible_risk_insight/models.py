@@ -136,6 +136,7 @@ class Load(JSONSerializable):
 class Object(JSONSerializable):
     type: str = ""
     key: str = ""
+    test_object: bool = False
 
 
 @dataclass

@@ -737,5 +737,14 @@ def recursive_copy_dict(src, dst):
     return
 
 
-def is_test_object(path: str):
-    return path.startswith("tests/integration/") or path.startswith("molecule/")
+def is_test_object(relative_path: str):
+    if not relative_path:
+        return False
+    target_path = relative_path
+    if target_path[0] != "/":
+        target_path = "/" + target_path
+    dir_patterns = ["/tests/", "/molecule/", "/test/"]
+    for _d in dir_patterns:
+        if _d in target_path:
+            return True
+    return False
