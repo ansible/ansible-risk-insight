@@ -628,15 +628,17 @@ class TreeLoader(object):
                         }
             elif isinstance(call_obj, PlayCall):
                 playcall = call_obj
-                if len(child_objects.items) > 0:
+                if len(child_objects.items) > 0 and "roles_info" in handover:
                     c_obj = child_objects.items[0]
                     if isinstance(c_obj, RoleCall):
-                        role_info = {
-                            "fqcn": c_obj.spec.fqcn,
-                            "path": c_obj.spec.defined_in,
-                            "key": c_obj.spec.key,
-                        }
-                        playcall.spec.roles_info.append(role_info)
+                        for rip in playcall.spec.roles:
+                            resolved_key = handover["roles_info"].get(rip.key, "")
+                            if resolved_key and resolved_key == c_obj.spec.key:
+                                rip.role_info = {
+                                    "fqcn": c_obj.spec.fqcn,
+                                    "path": c_obj.spec.defined_in,
+                                    "key": c_obj.spec.key,
+                                }
             for c_obj in child_objects.items:
                 obj_list.add(c_obj)
         return obj_list
@@ -713,6 +715,8 @@ class TreeLoader(object):
             children_keys.extend(obj.pre_tasks)
             children_keys.extend(obj.tasks)
             for rip in obj.roles:
+                if not isinstance(rip, RoleInPlay):
+                    continue
 
                 if rip.name in self.role_resolve_cache:
                     resolved_role_key = self.role_resolve_cache[rip.name]
@@ -766,6 +770,9 @@ class TreeLoader(object):
 
                 if resolved_role_key != "":
                     children_keys.append(resolved_role_key)
+                    if "roles_info" not in handover:
+                        handover["roles_info"] = {}
+                    handover["roles_info"][rip.key] = resolved_role_key
             children_keys.extend(obj.post_tasks)
         elif isinstance(obj, Role):
             target_taskfiles = ["main.yml", "main.yaml"]
