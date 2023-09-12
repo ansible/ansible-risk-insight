@@ -1897,6 +1897,9 @@ class RoleInPlay(Object, Resolvable):
     annotations: dict = field(default_factory=dict)
     collections_in_play: list = field(default_factory=list)
 
+    # embed this data when role is resolved
+    role_info: dict = field(default_factory=dict)
+
     @property
     def resolver_targets(self):
         return None
@@ -1930,9 +1933,6 @@ class Play(Object, Resolvable):
     collections_in_play: list = field(default_factory=list)
     become: BecomeInfo = None
     variables: dict = field(default_factory=dict)
-
-    # embed this data when role is resolved
-    roles_info: list = field(default_factory=list)
 
     task_loading: dict = field(default_factory=dict)
 
