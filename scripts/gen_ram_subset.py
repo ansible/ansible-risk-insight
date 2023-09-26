@@ -25,24 +25,24 @@ class SubsetGenerator():
 
     def gen_dependency_ram(self, findings_path):
         dep_list = self._get_dependencies(findings_path)
-        self.gen_subset(dep_list, self.ram_all_dir, self.ram_subset_dir)
+        self.gen_subset(dep_list)
         return
 
-    def gen_subset(self, subset_list, ram_all_dir, out_dir):
+    def gen_subset(self, subset_list):
         # find findings.json from ram-all dir
         for _type, _name in subset_list:
             files = []
             if _type == "collection":
-                files = glob.glob(f"{ram_all_dir}/collections/findings/{_name}/**/findings.json", recursive=True)
+                files = glob.glob(f"{self.ram_all_dir}/collections/findings/{_name}/**/findings.json", recursive=True)
             elif _type == "role":
-                files = glob.glob(f"{ram_all_dir}/roles/findings/{_name}/**/findings.json", recursive=True)
+                files = glob.glob(f"{self.ram_all_dir}/roles/findings/{_name}/**/findings.json", recursive=True)
 
             if len(files) == 0:
                 print(f"findings.json not found. ({_type} {_name})")
                 continue
             for f_json in files:
-                relative_path = f_json.replace(ram_all_dir, "").strip("/")
-                dest_path = os.path.join(out_dir, relative_path)
+                relative_path = f_json.replace(self.ram_all_dir, "").strip("/")
+                dest_path = os.path.join(self.ram_subset_dir, relative_path)
                 dest_dir = os.path.dirname(dest_path)
                 os.makedirs(dest_dir, exist_ok=True)
                 if not os.path.exists(dest_path):
@@ -85,4 +85,4 @@ if __name__ == '__main__':
     
     sg = SubsetGenerator(ram_all_dir, out_dir)
     subset_list = sg.gen_list(input_list)
-    sg.gen_subset(subset_list, ram_all_dir, out_dir)
+    sg.gen_subset(subset_list)
