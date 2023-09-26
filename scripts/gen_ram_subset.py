@@ -23,7 +23,7 @@ class SubsetGenerator():
                     dep_list.append((_type, _name))
         return dep_list
 
-    def copy_dependency_ram(self, findings_path):
+    def gen_dependency_ram(self, findings_path):
         dep_list = self._get_dependencies(findings_path)
         self.gen_subset(dep_list, self.ram_all_dir, self.ram_subset_dir)
         return
@@ -47,6 +47,7 @@ class SubsetGenerator():
                 os.makedirs(dest_dir, exist_ok=True)
                 if not os.path.exists(dest_path):
                     shutil.copy2(f_json, dest_path)
+                self.gen_dependency_ram(f_json)
     
     def gen_list(self, input_list):
         # load subset list
