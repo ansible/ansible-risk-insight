@@ -43,27 +43,39 @@ class RAMSlimGenerator:
 
             findings = Findings.load(fpath=f_json)
             if not findings:
+                if _name == "octupus.o4n_azure_fileshsare":
+                    print("[DEBUG] 1")
                 continue
             if not isinstance(findings, Findings):
+                if _name == "octupus.o4n_azure_fileshsare":
+                    print("[DEBUG] 1")
                 continue
             if not isinstance(findings.root_definitions, dict):
                 continue
             definitions = findings.root_definitions.get("definitions", {})
             if "modules" not in definitions:
                 continue
-            # remove all types other than `modules`
+
+            # remove all types other than `modules` and `collections`
+            # NOTE: `collections` are necessary to register `redirects` to module_index
+            #        but it should be removed later
             definitions = {
                 "modules": definitions["modules"],
+                "collections": definitions["collections"],
             }
             findings.root_definitions["definitions"] = definitions
             findings.ext_definitions = {}
+
+            # register modules and redirects to module_index
+            ram_client.register_indices_to_ram(findings=findings)
+            # remove `collections` here
+            findings.root_definitions["definitions"].pop("collections")
 
             relative_path = f_json.replace(self.ram_all_dir, "").strip("/")
             dest_path = os.path.join(self.ram_slim_dir, relative_path)
             dest_dir = os.path.dirname(dest_path)
             os.makedirs(dest_dir, exist_ok=True)
             findings.dump(fpath=dest_path)
-            ram_client.register_indices_to_ram(findings=findings)
 
     def copy_priority_file(self, priority_file=None):
         if not priority_file:
