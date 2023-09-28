@@ -5,6 +5,9 @@ from ansible_risk_insight.findings import Findings
 from ansible_risk_insight.risk_assessment_model import RAMClient
 
 
+default_priority_file_path_in_ram = "indices/collections_sorted_by_download_count.txt"
+
+
 class RAMSlimGenerator:
     def __init__(self, ram_all_dir, out_dir) -> None:
         self.ram_all_dir = ram_all_dir
@@ -48,13 +51,12 @@ class RAMSlimGenerator:
             definitions = findings.root_definitions.get("definitions", {})
             if "modules" not in definitions:
                 continue
-            if not definitions["modules"]:
-                continue
             # remove all types other than `modules`
             definitions = {
                 "modules": definitions["modules"],
             }
             findings.root_definitions["definitions"] = definitions
+            findings.ext_definitions = {}
 
             relative_path = f_json.replace(self.ram_all_dir, "").strip("/")
             dest_path = os.path.join(self.ram_slim_dir, relative_path)
@@ -63,8 +65,25 @@ class RAMSlimGenerator:
             findings.dump(fpath=dest_path)
             ram_client.register_indices_to_ram(findings=findings)
 
+    def copy_priority_file(self, priority_file=None):
+        if not priority_file:
+            return
+
+        if not os.path.exists(priority_file):
+            return
+
+        body = ""
+        with open(priority_file, "r") as src_file:
+            body = src_file.read()
+
+        dest_priority_file = os.path.join(self.ram_slim_dir, default_priority_file_path_in_ram)
+        with open(dest_priority_file, "w") as dest_file:
+            dest_file.write(body)
+        return
+
     def run(self, priority_file=None):
         self.gen_slim(priority_file=priority_file)
+        self.copy_priority_file(priority_file=priority_file)
 
 
 def sort_with_priority(findings_json_list, priority_list):
@@ -113,4 +132,4 @@ if __name__ == "__main__":
         raise ValueError(f"ram-all dir does not exist: {ram_all_dir}")
 
     rsg = RAMSlimGenerator(ram_all_dir, out_dir)
-    rsg.run()
+    rsg.run(priority_file=priority_file)
