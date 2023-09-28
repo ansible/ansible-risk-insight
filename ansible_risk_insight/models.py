@@ -2518,34 +2518,40 @@ class TargetResult(JSONSerializable):
         return self._filter(TaskCall)
 
     def task(self, name):
-        return self._find_by_name(name)
+        return self._find_by_name(name=name, type=TaskCall)
 
     def roles(self):
         return self._filter(RoleCall)
 
     def role(self, name):
-        return self._find_by_name(name)
+        return self._find_by_name(name=name, type=RoleCall)
 
     def playbooks(self):
         return self._filter(PlaybookCall)
 
     def playbook(self, name):
-        return self._find_by_name(name)
+        return self._find_by_name(name=name, type=PlaybookCall)
 
     def plays(self):
         return self._filter(PlayCall)
 
     def play(self, name):
-        return self._find_by_name(name)
+        return self._find_by_name(name=name, type=PlayCall)
 
     def taskfiles(self):
         return self._filter(TaskFileCall)
 
     def taskfile(self, name):
-        return self._find_by_name(name)
+        return self._find_by_name(name=name, type=TaskFileCall)
 
-    def _find_by_name(self, name):
-        filtered_nodes = [nr for nr in self.nodes if nr.node.spec.name == name]
+    def _find_by_name(self, name, type: type = None):
+        nodes = deepcopy(self.nodes)
+        if type:
+            type_only_result = self._filter(type)
+            if not type_only_result:
+                return None
+            nodes = type_only_result.nodes
+        filtered_nodes = [nr for nr in nodes if nr.node.spec.name == name]
         if not filtered_nodes:
             return None
         return filtered_nodes[0]
@@ -2580,19 +2586,19 @@ class ARIResult(JSONSerializable):
         return self._filter("role")
 
     def role(self, name):
-        return self._find_by_name(name)
+        return self._find_by_name(name=name, type_str="role")
 
     def taskfiles(self):
         return self._filter("taskfile")
 
     def taskfile(self, name="", path="", yaml_str=""):
         if name:
-            return self._find_by_name(name)
+            return self._find_by_name(name=name, type_str="taskfile")
 
         # TODO: use path correctly
         if path:
             name = os.path.basename(path)
-            return self._find_by_name(name)
+            return self._find_by_name(name=name, type_str="taskfile")
 
         if yaml_str:
             return self._find_by_yaml_str(yaml_str, "taskfile")
@@ -2601,20 +2607,26 @@ class ARIResult(JSONSerializable):
 
     def find_target(self, name="", path="", yaml_str="", target_type=""):
         if name:
-            return self._find_by_name(name)
+            return self._find_by_name(name=name, type_str=target_type)
 
         # TODO: use path correctly
         if path:
             name = os.path.basename(path)
-            return self._find_by_name(name)
+            return self._find_by_name(name=name, type_str=target_type)
 
         if yaml_str:
             return self._find_by_yaml_str(yaml_str, target_type)
 
         return None
 
-    def _find_by_name(self, name):
-        filtered_targets = [tr for tr in self.targets if tr.target_name == name]
+    def _find_by_name(self, name, type_str=""):
+        targets = deepcopy(self.targets)
+        if type_str:
+            type_only_result = self._filter(type_str)
+            if not type_only_result:
+                return None
+            targets = type_only_result.targets
+        filtered_targets = [tr for tr in targets if tr.target_name == name]
         if not filtered_targets:
             return None
         return filtered_targets[0]
