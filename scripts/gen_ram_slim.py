@@ -43,12 +43,8 @@ class RAMSlimGenerator:
 
             findings = Findings.load(fpath=f_json)
             if not findings:
-                if _name == "octupus.o4n_azure_fileshsare":
-                    print("[DEBUG] 1")
                 continue
             if not isinstance(findings, Findings):
-                if _name == "octupus.o4n_azure_fileshsare":
-                    print("[DEBUG] 1")
                 continue
             if not isinstance(findings.root_definitions, dict):
                 continue
