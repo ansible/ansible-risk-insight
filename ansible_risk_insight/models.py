@@ -1404,6 +1404,16 @@ class MutableContent(object):
         )
         return mc
 
+    def set_task_name(self, task_name: str):
+        # if `name` is None or empty string, Task.yaml() won't output the field
+        self._task_spec.name = task_name
+        self._yaml = self._task_spec.yaml()
+        self._task_spec.yaml_lines = self._yaml
+        return self
+
+    def get_task_name(self):
+        return self._task_spec.name
+
     def omit_task_name(self):
         # if `name` is None or empty string, Task.yaml() won't output the field
         self._task_spec.name = None
