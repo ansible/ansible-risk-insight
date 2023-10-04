@@ -43,6 +43,8 @@ module_dir_patterns = [
 
 playbook_taskfile_dir_patterns = ["tasks", "playbooks"]
 
+github_workflows_dir = ".github/workflows"
+
 
 class Singleton(type):
     _instances = {}
@@ -321,6 +323,7 @@ def find_best_repo_root_path(path):
 def find_collection_name_of_repo(path):
     pattern = os.path.join(path, "**/galaxy.yml")
     found_galaxy_ymls = safe_glob(pattern, recursive=True)
+    found_galaxy_ymls = [fpath for fpath in found_galaxy_ymls if github_workflows_dir not in fpath]
 
     # skip galaxy ymls found in collections/roles in the repository
     _galaxy_ymls = []

@@ -34,6 +34,7 @@ role_meta_main_yaml = "meta/main.yaml"
 requirements_yml = "requirements.yml"
 galaxy_yml = "galaxy.yml"
 GALAXY_yml = "GALAXY.yml"
+github_workflows_dir = ".github/workflows"
 
 
 def find_dependency(type, target, dependency_dir, use_ansible_path=False):
@@ -154,6 +155,7 @@ def find_role_dependency(target):
         ],
         recursive=True,
     )
+    role_meta_files = [fpath for fpath in role_meta_files if github_workflows_dir not in fpath]
     main_yaml = ""
     if len(role_meta_files) > 0:
         for rf in role_meta_files:
@@ -205,6 +207,7 @@ def find_collection_dependency(target):
     requirements = {}
     # collection dir installed by ansible-galaxy command
     manifest_json_files = safe_glob(os.path.join(target, "**", collection_manifest_json), recursive=True)
+    manifest_json_files = [fpath for fpath in manifest_json_files if github_workflows_dir not in fpath]
     logger.debug("found meta files {}".format(manifest_json_files))
     manifest_json = ""
     if len(manifest_json_files) > 0:
@@ -301,6 +304,7 @@ def load_dependency_from_galaxy(path):
     yaml_path = ""
     galaxy_yml_files = safe_glob(os.path.join(path, "**", galaxy_yml), recursive=True)
     galaxy_yml_files.extend(safe_glob(os.path.join(path, "**", GALAXY_yml), recursive=True))
+    galaxy_yml_files = [fpath for fpath in galaxy_yml_files if github_workflows_dir not in fpath]
     logger.debug("found meta files {}".format(galaxy_yml_files))
     if len(galaxy_yml_files) > 0:
         for g in galaxy_yml_files:
@@ -324,6 +328,7 @@ def load_existing_dependency_dir(dependency_dir):
     #     recursive=True,
     # )
     collection_meta_files = safe_glob(os.path.join(dependency_dir, "**", collection_manifest_json), recursive=True)
+    collection_meta_files = [fpath for fpath in collection_meta_files if github_workflows_dir not in fpath]
     requirements = {
         "roles": [],
         "collections": [],
