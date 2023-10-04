@@ -261,8 +261,16 @@ class Parser:
             mappings["roles"].append([role_path, r.key])
 
         taskfiles = [tf for r in roles for tf in r.taskfiles if r.fqcn != ld.target_name]
+        loaded_absolute_path_list = []
+        for r in roles:
+            for tf in r.taskfiles:
+                if r.fqcn != ld.target_name:
+                    loaded_absolute_path_list.append(os.path.join(basedir, r.defined_in, tf.defined_in))
         for taskfile_path in ld.taskfiles:
             try:
+                abs_path = os.path.join(basedir, taskfile_path)
+                if abs_path in loaded_absolute_path_list:
+                    continue
                 tf = load_taskfile(
                     path=taskfile_path,
                     yaml_str=ld.taskfile_yaml,
