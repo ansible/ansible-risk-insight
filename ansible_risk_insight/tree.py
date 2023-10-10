@@ -712,8 +712,6 @@ class TreeLoader(object):
                 resolved_playbook_key = resolve_playbook(obj.import_playbook, self.dicts["playbooks"], obj.key)
                 if resolved_playbook_key != "":
                     children_keys.append(resolved_playbook_key)
-            children_keys.extend(obj.pre_tasks)
-            children_keys.extend(obj.tasks)
             for rip in obj.roles:
                 if not isinstance(rip, RoleInPlay):
                     continue
@@ -773,7 +771,10 @@ class TreeLoader(object):
                     if "roles_info" not in handover:
                         handover["roles_info"] = {}
                     handover["roles_info"][rip.key] = resolved_role_key
+            children_keys.extend(obj.pre_tasks)
+            children_keys.extend(obj.tasks)
             children_keys.extend(obj.post_tasks)
+            children_keys.extend(obj.handlers)
         elif isinstance(obj, Role):
             target_taskfiles = ["main.yml", "main.yaml"]
             if isinstance(handover_from_upper_node, dict) and "tasks_from" in handover_from_upper_node:

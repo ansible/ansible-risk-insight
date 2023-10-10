@@ -319,9 +319,11 @@ class Parser:
         pre_tasks_in_plays = [t for p in plays for t in p.pre_tasks]
         tasks_in_plays = [t for p in plays for t in p.tasks]
         post_tasks_in_plays = [t for p in plays for t in p.post_tasks]
+        handlers_in_plays = [t for p in plays for t in p.handlers]
         tasks.extend(pre_tasks_in_plays)
         tasks.extend(tasks_in_plays)
         tasks.extend(post_tasks_in_plays)
+        tasks.extend(handlers_in_plays)
 
         modules = [m for r in roles for m in r.modules]
         module_specs = {}

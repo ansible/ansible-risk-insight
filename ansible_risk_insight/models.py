@@ -1936,6 +1936,7 @@ class Play(Object, Resolvable):
     pre_tasks: list = field(default_factory=list)
     tasks: list = field(default_factory=list)
     post_tasks: list = field(default_factory=list)
+    handlers: list = field(default_factory=list)
     # not actual Role, but RoleInPlay defined in this playbook
     roles: list = field(default_factory=list)
     module_defaults: dict = field(default_factory=dict)
@@ -1958,6 +1959,9 @@ class Play(Object, Resolvable):
 
         post_task_keys = [t.key if isinstance(t, Task) else t for t in self.post_tasks]
         self.post_tasks = post_task_keys
+
+        handler_task_keys = [t.key if isinstance(t, Task) else t for t in self.handlers]
+        self.handlers = handler_task_keys
         return self
 
     @property
