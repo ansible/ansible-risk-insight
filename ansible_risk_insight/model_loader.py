@@ -334,6 +334,7 @@ def load_play(
     pre_tasks = []
     post_tasks = []
     tasks = []
+    handlers = []
     roles = []
     variables = {}
     module_defaults = {}
@@ -341,7 +342,7 @@ def load_play(
     import_module = ""
     import_playbook = ""
 
-    tasks_keys = ["pre_tasks", "tasks", "post_tasks"]
+    tasks_keys = ["pre_tasks", "tasks", "post_tasks", "handlers"]
     keys = [k for k in data_block if k not in tasks_keys]
     keys.extend(tasks_keys)
     task_count = 0
@@ -482,6 +483,47 @@ def load_play(
                     if error:
                         task_loading["failure"] += 1
                         task_loading["errors"].append(error)
+        elif k == "handlers":
+            if not isinstance(v, list):
+                continue
+            task_blocks, _ = get_task_blocks(task_dict_list=v)
+            if task_blocks is None:
+                continue
+            for task_dict in task_blocks:
+                i = task_count
+                task_loading["total"] += 1
+                error = None
+                try:
+                    t = load_task(
+                        path=path,
+                        index=i,
+                        task_block_dict=task_dict,
+                        role_name=role_name,
+                        collection_name=collection_name,
+                        collections_in_play=collections_in_play,
+                        play_index=index,
+                        parent_key=pbObj.key,
+                        parent_local_key=pbObj.local_key,
+                        yaml_lines=yaml_lines,
+                        basedir=basedir,
+                    )
+                    handlers.append(t)
+                    if t:
+                        task_loading["success"] += 1
+                except TaskFormatError as exc:
+                    error = exc
+                    if skip_task_format_error:
+                        logger.debug("this task is wrong format; skip the task in {}," " index: {}; skip this".format(path, i))
+                    else:
+                        raise TaskFormatError(f"this task is wrong format; skip the task in {path}," " index: {i}")
+                except Exception as exc:
+                    error = exc
+                    logger.exception("error while loading the task at {} (index={})".format(path, i))
+                finally:
+                    task_count += 1
+                    if error:
+                        task_loading["failure"] += 1
+                        task_loading["errors"].append(error)
         elif k == "roles":
             if not isinstance(v, list):
                 continue
@@ -538,6 +580,7 @@ def load_play(
     pbObj.pre_tasks = pre_tasks
     pbObj.tasks = tasks
     pbObj.post_tasks = post_tasks
+    pbObj.handlers = handlers
     pbObj.roles = roles
     pbObj.variables = variables
     pbObj.module_defaults = module_defaults
