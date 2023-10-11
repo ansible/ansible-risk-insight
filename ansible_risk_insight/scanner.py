@@ -908,8 +908,6 @@ class ARIScanner(object):
             logger.debug(f"finished preparing {scandata.type} {scandata.name}")
 
         if download_only:
-            scandata.set_metadata_findings()
-            self.register_findings_to_ram(scandata.findings)
             return None
         self.record_end(time_records, "metadata_load")
 
