@@ -66,6 +66,13 @@ class ModuleArgumentValueValidationRule(Rule):
             wrong_values = []
             undefined_values = []
             unknown_type_values = []
+
+            registered_vars = []
+            for v_name in task.variable_set:
+                v = task.variable_set[v_name]
+                if v and v[-1].type == VariableType.RegisteredVars:
+                    registered_vars.append(v_name)
+
             if task.args.type == ArgumentsType.DICT:
                 for key in task.args.raw:
                     raw_value = task.args.raw[key]
@@ -133,7 +140,16 @@ class ModuleArgumentValueValidationRule(Rule):
 
                     sub_args = task.args.get(key)
                     if sub_args:
-                        undefined_vars = [v.name for v in sub_args.vars if v and v.type == VariableType.Unknown]
+                        undefined_vars = []
+                        for v in sub_args.vars:
+                            first_v_name = v.name.split(".")[0]
+                            # skip registered vars
+                            if first_v_name in registered_vars:
+                                continue
+
+                            if v and v.type == VariableType.Unknown:
+                                undefined_vars.append(v.name)
+
                         if undefined_vars:
                             undefined_values.append({"key": key, "value": raw_value, "undefined_variables": undefined_vars})
 
