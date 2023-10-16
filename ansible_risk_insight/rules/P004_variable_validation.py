@@ -66,7 +66,19 @@ class VariableValidationRule(Rule):
         task_arg_keys = []
         if task.args.type == ArgumentsType.DICT:
             task_arg_keys = list(task.args.raw.keys())
+
+        registered_vars = []
+        for v_name in task.variable_set:
+            v = task.variable_set[v_name]
+            if v and v[-1].type == VariableType.RegisteredVars:
+                registered_vars.append(v_name)
+
         for v_name in task.variable_use:
+            first_v_name = v_name.split(".")[0]
+            # skip registered vars
+            if first_v_name in registered_vars:
+                continue
+
             v = task.variable_use[v_name]
             if v and v[-1].type == VariableType.Unknown:
                 if v_name not in undefined_variables:
