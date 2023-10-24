@@ -25,7 +25,7 @@ _yaml: ContextVar[YAML] = ContextVar("yaml")
 
 def _set_yaml(force=False):
     if not _yaml.get(None) or force:
-        yaml = YAML(typ="safe", pure=True)
+        yaml = YAML(typ="rt", pure=True)
         yaml.default_flow_style = False
         yaml.preserve_quotes = True
         yaml.allow_duplicate_keys = True
