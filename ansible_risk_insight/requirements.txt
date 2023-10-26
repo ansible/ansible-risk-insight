@@ -1,5 +1,5 @@
 gitdb==4.0.9
-GitPython==3.1.32
+GitPython==3.1.35
 joblib==1.2.0
 jsonpickle==2.2.0
 PyYAML==6.0
