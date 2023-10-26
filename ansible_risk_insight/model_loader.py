@@ -339,10 +339,11 @@ def load_file(
             error = f"File not found: {fullpath}"
 
     # try reading body as a YAML string
-    data = None
+    data_str = ""
     if body:
         try:
             data = yaml.safe_load(body)
+            data_str = json.dumps(data, separators=(",", ":"))
         except Exception:
             # ignore exception if any
             # because possibly this file is not a YAML file
@@ -358,7 +359,7 @@ def load_file(
     fObj = File()
     fObj.name = defined_in
     fObj.body = body
-    fObj.data = data
+    fObj.data = data_str
     fObj.error = error
     fObj.label = label
     fObj.defined_in = defined_in
