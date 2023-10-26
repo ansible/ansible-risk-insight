@@ -38,6 +38,7 @@ from .model_loader import (
     load_repository,
     load_role,
     load_taskfile,
+    load_file,
 )
 from .utils import (
     split_target_playbook_fullpath,
@@ -120,6 +121,7 @@ class Parser:
                     skip_playbook_format_error=self.skip_playbook_format_error,
                     skip_task_format_error=self.skip_task_format_error,
                     include_test_contents=ld.include_test_contents,
+                    yaml_label_list=ld.yaml_label_list,
                 )
             except PlaybookFormatError:
                 if not self.skip_playbook_format_error:
@@ -222,6 +224,7 @@ class Parser:
             "taskfiles": [],
             "modules": [],
             "playbooks": [],
+            "files": [],
         }
 
         basedir = ld.path
@@ -351,12 +354,35 @@ class Parser:
             modules.append(m)
             mappings["modules"].append([module_path, m.key])
 
+        files = []
+        for file_path in ld.files:
+            f = None
+            try:
+                label = "others"
+                if ld.yaml_label_list:
+                    for (_fpath, _label, _) in ld.yaml_label_list:
+                        if _fpath == file_path:
+                            label = _label
+                f = load_file(
+                    path=file_path,
+                    basedir=basedir,
+                    label=label,
+                    role_name=role_name,
+                    collection_name=collection_name,
+                )
+            except Exception as e:
+                logger.debug(f"failed to load a file: {e}")
+                continue
+            files.append(f)
+            mappings["files"].append([file_path, f.key])
+
         logger.debug("roles: {}".format(len(roles)))
         logger.debug("taskfiles: {}".format(len(taskfiles)))
         logger.debug("modules: {}".format(len(modules)))
         logger.debug("playbooks: {}".format(len(playbooks)))
         logger.debug("plays: {}".format(len(plays)))
         logger.debug("tasks: {}".format(len(tasks)))
+        logger.debug("files: {}".format(len(files)))
 
         collections = []
         projects = []
@@ -387,12 +413,15 @@ class Parser:
             plays = [p.children_to_key() for p in plays]
         if len(tasks) > 0:
             tasks = [t.children_to_key() for t in tasks]
+        if len(files) > 0:
+            files = [f.children_to_key() for f in files]
 
         # save mappings
         ld.roles = mappings["roles"]
         ld.taskfiles = mappings["taskfiles"]
         ld.playbooks = mappings["playbooks"]
         ld.modules = mappings["modules"]
+        ld.files = mappings["files"]
 
         definitions = {
             "collections": collections,
@@ -403,6 +432,7 @@ class Parser:
             "playbooks": playbooks,
             "plays": plays,
             "tasks": tasks,
+            "files": files,
         }
 
         return definitions, ld

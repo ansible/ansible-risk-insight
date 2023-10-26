@@ -556,7 +556,10 @@ def label_yml_file(yml_path: str = "", yml_body: str = "", task_num_thresh: int 
 
     label = ""
     if not body or not data:
-        label = label_empty_file_by_path(yml_path) if yml_path else "others"
+        label_by_path = ""
+        if yml_path:
+            label_by_path = label_empty_file_by_path(yml_path)
+        label = label_by_path if label_by_path else "others"
     elif data and not isinstance(data, list):
         label = "others"
     elif could_be_playbook_detail(body, data):

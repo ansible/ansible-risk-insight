@@ -19,6 +19,7 @@ import json
 import os
 import re
 import yaml
+import traceback
 
 try:
     # if `libyaml` is available, use C based loader for performance
@@ -35,6 +36,7 @@ from .models import (
     ExecutableType,
     Inventory,
     InventoryType,
+    File,
     LoadType,
     Play,
     Playbook,
@@ -187,6 +189,8 @@ def load_repository(
     logger.debug("start loading inventory files")
     repoObj.inventories = load_inventories(repo_path, basedir=basedir)
     logger.debug("done ... {} inventory files loaded".format(len(repoObj.inventories)))
+    repoObj.files = load_files(path=repo_path, basedir=basedir, yaml_label_list=yaml_label_list, load_children=load_children)
+    logger.debug("done ... {} other files loaded".format(len(repoObj.files)))
     logger.debug("start loading installed collections")
     repoObj.installed_collections = load_installed_collections(installed_collections_path)
 
@@ -302,6 +306,93 @@ def load_inventories(path, basedir=""):
             except Exception:
                 logger.exception("error while loading the inventory file at {}".format(inventory_path))
     return inventories
+
+
+# TODO: need more-detailed labels like `vars`? (currently use the passed one as is)
+def load_file(
+    path,
+    basedir="",
+    label="",
+    body="",
+    error="",
+    read=True,
+    role_name="",
+    collection_name="",
+):
+    fullpath = os.path.join(basedir, path)
+    if not os.path.exists(fullpath):
+        if path and os.path.exists(path):
+            fullpath = path
+
+    # use passed body/error when provided or when read=False
+    if body or error or not read:
+        pass
+    else:
+        # otherwise, try reading the file
+        if os.path.exists(fullpath):
+            try:
+                with open(fullpath, "r") as file:
+                    body = file.read()
+            except Exception:
+                error = traceback.format_exc()
+        else:
+            error = f"File not found: {fullpath}"
+
+    # try reading body as a YAML string
+    data = None
+    if body:
+        try:
+            data = yaml.safe_load(body)
+        except Exception:
+            # ignore exception if any
+            # because possibly this file is not a YAML file
+            pass
+
+    defined_in = fullpath
+    if basedir != "":
+        if defined_in.startswith(basedir):
+            defined_in = defined_in[len(basedir) :]
+            if defined_in.startswith("/"):
+                defined_in = defined_in[1:]
+
+    fObj = File()
+    fObj.name = defined_in
+    fObj.body = body
+    fObj.data = data
+    fObj.error = error
+    fObj.label = label
+    fObj.defined_in = defined_in
+    if role_name != "":
+        fObj.role = role_name
+    if collection_name != "":
+        fObj.collection = collection_name
+    fObj.set_key()
+    return fObj
+
+
+# load general files that has no task definitions
+# e.g. variable files, jinja2 templates and non-ansible files
+# TODO: support loading without pre-computed yaml_label_list
+# TODO: support non-YAML files
+def load_files(path, basedir="", yaml_label_list=None, role_name="", collection_name="", load_children=True):
+    if not yaml_label_list:
+        return []
+
+    files = []
+    for (fpath, label, role_info) in yaml_label_list:
+        if not fpath:
+            continue
+        if not label:
+            continue
+        # load only `others` files
+        if label != "others":
+            continue
+        f = load_file(path=fpath, basedir=basedir, label=label, role_name=role_name, collection_name=collection_name)
+        if load_children:
+            files.append(f)
+        else:
+            files.append(f.defined_in)
+    return files
 
 
 def load_play(
@@ -1798,6 +1889,8 @@ def load_object(loadObj):
         loadObj.taskfiles = current + obj.handlers
     if hasattr(obj, "modules"):
         loadObj.modules = obj.modules
+    if hasattr(obj, "files"):
+        loadObj.files = obj.files
 
     if target_type == LoadType.ROLE:
         loadObj.roles = [obj.defined_in]
