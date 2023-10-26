@@ -36,6 +36,7 @@ from .keyutil import (
     set_role_key,
     set_task_key,
     set_taskfile_key,
+    set_file_key,
     set_call_object_key,
     get_obj_info_by_key,
 )
@@ -130,6 +131,7 @@ class Load(JSONSerializable):
     playbooks: list = field(default_factory=list)
     taskfiles: list = field(default_factory=list)
     modules: list = field(default_factory=list)
+    files: list = field(default_factory=list)
 
 
 @dataclass
@@ -281,6 +283,34 @@ class RunTargetList(object):
 
     def __getitem__(self, i):
         return self.items[i]
+
+
+@dataclass
+class File(object):
+    type: str = "file"
+    name: str = ""
+    key: str = ""
+    local_key: str = ""
+    role: str = ""
+    collection: str = ""
+
+    body: str = ""
+    data: any = None
+    error: str = ""
+    label: str = ""
+    defined_in: str = ""
+
+    annotations: dict = field(default_factory=dict)
+
+    def set_key(self):
+        set_file_key(self)
+
+    def children_to_key(self):
+        return self
+
+    @property
+    def resolver_targets(self):
+        return None
 
 
 @dataclass
@@ -2069,6 +2099,8 @@ class Repository(Object, Resolvable):
     taskfiles: list = field(default_factory=list)
 
     inventories: list = field(default_factory=list)
+
+    files: list = field(default_factory=list)
 
     version: str = ""
 

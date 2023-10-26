@@ -267,3 +267,11 @@ def make_imported_taskfile_key(caller_key, path):
     normed_path = os.path.normpath(path)
     key = f"taskfile {parent}taskfile{key_delimiter}{normed_path}"
     return key
+
+
+def set_file_key(obj):
+    global_key_prefix = make_global_key_prefix(obj.collection, obj.role)
+    global_key = "{} {}{}{}{}".format(obj.type, global_key_prefix, obj.type, key_delimiter, obj.defined_in)
+    local_key = "{} {}{}{}".format(obj.type, obj.type, key_delimiter, obj.defined_in)
+    obj.key = global_key
+    obj.local_key = local_key
