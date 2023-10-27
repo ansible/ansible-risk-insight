@@ -44,6 +44,10 @@ def is_loop_var(value, task):
     return False
 
 
+def is_debug(module_fqcn):
+    return module_fqcn == "ansible.builtin.debug"
+
+
 @dataclass
 class ModuleArgumentValueValidationRule(Rule):
     rule_id: str = "P003"
@@ -73,6 +77,8 @@ class ModuleArgumentValueValidationRule(Rule):
                 if v and v[-1].type == VariableType.RegisteredVars:
                     registered_vars.append(v_name)
 
+            module_fqcn = task.module.fqcn
+
             if task.args.type == ArgumentsType.DICT:
                 for key in task.args.raw:
                     raw_value = task.args.raw[key]
@@ -90,7 +96,7 @@ class ModuleArgumentValueValidationRule(Rule):
                     d = {"key": key}
                     wrong_val = False
                     unknown_type_val = False
-                    if spec.type:
+                    if spec.type and not is_debug(module_fqcn):
                         actual_type = ""
                         # if the raw_value is not a variable
                         if not isinstance(raw_value, str) or "{{" not in raw_value:
@@ -115,10 +121,15 @@ class ModuleArgumentValueValidationRule(Rule):
                             type_wrong = False
                             if spec.type != "any" and actual_type != spec.type:
                                 type_wrong = True
+
+                            elements_type = spec.elements
+                            if spec.type == "list" and not spec.elements:
+                                elements_type = "any"
+
                             elements_type_wrong = False
                             no_elements = False
-                            if spec.elements:
-                                if spec.elements != "any" and actual_type != spec.elements:
+                            if elements_type:
+                                if elements_type != "any" and actual_type != elements_type:
                                     elements_type_wrong = True
                             else:
                                 no_elements = True

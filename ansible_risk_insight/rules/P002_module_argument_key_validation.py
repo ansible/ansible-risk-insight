@@ -31,6 +31,10 @@ def is_set_fact(module_fqcn):
     return module_fqcn == "ansible.builtin.set_fact"
 
 
+def is_meta(module_fqcn):
+    return module_fqcn == "ansible.builtin.meta"
+
+
 @dataclass
 class ModuleArgumentKeyValidationRule(Rule):
     rule_id: str = "P002"
@@ -100,7 +104,7 @@ class ModuleArgumentKeyValidationRule(Rule):
             available_args = None
             wrong_keys = []
             missing_required_keys = []
-            if not is_set_fact(module_fqcn):
+            if not is_set_fact(module_fqcn) and not is_meta(module_fqcn):
                 if task.module:
                     for arg in task.module.arguments:
                         available_keys.extend(arg.available_keys())
