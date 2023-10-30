@@ -359,6 +359,12 @@ def find_all_ymls(root_dir: str):
     return ymls
 
 
+def find_all_files(root_dir: str):
+    patterns = [os.path.join(root_dir, "**", "*")]
+    files = safe_glob(patterns, type="file")
+    return files
+
+
 def _get_body_data(body: str = "", data: list = None, fpath: str = ""):
     if fpath and not body and not data:
         try:

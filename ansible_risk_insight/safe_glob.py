@@ -21,7 +21,7 @@ import re
 
 # glob.glob() may cause infinite loop when there is symlink loop
 # safe_glob() support the case by `followlink=False` option as default
-def safe_glob(patterns, root_dir="", recursive=True, followlinks=False):
+def safe_glob(patterns, root_dir="", recursive=True, type=["file", "dir"], followlinks=False):
     pattern_list = []
     if isinstance(patterns, list):
         pattern_list = [p for p in patterns]
@@ -48,32 +48,46 @@ def safe_glob(patterns, root_dir="", recursive=True, followlinks=False):
 
         # if recusive, use os.walk to search files recursively
         if recursive:
-            for dirpath, folders, files in os.walk(root_dir_for_this_pattern, followlinks=followlinks):
-                for dir_name in folders:
-                    dpath = os.path.join(dirpath, dir_name)
-                    dpath = os.path.normpath(dpath)
-                    if dpath in matched_files:
-                        continue
-                    if pattern_match(pattern, dpath):
-                        matched_files.append(dpath)
-                for file in files:
-                    fpath = os.path.join(dirpath, file)
-                    fpath = os.path.normpath(fpath)
-                    if fpath in matched_files:
-                        continue
-                    if pattern_match(pattern, fpath):
-                        matched_files.append(fpath)
+            for dirpath, dirs, files in os.walk(root_dir_for_this_pattern, followlinks=followlinks):
+                if "dir" in type:
+                    for dir_name in dirs:
+                        dpath = os.path.join(dirpath, dir_name)
+                        dpath = os.path.normpath(dpath)
+                        if dpath in matched_files:
+                            continue
+                        if pattern_match(pattern, dpath):
+                            matched_files.append(dpath)
+                if "file" in type:
+                    for file in files:
+                        fpath = os.path.join(dirpath, file)
+                        fpath = os.path.normpath(fpath)
+                        if fpath in matched_files:
+                            continue
+                        if pattern_match(pattern, fpath):
+                            matched_files.append(fpath)
         else:
             # otherwise, just use os.listdir to avoid
             # unnecessary loading time of os.walk
-            files = os.listdir(root_dir_for_this_pattern)
-            for file in files:
-                fpath = os.path.join(root_dir, file)
+            all_found = os.listdir(root_dir_for_this_pattern)
+            for fname in all_found:
+                fpath = os.path.join(root_dir, fname)
                 fpath = os.path.normpath(fpath)
                 if fpath in matched_files:
                     continue
-                if pattern_match(pattern, fpath):
-                    matched_files.append(fpath)
+                dirs = []
+                files = []
+                if os.path.isdir(fpath):
+                    dirs.append(fpath)
+                else:
+                    files.append(fpath)
+                if "dir" in type:
+                    for fpath in dirs:
+                        if pattern_match(pattern, fpath):
+                            matched_files.append(fpath)
+                if "file" in type:
+                    for fpath in files:
+                        if pattern_match(pattern, fpath):
+                            matched_files.append(fpath)
     return matched_files
 
 
