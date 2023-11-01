@@ -414,8 +414,17 @@ def load_play(
     if not isinstance(play_block_dict, dict):
         raise PlaybookFormatError("this play block is not loaded as dict; maybe this is not a" " playbook")
     data_block = play_block_dict
-    if "hosts" not in data_block and "import_playbook" not in data_block and "include" not in data_block:
-        raise PlaybookFormatError('this play block does not have "hosts", "import_playbook" and' ' "include"; maybe this is not a playbook')
+    play_keywords = [
+        "hosts",
+        "import_playbook",
+        "include",
+        "tasks",
+        "pre_tasks",
+        "post_tasks",
+    ]
+    could_be_play = any([k in data_block for k in play_keywords])
+    if not could_be_play:
+        raise PlaybookFormatError(f"this play block does not have any of the following keywords {play_keywords}; maybe this is not a playbook")
 
     pbObj.index = index
     pbObj.role = role_name
