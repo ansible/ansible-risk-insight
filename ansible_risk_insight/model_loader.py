@@ -99,6 +99,9 @@ loop_task_option_names = [
     "with_nested",
     "with_cartesian",
     "with_random_choice",
+    # NOTE: the following are not listed in Ansible loop document, but actually available
+    "with_first_found",
+    "with_fileglob",
 ]
 
 
@@ -340,7 +343,11 @@ def load_file(
 
     # try reading body as a YAML string
     data_str = ""
+    encrypted = False
     if body:
+        if "$ANSIBLE_VAULT" in body:
+            encrypted = True
+
         try:
             data = yaml.safe_load(body)
             data_str = json.dumps(data, separators=(",", ":"))
@@ -360,6 +367,7 @@ def load_file(
     fObj.name = defined_in
     fObj.body = body
     fObj.data = data_str
+    fObj.encrypted = encrypted
     fObj.error = error
     fObj.label = label
     fObj.defined_in = defined_in
@@ -438,6 +446,7 @@ def load_play(
     handlers = []
     roles = []
     variables = {}
+    vars_files = []
     module_defaults = {}
     play_options = {}
     import_module = ""
@@ -657,6 +666,10 @@ def load_play(
             if not isinstance(v, dict):
                 continue
             variables = v
+        elif k == "vars_files":
+            if not isinstance(v, list):
+                continue
+            vars_files = v
         elif k == "module_defaults":
             if not isinstance(v, dict):
                 continue
@@ -684,6 +697,7 @@ def load_play(
     pbObj.handlers = handlers
     pbObj.roles = roles
     pbObj.variables = variables
+    pbObj.vars_files = vars_files
     pbObj.module_defaults = module_defaults
     pbObj.options = play_options
     pbObj.become = BecomeInfo.from_options(play_options)
@@ -740,7 +754,7 @@ def load_playbook(path="", yaml_str="", role_name="", collection_name="", basedi
         if fullpath == "":
             raise ValueError("file not found")
     defined_in = fullpath
-    if basedir != "":
+    if basedir and not yaml_str:
         if defined_in.startswith(basedir):
             defined_in = defined_in[len(basedir) :]
             if defined_in.startswith("/"):
@@ -1517,7 +1531,7 @@ def load_task(
     taskObj.role = role_name
     taskObj.collection = collection_name
     defined_in = fullpath
-    if basedir != "":
+    if basedir and not yaml_lines:
         if defined_in.startswith(basedir):
             defined_in = defined_in[len(basedir) :]
             if defined_in.startswith("/"):

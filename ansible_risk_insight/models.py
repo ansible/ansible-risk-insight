@@ -296,6 +296,7 @@ class File(object):
 
     body: str = ""
     data: any = None
+    encrypted: bool = False
     error: str = ""
     label: str = ""
     defined_in: str = ""
@@ -1974,6 +1975,7 @@ class Play(Object, Resolvable):
     collections_in_play: list = field(default_factory=list)
     become: BecomeInfo = None
     variables: dict = field(default_factory=dict)
+    vars_files: list = field(default_factory=list)
 
     task_loading: dict = field(default_factory=dict)
 
