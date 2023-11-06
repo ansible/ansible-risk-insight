@@ -847,7 +847,7 @@ class ARIScanner(object):
             elif type == LoadType.TASKFILE:
                 taskfile_yaml = raw_yaml
 
-        if is_local_path(name):
+        if is_local_path(name) and not playbook_yaml and not taskfile_yaml:
             name = os.path.abspath(name)
 
         scandata = SingleScan(
