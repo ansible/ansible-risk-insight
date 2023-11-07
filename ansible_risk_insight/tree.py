@@ -51,10 +51,6 @@ obj_type_dict = {
     "module": "modules",
 }
 
-module_name_re = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$")
-role_name_re = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
-role_in_collection_name_re = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$")
-
 
 @dataclass
 class TreeNode(object):
