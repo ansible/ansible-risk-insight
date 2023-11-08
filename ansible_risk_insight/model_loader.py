@@ -754,7 +754,7 @@ def load_playbook(path="", yaml_str="", role_name="", collection_name="", basedi
         if fullpath == "":
             raise ValueError("file not found")
     defined_in = fullpath
-    if basedir and not yaml_str:
+    if basedir:
         if defined_in.startswith(basedir):
             defined_in = defined_in[len(basedir) :]
             if defined_in.startswith("/"):
@@ -1531,7 +1531,7 @@ def load_task(
     taskObj.role = role_name
     taskObj.collection = collection_name
     defined_in = fullpath
-    if basedir and not yaml_lines:
+    if basedir:
         if defined_in.startswith(basedir):
             defined_in = defined_in[len(basedir) :]
             if defined_in.startswith("/"):
