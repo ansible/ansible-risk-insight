@@ -33,7 +33,8 @@ from .safe_glob import safe_glob
 from .awx_utils import could_be_playbook, search_playbooks
 
 
-module_name_re = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$")
+fqcn_module_name_re = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$")
+module_name_re = re.compile(r"^[a-z0-9_.]+$")
 
 module_dir_patterns = [
     "library",
@@ -88,12 +89,16 @@ def find_module_name(data_block):
             return k
         if k in builtin_modules:
             return k
-        if module_name_re.match(k):
+        if fqcn_module_name_re.match(k):
             return k
     for k in keys:
         if type(k) is not str:
             continue
-        if k not in task_keywords and not k.startswith("with_"):
+        if k in task_keywords:
+            continue
+        if k.startswith("with_"):
+            continue
+        if module_name_re.match(k):
             return k
     return ""
 
@@ -528,6 +533,47 @@ def is_vars_yml(yml_path):
     return False
 
 
+def count_top_level_element(yml_body: str = ""):
+    def _is_skip_line(line: str):
+        # skip empty line
+        if not line.strip():
+            return True
+        # skip comment line
+        if line.strip()[0] == "#":
+            return True
+        return False
+
+    lines = yml_body.splitlines()
+    top_level_indent = 1024
+    valid_line_found = False
+    for line in lines:
+        if _is_skip_line(line):
+            continue
+
+        valid_line_found = True
+        indent_level = len(line) - len(line.lstrip())
+        if indent_level < top_level_indent:
+            top_level_indent = indent_level
+
+    if not valid_line_found:
+        return -1
+
+    count = 0
+    for line in lines:
+        if _is_skip_line(line):
+            continue
+        if len(line) < top_level_indent:
+            continue
+        elem = line[top_level_indent:]
+        if not elem:
+            continue
+        if elem[0] == " ":
+            continue
+        else:
+            count += 1
+    return count
+
+
 def label_yml_file(yml_path: str = "", yml_body: str = "", task_num_thresh: int = 50):
     body = ""
     data = None
@@ -549,7 +595,14 @@ def label_yml_file(yml_path: str = "", yml_body: str = "", task_num_thresh: int 
 
     if task_num_thresh > 0:
         if name_count > task_num_thresh:
-            error_detail = f"The number of tasks found in yml exceeds the threshold ({task_num_thresh})"
+            error_detail = f"The number of task names found in yml exceeds the threshold ({task_num_thresh})"
+            error = {"type": "TooManyTasksError", "detail": error_detail}
+            return "others", name_count, error
+
+    top_level_element_count = count_top_level_element(body)
+    if task_num_thresh > 0:
+        if top_level_element_count > task_num_thresh:
+            error_detail = f"The number of top-level elements found in yml exceeds the threshold ({task_num_thresh})"
             error = {"type": "TooManyTasksError", "detail": error_detail}
             return "others", name_count, error
 
