@@ -427,9 +427,13 @@ class RAMClient(object):
             # look for the module index with FQCN (only when `name` is FQCN)
             if "." in name:
                 for possible_index in self.module_index[short_name]:
-                    if possible_index["fqcn"] == name:
+                    # use the first one normally
+                    if not found_index and possible_index["fqcn"] == name:
                         found_index = possible_index
-                        break
+
+                    # but if a non-deprecated one is found, use it
+                    if possible_index["fqcn"] == name and not possible_index["deprecated"]:
+                        found_index = possible_index
 
             # if any candidates don't match with FQCN, use the first index
             if not found_index:
