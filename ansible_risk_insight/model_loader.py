@@ -123,6 +123,7 @@ def load_repository(
     repoObj = Repository()
 
     repo_path = ""
+    repo_to_root = ""
     if path == "":
         # if path is empty, just load installed collections / roles
         repo_path = ""
@@ -130,10 +131,15 @@ def load_repository(
         # otherwise, find the root path by searching playbooks
         try:
             repo_path = find_best_repo_root_path(path)
+            repo_to_root = os.path.relpath(path, repo_path)
         except Exception as exc:
             logger.debug(f'failed to find a root directory for a project in "{path}"; error: {exc}')
             # if an exception occurs while finding repo root, use the input path as repo root
             repo_path = path
+
+    # if `path` and `repo_path` are different, update yaml_label_list
+    if repo_to_root and yaml_label_list:
+        yaml_label_list = [(os.path.normpath(os.path.join(repo_to_root, fpath)), label, role_info) for (fpath, label, role_info) in yaml_label_list]
 
     if repo_path != "":
         if my_collection_name == "":
