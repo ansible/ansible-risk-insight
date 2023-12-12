@@ -506,7 +506,7 @@ def get_role_info_from_path(fpath: str):
 
                     _path = relative_path.rsplit(_target, 1)[0]
                     role_name = _path.split("/")[-1]
-                    role_path = os.path.join(parent_dir, p[1:], role_name)
+                    role_path = os.path.join(parent_dir, _path)
                     found = True
                     break
         if found:
