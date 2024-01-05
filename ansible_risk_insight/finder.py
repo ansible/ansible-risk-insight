@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import re
 import os
+import json
 import yaml
 import traceback
 
@@ -277,6 +278,13 @@ def search_inventory_files(path):
 
 def find_best_repo_root_path(path):
     base_path = path
+
+    manifest_json_path = os.path.join(base_path, "MANIFEST.json")
+    galaxy_yml_path = os.path.join(base_path, "galaxy.yml")
+    meta_main_yml_path = os.path.join(base_path, "meta/main.yml")
+    if os.path.exists(manifest_json_path) or os.path.exists(galaxy_yml_path) or os.path.exists(meta_main_yml_path):
+        return base_path
+
     # get all possible playbooks
     playbooks = search_playbooks(path)
     # sort by directory depth to find the most top playbook
@@ -326,30 +334,38 @@ def find_best_repo_root_path(path):
 
 
 def find_collection_name_of_repo(path):
-    pattern = os.path.join(path, "**/galaxy.yml")
-    found_galaxy_ymls = safe_glob(pattern, recursive=True)
-    found_galaxy_ymls = [fpath for fpath in found_galaxy_ymls if github_workflows_dir not in fpath]
+    galaxy_yml_pattern = os.path.join(path, "**/galaxy.yml")
+    manifest_json_pattern = os.path.join(path, "**/MANIFEST.json")
+    found_metadata_files = safe_glob([galaxy_yml_pattern, manifest_json_pattern], recursive=True)
+    found_metadata_files = [fpath for fpath in found_metadata_files if github_workflows_dir not in fpath]
 
-    # skip galaxy ymls found in collections/roles in the repository
-    _galaxy_ymls = []
-    for gpath in found_galaxy_ymls:
-        relative_path = gpath.replace(path, "", 1)
+    # skip metadata files found in collections/roles in the repository
+    _metadata_files = []
+    for mpath in found_metadata_files:
+        relative_path = mpath.replace(path, "", 1)
         if "/collections/" in relative_path:
             continue
         if "/roles/" in relative_path:
             continue
-        _galaxy_ymls.append(gpath)
-    found_galaxy_ymls = _galaxy_ymls
+        _metadata_files.append(mpath)
+    found_metadata_files = _metadata_files
 
     my_collection_name = ""
-    if len(found_galaxy_ymls) > 0:
-        galaxy_yml = found_galaxy_ymls[0]
+    if len(found_metadata_files) > 0:
+        metadata_file = found_metadata_files[0]
         my_collection_info = None
-        with open(galaxy_yml, "r") as file:
-            try:
-                my_collection_info = yaml.load(file, Loader=Loader)
-            except Exception as e:
-                logger.debug("failed to load this yaml file to read galaxy.yml; {}".format(e.args[0]))
+        if metadata_file.endswith(".yml"):
+            with open(metadata_file, "r") as file:
+                try:
+                    my_collection_info = yaml.load(file, Loader=Loader)
+                except Exception as e:
+                    logger.debug("failed to load this yaml file to read galaxy.yml; {}".format(e.args[0]))
+        elif metadata_file.endswith(".json"):
+            with open(metadata_file, "r") as file:
+                try:
+                    my_collection_info = json.load(file).get("collection_info", {})
+                except Exception as e:
+                    logger.debug("failed to load this json file to read MANIFEST.json; {}".format(e.args[0]))
         if my_collection_info is None:
             return ""
         namespace = my_collection_info.get("namespace", "")
