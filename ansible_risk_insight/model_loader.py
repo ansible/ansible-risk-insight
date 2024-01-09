@@ -1500,10 +1500,6 @@ def load_task(
         task_options=task_options,
         previous_task_line=previous_task_line,
     )
-    print("[DEBUG] fullpath:", fullpath)
-    print("[DEBUG] index:", index)
-    print("[DEBUG] task_name:", task_name)
-    print("[DEBUG] taskObj.line_num_in_file:", taskObj.line_num_in_file)
 
     # module_options can be passed as a string like below
     #
