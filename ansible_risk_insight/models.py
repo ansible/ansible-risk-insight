@@ -1110,7 +1110,7 @@ class Task(Object, Resolvable):
     module_info: dict = field(default_factory=dict)
     include_info: dict = field(default_factory=dict)
 
-    def set_yaml_lines(self, fullpath="", yaml_lines="", task_name="", module_name="", module_options=None, task_options=None):
+    def set_yaml_lines(self, fullpath="", yaml_lines="", task_name="", module_name="", module_options=None, task_options=None, previous_task_line=-1):
         if not task_name and not module_options:
             return
 
@@ -1127,6 +1127,12 @@ class Task(Object, Resolvable):
         #       - if module option is dict, at least one key is included
         candidate_line_nums = []
         for i, line in enumerate(lines):
+
+            # skip lines until `previous_task_line` if provided
+            if previous_task_line > 0:
+                if i <= previous_task_line - 1:
+                    continue
+
             if task_name:
                 if task_name in line:
                     candidate_line_nums.append(i)
