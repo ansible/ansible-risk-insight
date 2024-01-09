@@ -482,6 +482,7 @@ def load_play(
             task_blocks, _ = get_task_blocks(task_dict_list=v)
             if task_blocks is None:
                 continue
+            last_task_line_num = -1
             for task_dict in task_blocks:
                 task_loading["total"] += 1
                 i = task_count
@@ -498,11 +499,14 @@ def load_play(
                         parent_key=pbObj.key,
                         parent_local_key=pbObj.local_key,
                         yaml_lines=yaml_lines,
+                        previous_task_line=last_task_line_num,
                         basedir=basedir,
                     )
                     pre_tasks.append(t)
                     if t:
                         task_loading["success"] += 1
+                        if t.line_num_in_file and len(t.line_num_in_file) == 2:
+                            last_task_line_num = t.line_num_in_file[1]
                 except TaskFormatError as exc:
                     error = exc
                     if skip_task_format_error:
@@ -523,6 +527,7 @@ def load_play(
             task_blocks, _ = get_task_blocks(task_dict_list=v)
             if task_blocks is None:
                 continue
+            last_task_line_num = -1
             for task_dict in task_blocks:
                 i = task_count
                 task_loading["total"] += 1
@@ -539,11 +544,14 @@ def load_play(
                         parent_key=pbObj.key,
                         parent_local_key=pbObj.local_key,
                         yaml_lines=yaml_lines,
+                        previous_task_line=last_task_line_num,
                         basedir=basedir,
                     )
                     tasks.append(t)
                     if t:
                         task_loading["success"] += 1
+                        if t.line_num_in_file and len(t.line_num_in_file) == 2:
+                            last_task_line_num = t.line_num_in_file[1]
                 except TaskFormatError as exc:
                     error = exc
                     if skip_task_format_error:
@@ -564,6 +572,7 @@ def load_play(
             task_blocks, _ = get_task_blocks(task_dict_list=v)
             if task_blocks is None:
                 continue
+            last_task_line_num = -1
             for task_dict in task_blocks:
                 i = task_count
                 task_loading["total"] += 1
@@ -580,11 +589,14 @@ def load_play(
                         parent_key=pbObj.key,
                         parent_local_key=pbObj.local_key,
                         yaml_lines=yaml_lines,
+                        previous_task_line=last_task_line_num,
                         basedir=basedir,
                     )
                     post_tasks.append(t)
                     if t:
                         task_loading["success"] += 1
+                        if t.line_num_in_file and len(t.line_num_in_file) == 2:
+                            last_task_line_num = t.line_num_in_file[1]
                 except TaskFormatError as exc:
                     error = exc
                     if skip_task_format_error:
@@ -605,6 +617,7 @@ def load_play(
             task_blocks, _ = get_task_blocks(task_dict_list=v)
             if task_blocks is None:
                 continue
+            last_task_line_num = -1
             for task_dict in task_blocks:
                 i = task_count
                 task_loading["total"] += 1
@@ -621,11 +634,14 @@ def load_play(
                         parent_key=pbObj.key,
                         parent_local_key=pbObj.local_key,
                         yaml_lines=yaml_lines,
+                        previous_task_line=last_task_line_num,
                         basedir=basedir,
                     )
                     handlers.append(t)
                     if t:
                         task_loading["success"] += 1
+                        if t.line_num_in_file and len(t.line_num_in_file) == 2:
+                            last_task_line_num = t.line_num_in_file[1]
                 except TaskFormatError as exc:
                     error = exc
                     if skip_task_format_error:
@@ -1440,6 +1456,7 @@ def load_task(
     parent_key="",
     parent_local_key="",
     yaml_lines="",
+    previous_task_line=-1,
     basedir="",
 ):
 
@@ -1481,7 +1498,12 @@ def load_task(
         module_name=module_name,
         module_options=module_options,
         task_options=task_options,
+        previous_task_line=previous_task_line,
     )
+    print("[DEBUG] fullpath:", fullpath)
+    print("[DEBUG] index:", index)
+    print("[DEBUG] task_name:", task_name)
+    print("[DEBUG] taskObj.line_num_in_file:", taskObj.line_num_in_file)
 
     # module_options can be passed as a string like below
     #
@@ -1642,6 +1664,7 @@ def load_taskfile(path, yaml_str="", role_name="", collection_name="", basedir="
         "failure": 0,
         "errors": [],
     }
+    last_task_line_num = -1
     for i, t_dict in enumerate(task_dicts):
         task_loading["total"] += 1
         error = None
@@ -1655,11 +1678,14 @@ def load_taskfile(path, yaml_str="", role_name="", collection_name="", basedir="
                 yaml_lines=yaml_lines,
                 parent_key=tfObj.key,
                 parent_local_key=tfObj.local_key,
+                previous_task_line=last_task_line_num,
                 basedir=basedir,
             )
             tasks.append(t)
             if t:
                 task_loading["success"] += 1
+                if t.line_num_in_file and len(t.line_num_in_file) == 2:
+                    last_task_line_num = t.line_num_in_file[1]
         except TaskFormatError as exc:
             error = exc
             if skip_task_format_error:
