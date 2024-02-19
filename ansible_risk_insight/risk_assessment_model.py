@@ -437,7 +437,11 @@ class RAMClient(object):
 
             # if any candidates don't match with FQCN, use the first index
             if not found_index:
-                found_index = self.module_index[short_name][0]
+                non_deprecated_cands = [idx for idx in self.module_index[short_name] if not idx["deprecated"]]
+                if non_deprecated_cands:
+                    found_index = non_deprecated_cands[0]
+                else:
+                    found_index = self.module_index[short_name][0]
 
         modules_json_list = []
         if from_indices:
