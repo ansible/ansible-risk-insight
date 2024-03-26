@@ -77,14 +77,20 @@ class ModuleNameValidationRule(Rule):
 
         # include_role, import_role
         elif task.spec.executable_type == ExecutableType.ROLE_TYPE:
-            if "ansible.builtin." not in task.spec.module:
+            if "ansible.builtin." in task.spec.module:
+                resolved_fqcn = task.spec.module
+                correct_fqcn = resolved_fqcn
+            else:
                 resolved_fqcn = "ansible.builtin." + task.spec.module
                 correct_fqcn = resolved_fqcn
                 need_correction = True
 
         # include_tasks, import_tasks
         elif task.spec.executable_type == ExecutableType.TASKFILE_TYPE:
-            if "ansible.builtin." not in task.spec.module:
+            if "ansible.builtin." in task.spec.module:
+                resolved_fqcn = task.spec.module
+                correct_fqcn = resolved_fqcn
+            else:
                 resolved_fqcn = "ansible.builtin." + task.spec.module
                 correct_fqcn = resolved_fqcn
                 need_correction = True
