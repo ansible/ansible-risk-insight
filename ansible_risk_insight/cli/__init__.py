@@ -41,6 +41,9 @@ class ARICLI:
         parser.add_argument("target_name", help="Name")
         parser.add_argument("--playbook-only", action="store_true", help="if true, don't load playbooks/roles arround the specified playbook")
         parser.add_argument("--taskfile-only", action="store_true", help="if true, don't load playbooks/roles arround the specified taskfile")
+        parser.add_argument(
+            "--skip-isolated-taskfiles", action="store_true", help="if true, skip isolated (not imported/included) taskfiles from roles"
+        )
         parser.add_argument("--skip-install", action="store_true", help="if true, skip install for the specified target")
         parser.add_argument("--dependency-dir", nargs="?", help="path to a directory that have dependencies for the target")
         parser.add_argument("--collection-name", nargs="?", help="if provided, use it as a collection name")
@@ -133,6 +136,9 @@ class ARICLI:
             read_ram_for_dependency = True
             read_ram = False
             write_ram = False
+        load_all_taskfiles = True
+        if args.skip_isolated_taskfiles:
+            load_all_taskfiles = False
 
         c = ARIScanner(
             root_dir=config.data_dir,
@@ -163,6 +169,7 @@ class ARICLI:
             playbook_only=args.playbook_only,
             taskfile_only=args.taskfile_only,
             include_test_contents=args.include_tests,
+            load_all_taskfiles=load_all_taskfiles,
             objects=args.objects,
             out_dir=args.out_dir,
         )
