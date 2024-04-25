@@ -39,7 +39,6 @@ from .models import (
 )
 from .model_loader import load_builtin_modules
 from .risk_assessment_model import RAMClient
-from .variable_manager import VariableManager
 
 
 obj_type_dict = {
@@ -465,8 +464,6 @@ class TreeLoader(object):
 
         # TODO: dependency check, especially for
         # collection dependencies for role
-
-        self.var_manager: VariableManager = VariableManager()
 
         self.target_playbook_path = target_playbook_path
         self.load_all_taskfiles = load_all_taskfiles
