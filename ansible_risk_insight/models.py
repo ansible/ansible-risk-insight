@@ -24,7 +24,7 @@ from ruamel.yaml.scalarstring import DoubleQuotedScalarString
 from copy import deepcopy
 import json
 import jsonpickle
-import Levenshtein
+from rapidfuzz.distance import Levenshtein
 import ansible_risk_insight.yaml as ariyaml
 from ansible.module_utils.parsing.convert_bool import boolean
 from .keyutil import (
