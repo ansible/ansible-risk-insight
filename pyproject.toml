@@ -14,17 +14,16 @@ classifiers = [
 ]
 dependencies = [
     "gitdb",
-    "pygit2",
     "joblib",
     "jsonpickle",
     "PyYAML",
     "smmap",
     "tabulate",
     "requests",
-    "ansible",
+    "ansible-core",
     "ruamel.yaml",
     "filelock",
-    "Levenshtein",
+    "rapidfuzz",
 ]
 dynamic = ["version"]
 
