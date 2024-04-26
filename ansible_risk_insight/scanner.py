@@ -60,8 +60,11 @@ from .utils import (
     equal,
 )
 
-
-default_config_path = os.path.expanduser("~/.ari/config")
+ARI_CONFIG_PATH = os.getenv("ARI_CONFIG_PATH")
+if ARI_CONFIG_PATH:
+    default_config_path = ARI_CONFIG_PATH
+else:
+    default_config_path = os.path.expanduser("~/.ari/config")
 default_data_dir = os.path.join("/tmp", "ari-data")
 default_rules_dir = os.path.join(os.path.dirname(__file__), "rules")
 default_log_level = "info"
