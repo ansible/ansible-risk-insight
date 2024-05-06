@@ -21,6 +21,7 @@ import requests
 import hashlib
 import yaml
 import json
+import codecs
 from filelock import FileLock
 from copy import deepcopy
 from tabulate import tabulate
@@ -28,6 +29,19 @@ from inspect import isclass
 from importlib.util import spec_from_file_location, module_from_spec
 
 import ansible_risk_insight.logger as logger
+
+
+BOOLEANS_TRUE = frozenset(("y", "yes", "on", "1", "true", "t", 1, 1.0, True))
+BOOLEANS_FALSE = frozenset(("n", "no", "off", "0", "false", "f", 0, 0.0, False))
+BOOLEANS = BOOLEANS_TRUE.union(BOOLEANS_FALSE)
+
+try:
+    codecs.lookup_error("surrogateescape")
+    HAS_SURROGATEESCAPE = True
+except LookupError:
+    HAS_SURROGATEESCAPE = False
+
+_COMPOSED_ERROR_HANDLERS = frozenset((None, "surrogate_or_replace", "surrogate_or_strict", "surrogate_then_replace"))
 
 
 def lock_file(fpath, timeout=10):
@@ -739,3 +753,55 @@ def recursive_copy_dict(src, dst):
 
 def is_test_object(path: str):
     return path.startswith("tests/integration/") or path.startswith("molecule/")
+
+
+def to_str(obj, encoding="utf-8", errors=None, nonstring="simplerepr"):
+    if isinstance(obj, str):
+        return obj
+
+    if errors in _COMPOSED_ERROR_HANDLERS:
+        if HAS_SURROGATEESCAPE:
+            errors = "surrogateescape"
+        elif errors == "surrogate_or_strict":
+            errors = "strict"
+        else:
+            errors = "replace"
+
+    if isinstance(obj, bytes):
+        return obj.decode(encoding, errors)
+
+    if nonstring == "simplerepr":
+        try:
+            value = str(obj)
+        except UnicodeError:
+            try:
+                value = repr(obj)
+            except UnicodeError:
+                # Giving up
+                return ""
+    elif nonstring == "passthru":
+        return obj
+    elif nonstring == "empty":
+        return ""
+    elif nonstring == "strict":
+        raise TypeError("obj must be a string type")
+    else:
+        raise TypeError("Invalid value %s for to_text's nonstring parameter" % nonstring)
+
+    return to_str(value, encoding, errors)
+
+
+def parse_bool(value, strict=True):
+    if isinstance(value, bool):
+        return value
+
+    normalized_value = value
+    if isinstance(value, (str, bytes)):
+        normalized_value = to_str(value, errors="surrogate_or_strict").lower().strip()
+
+    if normalized_value in BOOLEANS_TRUE:
+        return True
+    elif normalized_value in BOOLEANS_FALSE or not strict:
+        return False
+
+    raise TypeError("The value '%s' is not a valid boolean.  Valid booleans include: %s" % (to_str(value), ", ".join(repr(i) for i in BOOLEANS)))

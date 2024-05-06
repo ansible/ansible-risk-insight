@@ -19,7 +19,6 @@ import yaml
 import json
 import subprocess
 from pathlib import Path
-from ansible import constants as C
 
 import ansible_risk_insight.logger as logger
 from .safe_glob import safe_glob
@@ -35,6 +34,7 @@ requirements_yml = "requirements.yml"
 galaxy_yml = "galaxy.yml"
 GALAXY_yml = "GALAXY.yml"
 github_workflows_dir = ".github/workflows"
+ansible_home = os.getenv("ANSIBLE_HOME", "~/.ansible")
 
 
 def find_dependency(type, target, dependency_dir, use_ansible_path=False):
@@ -68,7 +68,7 @@ def find_dependency(type, target, dependency_dir, use_ansible_path=False):
             dependencies["file"] = manifestjson
 
     if use_ansible_path and dependencies["dependencies"]:
-        ansible_dir = Path(C.ANSIBLE_HOME).expanduser()
+        ansible_dir = Path(ansible_home).expanduser()
         paths, metadata = search_ansible_dir(dependencies["dependencies"], str(ansible_dir))
         if paths:
             dependencies["paths"] = paths
