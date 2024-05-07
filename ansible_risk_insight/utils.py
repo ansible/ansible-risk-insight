@@ -756,13 +756,13 @@ def parse_bool(value: any):
         value_str = value
         use_value_str = True
     elif isinstance(value, bytes):
-        _has_surrogateescape = False
+        surrogateescape_enabled = False
         try:
             codecs.lookup_error("surrogateescape")
-            _has_surrogateescape = True
+            surrogateescape_enabled = True
         except Exception:
             pass
-        errors = "surrogateescape" if _has_surrogateescape else "strict"
+        errors = "surrogateescape" if surrogateescape_enabled else "strict"
         value_str = value.decode("utf-8", errors)
         use_value_str = True
 
