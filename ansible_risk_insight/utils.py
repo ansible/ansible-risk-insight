@@ -31,17 +31,17 @@ from importlib.util import spec_from_file_location, module_from_spec
 import ansible_risk_insight.logger as logger
 
 
-BOOLEANS_TRUE = frozenset(("y", "yes", "on", "1", "true", "t", 1, 1.0, True))
-BOOLEANS_FALSE = frozenset(("n", "no", "off", "0", "false", "f", 0, 0.0, False))
-BOOLEANS = BOOLEANS_TRUE.union(BOOLEANS_FALSE)
+bool_values_true = frozenset(("y", "yes", "on", "1", "true", "t", 1, 1.0, True))
+bool_values_false = frozenset(("n", "no", "off", "0", "false", "f", 0, 0.0, False))
+bool_values = bool_values_true.union(bool_values_false)
 
 try:
     codecs.lookup_error("surrogateescape")
-    HAS_SURROGATEESCAPE = True
+    _has_surrogateescape = True
 except LookupError:
-    HAS_SURROGATEESCAPE = False
+    _has_surrogateescape = False
 
-_COMPOSED_ERROR_HANDLERS = frozenset((None, "surrogate_or_replace", "surrogate_or_strict", "surrogate_then_replace"))
+_surrogate_error_handlers = frozenset((None, "surrogate_or_replace", "surrogate_or_strict", "surrogate_then_replace"))
 
 
 def lock_file(fpath, timeout=10):
@@ -755,12 +755,12 @@ def is_test_object(path: str):
     return path.startswith("tests/integration/") or path.startswith("molecule/")
 
 
-def to_str(obj, encoding="utf-8", errors=None, nonstring="simplerepr"):
+def to_str(obj, encoding="utf-8", errors=None):
     if isinstance(obj, str):
         return obj
 
-    if errors in _COMPOSED_ERROR_HANDLERS:
-        if HAS_SURROGATEESCAPE:
+    if errors in _surrogate_error_handlers:
+        if _has_surrogateescape:
             errors = "surrogateescape"
         elif errors == "surrogate_or_strict":
             errors = "strict"
@@ -770,23 +770,14 @@ def to_str(obj, encoding="utf-8", errors=None, nonstring="simplerepr"):
     if isinstance(obj, bytes):
         return obj.decode(encoding, errors)
 
-    if nonstring == "simplerepr":
+    try:
+        value = str(obj)
+    except UnicodeError:
         try:
-            value = str(obj)
+            value = repr(obj)
         except UnicodeError:
-            try:
-                value = repr(obj)
-            except UnicodeError:
-                # Giving up
-                return ""
-    elif nonstring == "passthru":
-        return obj
-    elif nonstring == "empty":
-        return ""
-    elif nonstring == "strict":
-        raise TypeError("obj must be a string type")
-    else:
-        raise TypeError("Invalid value %s for to_text's nonstring parameter" % nonstring)
+            # Giving up
+            return ""
 
     return to_str(value, encoding, errors)
 
@@ -799,9 +790,9 @@ def parse_bool(value, strict=True):
     if isinstance(value, (str, bytes)):
         normalized_value = to_str(value, errors="surrogate_or_strict").lower().strip()
 
-    if normalized_value in BOOLEANS_TRUE:
+    if normalized_value in bool_values_true:
         return True
-    elif normalized_value in BOOLEANS_FALSE or not strict:
+    elif normalized_value in bool_values_false or not strict:
         return False
 
-    raise TypeError("The value '%s' is not a valid boolean.  Valid booleans include: %s" % (to_str(value), ", ".join(repr(i) for i in BOOLEANS)))
+    raise TypeError("The value '%s' is not a valid boolean.  Valid booleans include: %s" % (to_str(value), ", ".join(repr(i) for i in bool_values)))
