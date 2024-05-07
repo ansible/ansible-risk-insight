@@ -16,8 +16,8 @@
 
 from typing import List
 from ansible_risk_insight.models import Annotation, RiskAnnotation, TaskCall, DefaultRiskType, InboundTransferDetail
+from ansible_risk_insight.utils import parse_bool
 from ansible_risk_insight.annotators.module_annotator_base import ModuleAnnotator, ModuleAnnotatorResult
-from ansible.module_utils.parsing.convert_bool import boolean
 
 
 class UnarchiveAnnotator(ModuleAnnotator):
@@ -34,12 +34,12 @@ class UnarchiveAnnotator(ModuleAnnotator):
 
             if isinstance(remote_src.raw, str) or isinstance(remote_src.raw, bool):
                 try:
-                    is_remote_src = boolean(remote_src.raw)
+                    is_remote_src = parse_bool(remote_src.raw)
                 except Exception:
                     pass
             if not is_remote_src and (isinstance(remote_src.templated, str) or isinstance(remote_src.templated, bool)):
                 try:
-                    is_remote_src = boolean(remote_src.templated)
+                    is_remote_src = parse_bool(remote_src.templated)
                 except Exception:
                     pass
 

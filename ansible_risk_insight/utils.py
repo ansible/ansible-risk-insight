@@ -21,6 +21,7 @@ import requests
 import hashlib
 import yaml
 import json
+import codecs
 from filelock import FileLock
 from copy import deepcopy
 from tabulate import tabulate
@@ -28,6 +29,11 @@ from inspect import isclass
 from importlib.util import spec_from_file_location, module_from_spec
 
 import ansible_risk_insight.logger as logger
+
+
+bool_values_true = frozenset(("y", "yes", "on", "1", "true", "t", 1, 1.0, True))
+bool_values_false = frozenset(("n", "no", "off", "0", "false", "f", 0, 0.0, False))
+bool_values = bool_values_true.union(bool_values_false)
 
 
 def lock_file(fpath, timeout=10):
@@ -739,3 +745,35 @@ def recursive_copy_dict(src, dst):
 
 def is_test_object(path: str):
     return path.startswith("tests/integration/") or path.startswith("molecule/")
+
+
+def parse_bool(value: any):
+    value_str = None
+    use_value_str = False
+    if isinstance(value, bool):
+        return value
+    elif isinstance(value, str):
+        value_str = value
+        use_value_str = True
+    elif isinstance(value, bytes):
+        surrogateescape_enabled = False
+        try:
+            codecs.lookup_error("surrogateescape")
+            surrogateescape_enabled = True
+        except Exception:
+            pass
+        errors = "surrogateescape" if surrogateescape_enabled else "strict"
+        value_str = value.decode("utf-8", errors)
+        use_value_str = True
+
+    if use_value_str and isinstance(value_str, str):
+        value_str = value_str.lower().strip()
+
+    target_value = value_str if use_value_str else value
+
+    if target_value in bool_values_true:
+        return True
+    elif target_value in bool_values_false:
+        return False
+    else:
+        raise TypeError(f'failed to parse the value "{value}" as a boolean.')

@@ -26,7 +26,7 @@ import json
 import jsonpickle
 from rapidfuzz.distance import Levenshtein
 import ansible_risk_insight.yaml as ariyaml
-from ansible.module_utils.parsing.convert_bool import boolean
+from ansible_risk_insight.utils import parse_bool
 from .keyutil import (
     set_collection_key,
     set_module_key,
@@ -1064,7 +1064,7 @@ class BecomeInfo(object):
             become = options.get("become", "")
             enabled = False
             try:
-                enabled = boolean(become)
+                enabled = parse_bool(become)
             except Exception:
                 pass
             user = options.get("become_user", "")

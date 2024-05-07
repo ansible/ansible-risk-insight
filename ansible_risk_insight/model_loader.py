@@ -28,9 +28,9 @@ try:
 except Exception:
     # otherwise, use Python based loader
     from yaml import SafeLoader as Loader
-from ansible.module_utils.parsing.convert_bool import boolean
 
 import ansible_risk_insight.logger as logger
+from ansible_risk_insight.utils import parse_bool
 from .safe_glob import safe_glob
 from .models import (
     ExecutableType,
@@ -1360,7 +1360,7 @@ def load_module(module_file_path, collection_name="", role_name="", basedir="", 
                     arg_elements_type_str = arg_elements_type.__name__
                 required = None
                 try:
-                    required = boolean(arg_spec.get("required", "false"))
+                    required = parse_bool(arg_spec.get("required", "false"))
                 except Exception:
                     pass
                 arg = ModuleArgument(
