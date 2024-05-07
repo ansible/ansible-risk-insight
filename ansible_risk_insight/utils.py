@@ -41,7 +41,7 @@ try:
 except LookupError:
     _has_surrogateescape = False
 
-_surrogate_error_handlers = frozenset((None, "surrogate_or_replace", "surrogate_or_strict", "surrogate_then_replace"))
+_surrogate_errors = frozenset((None, "surrogate_or_replace", "surrogate_or_strict", "surrogate_then_replace"))
 
 
 def lock_file(fpath, timeout=10):
@@ -759,7 +759,7 @@ def to_str(obj, encoding="utf-8", errors=None):
     if isinstance(obj, str):
         return obj
 
-    if errors in _surrogate_error_handlers:
+    if errors in _surrogate_errors:
         if _has_surrogateescape:
             errors = "surrogateescape"
         elif errors == "surrogate_or_strict":
@@ -776,7 +776,6 @@ def to_str(obj, encoding="utf-8", errors=None):
         try:
             value = repr(obj)
         except UnicodeError:
-            # Giving up
             return ""
 
     return to_str(value, encoding, errors)
