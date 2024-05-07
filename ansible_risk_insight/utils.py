@@ -35,14 +35,6 @@ bool_values_true = frozenset(("y", "yes", "on", "1", "true", "t", 1, 1.0, True))
 bool_values_false = frozenset(("n", "no", "off", "0", "false", "f", 0, 0.0, False))
 bool_values = bool_values_true.union(bool_values_false)
 
-try:
-    codecs.lookup_error("surrogateescape")
-    _has_surrogateescape = True
-except LookupError:
-    _has_surrogateescape = False
-
-_surrogate_errors = frozenset((None, "surrogate_or_replace", "surrogate_or_strict", "surrogate_then_replace"))
-
 
 def lock_file(fpath, timeout=10):
     if not fpath:
@@ -755,43 +747,33 @@ def is_test_object(path: str):
     return path.startswith("tests/integration/") or path.startswith("molecule/")
 
 
-def to_str(obj, encoding="utf-8", errors=None):
-    if isinstance(obj, str):
-        return obj
-
-    if errors in _surrogate_errors:
-        if _has_surrogateescape:
-            errors = "surrogateescape"
-        elif errors == "surrogate_or_strict":
-            errors = "strict"
-        else:
-            errors = "replace"
-
-    if isinstance(obj, bytes):
-        return obj.decode(encoding, errors)
-
-    try:
-        value = str(obj)
-    except UnicodeError:
-        try:
-            value = repr(obj)
-        except UnicodeError:
-            return ""
-
-    return to_str(value, encoding, errors)
-
-
-def parse_bool(value, strict=True):
+def parse_bool(value: any):
+    value_str = None
+    use_value_str = False
     if isinstance(value, bool):
         return value
+    elif isinstance(value, str):
+        value_str = value
+        use_value_str = True
+    elif isinstance(value, bytes):
+        _has_surrogateescape = False
+        try:
+            codecs.lookup_error("surrogateescape")
+            _has_surrogateescape = True
+        except Exception:
+            pass
+        errors = "surrogateescape" if _has_surrogateescape else "strict"
+        value_str = value.decode("utf-8", errors)
+        use_value_str = True
 
-    normalized_value = value
-    if isinstance(value, (str, bytes)):
-        normalized_value = to_str(value, errors="surrogate_or_strict").lower().strip()
+    if use_value_str and isinstance(value_str, str):
+        value_str = value_str.lower().strip()
 
-    if normalized_value in bool_values_true:
+    target_value = value_str if use_value_str else value
+
+    if target_value in bool_values_true:
         return True
-    elif normalized_value in bool_values_false or not strict:
+    elif target_value in bool_values_false:
         return False
-
-    raise TypeError("The value '%s' is not a valid boolean.  Valid booleans include: %s" % (to_str(value), ", ".join(repr(i) for i in bool_values)))
+    else:
+        raise TypeError(f'failed to parse the value "{value}" as a boolean.')
