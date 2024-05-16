@@ -123,7 +123,7 @@ def make_subject_str(playbook_num: int, role_num: int):
     return subject
 
 
-def detect(contexts: List[AnsibleRunContext], rules_dir: str = "", rules: list = [], rules_cache: list = []):
+def detect(contexts: List[AnsibleRunContext], rules_dir: str = "", rules: list = [], rules_cache: list = [], save_only_rule_result: bool = False):
     loaded_rules = []
     if rules_cache:
         loaded_rules = rules_cache
@@ -202,6 +202,9 @@ def detect(contexts: List[AnsibleRunContext], rules_dir: str = "", rules: list =
                     exc = traceback.format_exc()
                     r_result.error = f"failed to execute the rule `{rule.rule_id}`: {exc}"
                 n_result.rules.append(r_result)
+            # remove node details
+            if save_only_rule_result:
+                n_result.node = None
             t_result.nodes.append(n_result)
         ari_result.targets.append(t_result)
 

@@ -209,6 +209,8 @@ class SingleScan(object):
     load_all_taskfiles: bool = False
     yaml_label_list: list = field(default_factory=list)
 
+    save_only_rule_result: bool = False
+
     extra_requirements: list = field(default_factory=list)
     resolve_failures: dict = field(default_factory=dict)
 
@@ -664,7 +666,9 @@ class SingleScan(object):
             target_name = self.collection_name
         if self.role_name:
             target_name = self.role_name
-        data_report, rules_cache = detect(self.contexts, rules_dir=self.rules_dir, rules=self.rules, rules_cache=self.rules_cache)
+        data_report, rules_cache = detect(
+            self.contexts, rules_dir=self.rules_dir, rules=self.rules, rules_cache=self.rules_cache, save_only_rule_result=self.save_only_rule_result
+        )
         self.rules_cache = rules_cache
         spec_mutations = data_report.get("spec_mutations", {})
         if spec_mutations:
@@ -833,6 +837,7 @@ class ARIScanner(object):
         raw_yaml: str = "",
         include_test_contents: bool = False,
         load_all_taskfiles: bool = False,
+        save_only_rule_result: bool = False,
         yaml_label_list: list = None,
         objects: bool = False,
         out_dir: str = "",
@@ -875,6 +880,7 @@ class ARIScanner(object):
             taskfile_only=taskfile_only,
             include_test_contents=include_test_contents,
             load_all_taskfiles=load_all_taskfiles,
+            save_only_rule_result=save_only_rule_result,
             yaml_label_list=yaml_label_list,
             out_dir=out_dir,
             root_dir=self.root_dir,
