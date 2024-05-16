@@ -59,6 +59,9 @@ class ARICLI:
         parser.add_argument("--show-all", action="store_true", help="if true, show findings even if missing dependencies are found")
         parser.add_argument("--json", help="if specified, show findings in json format")
         parser.add_argument("--yaml", help="if specified, show findings in yaml format")
+        parser.add_argument(
+            "--save-only-rule-result", action="store_true", help="if true, save only rule results and remove node details to reduce result file size"
+        )
         parser.add_argument("-o", "--out-dir", help="output directory for the rule evaluation result")
         parser.add_argument(
             "-r", "--rules-dir", help=f"specify custom rule directories. use `-R` instead to ignore default rules in {config.rules_dir}"
@@ -139,6 +142,9 @@ class ARICLI:
         load_all_taskfiles = True
         if args.skip_isolated_taskfiles:
             load_all_taskfiles = False
+        save_only_rule_result = False
+        if args.save_only_rule_result:
+            save_only_rule_result = True
 
         c = ARIScanner(
             root_dir=config.data_dir,
@@ -170,6 +176,7 @@ class ARICLI:
             taskfile_only=args.taskfile_only,
             include_test_contents=args.include_tests,
             load_all_taskfiles=load_all_taskfiles,
+            save_only_rule_result=save_only_rule_result,
             objects=args.objects,
             out_dir=args.out_dir,
         )
