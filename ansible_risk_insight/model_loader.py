@@ -879,6 +879,7 @@ def load_playbooks(
 
     playbooks = []
     playbook_names = []
+    candidates = sorted(list(set(candidates)))
     for fpath in candidates:
         if could_be_playbook(fpath=fpath) and could_be_playbook_detail(fpath=fpath):
             relative_path = ""
