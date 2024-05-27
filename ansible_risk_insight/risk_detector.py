@@ -218,7 +218,7 @@ def detect(contexts: List[AnsibleRunContext], rules_dir: str = "", rules: list =
                 n_result.node = omit_node_details(n_result.node)
             t_result.nodes.append(n_result)
         ari_result.targets.append(t_result)
-
+        mutated_yaml = task.content.yaml()
     data_report["ari_result"] = ari_result
     data_report["spec_mutations"] = spec_mutations
 

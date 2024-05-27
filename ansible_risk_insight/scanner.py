@@ -23,7 +23,7 @@ import jsonpickle
 import datetime
 from dataclasses import dataclass, field
 
-from .models import (
+from ansible_risk_insight.models import (
     Object,
     Load,
     LoadType,
@@ -33,22 +33,22 @@ from .models import (
     AnsibleRunContext,
     ARIResult,
 )
-from .loader import (
+from ansible_risk_insight.loader import (
     get_loader_version,
 )
-from .parser import Parser
-from .model_loader import load_object
-from .tree import TreeLoader
-from .annotators.variable_resolver import resolve_variables
-from .analyzer import analyze
-from .risk_detector import detect
-from .dependency_dir_preparator import (
+from ansible_risk_insight.parser import Parser
+from ansible_risk_insight.model_loader import load_object
+from ansible_risk_insight.tree import TreeLoader
+from ansible_risk_insight.annotators.variable_resolver import resolve_variables
+from ansible_risk_insight.analyzer import analyze
+from ansible_risk_insight.risk_detector import detect
+from ansible_risk_insight.dependency_dir_preparator import (
     DependencyDirPreparator,
 )
-from .findings import Findings
-from .risk_assessment_model import RAMClient
+from ansible_risk_insight.findings import Findings
+from ansible_risk_insight.risk_assessment_model import RAMClient
 import ansible_risk_insight.logger as logger
-from .utils import (
+from ansible_risk_insight.utils import (
     is_url,
     is_local_path,
     escape_url,

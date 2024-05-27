@@ -15,8 +15,8 @@
 # limitations under the License.
 
 import sys
-from .cli import ARICLI
-from .cli.ram import RAMCLI
+from cli import ARICLI
+from cli.ram import RAMCLI
 from ansible_risk_insight.scanner import ARIScanner, Config
 
 ari_actions = ["project", "playbook", "collection", "role", "taskfile"]

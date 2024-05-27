@@ -20,8 +20,8 @@ import json
 from copy import deepcopy
 from dataclasses import dataclass, field
 import ansible_risk_insight.logger as logger
-from .keyutil import detect_type, key_delimiter, object_delimiter
-from .models import (
+from ansible_risk_insight.keyutil import detect_type, key_delimiter, object_delimiter
+from ansible_risk_insight.models import (
     ObjectList,
     Playbook,
     Play,
@@ -37,8 +37,8 @@ from .models import (
     RoleCall,
     call_obj_from_spec,
 )
-from .model_loader import load_builtin_modules
-from .risk_assessment_model import RAMClient
+from ansible_risk_insight.model_loader import load_builtin_modules
+from ansible_risk_insight.risk_assessment_model import RAMClient
 
 
 obj_type_dict = {

@@ -20,7 +20,7 @@ import jsonpickle
 from dataclasses import dataclass, field
 import tarfile
 
-from .models import (
+from ansible_risk_insight.models import (
     LoadType,
     ObjectList,
     ExecutableType,
@@ -33,8 +33,8 @@ from .models import (
     TaskFileMetadata,
     ActionGroupMetadata,
 )
-from .findings import Findings
-from .utils import (
+from ansible_risk_insight.findings import Findings
+from ansible_risk_insight.utils import (
     escape_url,
     version_to_num,
     diff_files_data,
@@ -45,7 +45,7 @@ from .utils import (
 )
 from .safe_glob import safe_glob
 from .keyutil import get_obj_info_by_key, make_imported_taskfile_key
-from .model_loader import load_builtin_modules
+from ansible_risk_insight.model_loader import load_builtin_modules
 
 
 module_index_name = "module_index.json"

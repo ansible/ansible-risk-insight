@@ -26,8 +26,8 @@ import json
 import jsonpickle
 from rapidfuzz.distance import Levenshtein
 import ansible_risk_insight.yaml as ariyaml
-from ansible_risk_insight.utils import parse_bool
-from .keyutil import (
+from ansible.module_utils.parsing.convert_bool import boolean
+from ansible_risk_insight.keyutil import (
     set_collection_key,
     set_module_key,
     set_play_key,
@@ -40,7 +40,7 @@ from .keyutil import (
     set_call_object_key,
     get_obj_info_by_key,
 )
-from .utils import (
+from ansible_risk_insight.utils import (
     equal,
     recursive_copy_dict,
 )
@@ -1557,7 +1557,7 @@ class MutableContent(object):
 
     def replace_with_dict(self, new_dict: dict):
         # import this here to avoid circular import
-        from .model_loader import load_task
+        from ansible_risk_insight.model_loader import load_task
 
         yaml_lines = ariyaml.dump([new_dict])
         new_task = load_task(

@@ -31,7 +31,7 @@ from .models import (
     PlaybookFormatError,
     TaskFormatError,
 )
-from .model_loader import (
+from ansible_risk_insight.model_loader import (
     load_collection,
     load_module,
     load_playbook,
@@ -40,7 +40,7 @@ from .model_loader import (
     load_taskfile,
     load_file,
 )
-from .utils import (
+from ansible_risk_insight.utils import (
     split_target_playbook_fullpath,
     split_target_taskfile_fullpath,
     get_module_specs_by_ansible_doc,

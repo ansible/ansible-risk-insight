@@ -20,19 +20,20 @@ import os
 import re
 import yaml
 import traceback
-
+import q
+q("** THIS IS TESTING **")
+print("** THIS IS TESTING **")
 try:
     # if `libyaml` is available, use C based loader for performance
-    import _yaml  # noqa: F401
+    # import _yaml  # noqa: F401
     from yaml import CSafeLoader as Loader
 except Exception:
     # otherwise, use Python based loader
     from yaml import SafeLoader as Loader
 
 import ansible_risk_insight.logger as logger
-from ansible_risk_insight.utils import parse_bool
-from .safe_glob import safe_glob
-from .models import (
+from ansible_risk_insight.safe_glob import safe_glob
+from ansible_risk_insight.models import (
     ExecutableType,
     Inventory,
     InventoryType,
@@ -53,7 +54,7 @@ from .models import (
     BecomeInfo,
     ObjectList,
 )
-from .finder import (
+from ansible_risk_insight.finder import (
     find_best_repo_root_path,
     find_collection_name_of_repo,
     find_module_name,
@@ -65,7 +66,7 @@ from .finder import (
     could_be_playbook_detail,
     module_dir_patterns,
 )
-from .utils import (
+from ansible_risk_insight.utils import (
     split_target_playbook_fullpath,
     split_target_taskfile_fullpath,
     get_module_specs_by_ansible_doc,
@@ -73,8 +74,8 @@ from .utils import (
     get_class_by_arg_type,
     is_test_object,
 )
-from .awx_utils import could_be_playbook
-from .finder import could_be_taskfile
+from ansible_risk_insight.awx_utils import could_be_playbook
+from ansible_risk_insight.finder import could_be_taskfile
 
 
 # collection info direcotry can be something like

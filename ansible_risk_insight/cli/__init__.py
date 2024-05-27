@@ -18,8 +18,8 @@ import os
 import json
 import argparse
 
-from ..scanner import ARIScanner, config
-from ..utils import (
+from ansible_risk_insight.scanner import ARIScanner, config
+from ansible_risk_insight.utils import (
     is_url,
     is_local_path,
     get_collection_metadata,
@@ -28,6 +28,9 @@ from ..utils import (
 )
 from ..finder import list_scan_target
 
+# import debugpy
+# debugpy.listen(3000)
+# debugpy.wait_for_client()
 
 class ARICLI:
     args = None
@@ -47,6 +50,7 @@ class ARICLI:
         parser.add_argument(
             "--skip-isolated-taskfiles", action="store_true", help="if true, skip isolated (not imported/included) taskfiles from roles"
         )
+        parser.add_argument("--fix", action="store_true", help="if true, fix the scanned playbook after performing the inpline replace with ARI suggestions")
         parser.add_argument("--skip-install", action="store_true", help="if true, skip install for the specified target")
         parser.add_argument("--dependency-dir", nargs="?", help="path to a directory that have dependencies for the target")
         parser.add_argument("--collection-name", nargs="?", help="if provided, use it as a collection name")

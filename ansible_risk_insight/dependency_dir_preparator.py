@@ -136,8 +136,10 @@ class DependencyDirPreparator(object):
     def setup_dirs(self, cache_enabled=False, cache_dir=""):
         self.download_location = os.path.join(self.root_dir, "archives")
         self.dependency_dir_path = self.root_dir
+        import q
         # check download_location
         if not os.path.exists(self.download_location):
+            q(self.download_locatio)
             os.makedirs(self.download_location)
         # check cache_dir
         if cache_enabled and not os.path.exists(cache_dir):
