@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+import json
 import argparse
 
 from ..scanner import ARIScanner, config
@@ -24,6 +26,7 @@ from ..utils import (
     get_role_metadata,
     split_name_and_version,
 )
+from ..finder import list_scan_target
 
 
 class ARICLI:
@@ -61,6 +64,16 @@ class ARICLI:
         parser.add_argument("--yaml", help="if specified, show findings in yaml format")
         parser.add_argument(
             "--save-only-rule-result", action="store_true", help="if true, save only rule results and remove node details to reduce result file size"
+        )
+        parser.add_argument(
+            "--scan-per-target",
+            action="store_true",
+            help="if true, do scanning per playbook, role or taskfile (this reduces memory usage while scanning)",
+        )
+        parser.add_argument(
+            "--task-num-threshold",
+            default="100",
+            help="A threshold number to give up scanning a file where the number of tasks exceeds this (default to 100)",
         )
         parser.add_argument("-o", "--out-dir", help="output directory for the rule evaluation result")
         parser.add_argument(
@@ -158,25 +171,72 @@ class ARICLI:
             pretty=pretty,
             output_format=output_format,
         )
-        if not silent and not pretty:
-            print("Start preparing dependencies")
-        root_install = not args.skip_install
-        if not silent and not pretty:
+
+        if args.scan_per_target:
+            c.silent = True
+            task_num_threshold = int(args.task_num_threshold)
+            print("Listing scan targets (This might take several minutes for a large proejct)")
+            targets = list_scan_target(root_dir=target_name, task_num_threshold=task_num_threshold)
             print("Start scanning")
-        c.evaluate(
-            type=args.target_type,
-            name=target_name,
-            version=target_version,
-            install_dependencies=root_install,
-            dependency_dir=args.dependency_dir,
-            collection_name=collection_name,
-            role_name=role_name,
-            source_repository=args.source,
-            playbook_only=args.playbook_only,
-            taskfile_only=args.taskfile_only,
-            include_test_contents=args.include_tests,
-            load_all_taskfiles=load_all_taskfiles,
-            save_only_rule_result=save_only_rule_result,
-            objects=args.objects,
-            out_dir=args.out_dir,
-        )
+            total = len(targets)
+            file_list = {"playbook": [], "role": [], "taskfile": []}
+            for i, target_info in enumerate(targets):
+                fpath = target_info["filepath"]
+                fpath_from_root = target_info["path_from_root"]
+                scan_type = target_info["scan_type"]
+                count_in_type = len(file_list[scan_type])
+                print(f"\r[{i+1}/{total}] {scan_type} {fpath_from_root}                 ", end="")
+                out_dir = os.path.join(args.out_dir, f"{scan_type}s", str(count_in_type))
+                c.evaluate(
+                    type=scan_type,
+                    name=fpath,
+                    target_path=fpath,
+                    version=target_version,
+                    install_dependencies=False,
+                    dependency_dir=args.dependency_dir,
+                    collection_name=collection_name,
+                    role_name=role_name,
+                    source_repository=args.source,
+                    playbook_only=True,
+                    taskfile_only=True,
+                    include_test_contents=args.include_tests,
+                    load_all_taskfiles=load_all_taskfiles,
+                    save_only_rule_result=save_only_rule_result,
+                    objects=args.objects,
+                    out_dir=out_dir,
+                )
+                file_list[scan_type].append(fpath_from_root)
+            print("")
+            for scan_type, list_per_type in file_list.items():
+                index_data = {}
+                if not list_per_type:
+                    continue
+                for i, fpath in enumerate(list_per_type):
+                    index_data[i] = fpath
+                list_file_path = os.path.join(args.out_dir, f"{scan_type}s", "index.json")
+                with open(list_file_path, "w") as file:
+                    json.dump(index_data, file)
+
+        else:
+            if not silent and not pretty:
+                print("Start preparing dependencies")
+            root_install = not args.skip_install
+            if not silent and not pretty:
+                print("Start scanning")
+            c.evaluate(
+                type=args.target_type,
+                name=target_name,
+                version=target_version,
+                install_dependencies=root_install,
+                dependency_dir=args.dependency_dir,
+                collection_name=collection_name,
+                role_name=role_name,
+                source_repository=args.source,
+                playbook_only=args.playbook_only,
+                taskfile_only=args.taskfile_only,
+                include_test_contents=args.include_tests,
+                load_all_taskfiles=load_all_taskfiles,
+                save_only_rule_result=save_only_rule_result,
+                objects=args.objects,
+                out_dir=args.out_dir,
+            )
