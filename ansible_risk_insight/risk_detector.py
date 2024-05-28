@@ -22,7 +22,18 @@ from typing import List
 import time
 
 import ansible_risk_insight.logger as logger
-from .models import AnsibleRunContext, ARIResult, TargetResult, NodeResult, RuleResult, Rule, SpecMutation, FatalRuleResultError
+from .models import (
+    AnsibleRunContext,
+    ARIResult,
+    TargetResult,
+    NodeResult,
+    RuleResult,
+    Rule,
+    SpecMutation,
+    FatalRuleResultError,
+    RunTarget,
+    TaskCall,
+)
 from .keyutil import detect_type, key_delimiter
 from .analyzer import load_taskcalls_in_trees
 from .utils import load_classes_in_dir
@@ -204,7 +215,7 @@ def detect(contexts: List[AnsibleRunContext], rules_dir: str = "", rules: list =
                 n_result.rules.append(r_result)
             # remove node details
             if save_only_rule_result:
-                n_result.node = None
+                n_result.node = omit_node_details(n_result.node)
             t_result.nodes.append(n_result)
         ari_result.targets.append(t_result)
 
@@ -212,6 +223,23 @@ def detect(contexts: List[AnsibleRunContext], rules_dir: str = "", rules: list =
     data_report["spec_mutations"] = spec_mutations
 
     return data_report, loaded_rules
+
+
+def omit_node_details(node: RunTarget):
+    spec = None
+    if getattr(node, "spec"):
+        spec = {
+            "type": getattr(node.spec, "type"),
+            "name": getattr(node.spec, "name"),
+            "defined_in": getattr(node.spec, "defined_in"),
+        }
+        if isinstance(node, TaskCall):
+            spec["line_num_in_file"] = (getattr(node.spec, "line_num_in_file"),)
+    summary = {
+        "type": node.type,
+        "spec": spec,
+    }
+    return summary
 
 
 def main():
