@@ -17,9 +17,9 @@
 import os
 import json
 import argparse
-
-from ansible_risk_insight.scanner import ARIScanner, config
-from ansible_risk_insight.utils import (
+import q
+from ..scanner import ARIScanner, config
+from ..utils import (
     is_url,
     is_local_path,
     get_collection_metadata,
@@ -28,9 +28,6 @@ from ansible_risk_insight.utils import (
 )
 from ..finder import list_scan_target
 
-# import debugpy
-# debugpy.listen(3000)
-# debugpy.wait_for_client()
 
 class ARICLI:
     args = None
@@ -50,7 +47,6 @@ class ARICLI:
         parser.add_argument(
             "--skip-isolated-taskfiles", action="store_true", help="if true, skip isolated (not imported/included) taskfiles from roles"
         )
-        parser.add_argument("--fix", action="store_true", help="if true, fix the scanned playbook after performing the inpline replace with ARI suggestions")
         parser.add_argument("--skip-install", action="store_true", help="if true, skip install for the specified target")
         parser.add_argument("--dependency-dir", nargs="?", help="path to a directory that have dependencies for the target")
         parser.add_argument("--collection-name", nargs="?", help="if provided, use it as a collection name")
@@ -74,6 +70,7 @@ class ARICLI:
             action="store_true",
             help="if true, do scanning per playbook, role or taskfile (this reduces memory usage while scanning)",
         )
+        parser.add_argument("--fix", action="store_true", help="if true, fix the scanned playbook after performing the inpline replace with ARI suggestions")
         parser.add_argument(
             "--task-num-threshold",
             default="100",
@@ -89,6 +86,7 @@ class ARICLI:
 
     def run(self):
         args = self.args
+        print("ARI args: ", args.target_name)
         target_name = args.target_name
         target_version = ""
         if args.target_type in ["collection", "role"]:
@@ -218,9 +216,48 @@ class ARICLI:
                 for i, fpath in enumerate(list_per_type):
                     index_data[i] = fpath
                 list_file_path = os.path.join(args.out_dir, f"{scan_type}s", "index.json")
+                print("index_data: ", index_data)
+                print("list_file_path: ", list_file_path)
                 with open(list_file_path, "w") as file:
                     json.dump(index_data, file)
-
+                if args.fix:
+                    for each in index_data.keys():
+                        print("** THIS IS UNDER INLINE FIX **", index_data[each])
+                        ari_suggestion_file_path = os.path.join(args.out_dir, f"{scan_type}s", str(each), "rule_result.json")
+                        # print("file_path: ", file_path)
+                        
+                        with open(ari_suggestion_file_path) as f:
+                            ari_suggestion_data = json.load(f)
+                            targets = ari_suggestion_data['targets']
+                            for i in reversed(range(len(targets)-1)):
+                                print("iter: ", i)
+                                print("each: ", len(targets[i]['nodes']))
+                                nodes = targets[i]['nodes']
+                                for j in reversed(range(len(nodes))):
+                                    node_rules = nodes[j]['rules']
+                                    for k in reversed(range(len(node_rules))):
+                                        print("k: ", k)
+                                        w007_rule = node_rules[k]
+                                        if (w007_rule['rule']['rule_id']).lower() == 'w007':
+                                            if not w007_rule.get('verdict') and w007_rule:
+                                                break
+                                            print("mutated_yaml: ", w007_rule['detail']['mutated_yaml'])
+                                            target_file_path = os.path.join(args.target_name, index_data[each], w007_rule['file'][0])
+                                            print("target_file_path: ", target_file_path)
+                                            print("file line number: ", w007_rule['file'][1])
+                                            break
+                                # for j in reversed(range(len(rules), 1)):
+                                #     w007_rule = rules[j]
+                                #     print("w007_rule: ", w007_rule)
+                                
+                                # if not w007_rule.get('verdict'):
+                                #     continue
+                                # print("WOO7 rule: ", w007_rule)
+                                break
+                                # for i in reversed(range(len(rules))):
+                                #     w007_rule = rules[i]
+                                #     q("ari_suggestion_data: ", each_node)
+                                #     break
         else:
             if not silent and not pretty:
                 print("Start preparing dependencies")

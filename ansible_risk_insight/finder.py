@@ -21,6 +21,8 @@ import os
 import json
 import yaml
 import traceback
+from ansible_risk_insight.yaml_utils import FormattedYAML
+from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
 try:
     # if `libyaml` is available, use C based loader for performance
@@ -731,3 +733,51 @@ def list_scan_target(root_dir: str, task_num_threshold: int = -1):
     all_targets = sorted(all_targets, key=lambda x: x["filepath"])
     all_targets = sorted(all_targets, key=lambda x: x["scan_type"])
     return all_targets
+
+
+
+def update_the_yaml_target(file_path, line_number, new_content):
+    # yaml = YAML()
+    # yaml.preserve_quotes = True
+    # input_line_number = line_number.lstrip("L").split("-")
+    # Read the original YAML file
+    with open(file_path, 'r') as file:
+        data = file.read()
+
+    yaml = FormattedYAML(
+        # Ansible only uses YAML 1.1, but others files should use newer 1.2 (ruamel.yaml defaults to 1.2)
+        version=(1, 1),
+    )
+    # Parse the YAML content with preserved formatting
+    parsed_data = yaml.load(data)
+    if not isinstance(parsed_data, CommentedMap | CommentedSeq):
+        # This is an empty vars file or similar which loads as None.
+        # It is not safe to write this file or data-loss is likely.
+        # Only maps and sequences can preserve comments. Skip it.
+        print(
+            "Ignored reformatting %s because current implementation in ruamel.yaml would drop comments. See https://sourceforge.net/p/ruamel-yaml/tickets/460/",
+            file,
+        )
+    new_parsed_data = yaml.load(new_content)
+    new_parsed_data = new_parsed_data[0]
+
+    # parsed_data = parsed_data[0]
+    if parsed_data[0].get('tasks'):
+        tasks = []
+        for each_task in parsed_data[0]['tasks']:
+            tasks.append(each_task)
+        for i in reversed(range(len(tasks))):
+            each_task = tasks[i]
+            if new_parsed_data['name'] == each_task['name']:
+                each_task = new_parsed_data
+                parsed_data[0]['tasks'][i] = each_task
+                break
+
+    elif parsed_data[0].get('name'):
+        if new_parsed_data['name'] == parsed_data[0]['name']:
+            each_task = new_parsed_data
+            parsed_data[0] = each_task
+
+    with open(file_path, 'w') as file:
+        yaml.dump(parsed_data, file)
+    return

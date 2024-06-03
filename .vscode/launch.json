@@ -5,22 +5,22 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python Debugger: Current File with Arguments",
+            "name": "Python Debugger: Attach",
             "type": "debugpy",
-            "request": "launch",
-            "program": "ansible_risk_insight/__init__.py",
-            "console": "integratedTerminal",
-            "args": "${command:pickArgs}",
+            "logToFile": true,
+            "request": "attach",
+            "listen": {
+                "port": 5678,
+                "host": "127.0.0.1"
+            },
             "justMyCode": false,
-            // "env": { "PYTHONPATH": "${workspaceFolder}"}
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "${workspaceFolder}"
+                }
+            ]
         }
-        // {
-        //     "name": "Python: Module",
-        //     "type": "debugpy",
-        //     "request": "launch",
-        //     "module": "ansible_risk_insight",
-        //     "justMyCode": false,
-        //     "env": { "PYTHONPATH": "${workspaceFolder}"}
-        // }
     ]
+
 }
