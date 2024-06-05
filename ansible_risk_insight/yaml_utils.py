@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 from io import StringIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 import re
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 from ruamel.yaml.composer import ComposerError
@@ -263,7 +263,6 @@ class FormattedYAML(YAML):
         # (see https://stackoverflow.com/a/44314840/1134951)
         # self.Representer.add_representer(
 
-
     @property
     def version(self) -> tuple[int, int] | None:
         """Return the YAML version used to parse or dump.
@@ -308,7 +307,7 @@ class FormattedYAML(YAML):
         except ParserError as ex:
             data = None
             _logger.error(  # noqa: TRY400
-                "Invalid yaml, verify the file contents and try again.",
+                "Invalid yaml, verify the file contents and try again. %s", ex
             )
         except Exception as ex:
             print(ex)
@@ -336,7 +335,7 @@ class FormattedYAML(YAML):
             text,
             strip_version_directive=strip_version_directive,
         )
-    
+
     # ruamel.yaml only preserves empty (no whitespace) blank lines
     # (ie "/n/n" becomes "/n/n" but "/n  /n" becomes "/n").
     # So, we need to identify whitespace-only lines to drop spaces before reading.
@@ -348,7 +347,8 @@ class FormattedYAML(YAML):
         Preserve blank lines despite extra whitespace.
         Preserve any preamble (aka header) comments before "---".
 
-        For more on preamble comments, see: https://stackoverflow.com/questions/70286108/python-ruamel-yaml-package-how-to-get-header-comment-lines/70287507#70287507
+        For more on preamble comments, see:
+        https://stackoverflow.com/questions/70286108/python-ruamel-yaml-package-how-to-get-header-comment-lines/70287507#70287507
         """
         text = self._whitespace_only_lines_re.sub("", text)
 
