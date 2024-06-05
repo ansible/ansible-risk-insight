@@ -16,8 +16,9 @@
 
 import os
 import json
+import logging
 import argparse
-import q
+
 from ..scanner import ARIScanner, config
 from ..utils import (
     is_url,
@@ -26,8 +27,11 @@ from ..utils import (
     get_role_metadata,
     split_name_and_version,
 )
-from ..finder import list_scan_target
+from ..finder import list_scan_target, update_the_yaml_target
 
+logging.basicConfig(
+    level=os.environ.get('LOGLEVEL', 'WARNING').upper()
+)
 
 class ARICLI:
     args = None
@@ -216,48 +220,29 @@ class ARICLI:
                 for i, fpath in enumerate(list_per_type):
                     index_data[i] = fpath
                 list_file_path = os.path.join(args.out_dir, f"{scan_type}s", "index.json")
-                print("index_data: ", index_data)
-                print("list_file_path: ", list_file_path)
+                logging.info("list_file_path: ", list_file_path)
                 with open(list_file_path, "w") as file:
                     json.dump(index_data, file)
                 if args.fix:
                     for each in index_data.keys():
-                        print("** THIS IS UNDER INLINE FIX **", index_data[each])
                         ari_suggestion_file_path = os.path.join(args.out_dir, f"{scan_type}s", str(each), "rule_result.json")
-                        # print("file_path: ", file_path)
-                        
+                        logging.info("ARI suggestion file path: %s", ari_suggestion_file_path)
                         with open(ari_suggestion_file_path) as f:
                             ari_suggestion_data = json.load(f)
                             targets = ari_suggestion_data['targets']
                             for i in reversed(range(len(targets)-1)):
-                                print("iter: ", i)
-                                print("each: ", len(targets[i]['nodes']))
                                 nodes = targets[i]['nodes']
                                 for j in reversed(range(len(nodes))):
                                     node_rules = nodes[j]['rules']
                                     for k in reversed(range(len(node_rules))):
-                                        print("k: ", k)
                                         w007_rule = node_rules[k]
                                         if (w007_rule['rule']['rule_id']).lower() == 'w007':
                                             if not w007_rule.get('verdict') and w007_rule:
                                                 break
-                                            print("mutated_yaml: ", w007_rule['detail']['mutated_yaml'])
+                                            mutated_yaml = w007_rule['detail']['mutated_yaml']
                                             target_file_path = os.path.join(args.target_name, index_data[each], w007_rule['file'][0])
-                                            print("target_file_path: ", target_file_path)
-                                            print("file line number: ", w007_rule['file'][1])
-                                            break
-                                # for j in reversed(range(len(rules), 1)):
-                                #     w007_rule = rules[j]
-                                #     print("w007_rule: ", w007_rule)
-                                
-                                # if not w007_rule.get('verdict'):
-                                #     continue
-                                # print("WOO7 rule: ", w007_rule)
-                                break
-                                # for i in reversed(range(len(rules))):
-                                #     w007_rule = rules[i]
-                                #     q("ari_suggestion_data: ", each_node)
-                                #     break
+                                            line_number =  w007_rule['file'][1]
+                                            update_the_yaml_target(target_file_path, line_number, mutated_yaml)
         else:
             if not silent and not pretty:
                 print("Start preparing dependencies")
