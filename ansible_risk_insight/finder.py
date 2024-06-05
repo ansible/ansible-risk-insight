@@ -25,10 +25,6 @@ import traceback
 from ansible_risk_insight.yaml_utils import FormattedYAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
-logging.basicConfig(
-    level=os.environ.get('LOGLEVEL', 'WARNING').upper()
-)
-
 try:
     # if `libyaml` is available, use C based loader for performance
     import _yaml  # noqa: F401
@@ -39,6 +35,10 @@ except Exception:
 import ansible_risk_insight.logger as logger
 from .safe_glob import safe_glob
 from .awx_utils import could_be_playbook, search_playbooks
+
+logging.basicConfig(
+    level=os.environ.get('LOGLEVEL', 'WARNING').upper()
+)
 
 
 fqcn_module_name_re = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$")
@@ -770,7 +770,8 @@ def update_the_yaml_target(file_path, line_number, new_content):
         # It is not safe to write this file or data-loss is likely.
         # Only maps and sequences can preserve comments. Skip it.
         print(
-            "Ignored reformatting %s because current implementation in ruamel.yaml would drop comments. See https://sourceforge.net/p/ruamel-yaml/tickets/460/",
+            "Ignored reformatting %s because current implementation in ruamel.yaml would drop comments."
+            + " See https://sourceforge.net/p/ruamel-yaml/tickets/460/",
             file,
         )
     new_parsed_data = yaml.load(new_content)

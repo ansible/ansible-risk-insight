@@ -33,6 +33,7 @@ logging.basicConfig(
     level=os.environ.get('LOGLEVEL', 'WARNING').upper()
 )
 
+
 class ARICLI:
     args = None
 
@@ -74,7 +75,11 @@ class ARICLI:
             action="store_true",
             help="if true, do scanning per playbook, role or taskfile (this reduces memory usage while scanning)",
         )
-        parser.add_argument("--fix", action="store_true", help="if true, fix the scanned playbook after performing the inpline replace with ARI suggestions")
+        parser.add_argument(
+            "--fix",
+            action="store_true",
+            help="if true, fix the scanned playbook after performing the inpline replace with ARI suggestions"
+        )
         parser.add_argument(
             "--task-num-threshold",
             default="100",
@@ -230,7 +235,7 @@ class ARICLI:
                         with open(ari_suggestion_file_path) as f:
                             ari_suggestion_data = json.load(f)
                             targets = ari_suggestion_data['targets']
-                            for i in reversed(range(len(targets)-1)):
+                            for i in reversed(range(len(targets) - 1)):
                                 nodes = targets[i]['nodes']
                                 for j in reversed(range(len(nodes))):
                                     node_rules = nodes[j]['rules']
@@ -241,7 +246,7 @@ class ARICLI:
                                                 break
                                             mutated_yaml = w007_rule['detail']['mutated_yaml']
                                             target_file_path = os.path.join(args.target_name, index_data[each], w007_rule['file'][0])
-                                            line_number =  w007_rule['file'][1]
+                                            line_number = w007_rule['file'][1]
                                             update_the_yaml_target(target_file_path, line_number, mutated_yaml)
         else:
             if not silent and not pretty:
