@@ -21,6 +21,8 @@ import os
 import json
 import yaml
 import traceback
+from ansible_risk_insight.yaml_utils import FormattedYAML
+from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
 try:
     # if `libyaml` is available, use C based loader for performance
@@ -731,3 +733,76 @@ def list_scan_target(root_dir: str, task_num_threshold: int = -1):
     all_targets = sorted(all_targets, key=lambda x: x["filepath"])
     all_targets = sorted(all_targets, key=lambda x: x["scan_type"])
     return all_targets
+
+
+def check_and_replace(new_data, old_data, replaced=False):
+    if new_data == old_data:
+        logger.info("Current file data and ARI mutated data are same!")
+        return True
+    if new_data['name'] == old_data['name']:
+        replaced = True
+        return new_data, replaced
+
+
+def update_the_yaml_target(file_path, line_number, new_content):
+    input_line_number = line_number.lstrip("L").split("-")
+    logger.debug("Target file path: %s", file_path)
+    logger.debug("Target line number: %s", input_line_number)
+    logger.debug("Target new content %s", new_content)
+    try:
+        # Read the original YAML file
+        with open(file_path, 'r') as file:
+            data = file.read()
+
+        yaml = FormattedYAML(
+            # Ansible only uses YAML 1.1, but others files should use newer 1.2 (ruamel.yaml defaults to 1.2)
+        )
+        # Parse the YAML content with preserved formatting
+        parsed_data = yaml.load(data)
+        if not isinstance(parsed_data, CommentedMap | CommentedSeq):
+            # This is an empty vars file or similar which loads as None.
+            # It is not safe to write this file or data-loss is likely.
+            # Only maps and sequences can preserve comments. Skip it.
+            print(
+                "Ignored reformatting %s because current implementation in ruamel.yaml would drop comments."
+                + " See https://sourceforge.net/p/ruamel-yaml/tickets/460/",
+                file,
+            )
+        new_parsed_data = yaml.load(new_content)
+        if new_parsed_data == parsed_data:
+            logger.info("Current data and ARI mutated data are same!")
+            return
+        if not new_parsed_data:
+            return
+        new_parsed_data = new_parsed_data[0]
+        # variable to keep a check if there's a change in mutated and existing data
+        no_change = False
+
+        if isinstance(parsed_data, list):
+            if parsed_data[0].get('tasks'):
+                tasks = [each_task for each_task in parsed_data[0]['tasks']]
+                for i in reversed(range(len(tasks))):
+                    each_task = tasks[i]
+                    output = check_and_replace(new_parsed_data, each_task)
+                    if output:
+                        if isinstance(output, tuple):
+                            parsed_data[0]['tasks'][i] = output[0]
+                            break
+                        no_change = True
+                        break
+            else:
+                for i in reversed(range(len(parsed_data))):
+                    output = check_and_replace(new_parsed_data, parsed_data[i])
+                    if output:
+                        if isinstance(output, tuple) and len(output) > 1:
+                            parsed_data[i] = output[0]
+                            break
+                        no_change = True
+                        break
+
+        if not no_change:
+            with open(file_path, 'w') as file:
+                yaml.dump(parsed_data, file)
+    except Exception as ex:
+        logger.warning("ARI yaml update fix functionality failed with: %s for file: %s", ex, file_path)
+    return

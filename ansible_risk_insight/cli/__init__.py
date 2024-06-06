@@ -26,7 +26,8 @@ from ..utils import (
     get_role_metadata,
     split_name_and_version,
 )
-from ..finder import list_scan_target
+from ..finder import list_scan_target, update_the_yaml_target
+import ansible_risk_insight.logger as logger
 
 
 class ARICLI:
@@ -71,6 +72,11 @@ class ARICLI:
             help="if true, do scanning per playbook, role or taskfile (this reduces memory usage while scanning)",
         )
         parser.add_argument(
+            "--fix",
+            action="store_true",
+            help="if true, fix the scanned playbook after performing the inpline replace with ARI suggestions"
+        )
+        parser.add_argument(
             "--task-num-threshold",
             default="100",
             help="A threshold number to give up scanning a file where the number of tasks exceeds this (default to 100)",
@@ -85,6 +91,7 @@ class ARICLI:
 
     def run(self):
         args = self.args
+        print("ARI args: ", args.target_name)
         target_name = args.target_name
         target_version = ""
         if args.target_type in ["collection", "role"]:
@@ -214,9 +221,37 @@ class ARICLI:
                 for i, fpath in enumerate(list_per_type):
                     index_data[i] = fpath
                 list_file_path = os.path.join(args.out_dir, f"{scan_type}s", "index.json")
+                logger.debug("list_file_path: ", list_file_path)
                 with open(list_file_path, "w") as file:
                     json.dump(index_data, file)
-
+                if args.fix:
+                    for each in index_data.keys():
+                        ari_suggestion_file_path = os.path.join(args.out_dir, f"{scan_type}s", str(each), "rule_result.json")
+                        logger.debug("ARI suggestion file path: %s", ari_suggestion_file_path)
+                        with open(ari_suggestion_file_path) as f:
+                            ari_suggestion_data = json.load(f)
+                            targets = ari_suggestion_data['targets']
+                            for i in reversed(range(len(targets))):
+                                logger.debug("Nodes dir number: %s", i)
+                                nodes = targets[i]['nodes']
+                                for j in reversed(range(1, len(nodes))):
+                                    node_rules = nodes[j]['rules']
+                                    for k in reversed(range(len(node_rules))):
+                                        w007_rule = node_rules[k]
+                                        if (w007_rule['rule']['rule_id']).lower() == 'w007':
+                                            if not w007_rule.get('verdict') and w007_rule:
+                                                break
+                                            mutated_yaml = w007_rule['detail']['mutated_yaml']
+                                            if mutated_yaml == '':
+                                                break
+                                            if w007_rule['file'][0] not in index_data[each]:
+                                                target_file_path = os.path.join(args.target_name, index_data[each], w007_rule['file'][0])
+                                            else:
+                                                target_file_path = os.path.join(args.target_name, index_data[each])
+                                            target_file_path = os.path.join(args.target_name, index_data[each], w007_rule['file'][0])
+                                            line_number = w007_rule['file'][1]
+                                            update_the_yaml_target(target_file_path, line_number, mutated_yaml)
+                                            break  # w007 rule with mutated yaml is processed, breaking out of iteration
         else:
             if not silent and not pretty:
                 print("Start preparing dependencies")
