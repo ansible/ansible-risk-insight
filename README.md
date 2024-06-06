@@ -99,3 +99,23 @@ git clone git@github.com:ansible/ansible-risk-insight.git
 cd ansible-risk-insight
 pip install -e .
 ```
+
+## Debugging ARI over VSCode (for development)
+
+ARI can be debugged using VSCode. Steps to start debugging:
+
+Step 1: Please add below line to fine that needs to be debugged:
+```
+import debugpy
+debugpy.listen(5678)
+debugpy.wait_for_client()
+```
+Step 2: Fire the ARI command via cli command to run the ARI, ref as:
+```
+(.env) ➜  ari project <GH repository> --out-dir /tmp/CS --save-only-rule-result --scan-per-target --task-num-threshold 100 --fix
+0.00s - Debugger warning: It seems that frozen modules are being used, which may
+0.00s - make the debugger miss breakpoints. Please pass -Xfrozen_modules=off
+0.00s - to python to disable frozen modules.
+0.00s - Note: Debugging will proceed. Set PYDEVD_DISABLE_FILE_VALIDATION=1 to disable this validation.
+```
+Step 3: From VSCode, click `Run->Start Debugging`, debugger should stop at the breakpoints placed inside the ARI code.
