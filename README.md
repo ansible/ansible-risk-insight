@@ -104,7 +104,7 @@ pip install -e .
 
 ARI can be debugged using VSCode. Steps to start debugging:
 
-Step 1: Please add below line to fine that needs to be debugged:
+Step 1: Please add below line to file that needs to be debugged:
 ```
 import debugpy
 debugpy.listen(5678)
