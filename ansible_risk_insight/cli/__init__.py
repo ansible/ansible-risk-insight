@@ -16,7 +16,6 @@
 
 import os
 import json
-import logging
 import argparse
 
 from ..scanner import ARIScanner, config
@@ -28,10 +27,7 @@ from ..utils import (
     split_name_and_version,
 )
 from ..finder import list_scan_target, update_the_yaml_target
-
-logging.basicConfig(
-    level=os.environ.get('LOGLEVEL', 'WARNING').upper()
-)
+import ansible_risk_insight.logger as logger
 
 
 class ARICLI:
@@ -225,18 +221,18 @@ class ARICLI:
                 for i, fpath in enumerate(list_per_type):
                     index_data[i] = fpath
                 list_file_path = os.path.join(args.out_dir, f"{scan_type}s", "index.json")
-                logging.info("list_file_path: ", list_file_path)
+                logger.debug("list_file_path: ", list_file_path)
                 with open(list_file_path, "w") as file:
                     json.dump(index_data, file)
                 if args.fix:
                     for each in index_data.keys():
                         ari_suggestion_file_path = os.path.join(args.out_dir, f"{scan_type}s", str(each), "rule_result.json")
-                        logging.info("ARI suggestion file path: %s", ari_suggestion_file_path)
+                        logger.debug("ARI suggestion file path: %s", ari_suggestion_file_path)
                         with open(ari_suggestion_file_path) as f:
                             ari_suggestion_data = json.load(f)
                             targets = ari_suggestion_data['targets']
                             for i in reversed(range(len(targets))):
-                                logging.info("Nodes dir number: %s", i)
+                                logger.debug("Nodes dir number: %s", i)
                                 nodes = targets[i]['nodes']
                                 for j in reversed(range(1, len(nodes))):
                                     node_rules = nodes[j]['rules']

@@ -3,7 +3,6 @@
 # pylint: disable=too-many-lines
 from __future__ import annotations
 
-import logging
 from io import StringIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -18,6 +17,7 @@ from ruamel.yaml.emitter import Emitter
 from ruamel.yaml.main import YAML
 from ruamel.yaml.parser import ParserError
 from ruamel.yaml.scalarint import HexInt, ScalarInt
+import ansible_risk_insight.logger as logger
 
 
 if TYPE_CHECKING:
@@ -25,8 +25,6 @@ if TYPE_CHECKING:
     from ruamel.yaml.compat import StreamTextType
     from ruamel.yaml.nodes import ScalarNode
     from ruamel.yaml.representer import RoundTripRepresenter
-
-_logger = logging.getLogger(__name__)
 
 
 class OctalIntYAML11(ScalarInt):
@@ -306,7 +304,7 @@ class FormattedYAML(YAML):
             data = self.load_all(stream=text)
         except ParserError as ex:
             data = None
-            _logger.error(  # noqa: TRY400
+            logger.error(  # noqa: TRY400
                 "Invalid yaml, verify the file contents and try again. %s", ex
             )
         except Exception as ex:

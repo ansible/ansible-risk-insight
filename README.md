@@ -118,4 +118,5 @@ Step 2: Fire the ARI command via cli command to run the ARI, ref as:
 0.00s - to python to disable frozen modules.
 0.00s - Note: Debugging will proceed. Set PYDEVD_DISABLE_FILE_VALIDATION=1 to disable this validation.
 ```
+Note: If you want to disable the validation warning, please set `PYDEVD_DISABLE_FILE_VALIDATION=1` under your enviornment.
 Step 3: From VSCode, click `Run->Start Debugging`, debugger should stop at the breakpoints placed inside the ARI code.

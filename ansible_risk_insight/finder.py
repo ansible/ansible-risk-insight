@@ -19,7 +19,6 @@ from pathlib import Path
 import re
 import os
 import json
-import logging
 import yaml
 import traceback
 from ansible_risk_insight.yaml_utils import FormattedYAML
@@ -35,10 +34,6 @@ except Exception:
 import ansible_risk_insight.logger as logger
 from .safe_glob import safe_glob
 from .awx_utils import could_be_playbook, search_playbooks
-
-logging.basicConfig(
-    level=os.environ.get('LOGLEVEL', 'WARNING').upper()
-)
 
 
 fqcn_module_name_re = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$")
@@ -742,19 +737,18 @@ def list_scan_target(root_dir: str, task_num_threshold: int = -1):
 
 def check_and_replace(new_data, old_data, replaced=False):
     if new_data == old_data:
-        logging.info("Current file data and ARI mutated data are same!")
+        logger.info("Current file data and ARI mutated data are same!")
         return True
     if new_data['name'] == old_data['name']:
-        # each_task = new_parsed_data
         replaced = True
         return new_data, replaced
 
 
 def update_the_yaml_target(file_path, line_number, new_content):
     input_line_number = line_number.lstrip("L").split("-")
-    logging.info("Target file path: %s", file_path)
-    logging.info("Target line number: %s", input_line_number)
-    logging.info("Target new content %s", new_content)
+    logger.debug("Target file path: %s", file_path)
+    logger.debug("Target line number: %s", input_line_number)
+    logger.debug("Target new content %s", new_content)
     try:
         # Read the original YAML file
         with open(file_path, 'r') as file:
@@ -776,14 +770,13 @@ def update_the_yaml_target(file_path, line_number, new_content):
             )
         new_parsed_data = yaml.load(new_content)
         if new_parsed_data == parsed_data:
-            logging.info("Current data and ARI mutated data are same!")
+            logger.info("Current data and ARI mutated data are same!")
             return
         if not new_parsed_data:
             return
         new_parsed_data = new_parsed_data[0]
         # variable to keep a check if there's a change in mutated and existing data
         no_change = False
-        # parsed_data = parsed_data[0]
 
         if isinstance(parsed_data, list):
             if parsed_data[0].get('tasks'):
@@ -811,5 +804,5 @@ def update_the_yaml_target(file_path, line_number, new_content):
             with open(file_path, 'w') as file:
                 yaml.dump(parsed_data, file)
     except Exception as ex:
-        logging.warning("ARI yaml update fix functionality failed with: %s for file: %s", ex, file_path)
+        logger.warning("ARI yaml update fix functionality failed with: %s for file: %s", ex, file_path)
     return
