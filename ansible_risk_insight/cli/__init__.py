@@ -235,9 +235,10 @@ class ARICLI:
                         with open(ari_suggestion_file_path) as f:
                             ari_suggestion_data = json.load(f)
                             targets = ari_suggestion_data['targets']
-                            for i in reversed(range(len(targets) - 1)):
+                            for i in reversed(range(len(targets))):
+                                logging.info("Nodes dir number: %s", i)
                                 nodes = targets[i]['nodes']
-                                for j in reversed(range(len(nodes))):
+                                for j in reversed(range(1, len(nodes))):
                                     node_rules = nodes[j]['rules']
                                     for k in reversed(range(len(node_rules))):
                                         w007_rule = node_rules[k]
@@ -248,6 +249,7 @@ class ARICLI:
                                             target_file_path = os.path.join(args.target_name, index_data[each], w007_rule['file'][0])
                                             line_number = w007_rule['file'][1]
                                             update_the_yaml_target(target_file_path, line_number, mutated_yaml)
+                                            break  # w007 rule with mutated yaml is processed, breaking out of iteration
         else:
             if not silent and not pretty:
                 print("Start preparing dependencies")
