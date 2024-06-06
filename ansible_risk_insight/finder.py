@@ -103,6 +103,15 @@ def find_module_name(data_block):
             continue
         if module_name_re.match(k):
             return k
+    if "local_action" in keys:
+        local_action_value = data_block["local_action"]
+        module_name = ""
+        if isinstance(local_action_value, str):
+            module_name = local_action_value.split(" ")[0]
+        elif isinstance(local_action_value, dict):
+            module_name = local_action_value.get("module", "")
+        if module_name:
+            return module_name
     return ""
 
 
