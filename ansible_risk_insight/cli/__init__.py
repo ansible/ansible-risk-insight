@@ -246,6 +246,12 @@ class ARICLI:
                                             if not w007_rule.get('verdict') and w007_rule:
                                                 break
                                             mutated_yaml = w007_rule['detail']['mutated_yaml']
+                                            if mutated_yaml == '':
+                                                break
+                                            if w007_rule['file'][0] not in index_data[each]:
+                                                target_file_path = os.path.join(args.target_name, index_data[each], w007_rule['file'][0])
+                                            else:
+                                                target_file_path = os.path.join(args.target_name, index_data[each])
                                             target_file_path = os.path.join(args.target_name, index_data[each], w007_rule['file'][0])
                                             line_number = w007_rule['file'][1]
                                             update_the_yaml_target(target_file_path, line_number, mutated_yaml)

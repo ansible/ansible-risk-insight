@@ -755,36 +755,36 @@ def update_the_yaml_target(file_path, line_number, new_content):
     logging.info("Target file path: %s", file_path)
     logging.info("Target line number: %s", input_line_number)
     logging.info("Target new content %s", new_content)
-
-    # Read the original YAML file
-    with open(file_path, 'r') as file:
-        data = file.read()
-
-    yaml = FormattedYAML(
-        # Ansible only uses YAML 1.1, but others files should use newer 1.2 (ruamel.yaml defaults to 1.2)
-    )
-    # Parse the YAML content with preserved formatting
-    parsed_data = yaml.load(data)
-    if not isinstance(parsed_data, CommentedMap | CommentedSeq):
-        # This is an empty vars file or similar which loads as None.
-        # It is not safe to write this file or data-loss is likely.
-        # Only maps and sequences can preserve comments. Skip it.
-        print(
-            "Ignored reformatting %s because current implementation in ruamel.yaml would drop comments."
-            + " See https://sourceforge.net/p/ruamel-yaml/tickets/460/",
-            file,
-        )
-    new_parsed_data = yaml.load(new_content)
-    if new_parsed_data == parsed_data:
-        logging.info("Current data and ARI mutated data are same!")
-        return
-    if not new_parsed_data:
-        return
-    new_parsed_data = new_parsed_data[0]
-    # variable to keep a check if there's a change in mutated and existing data
-    no_change = False
-    # parsed_data = parsed_data[0]
     try:
+        # Read the original YAML file
+        with open(file_path, 'r') as file:
+            data = file.read()
+
+        yaml = FormattedYAML(
+            # Ansible only uses YAML 1.1, but others files should use newer 1.2 (ruamel.yaml defaults to 1.2)
+        )
+        # Parse the YAML content with preserved formatting
+        parsed_data = yaml.load(data)
+        if not isinstance(parsed_data, CommentedMap | CommentedSeq):
+            # This is an empty vars file or similar which loads as None.
+            # It is not safe to write this file or data-loss is likely.
+            # Only maps and sequences can preserve comments. Skip it.
+            print(
+                "Ignored reformatting %s because current implementation in ruamel.yaml would drop comments."
+                + " See https://sourceforge.net/p/ruamel-yaml/tickets/460/",
+                file,
+            )
+        new_parsed_data = yaml.load(new_content)
+        if new_parsed_data == parsed_data:
+            logging.info("Current data and ARI mutated data are same!")
+            return
+        if not new_parsed_data:
+            return
+        new_parsed_data = new_parsed_data[0]
+        # variable to keep a check if there's a change in mutated and existing data
+        no_change = False
+        # parsed_data = parsed_data[0]
+
         if isinstance(parsed_data, list):
             if parsed_data[0].get('tasks'):
                 tasks = [each_task for each_task in parsed_data[0]['tasks']]
@@ -811,6 +811,5 @@ def update_the_yaml_target(file_path, line_number, new_content):
             with open(file_path, 'w') as file:
                 yaml.dump(parsed_data, file)
     except Exception as ex:
-        print("ARI fix functionality failed with: %s", ex)
-        logging.warning("ARI fix functionality failed with: %s", ex)
+        logging.warning("ARI yaml update fix functionality failed with: %s for file: %s", ex, file_path)
     return
