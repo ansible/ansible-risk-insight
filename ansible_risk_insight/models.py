@@ -1301,33 +1301,36 @@ class Task(Object, Resolvable):
             task_data_wrapper = []
             task_data = {}
 
+        is_local_action = "local_action" in self.options
+
         # task name
         if self.name:
             task_data["name"] = self.name
         elif "name" in task_data:
             task_data.pop("name")
 
-        # module name
-        if original_module:
-            mo = deepcopy(task_data[original_module])
-            task_data[self.module] = mo
-        elif self.module and self.module not in task_data:
-            task_data[self.module] = self.module_options
+        if not is_local_action:
+            # module name
+            if original_module:
+                mo = deepcopy(task_data[original_module])
+                task_data[self.module] = mo
+            elif self.module and self.module not in task_data:
+                task_data[self.module] = self.module_options
 
-        # module options
-        if isinstance(self.module_options, dict):
-            current_mo = task_data[self.module]
-            # if the module options was an old style inline parameter in YAML,
-            # we can ignore them here because it is parsed as self.module_options
-            if not isinstance(current_mo, dict):
-                current_mo = {}
-            old_keys = list(current_mo.keys())
-            new_keys = list(self.module_options.keys())
-            for old_key in old_keys:
-                if old_key not in new_keys:
-                    current_mo.pop(old_key)
-            recursive_copy_dict(self.module_options, current_mo)
-            task_data[self.module] = current_mo
+            # module options
+            if isinstance(self.module_options, dict):
+                current_mo = task_data[self.module]
+                # if the module options was an old style inline parameter in YAML,
+                # we can ignore them here because it is parsed as self.module_options
+                if not isinstance(current_mo, dict):
+                    current_mo = {}
+                old_keys = list(current_mo.keys())
+                new_keys = list(self.module_options.keys())
+                for old_key in old_keys:
+                    if old_key not in new_keys:
+                        current_mo.pop(old_key)
+                recursive_copy_dict(self.module_options, current_mo)
+                task_data[self.module] = current_mo
 
         # task options
         if isinstance(self.options, dict):
@@ -1340,6 +1343,11 @@ class Task(Object, Resolvable):
                 if old_key not in new_keys:
                     current_to.pop(old_key)
             options_without_name = {k: v for k, v in self.options.items() if k != "name"}
+            if is_local_action:
+                new_la_opt = {}
+                new_la_opt["module"] = self.module
+                recursive_copy_dict(self.module_options, new_la_opt)
+                options_without_name["local_action"] = new_la_opt
             recursive_copy_dict(options_without_name, current_to)
         if len(task_data_wrapper) == 0:
             task_data_wrapper.append(current_to)

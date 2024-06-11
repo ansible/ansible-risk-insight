@@ -183,6 +183,7 @@ def detect(contexts: List[AnsibleRunContext], rules_dir: str = "", rules: list =
             for rule in loaded_rules:
                 if not rule.enabled:
                     continue
+                rule_id = getattr(rule, "rule_id")
                 start_time = time.time()
                 r_result = RuleResult(file=t.file_info(), rule=rule.get_metadata())
                 detail = {}
@@ -198,7 +199,7 @@ def detect(contexts: List[AnsibleRunContext], rules_dir: str = "", rules: list =
                     fatal = detail.get("fatal", False) if detail else False
                     if fatal:
                         error = r_result.error or "unknown error"
-                        error = f"ARI rule evaluation threw fatal exception: {error}"
+                        error = f"ARI rule evaluation threw fatal exception: RuleID={rule_id}, error={error}"
                         raise FatalRuleResultError(error)
                     if rule.spec_mutation:
                         if isinstance(detail, dict):

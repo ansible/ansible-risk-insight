@@ -1489,6 +1489,16 @@ def load_task(
             task_name = v
         if k == module_name:
             module_options = v
+        elif k == "local_action":
+            _opt = data_block[k]
+            if isinstance(_opt, str):
+                module_options = _opt.lstrip(module_name).lstrip(" ")
+            elif isinstance(_opt, dict):
+                for mk, mv in _opt.items():
+                    if mk == "module":
+                        continue
+                    module_options[mk] = mv
+            task_options.update({k: v})
         else:
             task_options.update({k: v})
 
