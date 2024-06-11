@@ -81,9 +81,9 @@ from .finder import could_be_taskfile
 #   "brightcomputing.bcm-9.1.11+41615.gitfab9053.info"
 collection_info_dir_re = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+-[0-9]+\.[0-9]+\.[0-9]+.*\.info$")
 
-string_module_options_re = re.compile(r"^(?:[^ ]* ?)([a-z0-9_]+=(?:[^ ]*{{ [^ ]+ }}[^ ]*|[^ ])+\s?)")
+string_module_options_re = re.compile(r"^(?:[^ ]* ?)([a-z0-9_]+=(?:[^ ]*{{ [^*]+ }}[^ ]*|[^ ])+\s?)")
 
-string_module_option_parts_re = re.compile(r"([a-z0-9_]+=(?:[^ ]*{{ [^ ]+ }}[^ ]*|[^ ])+\s?)")
+string_module_option_parts_re = re.compile(r"([a-z0-9_]+=(?:[^ ]*{{ [^*]+ }}[^ ]*|[^ ])+\s?)")
 
 loop_task_option_names = [
     "loop",
