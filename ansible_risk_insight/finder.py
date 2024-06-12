@@ -22,7 +22,6 @@ import json
 import yaml
 import traceback
 from ansible_risk_insight.yaml_utils import FormattedYAML
-from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
 try:
     # if `libyaml` is available, use C based loader for performance
@@ -766,7 +765,7 @@ def populate_new_data_list(data, line_number_list):
         input_line_number = int(each.lstrip("L").split("-")[0])
         break
     temp_data = data.splitlines(keepends=True)
-    return temp_data[0:input_line_number-1]
+    return temp_data[0:input_line_number - 1]
 
 
 def check_and_add_diff_lines(start_line, stop_line, lines, data_copy):
@@ -776,7 +775,7 @@ def check_and_add_diff_lines(start_line, stop_line, lines, data_copy):
     """
     diff_in_line = stop_line - start_line
     data_copy.append('\n')
-    for i in range(start_line, (start_line+diff_in_line)-1):
+    for i in range(start_line, (start_line + diff_in_line) - 1):
         line = lines[i]
         data_copy.append(line)
 
@@ -806,7 +805,7 @@ def update_the_yaml_target(file_path, line_number_list, new_content_list):
             diff_in_lines = stop_line_number - start_line_number
             temp_content = []
             data_copy.append('\n')
-            for i in range(start_line_number-1, stop_line_number-1):
+            for i in range(start_line_number - 1, stop_line_number - 1):
                 line_number = i
                 if len(lines) == i or j >= len(new_lines):
                     break
@@ -824,7 +823,7 @@ def update_the_yaml_target(file_path, line_number_list, new_content_list):
                         data_copy.append(lines[line_number])
                     else:
                         new_line_key = new_line_content.split(':')
-                        for k in range(start_line_number-1, stop_line_number-1):
+                        for k in range(start_line_number - 1, stop_line_number - 1):
                             if k < len(lines):
                                 old_line_key = lines[k].split(':')
                                 if '---' in old_line_key[0]:
@@ -835,9 +834,9 @@ def update_the_yaml_target(file_path, line_number_list, new_content_list):
                                     # diff_in_lines = len(lines) - len(new_lines)
                                     leading_spaces = len(lines[k]) - len(lines[k].lstrip())
                                     if diff_in_lines > len(lines):
-                                        for i in range(k, k+diff_in_lines):
+                                        for i in range(k, k + diff_in_lines):
                                             if lines[i] == '\n':
-                                                lines.pop(i-1)
+                                                lines.pop(i - 1)
                                                 break
                                             elif i < len(lines) and ':' not in lines[i]:
                                                 lines.pop(i)
