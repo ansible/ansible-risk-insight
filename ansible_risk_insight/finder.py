@@ -203,10 +203,6 @@ def flatten_block_tasks(task_dict, module_defaults={}):
                 tasks_in_item = flatten_block_tasks(t_dict, _module_defaults)
                 tasks.extend(tasks_in_item)
 
-    if _module_defaults:
-        for i in range(len(tasks)):
-            tasks[i]["module_defaults"] = _module_defaults
-
     return tasks
 
 
