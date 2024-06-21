@@ -780,8 +780,8 @@ def check_diff_and_copy_olddata_to_newdata(line_number_list, lines, new_data):
     if line_number_list and isinstance(line_number_list, list):
         new_content_last_set = line_number_list[-1]
         new_content_last_line = int(new_content_last_set.lstrip("L").split("-")[1])
-        if new_content_last_line < len(lines)-1:
-            for i in range(new_content_last_line, len(lines)-1):
+        if new_content_last_line < len(lines) - 1:
+            for i in range(new_content_last_line, len(lines) - 1):
                 new_data.append(lines[i])
         return new_data
 
@@ -877,7 +877,7 @@ def update_the_yaml_target(file_path, line_number_list, new_content_list):
                                     break
                 else:
                     return IndexError("Line number out of range.")
-        # check for diff b/w new content and old contents, 
+        # check for diff b/w new content and old contents,
         # and copy the old content that's not updated by ARI mutation
         data_copy = check_diff_and_copy_olddata_to_newdata(line_number_list, lines, data_copy)
         # Join the lines back to a single string

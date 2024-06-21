@@ -240,7 +240,7 @@ class ARICLI:
                                 temp_file_path = ''
                                 for j in range(1, len(nodes)):
                                     node_rules = nodes[j]['rules']
-                                    for k in reversed(range(len(node_rules))): # loop through from rule 11, as that has the mutation
+                                    for k in reversed(range(len(node_rules))):  # loop through from rule 11, as that has the mutation
                                         w007_rule = node_rules[k]
                                         if (w007_rule['rule']['rule_id']).lower() == 'w007':
                                             if not w007_rule.get('verdict') and w007_rule:
@@ -259,7 +259,7 @@ class ARICLI:
                                                 temp_file_path = target_file_path
                                             else:
                                                 target_file_path = os.path.join(args.target_name, temp_data)
-                                                if temp_file_path != '' and  target_file_path != temp_file_path:
+                                                if temp_file_path != '' and target_file_path != temp_file_path:
                                                     update_the_yaml_target(target_file_path, line_number_list, mutated_yaml_list)
                                                     line_number_list = []
                                                     mutated_yaml_list = []
