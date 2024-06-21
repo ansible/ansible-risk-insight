@@ -776,6 +776,16 @@ def check_and_add_diff_lines(start_line, stop_line, lines, data_copy):
         data_copy.append(line)
 
 
+def check_diff_and_copy_olddata_to_newdata(line_number_list, lines, new_data):
+    if line_number_list and isinstance(line_number_list, list):
+        new_content_last_set = line_number_list[-1]
+        new_content_last_line = int(new_content_last_set.lstrip("L").split("-")[1])
+        if new_content_last_line < len(lines)-1:
+            for i in range(new_content_last_line, len(lines)-1):
+                new_data.append(lines[i])
+        return new_data
+
+
 def update_the_yaml_target(file_path, line_number_list, new_content_list):
     try:
         # Read the original YAML file
@@ -786,14 +796,20 @@ def update_the_yaml_target(file_path, line_number_list, new_content_list):
         )
         data_copy = populate_new_data_list(data, line_number_list)
         stop_line_number = 0
+        new_lines = []
         for iter in range(len(line_number_list)):
             line_number = line_number_list[iter]
             new_content = new_content_list[iter]
             input_line_number = line_number.lstrip("L").split("-")
             lines = data.splitlines(keepends=True)
+            if new_lines:
+                for i in range(len(new_lines)):
+                    try:
+                        data_copy.append(new_lines.pop(i))
+                    except IndexError:
+                        break
             new_lines = new_content.splitlines(keepends=True)
             # Update the specific line with new content
-            j = 0
             start_line_number = int(input_line_number[0])
             if stop_line_number > 0 and (start_line_number - stop_line_number) > 1:
                 check_and_add_diff_lines(stop_line_number, start_line_number, lines, data_copy)
@@ -801,11 +817,17 @@ def update_the_yaml_target(file_path, line_number_list, new_content_list):
             diff_in_lines = stop_line_number - start_line_number
             temp_content = []
             data_copy.append('\n')
-            for i in range(start_line_number - 1, stop_line_number - 1):
+            start = start_line_number - 1
+            end = stop_line_number - 1
+            for i in range(start, end):
                 line_number = i
-                if len(lines) == i or j >= len(new_lines):
+                if len(lines) == i:
                     break
-                new_line_content = new_lines[j]
+                try:
+                    # always pop 1st element of the new lines list
+                    new_line_content = new_lines.pop(0)
+                except IndexError:
+                    break
                 if 0 <= line_number < len(lines):
                     # Preserve the original indentation
                     old_line_content = lines[line_number]
@@ -819,13 +841,13 @@ def update_the_yaml_target(file_path, line_number_list, new_content_list):
                         data_copy.append(lines[line_number])
                     else:
                         new_line_key = new_line_content.split(':')
+                        new_key = new_line_key[0].strip(' ')
                         for k in range(start_line_number - 1, stop_line_number - 1):
                             if k < len(lines):
                                 old_line_key = lines[k].split(':')
                                 if '---' in old_line_key[0]:
                                     continue
                                 old_key = old_line_key[0].strip(' ')
-                                new_key = new_line_key[0].strip(' ')
                                 if '-' in old_line_key[0] and ':' not in lines[k]:
                                     # diff_in_lines = len(lines) - len(new_lines)
                                     leading_spaces = len(lines[k]) - len(lines[k].lstrip())
@@ -855,7 +877,9 @@ def update_the_yaml_target(file_path, line_number_list, new_content_list):
                                     break
                 else:
                     return IndexError("Line number out of range.")
-                j += 1
+        # check for diff b/w new content and old contents, 
+        # and copy the old content that's not updated by ARI mutation
+        data_copy = check_diff_and_copy_olddata_to_newdata(line_number_list, lines, data_copy)
         # Join the lines back to a single string
         updated_data = ''.join(data_copy)
         # Parse the updated YAML content to ensure it is valid
@@ -866,4 +890,3 @@ def update_the_yaml_target(file_path, line_number_list, new_content_list):
                 yaml.dump(updated_parsed_data, file)
     except Exception as ex:
         logger.warning("YAML LINES: ARI fix update yaml by lines failed for file: '%s', with error: '%s'", file_path, ex)
-        raise ex

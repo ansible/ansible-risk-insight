@@ -237,9 +237,10 @@ class ARICLI:
                                 line_number_list = []
                                 mutated_yaml_list = []
                                 target_file_path = ''
+                                temp_file_path = ''
                                 for j in range(1, len(nodes)):
                                     node_rules = nodes[j]['rules']
-                                    for k in range(len(node_rules)):
+                                    for k in reversed(range(len(node_rules))): # loop through from rule 11, as that has the mutation
                                         w007_rule = node_rules[k]
                                         if (w007_rule['rule']['rule_id']).lower() == 'w007':
                                             if not w007_rule.get('verdict') and w007_rule:
@@ -247,11 +248,23 @@ class ARICLI:
                                             mutated_yaml = w007_rule['detail']['mutated_yaml']
                                             if mutated_yaml == '':
                                                 break
-                                            mutated_yaml_list.append(mutated_yaml)
-                                            if w007_rule['file'][0] not in index_data[each]:
-                                                target_file_path = os.path.join(args.target_name, index_data[each], w007_rule['file'][0])
+                                            temp_data = index_data[each]
+                                            if w007_rule['file'][0] not in temp_data:
+                                                target_file_path = os.path.join(args.target_name, temp_data, w007_rule['file'][0])
+                                                if temp_file_path != '' and target_file_path != temp_file_path:
+                                                    update_the_yaml_target(target_file_path, line_number_list, mutated_yaml_list)
+                                                    line_number_list = []
+                                                    mutated_yaml_list = []
+                                                mutated_yaml_list.append(mutated_yaml)
+                                                temp_file_path = target_file_path
                                             else:
-                                                target_file_path = os.path.join(args.target_name, index_data[each])
+                                                target_file_path = os.path.join(args.target_name, temp_data)
+                                                if temp_file_path != '' and  target_file_path != temp_file_path:
+                                                    update_the_yaml_target(target_file_path, line_number_list, mutated_yaml_list)
+                                                    line_number_list = []
+                                                    mutated_yaml_list = []
+                                                mutated_yaml_list.append(mutated_yaml)
+                                                temp_file_path = target_file_path
                                             line_number = w007_rule['file'][1]
                                             line_number_list.append(line_number)
                                             break  # w007 rule with mutated yaml is processed, breaking out of iteration
