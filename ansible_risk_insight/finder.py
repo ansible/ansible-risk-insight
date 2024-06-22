@@ -739,7 +739,7 @@ def list_scan_target(root_dir: str, task_num_threshold: int = -1):
     return all_targets
 
 
-def update_line_logic(new_line_content, old_line_content, leading_spaces=0):
+def update_line_with_space(new_line_content, old_line_content, leading_spaces=0):
     """
         Returns the line of the input lines with mutation, having spaces
         exactly same as input yaml lines
@@ -777,6 +777,10 @@ def check_and_add_diff_lines(start_line, stop_line, lines, data_copy):
 
 
 def check_diff_and_copy_olddata_to_newdata(line_number_list, lines, new_data):
+    """
+        Function to find the old lines which weren't mutated by ARI rules,
+        it need to be copied to new content as is
+    """
     if line_number_list and isinstance(line_number_list, list):
         new_content_last_set = line_number_list[-1]
         new_content_last_line = int(new_content_last_set.lstrip("L").split("-")[1])
@@ -784,6 +788,16 @@ def check_diff_and_copy_olddata_to_newdata(line_number_list, lines, new_data):
             for i in range(new_content_last_line, len(lines) - 1):
                 new_data.append(lines[i])
         return new_data
+
+
+def update_and_append_new_line(new_line, old_line, leading_spaces, data_copy):
+    """
+        Function to get the leading space for the new ARI mutated line, with
+        its equivaltent old line with space similar to the old line
+    """
+    line_with_adjusted_space = update_line_with_space(new_line, old_line, leading_spaces)
+    data_copy.append(line_with_adjusted_space)
+    return ''
 
 
 def update_the_yaml_target(file_path, line_number_list, new_content_list):
@@ -860,21 +874,19 @@ def update_the_yaml_target(file_path, line_number_list, new_content_list):
                                                 lines.pop(i)
                                             else:
                                                 break
-                                    lines[k] = update_line_logic(new_line_content, lines[k], leading_spaces)
-                                    data_copy.append(lines[k])
+                                    new_line_content = update_and_append_new_line(new_line_content, lines[k], 0, data_copy)
                                     break
                                 elif old_key == new_key:
-                                    lines[k] = update_line_logic(new_line_content, lines[k])
-                                    data_copy.append(lines[k])
+                                    new_line_content = update_and_append_new_line(new_line_content, lines[k], 0, data_copy)
                                     break
                                 elif old_key.rstrip('\n') == new_key:
-                                    lines[k] = update_line_logic(new_line_content, lines[k])
-                                    data_copy.append(lines[k])
+                                    new_line_content = update_and_append_new_line(new_line_content, lines[k], 0, data_copy)
                                     break
                                 elif old_key.rstrip('\n') in new_key.split('.'):
-                                    lines[k] = update_line_logic(new_line_content, lines[k])
-                                    data_copy.append(lines[k])
+                                    new_line_content = update_and_append_new_line(new_line_content, lines[k], 0, data_copy)
                                     break
+                        if new_line_content:  # if there wasn't a match with old line, so this seems updated by ARI and added to w/o any change
+                            data_copy.append(new_line_content)
                 else:
                     return IndexError("Line number out of range.")
         # check for diff b/w new content and old contents,

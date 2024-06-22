@@ -92,6 +92,17 @@ $ ari ram generate -f ram_input_list.txt
 
 ```
 
+## ARI supported options to run against
+
+Name | Description
+--- | ---
+playbook | Scan a playbook (e.g. `ari playbook path/to/playbook.yml` )
+collection | Scan a collection (e.g. `ari collection collection.name` )
+role | Scan a role (e.g. `ari role role.name` )
+project | Scan a project (e.g. `ari project path/to/project`)
+taskfile | Scan a taskfile (e.g. `ari taskfile path/to/taskfile.yml`)
+ram | Operate the backend data (e.g. `ari ram generate -f input.txt`)
+
 ## Installation (for development)
 
 ```
