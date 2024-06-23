@@ -856,13 +856,13 @@ def update_the_yaml_target(file_path, line_number_list, new_content_list):
                     else:
                         new_line_key = new_line_content.split(':')
                         new_key = new_line_key[0].strip(' ')
-                        for k in range(start_line_number - 1, stop_line_number - 1):
+                        for k in range(start, end):
                             if k < len(lines):
                                 old_line_key = lines[k].split(':')
                                 if '---' in old_line_key[0]:
                                     continue
                                 old_key = old_line_key[0].strip(' ')
-                                if '-' in old_line_key[0] and ':' not in lines[k]:
+                                if '-' in old_line_key[0] and ':' not in lines[k] and '-' in new_key:
                                     # diff_in_lines = len(lines) - len(new_lines)
                                     leading_spaces = len(lines[k]) - len(lines[k].lstrip())
                                     if diff_in_lines > len(lines):
@@ -874,7 +874,7 @@ def update_the_yaml_target(file_path, line_number_list, new_content_list):
                                                 lines.pop(i)
                                             else:
                                                 break
-                                    new_line_content = update_and_append_new_line(new_line_content, lines[k], 0, data_copy)
+                                    new_line_content = update_and_append_new_line(new_line_content, lines[k], leading_spaces, data_copy)
                                     break
                                 elif old_key == new_key:
                                     new_line_content = update_and_append_new_line(new_line_content, lines[k], 0, data_copy)
