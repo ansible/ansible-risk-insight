@@ -830,9 +830,10 @@ def update_the_yaml_target(file_path, line_number_list, new_content_list):
             stop_line_number = int(input_line_number[1])
             diff_in_lines = stop_line_number - start_line_number
             temp_content = []
-            data_copy.append('\n')
             start = start_line_number - 1
             end = stop_line_number - 1
+            if len(data_copy) != start:
+                data_copy.append('\n')
             for i in range(start, end):
                 line_number = i
                 if len(lines) == i:
