@@ -832,8 +832,7 @@ def update_the_yaml_target(file_path, line_number_list, new_content_list):
             temp_content = []
             start = start_line_number - 1
             end = stop_line_number - 1
-            if len(data_copy) != start:
-                data_copy.append('\n')
+            data_copy.append('\n')
             for i in range(start, end):
                 line_number = i
                 if len(lines) == i:
