@@ -1263,8 +1263,12 @@ class Task(Object, Resolvable):
                 break
             _line = lines[index]
             is_top_of_block = _line.replace(" ", "").startswith("-")
-            if is_top_of_block:
-                _indent = len(_line.split("-")[0])
+            is_when_at_same_indent = _line.replace(" ", "").startswith("when")
+            if is_top_of_block or is_when_at_same_indent:
+                if is_top_of_block:
+                    _indent = len(_line.split("-")[0])
+                elif is_when_at_same_indent:
+                    _indent = len(_line.split("when")[0])
                 if _indent <= indent_of_block:
                     end_found = True
                     end_line_num = index - 1
@@ -1274,6 +1278,7 @@ class Task(Object, Resolvable):
                 end_found = True
                 end_line_num = index
                 break
+
         if not end_found:
             return None, None
         if begin_line_num < 0 or end_line_num > len(lines) or begin_line_num > end_line_num:
