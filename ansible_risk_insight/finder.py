@@ -784,8 +784,8 @@ def check_diff_and_copy_olddata_to_newdata(line_number_list, lines, new_data):
     if line_number_list and isinstance(line_number_list, list):
         new_content_last_set = line_number_list[-1]
         new_content_last_line = int(new_content_last_set.lstrip("L").split("-")[1])
-        if new_content_last_line < len(lines) - 1:
-            for i in range(new_content_last_line, len(lines) - 1):
+        if new_content_last_line < len(lines):
+            for i in range(new_content_last_line, len(lines)):
                 new_data.append(lines[i])
         return new_data
 
