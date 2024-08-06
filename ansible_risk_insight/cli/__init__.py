@@ -18,6 +18,7 @@ import os
 import json
 import argparse
 
+import ansible_risk_insight.logger as logger
 from ..scanner import ARIScanner, config
 from ..utils import (
     is_url,
@@ -26,11 +27,19 @@ from ..utils import (
     get_role_metadata,
     split_name_and_version,
 )
-from ..finder import list_scan_target, update_the_yaml_target, get_yml_list
+from ..finder import (
+    list_scan_target,
+    update_the_yaml_target,
+    get_yml_list,
+    find_and_update_rules_modified
+)
 import ansible_risk_insight.logger as logger
 
 
 class ARICLI:
+    """
+    class ARCLI to handle CLI interaction implementation
+    """
     args = None
 
     def __init__(self):
@@ -41,35 +50,55 @@ class ARICLI:
             action="store_true",
             help="enable file save under ARI_DATA_DIR (default=/tmp/ari-data)",
         )
-        parser.add_argument("target_type", help="Content type", choices={"project", "role", "collection", "playbook", "taskfile"})
+        parser.add_argument("target_type", help="Content type",
+            choices={"project", "role", "collection", "playbook", "taskfile"})
         parser.add_argument("target_name", help="Name")
-        parser.add_argument("--playbook-only", action="store_true", help="if true, don't load playbooks/roles arround the specified playbook")
-        parser.add_argument("--taskfile-only", action="store_true", help="if true, don't load playbooks/roles arround the specified taskfile")
+        parser.add_argument("--playbook-only", action="store_true",
+            help="if true, don't load playbooks/roles arround the specified playbook")
+        parser.add_argument("--taskfile-only", action="store_true",
+            help="if true, don't load playbooks/roles arround the specified taskfile")
         parser.add_argument(
-            "--skip-isolated-taskfiles", action="store_true", help="if true, skip isolated (not imported/included) taskfiles from roles"
+            "--skip-isolated-taskfiles", action="store_true",
+            help="if true, skip isolated (not imported/included) taskfiles from roles"
         )
-        parser.add_argument("--skip-install", action="store_true", help="if true, skip install for the specified target")
-        parser.add_argument("--dependency-dir", nargs="?", help="path to a directory that have dependencies for the target")
-        parser.add_argument("--collection-name", nargs="?", help="if provided, use it as a collection name")
-        parser.add_argument("--role-name", nargs="?", help="if provided, use it as a role name")
-        parser.add_argument("--source", help="source server name in ansible config file (if empty, use public ansible galaxy)")
-        parser.add_argument("--without-ram", action="store_true", help="if true, RAM data is not used and not even updated")
-        parser.add_argument("--read-only-ram", action="store_true", help="if true, RAM data is used but not updated")
-        parser.add_argument("--read-ram-for-dependency", action="store_true", help="if true, RAM data is used only for dependency")
-        parser.add_argument("--update-ram", action="store_true", help="if true, RAM data is not used for scan but updated with the scan result")
-        parser.add_argument("--include-tests", action="store_true", help='if true, load test contents in "tests/integration/targets"')
-        parser.add_argument("--silent", action="store_true", help='if true, do not print anything"')
-        parser.add_argument("--objects", action="store_true", help="if true, output objects.json to the output directory")
-        parser.add_argument("--show-all", action="store_true", help="if true, show findings even if missing dependencies are found")
+        parser.add_argument("--skip-install", action="store_true",
+            help="if true, skip install for the specified target")
+        parser.add_argument("--dependency-dir", nargs="?",
+            help="path to a directory that have dependencies for the target")
+        parser.add_argument("--collection-name", nargs="?",
+            help="if provided, use it as a collection name")
+        parser.add_argument("--role-name", nargs="?",
+            help="if provided, use it as a role name")
+        parser.add_argument("--source",
+            help="source server name in ansible config file (if empty, use public ansible galaxy)")
+        parser.add_argument("--without-ram", action="store_true",
+            help="if true, RAM data is not used and not even updated")
+        parser.add_argument("--read-only-ram", action="store_true",
+            help="if true, RAM data is used but not updated")
+        parser.add_argument("--read-ram-for-dependency", action="store_true",
+            help="if true, RAM data is used only for dependency")
+        parser.add_argument("--update-ram", action="store_true",
+            help="if true, RAM data is not used for scan but updated with the scan result")
+        parser.add_argument("--include-tests", action="store_true",
+            help='if true, load test contents in "tests/integration/targets"')
+        parser.add_argument("--silent", action="store_true",
+            help='if true, do not print anything"')
+        parser.add_argument("--objects", action="store_true",
+            help="if true, output objects.json to the output directory")
+        parser.add_argument("--show-all", action="store_true",
+            help="if true, show findings even if missing dependencies are found")
         parser.add_argument("--json", help="if specified, show findings in json format")
         parser.add_argument("--yaml", help="if specified, show findings in yaml format")
         parser.add_argument(
-            "--save-only-rule-result", action="store_true", help="if true, save only rule results and remove node details to reduce result file size"
+            "--save-only-rule-result", action="store_true",
+            help="if true, save only rule results and remove node details to reduce\
+                result file size"
         )
         parser.add_argument(
             "--scan-per-target",
             action="store_true",
-            help="if true, do scanning per playbook, role or taskfile (this reduces memory usage while scanning)",
+            help="if true, do scanning per playbook, role or taskfile\
+                (this reduces memory usage while scanning)",
         )
         parser.add_argument(
             "--fix", action="store_true", help="if true, fix the scanned playbook after performing the inpline replace with ARI suggestions"
@@ -77,17 +106,25 @@ class ARICLI:
         parser.add_argument(
             "--task-num-threshold",
             default="100",
-            help="A threshold number to give up scanning a file where the number of tasks exceeds this (default to 100)",
+            help="A threshold number to give up scanning a file where the\
+                number of tasks exceeds this (default to 100)",
         )
-        parser.add_argument("-o", "--out-dir", help="output directory for the rule evaluation result")
+        parser.add_argument("-o", "--out-dir",
+            help="output directory for the rule evaluation result")
         parser.add_argument(
-            "-r", "--rules-dir", help=f"specify custom rule directories. use `-R` instead to ignore default rules in {config.rules_dir}"
+            "-r", "--rules-dir",
+            help=f"specify custom rule directories.\
+                use `-R` instead to ignore default rules in {config.rules_dir}"
         )
-        parser.add_argument("-R", "--rules-dir-without-default", help="specify custom rule directories and ignore default rules")
+        parser.add_argument("-R", "--rules-dir-without-default",
+            help="specify custom rule directories and ignore default rules")
         args = parser.parse_args()
         self.args = args
 
     def run(self):
+        """
+        ARICLI run implementation
+        """
         args = self.args
         print("ARI args: ", args.target_name)
         target_name = args.target_name
@@ -212,6 +249,7 @@ class ARICLI:
                 )
                 file_list[scan_type].append(fpath_from_root)
             print("")
+            applied_config_rules_with_count = {}
             for scan_type, list_per_type in file_list.items():
                 index_data = {}
                 if not list_per_type:
@@ -220,13 +258,16 @@ class ARICLI:
                     index_data[i] = fpath
                 list_file_path = os.path.join(args.out_dir, f"{scan_type}s", "index.json")
                 logger.debug("list_file_path: ", list_file_path)
-                with open(list_file_path, "w") as file:
+                with open(list_file_path, "w", encoding='utf-8') as file:
                     json.dump(index_data, file)
                 if args.fix:
-                    for each in index_data.keys():
-                        ari_suggestion_file_path = os.path.join(args.out_dir, f"{scan_type}s", str(each), "rule_result.json")
+                    for key, value in index_data.items():
+                        ari_suggestion_file_path = os.path.join(args.out_dir,
+                                f"{scan_type}s",
+                                str(key), "rule_result.json"
+                            )
                         logger.debug("ARI suggestion file path: %s", ari_suggestion_file_path)
-                        with open(ari_suggestion_file_path) as f:
+                        with open(ari_suggestion_file_path, encoding='utf-8') as f:
                             ari_suggestion_data = json.load(f)
                             targets = ari_suggestion_data["targets"]
                             for i in reversed(range(len(targets))):
@@ -238,17 +279,31 @@ class ARICLI:
                                 temp_file_path = ""
                                 for j in range(1, len(nodes)):
                                     node_rules = nodes[j]["rules"]
-                                    for k in reversed(range(len(node_rules))):  # loop through from rule 11, as that has the mutation
+                                    # loop through from rule 10, as that has the mutation
+                                    for k in reversed(range(len(node_rules))):
                                         w007_rule = node_rules[k]
                                         if (w007_rule["rule"]["rule_id"]).lower() == "w007":
+                                            if w007_rule.get('detail'):
+                                                applied_config_rules = find_and_update_rules_modified(
+                                                    w007_rule['detail']['detail']
+                                                )
+                                                for each_rule in applied_config_rules:
+                                                    if each_rule not in applied_config_rules_with_count:
+                                                        applied_config_rules_with_count.update({each_rule: 1})
+                                                    else:
+                                                        applied_config_rules_with_count[each_rule] += 1
                                             if not w007_rule.get("verdict") and w007_rule:
                                                 break
                                             mutated_yaml = w007_rule["detail"]["mutated_yaml"]
                                             if mutated_yaml == "":
                                                 break
-                                            temp_data = index_data[each]
+                                            temp_data = index_data[k]
                                             if w007_rule["file"][0] not in temp_data:
-                                                target_file_path = os.path.join(args.target_name, temp_data, w007_rule["file"][0])
+                                                target_file_path = os.path.join(
+                                                    args.target_name,
+                                                    temp_data,
+                                                    w007_rule['file'][0]
+                                                )
                                                 if temp_file_path != "" and target_file_path != temp_file_path:
                                                     update_the_yaml_target(target_file_path, line_number_list, mutated_yaml_list)
                                                     line_number_list = []
@@ -272,6 +327,17 @@ class ARICLI:
                                     update_the_yaml_target(target_file_path, line_number_list, mutated_yaml_list)
                                 except Exception as ex:
                                     logger.warning("ARI inline replace mutation failed with exception: %s", ex)
+            # share the modified files and rules violated summary.
+            total_modified_files = 0
+            if applied_config_rules_with_count:
+                for k, v in applied_config_rules_with_count.items():
+                    total_modified_files += v
+                print(f"Modified {total_modified_files} files.")
+                print("Rule Violation Summary")
+                print("Rules    Count")
+                for k, v in applied_config_rules_with_count.items():
+                    print(k, "\t", v)
+                print("")
         else:
             if not silent and not pretty:
                 print("Start preparing dependencies")

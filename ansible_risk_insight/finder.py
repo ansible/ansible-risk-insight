@@ -1082,3 +1082,16 @@ def update_the_yaml_target(file_path, line_number_list, new_content_list):
                 yaml.dump(updated_parsed_data, file)
     except Exception as ex:
         logger.warning("YAML LINES: ARI fix update yaml by lines failed for file: '%s', with error: '%s'", file_path, ex)
+
+
+def find_and_update_rules_modified(mutation_details):
+    """
+    Function to return the rules applied to files from rule_result.json
+    """
+    config_rules_updated = []
+    mutation_result = mutation_details.get('mutation_result')
+    if mutation_result:
+        for k, v in mutation_result.items():
+            if v and v.get('applied_changes'):
+                config_rules_updated.append(k)
+    return config_rules_updated
