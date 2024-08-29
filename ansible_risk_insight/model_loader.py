@@ -440,9 +440,11 @@ def load_play(
     if not could_be_play:
         raise PlaybookFormatError(f"this play block does not have any of the following keywords {play_keywords}; maybe this is not a playbook")
 
+    jsonpath = f"$.{index}"
     pbObj.index = index
     pbObj.role = role_name
     pbObj.collection = collection_name
+    pbObj.jsonpath = jsonpath
     pbObj.set_key(parent_key, parent_local_key)
     play_name = data_block.get("name", "")
     collections_in_play = data_block.get("collections", [])
@@ -479,11 +481,12 @@ def load_play(
         elif k == "pre_tasks":
             if not isinstance(v, list):
                 continue
-            task_blocks, _ = get_task_blocks(task_dict_list=v)
+            jsonpath_prefix = f".plays.{index}.pre_tasks"
+            task_blocks, _ = get_task_blocks(task_dict_list=v, jsonpath_prefix=jsonpath_prefix)
             if task_blocks is None:
                 continue
             last_task_line_num = -1
-            for task_dict in task_blocks:
+            for (task_dict, task_jsonpath) in task_blocks:
                 task_loading["total"] += 1
                 i = task_count
                 error = None
@@ -492,6 +495,7 @@ def load_play(
                         path=path,
                         index=i,
                         task_block_dict=task_dict,
+                        task_jsonpath=task_jsonpath,
                         role_name=role_name,
                         collection_name=collection_name,
                         collections_in_play=collections_in_play,
@@ -524,11 +528,12 @@ def load_play(
         elif k == "tasks":
             if not isinstance(v, list):
                 continue
-            task_blocks, _ = get_task_blocks(task_dict_list=v)
+            jsonpath_prefix = f".plays.{index}.tasks"
+            task_blocks, _ = get_task_blocks(task_dict_list=v, jsonpath_prefix=jsonpath_prefix)
             if task_blocks is None:
                 continue
             last_task_line_num = -1
-            for task_dict in task_blocks:
+            for (task_dict, task_jsonpath) in task_blocks:
                 i = task_count
                 task_loading["total"] += 1
                 error = None
@@ -537,6 +542,7 @@ def load_play(
                         path=path,
                         index=i,
                         task_block_dict=task_dict,
+                        task_jsonpath=task_jsonpath,
                         role_name=role_name,
                         collection_name=collection_name,
                         collections_in_play=collections_in_play,
@@ -569,11 +575,12 @@ def load_play(
         elif k == "post_tasks":
             if not isinstance(v, list):
                 continue
-            task_blocks, _ = get_task_blocks(task_dict_list=v)
+            jsonpath_prefix = f".plays.{index}.post_tasks"
+            task_blocks, _ = get_task_blocks(task_dict_list=v, jsonpath_prefix=jsonpath_prefix)
             if task_blocks is None:
                 continue
             last_task_line_num = -1
-            for task_dict in task_blocks:
+            for (task_dict, task_jsonpath) in task_blocks:
                 i = task_count
                 task_loading["total"] += 1
                 error = None
@@ -582,6 +589,7 @@ def load_play(
                         path=path,
                         index=i,
                         task_block_dict=task_dict,
+                        task_jsonpath=task_jsonpath,
                         role_name=role_name,
                         collection_name=collection_name,
                         collections_in_play=collections_in_play,
@@ -614,11 +622,12 @@ def load_play(
         elif k == "handlers":
             if not isinstance(v, list):
                 continue
-            task_blocks, _ = get_task_blocks(task_dict_list=v)
+            jsonpath_prefix = f".plays.{index}.handlers"
+            task_blocks, _ = get_task_blocks(task_dict_list=v, jsonpath_prefix=jsonpath_prefix)
             if task_blocks is None:
                 continue
             last_task_line_num = -1
-            for task_dict in task_blocks:
+            for (task_dict, task_jsonpath) in task_blocks:
                 i = task_count
                 task_loading["total"] += 1
                 error = None
@@ -627,6 +636,7 @@ def load_play(
                         path=path,
                         index=i,
                         task_block_dict=task_dict,
+                        task_jsonpath=task_jsonpath,
                         role_name=role_name,
                         collection_name=collection_name,
                         collections_in_play=collections_in_play,
@@ -1450,6 +1460,7 @@ def load_task(
     path,
     index,
     task_block_dict,
+    task_jsonpath="",
     role_name="",
     collection_name="",
     collections_in_play=[],
@@ -1502,6 +1513,7 @@ def load_task(
         else:
             task_options.update({k: v})
 
+    taskObj.jsonpath = task_jsonpath
     taskObj.set_yaml_lines(
         fullpath=fullpath,
         yaml_lines=yaml_lines,
@@ -1510,6 +1522,7 @@ def load_task(
         module_options=module_options,
         task_options=task_options,
         previous_task_line=previous_task_line,
+        jsonpath=task_jsonpath,
     )
 
     # module_options can be passed as a string like below
@@ -1672,7 +1685,7 @@ def load_taskfile(path, yaml_str="", role_name="", collection_name="", basedir="
         "errors": [],
     }
     last_task_line_num = -1
-    for i, t_dict in enumerate(task_dicts):
+    for i, (t_dict, t_jsonpath) in enumerate(task_dicts):
         task_loading["total"] += 1
         error = None
         try:
@@ -1680,6 +1693,7 @@ def load_taskfile(path, yaml_str="", role_name="", collection_name="", basedir="
                 fullpath,
                 i,
                 t_dict,
+                t_jsonpath,
                 role_name,
                 collection_name,
                 yaml_lines=yaml_lines,
