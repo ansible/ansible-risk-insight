@@ -1,0 +1,33 @@
+---
+- name: Copy Apache configuration file over and restart httpd
+  hosts: all
+  tasks:
+    - name: Copy Apache configuration file over
+      copy:
+        src: /etc/httpd/conf/httpd.conf
+        dest: /etc/httpd/conf/httpd.conf.bak
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0644"
+    - name: Restart httpd
+      service:
+        name: httpd
+        state: restarted
+      notify: Restart httpd
+  handlers:
+    - name: Restart httpd
+      service:
+        name: httpd
+        state: restarted
+- name: aaa
+  hosts: all
+  tasks:
+    # identical task to the last task in the previous play
+    # line_num should be [28, 32], not [13, 17]
+    - name: Restart httpd
+      service:
+        name: httpd
+        state: restarted
+      notify: Restart httpd
+...
