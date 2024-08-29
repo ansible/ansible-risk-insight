@@ -59,16 +59,34 @@ def test_scanner_with_role(type, name):
     assert result.detail["executed_file"][0] == "/etc/install.sh"
 
 
-def _scan(type, name):
+@pytest.mark.parametrize("type, name", [("playbook", "test/testdata/files/test_line_number.yml")])
+def test_scanner_line_number_detection(type, name):
+    ari_result, _ = _scan(type=type, name=name, playbook_only=True)
+    assert ari_result
+    playbook_result = ari_result.playbook(path=name)
+    assert playbook_result
+    task_results = playbook_result.tasks()
+    expected_line_numbers = [[5, 12], [13, 17], [19, 22], [28, 32]]
+    for i, task_result in enumerate(task_results.nodes):
+        assert task_result.node.spec.line_num_in_file
+        detected = task_result.node.spec.line_num_in_file
+        assert len(detected) == 2
+        expected = expected_line_numbers[i]
+        assert detected == expected
+
+
+def _scan(type, name, **kwargs):
+    if not kwargs:
+        kwargs = {}
+    kwargs["type"] = type
+    kwargs["name"] = name
+
     s = ARIScanner(
         root_dir=config.data_dir,
         use_ansible_doc=False,
         read_ram=False,
         write_ram=False,
     )
-    ari_result = s.evaluate(
-        type=type,
-        name=name,
-    )
+    ari_result = s.evaluate(**kwargs)
     scandata = s.get_last_scandata()
     return ari_result, scandata

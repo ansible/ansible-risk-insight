@@ -44,6 +44,9 @@ from .utils import (
     equal,
     recursive_copy_dict,
 )
+from .finder import (
+    identify_lines_with_jsonpath,
+)
 
 
 class PlaybookFormatError(Exception):
@@ -1100,6 +1103,7 @@ class Task(Object, Resolvable):
 
     yaml_lines: str = ""
     line_num_in_file: list = field(default_factory=list)  # [begin, end]
+    jsonpath: str = ""
 
     # FQCN for Module and Role. Or a file path for TaskFile.  resolved later
     resolved_name: str = ""
@@ -1110,7 +1114,17 @@ class Task(Object, Resolvable):
     module_info: dict = field(default_factory=dict)
     include_info: dict = field(default_factory=dict)
 
-    def set_yaml_lines(self, fullpath="", yaml_lines="", task_name="", module_name="", module_options=None, task_options=None, previous_task_line=-1):
+    def set_yaml_lines(
+        self,
+        fullpath="",
+        yaml_lines="",
+        task_name="",
+        module_name="",
+        module_options=None,
+        task_options=None,
+        previous_task_line=-1,
+        jsonpath="",
+    ):
         if not task_name and not module_options:
             return
 
@@ -1119,6 +1133,13 @@ class Task(Object, Resolvable):
             lines = yaml_lines.splitlines()
         else:
             lines = open(fullpath, "r").read().splitlines()
+
+        if jsonpath:
+            found_yaml, line_num = identify_lines_with_jsonpath(fpath=fullpath, yaml_str=yaml_lines, jsonpath=jsonpath)
+            if found_yaml and line_num:
+                self.yaml_lines = found_yaml
+                self.line_num_in_file = list(line_num)
+                return
 
         # search candidates that match either of the following conditions
         #   - task name is included in the line
@@ -1269,6 +1290,12 @@ class Task(Object, Resolvable):
                     _indent = len(_line.split("-")[0])
                 elif is_when_at_same_indent:
                     _indent = len(_line.split("when")[0])
+                if _indent <= indent_of_block:
+                    end_found = True
+                    end_line_num = index - 1
+                    break
+            else:
+                _indent = len(_line) - len(_line.lstrip())
                 if _indent <= indent_of_block:
                     end_found = True
                     end_line_num = index - 1
@@ -1577,6 +1604,7 @@ class MutableContent(object):
             path=self._task_spec.defined_in,
             index=self._task_spec.index,
             task_block_dict=new_dict,
+            task_jsonpath=self._task_spec.jsonpath,
             role_name=self._task_spec.role,
             collection_name=self._task_spec.collection,
             collections_in_play=self._task_spec.collections_in_play,
@@ -1995,6 +2023,8 @@ class Play(Object, Resolvable):
     become: BecomeInfo = None
     variables: dict = field(default_factory=dict)
     vars_files: list = field(default_factory=list)
+
+    jsonpath: str = ""
 
     task_loading: dict = field(default_factory=dict)
 
