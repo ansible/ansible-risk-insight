@@ -95,7 +95,7 @@ class RiskAssessmentModelGenerator(object):
         if self._parallel:
             joblib.Parallel(n_jobs=-1)(joblib.delayed(self.scan)(i, num, _type, _name) for (i, num, _type, _name) in input_list)
         else:
-            for (i, num, _type, _name) in input_list:
+            for i, num, _type, _name in input_list:
                 self.scan(i, num, _type, _name)
 
     def scan(self, i, num, type, name):

@@ -304,9 +304,7 @@ class FormattedYAML(YAML):
             data = self.load_all(stream=text)
         except ParserError as ex:
             data = None
-            logger.error(  # noqa: TRY400
-                "Invalid yaml, verify the file contents and try again. %s", ex
-            )
+            logger.error("Invalid yaml, verify the file contents and try again. %s", ex)  # noqa: TRY400
         except Exception as ex:
             print(ex)
         if preamble_comment is not None and isinstance(
@@ -431,7 +429,5 @@ class FormattedYAML(YAML):
                 # got an empty list item. drop any trailing spaces.
                 lines[i] = line.rstrip() + "\n"
 
-        text = "".join(
-            FormattedEmitter.drop_octothorpe_protection(line) for line in lines
-        )
+        text = "".join(FormattedEmitter.drop_octothorpe_protection(line) for line in lines)
         return text

@@ -116,7 +116,7 @@ class TreeNode(object):
             return n, parent_keys
         parent_keys.add(node_key)
         new_parent_keys = parent_keys.copy()
-        for (src_key, dst_key) in src_dst_array:
+        for src_key, dst_key in src_dst_array:
             children_keys = []
             if node_key == src_key:
                 children_keys.append(dst_key)

@@ -394,7 +394,7 @@ def load_files(path, basedir="", yaml_label_list=None, role_name="", collection_
         return []
 
     files = []
-    for (fpath, label, role_info) in yaml_label_list:
+    for fpath, label, role_info in yaml_label_list:
         if not fpath:
             continue
         if not label:
@@ -486,7 +486,7 @@ def load_play(
             if task_blocks is None:
                 continue
             last_task_line_num = -1
-            for (task_dict, task_jsonpath) in task_blocks:
+            for task_dict, task_jsonpath in task_blocks:
                 task_loading["total"] += 1
                 i = task_count
                 error = None
@@ -533,7 +533,7 @@ def load_play(
             if task_blocks is None:
                 continue
             last_task_line_num = -1
-            for (task_dict, task_jsonpath) in task_blocks:
+            for task_dict, task_jsonpath in task_blocks:
                 i = task_count
                 task_loading["total"] += 1
                 error = None
@@ -580,7 +580,7 @@ def load_play(
             if task_blocks is None:
                 continue
             last_task_line_num = -1
-            for (task_dict, task_jsonpath) in task_blocks:
+            for task_dict, task_jsonpath in task_blocks:
                 i = task_count
                 task_loading["total"] += 1
                 error = None
@@ -627,7 +627,7 @@ def load_play(
             if task_blocks is None:
                 continue
             last_task_line_num = -1
-            for (task_dict, task_jsonpath) in task_blocks:
+            for task_dict, task_jsonpath in task_blocks:
                 i = task_count
                 task_loading["total"] += 1
                 error = None
@@ -872,10 +872,11 @@ def load_playbooks(
         patterns.append(os.path.join(path, "tests/**/*.ya?ml"))
         patterns.append(os.path.join(path, "molecule/**/*.ya?ml"))
     candidates = safe_glob(patterns, recursive=True)
+    candidates = [(c, False) for c in candidates]
 
     # add files if yaml_label_list is given
     if yaml_label_list:
-        for (fpath, label, role_info) in yaml_label_list:
+        for fpath, label, role_info in yaml_label_list:
             if label == "playbook":
                 # if it is a playbook in role, it should be scanned by load_role
                 if role_info:
@@ -885,17 +886,21 @@ def load_playbooks(
                 if not _fpath.startswith(basedir):
                     _fpath = os.path.join(basedir, fpath)
                 if _fpath not in candidates:
-                    candidates.append(_fpath)
+                    candidates.append((_fpath, True))
 
     playbooks = []
     playbook_names = []
-    candidates = sorted(list(set(candidates)))
-    for fpath in candidates:
+    candidates = sorted(candidates, key=lambda x: x[0])
+    loaded = set()
+    for fpath, from_list in candidates:
+        if fpath in loaded:
+            continue
+
         if could_be_playbook(fpath=fpath) and could_be_playbook_detail(fpath=fpath):
             relative_path = ""
             if fpath.startswith(path):
                 relative_path = fpath[len(path) :]
-            if "/roles/" in relative_path:
+            if "/roles/" in relative_path and not from_list:
                 continue
             p = None
             try:
@@ -920,6 +925,7 @@ def load_playbooks(
                 else:
                     playbooks.append(p.defined_in)
                     playbook_names.append(p.defined_in)
+                loaded.add(fpath)
     if not load_children:
         playbooks = sorted(playbooks)
     return playbooks
@@ -1192,10 +1198,33 @@ def load_roles(
         if found_roles:
             roles_dir_path = found_roles[0]
 
+    def is_role_dir(found_dirs: list) -> bool:
+        # From ansible role doc
+        # if none of the following dirs are found, we don't treat it as a role dir
+        role_dir_patterns = set(
+            [
+                "tasks",
+                "handlers",
+                "templates",
+                "files",
+                "vars",
+                "defaults",
+                "meta",
+                "library",
+                "module_utils",
+                "lookup_plugins",
+            ]
+        )
+        return len(role_dir_patterns.intersection(set(found_dirs))) > 0
+
     role_dirs = []
     if roles_dir_path:
-        dirs = os.listdir(roles_dir_path)
-        role_dirs = [os.path.join(roles_dir_path, dir_name) for dir_name in dirs]
+        dirs = sorted(os.listdir(roles_dir_path))
+        for dir_name in dirs:
+            candidate = os.path.join(roles_dir_path, dir_name)
+            dirs_in_cand = os.listdir(candidate)
+            if is_role_dir(dirs_in_cand):
+                role_dirs.append(candidate)
 
     if include_test_contents:
         test_targets_dir = os.path.join(path, "tests/integration/targets")
@@ -1215,7 +1244,7 @@ def load_roles(
 
     # add role dirs if yaml_label_list is given
     if yaml_label_list:
-        for (fpath, label, role_info) in yaml_label_list:
+        for fpath, label, role_info in yaml_label_list:
             if role_info and isinstance(role_info, dict):
                 role_path = role_info.get("path", "")
                 _role_path = role_path
@@ -1734,12 +1763,10 @@ def load_taskfiles(path, basedir="", yaml_label_list=None, load_children=True):
         return []
 
     taskfile_paths = search_taskfiles_for_playbooks(path)
-    if len(taskfile_paths) == 0:
-        return []
 
     # add files if yaml_label_list is given
     if yaml_label_list:
-        for (fpath, label, role_info) in yaml_label_list:
+        for fpath, label, role_info in yaml_label_list:
             if label == "taskfile":
                 # if it is a taskfile in role, it should be scanned by load_role
                 if role_info:
@@ -1750,6 +1777,9 @@ def load_taskfiles(path, basedir="", yaml_label_list=None, load_children=True):
                     _fpath = os.path.join(path, fpath)
                 if _fpath not in taskfile_paths:
                     taskfile_paths.append(_fpath)
+
+    if len(taskfile_paths) == 0:
+        return []
 
     taskfiles = []
     for taskfile_path in taskfile_paths:

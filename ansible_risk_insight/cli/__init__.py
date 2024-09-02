@@ -26,7 +26,7 @@ from ..utils import (
     get_role_metadata,
     split_name_and_version,
 )
-from ..finder import list_scan_target, update_the_yaml_target
+from ..finder import list_scan_target, update_the_yaml_target, get_yml_list
 import ansible_risk_insight.logger as logger
 
 
@@ -72,9 +72,7 @@ class ARICLI:
             help="if true, do scanning per playbook, role or taskfile (this reduces memory usage while scanning)",
         )
         parser.add_argument(
-            "--fix",
-            action="store_true",
-            help="if true, fix the scanned playbook after performing the inpline replace with ARI suggestions"
+            "--fix", action="store_true", help="if true, fix the scanned playbook after performing the inpline replace with ARI suggestions"
         )
         parser.add_argument(
             "--task-num-threshold",
@@ -230,28 +228,28 @@ class ARICLI:
                         logger.debug("ARI suggestion file path: %s", ari_suggestion_file_path)
                         with open(ari_suggestion_file_path) as f:
                             ari_suggestion_data = json.load(f)
-                            targets = ari_suggestion_data['targets']
+                            targets = ari_suggestion_data["targets"]
                             for i in reversed(range(len(targets))):
                                 logger.debug("Nodes dir number: %s", i)
-                                nodes = targets[i]['nodes']
+                                nodes = targets[i]["nodes"]
                                 line_number_list = []
                                 mutated_yaml_list = []
-                                target_file_path = ''
-                                temp_file_path = ''
+                                target_file_path = ""
+                                temp_file_path = ""
                                 for j in range(1, len(nodes)):
-                                    node_rules = nodes[j]['rules']
+                                    node_rules = nodes[j]["rules"]
                                     for k in reversed(range(len(node_rules))):  # loop through from rule 11, as that has the mutation
                                         w007_rule = node_rules[k]
-                                        if (w007_rule['rule']['rule_id']).lower() == 'w007':
-                                            if not w007_rule.get('verdict') and w007_rule:
+                                        if (w007_rule["rule"]["rule_id"]).lower() == "w007":
+                                            if not w007_rule.get("verdict") and w007_rule:
                                                 break
-                                            mutated_yaml = w007_rule['detail']['mutated_yaml']
-                                            if mutated_yaml == '':
+                                            mutated_yaml = w007_rule["detail"]["mutated_yaml"]
+                                            if mutated_yaml == "":
                                                 break
                                             temp_data = index_data[each]
-                                            if w007_rule['file'][0] not in temp_data:
-                                                target_file_path = os.path.join(args.target_name, temp_data, w007_rule['file'][0])
-                                                if temp_file_path != '' and target_file_path != temp_file_path:
+                                            if w007_rule["file"][0] not in temp_data:
+                                                target_file_path = os.path.join(args.target_name, temp_data, w007_rule["file"][0])
+                                                if temp_file_path != "" and target_file_path != temp_file_path:
                                                     update_the_yaml_target(target_file_path, line_number_list, mutated_yaml_list)
                                                     line_number_list = []
                                                     mutated_yaml_list = []
@@ -259,17 +257,17 @@ class ARICLI:
                                                 temp_file_path = target_file_path
                                             else:
                                                 target_file_path = os.path.join(args.target_name, temp_data)
-                                                if temp_file_path != '' and target_file_path != temp_file_path:
+                                                if temp_file_path != "" and target_file_path != temp_file_path:
                                                     update_the_yaml_target(target_file_path, line_number_list, mutated_yaml_list)
                                                     line_number_list = []
                                                     mutated_yaml_list = []
                                                 mutated_yaml_list.append(mutated_yaml)
                                                 temp_file_path = target_file_path
-                                            line_number = w007_rule['file'][1]
+                                            line_number = w007_rule["file"][1]
                                             line_number_list.append(line_number)
                                             break  # w007 rule with mutated yaml is processed, breaking out of iteration
                                 try:
-                                    if target_file_path == '' or not mutated_yaml_list or not line_number_list:
+                                    if target_file_path == "" or not mutated_yaml_list or not line_number_list:
                                         continue
                                     update_the_yaml_target(target_file_path, line_number_list, mutated_yaml_list)
                                 except Exception as ex:
@@ -280,6 +278,8 @@ class ARICLI:
             root_install = not args.skip_install
             if not silent and not pretty:
                 print("Start scanning")
+            _yml_list = get_yml_list(target_name)
+            yaml_label_list = [(x["filepath"], x["label"], x["role_info"]) for x in _yml_list]
             c.evaluate(
                 type=args.target_type,
                 name=target_name,
@@ -294,6 +294,7 @@ class ARICLI:
                 include_test_contents=args.include_tests,
                 load_all_taskfiles=load_all_taskfiles,
                 save_only_rule_result=save_only_rule_result,
+                yaml_label_list=yaml_label_list,
                 objects=args.objects,
                 out_dir=args.out_dir,
             )

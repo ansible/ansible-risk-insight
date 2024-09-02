@@ -33,7 +33,7 @@ class SampleRule(Rule):
     name: str = "EchoTaskContent"
     version: str = "v0.0.1"
     severity: Severity = Severity.NONE
-    tags: tuple = ("sample")
+    tags: tuple = "sample"
 
     def match(self, ctx: AnsibleRunContext) -> bool:
         # specify targets to be checked
