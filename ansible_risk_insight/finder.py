@@ -37,6 +37,7 @@ from .awx_utils import could_be_playbook, search_playbooks
 
 fqcn_module_name_re = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+\.[a-z0-9_]+$")
 module_name_re = re.compile(r"^[a-z0-9_.]+$")
+taskfile_path_in_role_re = r".*roles/[^/]+/(tasks|handlers)/.*\.ya?ml"
 
 module_dir_patterns = [
     "library",
@@ -417,7 +418,7 @@ def find_module_dirs(role_root_dir):
     return module_dirs
 
 
-def search_taskfiles_for_playbooks(path, taskfile_dir_paths=[]):
+def search_taskfiles_for_playbooks(path, taskfile_dir_paths: list = []):
     # must copy the input here; otherwise, the added items are kept forever
     search_targets = [p for p in taskfile_dir_paths]
     for playbook_taskfile_dir_pattern in playbook_taskfile_dir_patterns:
@@ -428,7 +429,7 @@ def search_taskfiles_for_playbooks(path, taskfile_dir_paths=[]):
         found = safe_glob(patterns, recursive=True)
         for f in found:
             # taskfiles in role will be loaded when the role is loaded, so skip
-            if "/roles/" in f:
+            if re.match(taskfile_path_in_role_re, f):
                 continue
             # if it is a playbook, skip it
             if could_be_playbook(f):
@@ -701,6 +702,12 @@ def get_role_info_from_path(fpath: str):
 
                     _path = relative_path.rsplit(_target, 1)[0]
                     role_name = _path.split("/")[-1]
+
+                    # if the path is something like "xxxx/roles/tasks"
+                    # it is not an actual role, so skip it
+                    if role_name == p.strip("/"):
+                        continue
+
                     role_path = os.path.join(parent_dir, _path)
                     found = True
                     break
@@ -951,8 +958,8 @@ def check_and_add_diff_lines(start_line, stop_line, lines, data_copy):
 
 def check_diff_and_copy_olddata_to_newdata(line_number_list, lines, new_data):
     """
-        Function to find the old lines which weren't mutated by ARI rules,
-        it need to be copied to new content as is
+    Function to find the old lines which weren't mutated by ARI rules,
+    it need to be copied to new content as is
     """
     if line_number_list and isinstance(line_number_list, list):
         new_content_last_set = line_number_list[-1]
@@ -965,12 +972,12 @@ def check_diff_and_copy_olddata_to_newdata(line_number_list, lines, new_data):
 
 def update_and_append_new_line(new_line, old_line, leading_spaces, data_copy):
     """
-        Function to get the leading space for the new ARI mutated line, with
-        its equivaltent old line with space similar to the old line
+    Function to get the leading space for the new ARI mutated line, with
+    its equivaltent old line with space similar to the old line
     """
     line_with_adjusted_space = update_line_with_space(new_line, old_line, leading_spaces)
     data_copy.append(line_with_adjusted_space)
-    return ''
+    return ""
 
 
 def update_the_yaml_target(file_path, line_number_list, new_content_list):
@@ -1005,7 +1012,7 @@ def update_the_yaml_target(file_path, line_number_list, new_content_list):
             temp_content = []
             start = start_line_number - 1
             end = stop_line_number - 1
-            data_copy.append('\n')
+            data_copy.append("\n")
             for i in range(start, end):
                 line_number = i
                 if len(lines) == i:
@@ -1027,15 +1034,15 @@ def update_the_yaml_target(file_path, line_number_list, new_content_list):
                         lines[line_number] = " " * leading_spaces + new_line_content
                         data_copy.append(lines[line_number])
                     else:
-                        new_line_key = new_line_content.split(':')
-                        new_key = new_line_key[0].strip(' ')
+                        new_line_key = new_line_content.split(":")
+                        new_key = new_line_key[0].strip(" ")
                         for k in range(start, end):
                             if k < len(lines):
                                 old_line_key = lines[k].split(":")
                                 if "---" in old_line_key[0]:
                                     continue
-                                old_key = old_line_key[0].strip(' ')
-                                if '-' in old_line_key[0] and ':' not in lines[k] and '-' in new_key:
+                                old_key = old_line_key[0].strip(" ")
+                                if "-" in old_line_key[0] and ":" not in lines[k] and "-" in new_key:
                                     # diff_in_lines = len(lines) - len(new_lines)
                                     leading_spaces = len(lines[k]) - len(lines[k].lstrip())
                                     if diff_in_lines > len(lines):
@@ -1052,10 +1059,10 @@ def update_the_yaml_target(file_path, line_number_list, new_content_list):
                                 elif old_key == new_key:
                                     new_line_content = update_and_append_new_line(new_line_content, lines[k], 0, data_copy)
                                     break
-                                elif old_key.rstrip('\n') == new_key:
+                                elif old_key.rstrip("\n") == new_key:
                                     new_line_content = update_and_append_new_line(new_line_content, lines[k], 0, data_copy)
                                     break
-                                elif old_key.rstrip('\n') in new_key.split('.'):
+                                elif old_key.rstrip("\n") in new_key.split("."):
                                     new_line_content = update_and_append_new_line(new_line_content, lines[k], 0, data_copy)
                                     break
                         if new_line_content:  # if there wasn't a match with old line, so this seems updated by ARI and added to w/o any change

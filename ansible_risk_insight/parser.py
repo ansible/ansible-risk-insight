@@ -360,7 +360,7 @@ class Parser:
             try:
                 label = "others"
                 if ld.yaml_label_list:
-                    for (_fpath, _label, _) in ld.yaml_label_list:
+                    for _fpath, _label, _ in ld.yaml_label_list:
                         if _fpath == file_path:
                             label = _label
                 f = load_file(
