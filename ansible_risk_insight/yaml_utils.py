@@ -3,11 +3,16 @@
 # pylint: disable=too-many-lines
 from __future__ import annotations
 
+import functools
+import re
+from collections.abc import Callable, Iterator, Sequence
 from io import StringIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-import re
-from ruamel.yaml.comments import CommentedMap, CommentedSeq
+from re import Pattern
+from typing import TYPE_CHECKING, Any, cast
+
+import ruamel.yaml.events
+from ruamel.yaml.comments import CommentedMap, CommentedSeq, Format
 from ruamel.yaml.composer import ComposerError
 from ruamel.yaml.constructor import RoundTripConstructor
 from ruamel.yaml.emitter import Emitter
@@ -17,6 +22,10 @@ from ruamel.yaml.emitter import Emitter
 from ruamel.yaml.main import YAML
 from ruamel.yaml.parser import ParserError
 from ruamel.yaml.scalarint import HexInt, ScalarInt
+from ansiblelint.constants import (
+    ANNOTATION_KEYS
+)
+from ansiblelint.utils import Task
 import ansible_risk_insight.logger as logger
 
 
@@ -25,6 +34,120 @@ if TYPE_CHECKING:
     from ruamel.yaml.compat import StreamTextType
     from ruamel.yaml.nodes import ScalarNode
     from ruamel.yaml.representer import RoundTripRepresenter
+    from ruamel.yaml.tokens import CommentToken
+
+
+def nested_items_path(
+    data_collection: dict[Any, Any] | list[Any],
+    ignored_keys: Sequence[str] = (),
+) -> Iterator[tuple[Any, Any, list[str | int]]]:
+    """Iterate a nested data structure, yielding key/index, value, and parent_path.
+
+    This is a recursive function that calls itself for each nested layer of data.
+    Each iteration yields:
+
+    1. the current item's dictionary key or list index,
+    2. the current item's value, and
+    3. the path to the current item from the outermost data structure.
+
+    For dicts, the yielded (1) key and (2) value are what ``dict.items()`` yields.
+    For lists, the yielded (1) index and (2) value are what ``enumerate()`` yields.
+    The final component, the parent path, is a list of dict keys and list indexes.
+    The parent path can be helpful in providing error messages that indicate
+    precisely which part of a yaml file (or other data structure) needs to be fixed.
+
+    For example, given this playbook:
+
+    .. code-block:: yaml
+
+        - name: A play
+          tasks:
+          - name: A task
+            debug:
+              msg: foobar
+
+    Here's the first and last yielded items:
+
+    .. code-block:: python
+
+        >>> playbook=[{"name": "a play", "tasks": [{"name": "a task", "debug": {"msg": "foobar"}}]}]
+        >>> next( nested_items_path( playbook ) )
+        (0, {'name': 'a play', 'tasks': [{'name': 'a task', 'debug': {'msg': 'foobar'}}]}, [])
+        >>> list( nested_items_path( playbook ) )[-1]
+        ('msg', 'foobar', [0, 'tasks', 0, 'debug'])
+
+    Note that, for outermost data structure, the parent path is ``[]`` because
+    you do not need to descend into any nested dicts or lists to find the indicated
+    key and value.
+
+    If a rule were designed to prohibit "foobar" debug messages, it could use the
+    parent path to provide a path to the problematic ``msg``. It might use a jq-style
+    path in its error message: "the error is at ``.[0].tasks[0].debug.msg``".
+    Or if a utility could automatically fix issues, it could use the path to descend
+    to the parent object using something like this:
+
+    .. code-block:: python
+
+        target = data
+        for segment in parent_path:
+            target = target[segment]
+
+    :param data_collection: The nested data (dicts or lists).
+
+    :returns: each iteration yields the key (of the parent dict) or the index (lists)
+    """
+    # As typing and mypy cannot effectively ensure we are called only with
+    # valid data, we better ignore NoneType
+    if data_collection is None:
+        return
+    data: dict[Any, Any] | list[Any]
+    if isinstance(data_collection, Task):
+        data = data_collection.normalized_task
+    else:
+        data = data_collection
+    yield from _nested_items_path(
+        data_collection=data,
+        parent_path=[],
+        ignored_keys=ignored_keys,
+    )
+
+
+def _nested_items_path(
+    data_collection: dict[Any, Any] | list[Any],
+    parent_path: list[str | int],
+    ignored_keys: Sequence[str] = (),
+) -> Iterator[tuple[Any, Any, list[str | int]]]:
+    """Iterate through data_collection (internal implementation of nested_items_path).
+
+    This is a separate function because callers of nested_items_path should
+    not be using the parent_path param which is used in recursive _nested_items_path
+    calls to build up the path to the parent object of the current key/index, value.
+    """
+    # we have to cast each convert_to_tuples assignment or mypy complains
+    # that both assignments (for dict and list) do not have the same type
+    convert_to_tuples_type = Callable[[], Iterator[tuple[str | int, Any]]]
+    if isinstance(data_collection, dict):
+        convert_data_collection_to_tuples = cast(
+            convert_to_tuples_type,
+            functools.partial(data_collection.items),
+        )
+    elif isinstance(data_collection, list):
+        convert_data_collection_to_tuples = cast(
+            convert_to_tuples_type,
+            functools.partial(enumerate, data_collection),
+        )
+    else:
+        msg = f"Expected a dict or a list but got {data_collection!r} of type '{type(data_collection)}'"
+        raise TypeError(msg)
+    for key, value in convert_data_collection_to_tuples():
+        if key in (*ANNOTATION_KEYS, *ignored_keys):
+            continue
+        yield key, value, parent_path
+        if isinstance(value, dict | list):
+            yield from _nested_items_path(
+                data_collection=value,
+                parent_path=[*parent_path, key],
+            )
 
 
 class OctalIntYAML11(ScalarInt):
@@ -128,6 +251,76 @@ class FormattedEmitter(Emitter):
     _root_is_sequence = False
 
     _in_empty_flow_map = False
+
+    # "/n/n" results in one blank line (end the previous line, then newline).
+    # So, "/n/n/n" or more is too many new lines. Clean it up.
+    _re_repeat_blank_lines: Pattern[str] = re.compile(r"\n{3,}")
+
+    @staticmethod
+    def drop_octothorpe_protection(string: str) -> str:
+        """Remove string protection of "#" after full-line-comment post-processing."""
+        try:
+            if "\uFF03#\uFE5F" in string:
+                # # is \uFF03 (fullwidth number sign)
+                # ﹟ is \uFE5F (small number sign)
+                string = string.replace("\uFF03#\uFE5F", "#")
+        except (ValueError, TypeError):
+            # probably not really a string. Whatever.
+            pass
+        return string
+
+    # comment is a CommentToken, not Any (Any is ruamel.yaml's lazy type hint).
+    def write_comment(
+        self,
+        comment: CommentToken,
+        pre: bool = False,  # noqa: FBT002
+    ) -> None:
+        """Clean up extra new lines and spaces in comments.
+
+        ruamel.yaml treats new or empty lines as comments.
+        See: https://stackoverflow.com/questions/42708668/removing-all-blank-lines-but-not-comments-in-ruamel-yaml/42712747#42712747
+        """
+        value: str = comment.value
+        if (
+            pre
+            and not value.strip()
+            and not isinstance(
+                self.event,
+                ruamel.yaml.events.CollectionEndEvent
+                | ruamel.yaml.events.DocumentEndEvent
+                | ruamel.yaml.events.StreamEndEvent
+                | ruamel.yaml.events.MappingStartEvent,
+            )
+        ):
+            # drop pure whitespace pre comments
+            # does not apply to End events since they consume one of the newlines.
+            value = ""
+        elif (
+            pre
+            and not value.strip()
+            and isinstance(self.event, ruamel.yaml.events.MappingStartEvent)
+        ):
+            value = self._re_repeat_blank_lines.sub("", value)
+        elif pre:
+            # preserve content in pre comment with at least one newline,
+            # but no extra blank lines.
+            value = self._re_repeat_blank_lines.sub("\n", value)
+        else:
+            # single blank lines in post comments
+            value = self._re_repeat_blank_lines.sub("\n\n", value)
+        comment.value = value
+
+        # make sure that the eol comment only has one space before it.
+        if comment.column > self.column + 1 and not pre:
+            comment.column = self.column + 1
+
+        return super().write_comment(comment, pre)
+
+    def write_version_directive(self, version_text: Any) -> None:
+        """Skip writing '%YAML 1.1'."""
+        if version_text == "1.1":
+            return
+        super().write_version_directive(version_text)
 
 
 # pylint: disable=too-many-instance-attributes
@@ -304,9 +497,13 @@ class FormattedYAML(YAML):
             data = self.load_all(stream=text)
         except ParserError as ex:
             data = None
-            logger.error("Invalid yaml, verify the file contents and try again. %s", ex)  # noqa: TRY400
+            logger.error(  # noqa: TRY400
+                "Invalid yaml, verify the file contents and try again. %s", ex
+            )
         except Exception as ex:
-            print(ex)
+            logger.error(  # noqa: TRY400
+                "Yaml load failed with exception: %s", ex
+            )
         if preamble_comment is not None and isinstance(
             data,
             CommentedMap | CommentedSeq,
@@ -331,6 +528,48 @@ class FormattedYAML(YAML):
             text,
             strip_version_directive=strip_version_directive,
         )
+
+    def _prevent_wrapping_flow_style(self, data: Any) -> None:
+        if not isinstance(data, CommentedMap | CommentedSeq):
+            return
+        for key, value, parent_path in nested_items_path(data):
+            if not isinstance(value, CommentedMap | CommentedSeq):
+                continue
+            fa: Format = value.fa
+            if fa.flow_style():
+                predicted_indent = self._predict_indent_length(parent_path, key)
+                predicted_width = len(str(value))
+                if predicted_indent + predicted_width > self.width:
+                    # this flow-style map will probably get line-wrapped,
+                    # so, switch it to block style to avoid the line wrap.
+                    fa.set_block_style()
+
+    def _predict_indent_length(self, parent_path: list[str | int], key: Any) -> int:
+        indent = 0
+
+        # each parent_key type tells us what the indent is for the next level.
+        for parent_key in parent_path:
+            if isinstance(parent_key, int) and indent == 0:
+                # root level is a sequence
+                indent += self.sequence_dash_offset
+            elif isinstance(parent_key, int):
+                # next level is a sequence
+                indent += cast(int, self.sequence_indent)
+            elif isinstance(parent_key, str):
+                # next level is a map
+                indent += cast(int, self.map_indent)
+
+        if isinstance(key, int) and indent == 0:
+            # flow map is an item in a root-level sequence
+            indent += self.sequence_dash_offset
+        elif isinstance(key, int) and indent > 0:
+            # flow map is in a sequence
+            indent += cast(int, self.sequence_indent)
+        elif isinstance(key, str):
+            # flow map is in a map
+            indent += len(key + ": ")
+
+        return indent
 
     # ruamel.yaml only preserves empty (no whitespace) blank lines
     # (ie "/n/n" becomes "/n/n" but "/n  /n" becomes "/n").
@@ -429,5 +668,7 @@ class FormattedYAML(YAML):
                 # got an empty list item. drop any trailing spaces.
                 lines[i] = line.rstrip() + "\n"
 
-        text = "".join(FormattedEmitter.drop_octothorpe_protection(line) for line in lines)
+        text = "".join(
+            FormattedEmitter.drop_octothorpe_protection(line) for line in lines
+        )
         return text
