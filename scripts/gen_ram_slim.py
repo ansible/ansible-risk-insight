@@ -39,7 +39,7 @@ class RAMSlimGenerator:
         for i, f_json in enumerate(files):
             _name = f_json.split("/collections/findings/")[1].split("/")[0]
 
-            print(f"\r[{i+1}/{total}] {_name}            ", end="")
+            print(f"\r[{i + 1}/{total}] {_name}            ", end="")
 
             findings = Findings.load(fpath=f_json)
             if not findings:
