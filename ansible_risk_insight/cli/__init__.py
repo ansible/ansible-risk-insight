@@ -33,7 +33,6 @@ from ..finder import (
     get_yml_list,
     find_and_update_rules_modified
 )
-import ansible_risk_insight.logger as logger
 
 
 class ARICLI:
@@ -51,42 +50,44 @@ class ARICLI:
             help="enable file save under ARI_DATA_DIR (default=/tmp/ari-data)",
         )
         parser.add_argument("target_type", help="Content type",
-            choices={"project", "role", "collection", "playbook", "taskfile"})
+                            choices={"project", "role", "collection", "playbook", "taskfile"})
         parser.add_argument("target_name", help="Name")
         parser.add_argument("--playbook-only", action="store_true",
-            help="if true, don't load playbooks/roles arround the specified playbook")
+                            help="if true, don't load playbooks/roles around the specified playbook")
         parser.add_argument("--taskfile-only", action="store_true",
-            help="if true, don't load playbooks/roles arround the specified taskfile")
+                            help="if true, don't load playbooks/roles\
+                                around the specified taskfile")
         parser.add_argument(
             "--skip-isolated-taskfiles", action="store_true",
             help="if true, skip isolated (not imported/included) taskfiles from roles"
         )
         parser.add_argument("--skip-install", action="store_true",
-            help="if true, skip install for the specified target")
+                            help="if true, skip install for the specified target")
         parser.add_argument("--dependency-dir", nargs="?",
-            help="path to a directory that have dependencies for the target")
+                            help="path to a directory that have dependencies for the target")
         parser.add_argument("--collection-name", nargs="?",
-            help="if provided, use it as a collection name")
+                            help="if provided, use it as a collection name")
         parser.add_argument("--role-name", nargs="?",
-            help="if provided, use it as a role name")
+                            help="if provided, use it as a role name")
         parser.add_argument("--source",
-            help="source server name in ansible config file (if empty, use public ansible galaxy)")
+                            help="source server name in ansible config file\
+                                (if empty, use public ansible galaxy)")
         parser.add_argument("--without-ram", action="store_true",
-            help="if true, RAM data is not used and not even updated")
+                            help="if true, RAM data is not used and not even updated")
         parser.add_argument("--read-only-ram", action="store_true",
-            help="if true, RAM data is used but not updated")
+                            help="if true, RAM data is used but not updated")
         parser.add_argument("--read-ram-for-dependency", action="store_true",
-            help="if true, RAM data is used only for dependency")
+                            help="if true, RAM data is used only for dependency")
         parser.add_argument("--update-ram", action="store_true",
-            help="if true, RAM data is not used for scan but updated with the scan result")
+                            help="if true, RAM data is not used for scan but updated with the scan result")
         parser.add_argument("--include-tests", action="store_true",
-            help='if true, load test contents in "tests/integration/targets"')
+                            help='if true, load test contents in "tests/integration/targets"')
         parser.add_argument("--silent", action="store_true",
-            help='if true, do not print anything"')
+                            help='if true, do not print anything"')
         parser.add_argument("--objects", action="store_true",
-            help="if true, output objects.json to the output directory")
+                            help="if true, output objects.json to the output directory")
         parser.add_argument("--show-all", action="store_true",
-            help="if true, show findings even if missing dependencies are found")
+                            help="if true, show findings even if missing dependencies are found")
         parser.add_argument("--json", help="if specified, show findings in json format")
         parser.add_argument("--yaml", help="if specified, show findings in yaml format")
         parser.add_argument(
@@ -110,14 +111,14 @@ class ARICLI:
                 number of tasks exceeds this (default to 100)",
         )
         parser.add_argument("-o", "--out-dir",
-            help="output directory for the rule evaluation result")
+                            help="output directory for the rule evaluation result")
         parser.add_argument(
             "-r", "--rules-dir",
             help=f"specify custom rule directories.\
                 use `-R` instead to ignore default rules in {config.rules_dir}"
         )
         parser.add_argument("-R", "--rules-dir-without-default",
-            help="specify custom rule directories and ignore default rules")
+                            help="specify custom rule directories and ignore default rules")
         args = parser.parse_args()
         self.args = args
 
@@ -227,7 +228,7 @@ class ARICLI:
                 fpath_from_root = target_info["path_from_root"]
                 scan_type = target_info["scan_type"]
                 count_in_type = len(file_list[scan_type])
-                print(f"\r[{i+1}/{total}] {scan_type} {fpath_from_root}                 ", end="")
+                print(f"\r[{i + 1}/{total}] {scan_type} {fpath_from_root}                 ", end="")
                 out_dir = os.path.join(args.out_dir, f"{scan_type}s", str(count_in_type))
                 c.evaluate(
                     type=scan_type,
@@ -262,10 +263,7 @@ class ARICLI:
                     json.dump(index_data, file)
                 if args.fix:
                     for key, value in index_data.items():
-                        ari_suggestion_file_path = os.path.join(args.out_dir,
-                                f"{scan_type}s",
-                                str(key), "rule_result.json"
-                            )
+                        ari_suggestion_file_path = os.path.join(args.out_dir, f"{scan_type}s", str(key), "rule_result.json")
                         logger.debug("ARI suggestion file path: %s", ari_suggestion_file_path)
                         with open(ari_suggestion_file_path, encoding='utf-8') as f:
                             ari_suggestion_data = json.load(f)
