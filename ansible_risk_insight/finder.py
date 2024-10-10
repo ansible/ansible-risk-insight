@@ -353,9 +353,6 @@ def find_child_yaml_block(yaml_str: str, key: str = "", line_num_offset: int = -
             if new_block:
                 if line_buffer:
                     block_str = ""
-                    if isolated_line_buffer:
-                        block_str += "\n".join(isolated_line_buffer) + "\n"
-                        buffer_begin = 1
                     block_str += "\n".join(line_buffer)
                     begin = buffer_begin
                     end = line_num - 1
@@ -375,8 +372,6 @@ def find_child_yaml_block(yaml_str: str, key: str = "", line_num_offset: int = -
                     line_buffer.append(line)
         if line_buffer:
             block_str = ""
-            if isolated_line_buffer:
-                block_str += "\n".join(isolated_line_buffer) + "\n"
             block_str += "\n".join(line_buffer)
             begin = buffer_begin
             end = line_num
