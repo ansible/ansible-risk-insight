@@ -262,20 +262,30 @@ def identify_lines_with_jsonpath(fpath: str = "", yaml_str: str = "", jsonpath: 
                 blocks = find_child_yaml_block(current_lines, line_num_offset=current_line_num)
                 current_lines, line_num_tuple = blocks[p_num]
                 current_line_num = line_num_tuple[0]
-            except Exception:
-                print(p)
+            except Exception as e:
+                logger.debug(f"error occurred while detecting line number: {e}")
                 pass
     return current_lines, line_num_tuple
 
 
 def find_child_yaml_block(yaml_str: str, key: str = "", line_num_offset: int = -1) -> list:
-    skip_condition_funcs = [lambda x: x.strip().startswith("#"), lambda x: x.strip() == "---"]
+    skip_condition_funcs = [
+        # for YAML separator
+        lambda x: x.strip() == "---",
+        # for empty line
+        lambda x: x.strip() == "",
+        # for comment line
+        lambda x: x.strip().startswith("#"),
+    ]
 
     def match_condition_func(x):
         if key:
             return x.strip().startswith(f"{key}:")
         else:
             return x.strip().startswith("- ")
+
+    def is_yaml_end_separator(x):
+        return x.strip() == "..."
 
     def get_indent_level(x):
         return len(x) - len(x.lstrip())
@@ -331,34 +341,33 @@ def find_child_yaml_block(yaml_str: str, key: str = "", line_num_offset: int = -
         for i, line in enumerate(yaml_str.splitlines()):
             line_num = i + 1
             current_indent = get_indent_level(line)
-            if current_indent == top_level_indent:
-                new_block = False
-                if match_condition_func(line):
-                    skip = False
-                    for skip_cond_func in skip_condition_funcs:
-                        if skip_cond_func(line):
-                            skip = True
-                            break
-                    if not skip:
-                        new_block = True
-                if new_block:
-                    if line_buffer:
-                        block_str = ""
-                        if isolated_line_buffer:
-                            block_str += "\n".join(isolated_line_buffer)
-                            buffer_begin = 1
-                        block_str += "\n".join(line_buffer)
-                        begin = buffer_begin
-                        end = line_num - 1
-                        if line_num_offset > 0:
-                            begin += line_num_offset - 1
-                            end += line_num_offset - 1
-                        line_num_tuple = (begin, end)
-                        blocks.append((block_str, line_num_tuple))
-                        line_buffer = []
-                        isolated_line_buffer = []
-                    buffer_begin = line_num
-                    line_buffer.append(line)
+            new_block = False
+            if current_indent == top_level_indent and match_condition_func(line):
+                skip = False
+                for skip_cond_func in skip_condition_funcs:
+                    if skip_cond_func(line):
+                        skip = True
+                        break
+                if not skip:
+                    new_block = True
+            if new_block:
+                if line_buffer:
+                    block_str = ""
+                    if isolated_line_buffer:
+                        block_str += "\n".join(isolated_line_buffer) + "\n"
+                        buffer_begin = 1
+                    block_str += "\n".join(line_buffer)
+                    begin = buffer_begin
+                    end = line_num - 1
+                    if line_num_offset > 0:
+                        begin += line_num_offset - 1
+                        end += line_num_offset - 1
+                    line_num_tuple = (begin, end)
+                    blocks.append((block_str, line_num_tuple))
+                    line_buffer = []
+                    isolated_line_buffer = []
+                buffer_begin = line_num
+                line_buffer.append(line)
             else:
                 if buffer_begin < 0:
                     isolated_line_buffer.append(line)
@@ -367,10 +376,12 @@ def find_child_yaml_block(yaml_str: str, key: str = "", line_num_offset: int = -
         if line_buffer:
             block_str = ""
             if isolated_line_buffer:
-                block_str += "\n".join(isolated_line_buffer)
+                block_str += "\n".join(isolated_line_buffer) + "\n"
             block_str += "\n".join(line_buffer)
             begin = buffer_begin
             end = line_num
+            if is_yaml_end_separator(line_buffer[-1]):
+                end = line_num - 1
             if line_num_offset > 0:
                 begin += line_num_offset - 1
                 end += line_num_offset - 1

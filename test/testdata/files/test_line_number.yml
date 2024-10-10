@@ -1,5 +1,6 @@
 ---
 - name: Copy Apache configuration file over and restart httpd
+
   hosts: all
   tasks:
     - name: Copy Apache configuration file over

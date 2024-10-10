@@ -66,7 +66,7 @@ def test_scanner_line_number_detection(type, name):
     playbook_result = ari_result.playbook(path=name)
     assert playbook_result
     task_results = playbook_result.tasks()
-    expected_line_numbers = [[5, 12], [13, 17], [19, 22], [28, 32]]
+    expected_line_numbers = [[6, 13], [14, 18], [20, 23], [29, 33]]
     for i, task_result in enumerate(task_results.nodes):
         assert task_result.node.spec.line_num_in_file
         detected = task_result.node.spec.line_num_in_file
