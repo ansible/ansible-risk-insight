@@ -1,0 +1,17 @@
+---
+- hosts: localhost 
+  gather_facts: no
+
+  tags:
+    - test
+    
+  collections:
+    - community.general
+ 
+  tasks:
+    - name: Task name here
+      import_role:
+        name: abc
+
+    - import_role:
+        name: def

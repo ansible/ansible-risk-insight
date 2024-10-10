@@ -59,14 +59,19 @@ def test_scanner_with_role(type, name):
     assert result.detail["executed_file"][0] == "/etc/install.sh"
 
 
-@pytest.mark.parametrize("type, name", [("playbook", "test/testdata/files/test_line_number.yml")])
-def test_scanner_line_number_detection(type, name):
+@pytest.mark.parametrize(
+    "type, name, expected_line_numbers",
+    [
+        ("playbook", "test/testdata/files/test_line_number.yml", [[6, 13], [14, 18], [20, 23], [29, 33]]),
+        ("playbook", "test/testdata/files/test_line_number2.yml", [[12, 15], [16, 17]]),
+    ],
+)
+def test_scanner_line_number_detection(type, name, expected_line_numbers):
     ari_result, _ = _scan(type=type, name=name, playbook_only=True)
     assert ari_result
     playbook_result = ari_result.playbook(path=name)
     assert playbook_result
     task_results = playbook_result.tasks()
-    expected_line_numbers = [[5, 12], [13, 17], [19, 22], [28, 32]]
     for i, task_result in enumerate(task_results.nodes):
         assert task_result.node.spec.line_num_in_file
         detected = task_result.node.spec.line_num_in_file
