@@ -190,7 +190,7 @@ class ARICLI:
                 fpath_from_root = target_info["path_from_root"]
                 scan_type = target_info["scan_type"]
                 count_in_type = len(file_list[scan_type])
-                print(f"\r[{i+1}/{total}] {scan_type} {fpath_from_root}                 ", end="")
+                print(f"\r[{i + 1}/{total}] {scan_type} {fpath_from_root}                 ", end="")
                 out_dir = os.path.join(args.out_dir, f"{scan_type}s", str(count_in_type))
                 c.evaluate(
                     type=scan_type,
@@ -223,8 +223,8 @@ class ARICLI:
                 with open(list_file_path, "w") as file:
                     json.dump(index_data, file)
                 if args.fix:
-                    for each in index_data.keys():
-                        ari_suggestion_file_path = os.path.join(args.out_dir, f"{scan_type}s", str(each), "rule_result.json")
+                    for key, val in index_data.items():
+                        ari_suggestion_file_path = os.path.join(args.out_dir, f"{scan_type}s", str(key), "rule_result.json")
                         logger.debug("ARI suggestion file path: %s", ari_suggestion_file_path)
                         with open(ari_suggestion_file_path) as f:
                             ari_suggestion_data = json.load(f)
@@ -246,7 +246,7 @@ class ARICLI:
                                             mutated_yaml = w007_rule["detail"]["mutated_yaml"]
                                             if mutated_yaml == "":
                                                 break
-                                            temp_data = index_data[each]
+                                            temp_data = index_data[key]
                                             if w007_rule["file"][0] not in temp_data:
                                                 target_file_path = os.path.join(args.target_name, temp_data, w007_rule["file"][0])
                                                 if temp_file_path != "" and target_file_path != temp_file_path:
