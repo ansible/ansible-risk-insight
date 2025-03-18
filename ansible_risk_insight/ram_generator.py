@@ -139,7 +139,7 @@ class RiskAssessmentModelGenerator(object):
         out_dir = os.path.join(self._scanner.root_dir, "log", type, name)
         path = os.path.join(out_dir, "ram_log.json")
 
-        scan_time = datetime.datetime.utcnow().isoformat()
+        scan_time = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f')
         new_record = {"type": type, "name": name, "succeed": not fail, "time": scan_time}
 
         logs = []

@@ -2006,7 +2006,7 @@ def load_object(loadObj):
     elif target_type == LoadType.TASKFILE and loadObj.taskfile_only:
         loadObj.taskfiles = [obj.defined_in]
 
-    loadObj.timestamp = datetime.datetime.utcnow().isoformat()
+    loadObj.timestamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f')
 
 
 def find_playbook_role_module(path, use_ansible_doc=True):
