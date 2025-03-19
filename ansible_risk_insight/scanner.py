@@ -1237,6 +1237,7 @@ class ARIScanner(object):
 
     def record_end(self, time_records: dict, record_name: str):
         end = datetime.datetime.now(datetime.timezone.utc)
+        end = end.replace(tzinfo=None)
         time_records[record_name]["end"] = end.strftime('%Y-%m-%dT%H:%M:%S.%f')
         begin = datetime.datetime.fromisoformat(time_records[record_name]["begin"])
         elapsed = (end - begin).total_seconds()
