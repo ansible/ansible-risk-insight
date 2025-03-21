@@ -475,7 +475,7 @@ def resolve_module_options(context: Context, taskcall: TaskCall):
                                 "__v_name__": var_name,
                             }
                         )
-                if isinstance(resolved_vars_in_item, dict):
+                elif isinstance(resolved_vars_in_item, dict):
                     for vi_key, vi_value in resolved_vars_in_item.items():
                         variables_in_loop.append(
                             {
@@ -577,7 +577,11 @@ def resolve_module_options(context: Context, taskcall: TaskCall):
                                 mutable_vars_per_mo[module_opt_key] = []
                             mutable_vars_per_mo[module_opt_key].append(loop_var_name)
                     if resolved_var_val is None:
-                        resolved_var_val, v_type, resolve_history = context.resolve_variable(var_name)
+                        _ctx = context.copy()
+                        if isinstance(variables, dict):
+                            vars_from_loop = flatten_dict_vars(variables)
+                            _ctx.variables.update(vars_from_loop)
+                        resolved_var_val, v_type, resolve_history = _ctx.resolve_variable(var_name)
                         used_variables[var_name] = resolve_history
                         if resolved_var_val is not None:
                             new_var = {
@@ -715,3 +719,16 @@ def extract_variable_names(txt):
             tmp_b["default"] = default_var_name
         blocks.append(tmp_b)
     return blocks
+
+
+def flatten_dict_vars(variables: dict, _prefix: str = "") -> dict:
+    flat_vars_dict = {}
+    for key, val in variables.items():
+        var_name = f"{_prefix}{key}" if _prefix else key
+        flat_vars_dict[var_name] = val
+
+        flat_var_name_prefix = f"{key}."
+        if isinstance(val, dict):
+            sub_flat_vars = flatten_dict_vars(val, flat_var_name_prefix)
+            flat_vars_dict.update(sub_flat_vars)
+    return flat_vars_dict
