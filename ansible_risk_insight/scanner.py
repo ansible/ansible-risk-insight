@@ -700,7 +700,7 @@ class SingleScan(object):
             prm=self.prm,
             report=data_report,
             summary_txt=summary_txt,
-            scan_time=datetime.datetime.utcnow().isoformat(),
+            scan_time=datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f'),
         )
         self.result = data_report.get("ari_result", None)
         return
@@ -1233,11 +1233,12 @@ class ARIScanner(object):
 
     def record_begin(self, time_records: dict, record_name: str):
         time_records[record_name] = {}
-        time_records[record_name]["begin"] = datetime.datetime.utcnow().isoformat()
+        time_records[record_name]["begin"] = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f')
 
     def record_end(self, time_records: dict, record_name: str):
-        end = datetime.datetime.utcnow()
-        time_records[record_name]["end"] = end.isoformat()
+        end = datetime.datetime.now(datetime.timezone.utc)
+        end = end.replace(tzinfo=None)
+        time_records[record_name]["end"] = end.strftime('%Y-%m-%dT%H:%M:%S.%f')
         begin = datetime.datetime.fromisoformat(time_records[record_name]["begin"])
         elapsed = (end - begin).total_seconds()
         time_records[record_name]["elapsed"] = elapsed
