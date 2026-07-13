@@ -17,7 +17,7 @@
 import os
 import pathlib
 import json
-import pkg_resources
+from importlib.metadata import version as pkg_version, PackageNotFoundError
 from .models import LoadType
 
 collection_manifest_json = "MANIFEST.json"
@@ -51,8 +51,8 @@ def get_loader_version():
     version = ""
     # try to get version from the installed executable
     try:
-        version = pkg_resources.require("ansible-risk-insight")[0].version
-    except Exception:
+        version = pkg_version("ansible-risk-insight")
+    except PackageNotFoundError:
         pass
     if version != "":
         return version

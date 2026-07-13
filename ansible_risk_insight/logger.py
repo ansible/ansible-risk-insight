@@ -39,7 +39,6 @@ def set_logger_channel(channel: str = ""):
 
 
 def set_log_level(level_str: str = "info"):
-    global _logger
     level = log_level_map.get(level_str.lower(), None)
     _logger.setLevel(level)
 
