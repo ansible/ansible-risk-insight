@@ -403,7 +403,7 @@ class Context:
         return "".join(lines)
 
     def copy(self):
-        return Context(
+        new_ctx = Context(
             keep_obj=self.keep_obj,
             chain=copy.copy(self.chain),
             variables=copy.copy(self.variables),
@@ -413,6 +413,8 @@ class Context:
             role_vars=copy.copy(self.role_vars),
             registered_vars=copy.copy(self.registered_vars),
         )
+        new_ctx._flat_vars = copy.copy(self._flat_vars)
+        return new_ctx
         # return copy.deepcopy(self)
 
 
