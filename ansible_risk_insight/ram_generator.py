@@ -102,7 +102,7 @@ class RiskAssessmentModelGenerator(object):
         elapsed = round(time.time() - self.start, 2)
         start_of_this_scan = time.time()
         thread_id = threading.get_native_id()
-        print(f"[{i+1}/{num}] start {type} {name} ({elapsed} sec. elapsed) (thread: {thread_id})")
+        print(f"[{i + 1}/{num}] start {type} {name} ({elapsed} sec. elapsed) (thread: {thread_id})")
         use_src_cache = True
 
         if self.skip_scan(type, name):
@@ -133,7 +133,7 @@ class RiskAssessmentModelGenerator(object):
 
         elapsed_for_this_scan = round(time.time() - start_of_this_scan, 2)
         if elapsed_for_this_scan > 60:
-            print(f"WARNING: It took {elapsed_for_this_scan} sec. to process [{i+1}/{num}] {type} {name}")
+            print(f"WARNING: It took {elapsed_for_this_scan} sec. to process [{i + 1}/{num}] {type} {name}")
 
     def save_ram_log(self, type, name, fail):
         out_dir = os.path.join(self._scanner.root_dir, "log", type, name)
